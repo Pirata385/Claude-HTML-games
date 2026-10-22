@@ -3,7 +3,7 @@
 (function (XS) {
   'use strict';
 
-  const VERSION = 1;
+  const VERSION = 2;
   const DIFFICULTY = [0.72, 1, 1.22];
 
   // Power specs are stored as { seed, floor, tier } and regenerated on demand.

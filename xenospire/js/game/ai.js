@@ -48,8 +48,13 @@
       c.mx = this.move.x; c.my = this.move.y;
       // Never walk off a ledge into the void, whatever the plan says.
       if ((c.mx || c.my) && !this.groundAhead(b, c.mx, c.my, 1.3)) {
-        const toC = this.towardCenter(b);
-        c.mx = toC.x; c.my = toC.y;
+        // Go around the hole along the distance field; else head for the
+        // centre; else stand still.
+        const t = this.target;
+        let alt = t && t.alive ? this.navDir(b, t) : null;
+        if (!alt || !this.groundAhead(b, alt.x, alt.y, 1.3)) alt = this.towardCenter(b);
+        if (!this.groundAhead(b, alt.x, alt.y, 1.3)) alt = { x: 0, y: 0 };
+        c.mx = alt.x; c.my = alt.y;
       }
       const t = this.target;
       if (!t || !t.alive) { c.attack = false; return; }
@@ -75,7 +80,7 @@
       if (this.castGap <= 0 && XS.Status.canAct(f) && !f.dash) {
         const choice = this.choosePower(b, t, dist);
         if (choice) {
-          c.cast = choice.slot; c.castAngle = choice.angle; c.castDist = choice.dist;
+          c.cast = choice.slot; c.castAngle = choice.angle; c.castDist = choice.dist; c.castCharge = choice.charge;
           this.castGap = XS.lerp(1.5, 0.35, Math.min(1, s)) / this.p.cast * this.rng.range(0.7, 1.3);
         }
       }
@@ -147,10 +152,18 @@
         const ux = dx / d, uy = dy / d;
         let want = this.preferredRange();
         if (f.hp < f.maxHp * 0.3) want *= 1 + 0.35 * this.p.retreat;
-        if (d > want + 1.2) { mx += ux; my += uy; }
-        else if (d < want - 1.2) { mx -= ux * this.p.retreat; my -= uy * this.p.retreat; }
-        mx += -uy * this.strafe * 0.8; my += ux * this.strafe * 0.8;
-        if (!this.los(b, t)) { mx += ux * 0.6 - uy * this.strafe * 0.6; my += uy * 0.6 + ux * this.strafe * 0.6; }
+        const los = this.los(b, t);
+        // Blocked line (cover, hills, ravines): follow the distance field.
+        const hole = (k) => { const g = w.groundAt(f.x + ux * k, f.y + uy * k, f.z + 1.1, 0); return g === -Infinity || g < f.z - 1.5; };
+        const straight = los && !f.blocked(b, f.x + ux * 1.4, f.y + uy * 1.4) && !hole(1.4) && !hole(2.6);
+        const nav = (d > want + 1.2 || !los) && !straight ? this.navDir(b, t) : null;
+        if (nav) { mx += nav.x * 1.3; my += nav.y * 1.3; }
+        else {
+          if (d > want + 1.2) { mx += ux; my += uy; }
+          else if (d < want - 1.2) { mx -= ux * this.p.retreat; my -= uy * this.p.retreat; }
+          if (!los) { mx += ux * 0.6 - uy * this.strafe * 0.6; my += uy * 0.6 + ux * this.strafe * 0.6; }
+        }
+        mx += -uy * this.strafe * (nav ? 0.25 : 0.8); my += ux * this.strafe * (nav ? 0.25 : 0.8);
       }
       // Stay away from the rim and from holes ahead.
       const c = b.arena.center, cx = c.x - f.x, cy = c.y - f.y, cd = Math.hypot(cx, cy) || 1;
@@ -169,27 +182,39 @@
         if (hd < tg.r + f.radius + 1) { mx += (hx / (hd || 1)) * 2.5; my += (hy / (hd || 1)) * 2.5; }
       }
       for (const o of b.objects) {
-        if (o.kind !== 'zone' || o.owner.team === f.team) continue;
+        if ((o.kind !== 'zone' && o.kind !== 'sing' && o.kind !== 'tornado' && o.kind !== 'mine') || o.owner.team === f.team) continue;
+        const r = o.kind === 'mine' ? 2.2 : o.kind === 'sing' ? o.r * 1.4 : o.r;
         const hx = f.x - o.x, hy = f.y - o.y, hd = Math.hypot(hx, hy);
-        if (hd < o.r + f.radius + 0.5) { mx += (hx / (hd || 1)) * 1.5; my += (hy / (hd || 1)) * 1.5; }
+        if (hd < r + f.radius + 0.5) { const k = o.kind === 'sing' ? 2.5 : 1.5; mx += (hx / (hd || 1)) * k; my += (hy / (hd || 1)) * k; }
       }
       const l = Math.hypot(mx, my);
       this.move = l > 0.05 ? { x: mx / l, y: my / l } : { x: 0, y: 0 };
+    }
+
+    // Direction along the distance field toward the target (null if unreachable).
+    navDir(b, t) {
+      const f = this.f;
+      if (!this.nav) this.nav = new XS.NavField(b.world);
+      this.nav.update(t.x, t.y, b.time - (this.navT || 0));
+      this.navT = b.time;
+      return this.nav.dirFrom(f.x, f.y);
     }
 
     // Incoming projectile or telegraph on top of us -> a dodge direction.
     findThreat(b) {
       const f = this.f;
       for (const o of b.objects) {
-        if (o.kind !== 'proj' || o.owner.team === f.team || this.dodged.has(o)) continue;
+        if ((o.kind !== 'proj' && o.kind !== 'wave' && o.kind !== 'tornado') || o.owner.team === f.team || this.dodged.has(o)) continue;
         const dx = f.x - o.x, dy = f.y - o.y, d = Math.hypot(dx, dy);
         if (d > 6 || d < 0.5) continue;
-        const sp = Math.hypot(o.vx, o.vy) || 1;
-        const dot = (dx * o.vx + dy * o.vy) / (d * sp);
-        if (dot < 0.85 || d / sp > 0.5) continue;
+        const vx = o.kind === 'proj' ? o.vx : Math.cos(o.angle) * (o.speed || o.def.speed);
+        const vy = o.kind === 'proj' ? o.vy : Math.sin(o.angle) * (o.speed || o.def.speed);
+        const sp = Math.hypot(vx, vy) || 1;
+        const dot = (dx * vx + dy * vy) / (d * sp);
+        if (dot < 0.85 || d / sp > (o.kind === 'proj' ? 0.5 : 0.9)) continue;
         this.dodged.add(o);
         const side = this.rng.sign();
-        return { x: (-o.vy / sp) * side, y: (o.vx / sp) * side };
+        return { x: (-vy / sp) * side, y: (vx / sp) * side };
       }
       for (const tg of b.telegraphs) {
         if (tg.team === f.team || this.dodged.has(tg)) continue;
@@ -201,50 +226,77 @@
       return null;
     }
 
+    // Every ready power is scored by how it is aimed, not by its form, so new
+    // forms only need the right aim type (and a few form-specific nudges).
     choosePower(b, t, dist) {
-      const f = this.f;
+      const f = this.f, w = b.world;
       const los = this.los(b, t);
+      const sk = Math.min(1, this.skill);
       let best = null, bs = 0.35;
       f.powers.forEach((p, slot) => {
         if (p.cd > 0) return;
-        const d = p.def;
-        const lead = d.speed ? dist / d.speed : 0.5;
-        const px = t.x + t.vx * lead * Math.min(1, this.skill), py = t.y + t.vy * lead * Math.min(1, this.skill);
+        const d = p.def, has = (m) => d.mods.includes(m);
+        // Lead the target by the time the power takes to arrive.
+        let lead;
+        switch (d.aim) {
+          case 'line': lead = d.speed ? dist / d.speed : 0.15; break;
+          case 'lob': lead = 0.35 + dist * 0.045 + (d.form === 'grenade' && has('delay') ? 1.2 : 0); break;
+          case 'zone': lead = d.form === 'meteor' ? 1.2 : 0.7; break;
+          default: lead = 0.2;
+        }
+        lead *= sk;
+        const px = t.x + t.vx * lead, py = t.y + t.vy * lead;
         const angle = Math.atan2(py - f.y, px - f.x) + this.aimErr;
         const pd = Math.hypot(px - f.x, py - f.y);
         let s = 0, castAngle = angle, castDist = pd;
-        switch (d.form) {
-          case 'bolt': case 'boomerang': case 'beam':
-            if (los && dist < d.range * 0.95) s = 1;
+        switch (d.aim) {
+          case 'line':
+            if (d.form === 'hook') { if (los && dist < d.range * 0.9 && dist > 4) s = 0.9; }
+            else if (d.form === 'drill' || has('burrow')) { if (dist < d.range * 0.95) s = los ? 0.95 : 0.9; } // through cover
+            else if (d.form === 'eruption') { if (dist < d.range + d.radius && Math.abs(t.z - f.z) < 2.5) s = 1; }
+            else if (d.form === 'tornado') { if (dist < d.range * 0.9) s = 0.85; }
+            else if (d.form === 'wave') { if (los && dist < d.range * 0.95 && Math.abs(t.z - f.z) < 2.5) s = 1; }
+            else if (los && dist < d.range * 0.95) s = d.form === 'sniper' ? (dist > 6 ? 1.1 : 0.7) : 1;
             break;
-          case 'hook':
-            if (los && dist < d.range * 0.9 && dist > 4) s = 0.9;
+          case 'cone':
+            if (los && dist - t.radius < d.range) s = d.form === 'quake' ? 1.15 : 1.1;
             break;
-          case 'nova': if (dist < d.radius + t.radius) s = 1.2; break;
-          case 'cone': if (dist < d.range && los) s = 1.1; break;
-          case 'orbit': if (dist < 6) s = 0.9; break;
+          case 'lob':
+            if (w.topAt(px, py) === -Infinity) break; // don't throw into the void
+            if (d.form === 'summon') { if (dist < 14) { s = 0.8; castDist = Math.min(d.range, Math.max(2, dist * 0.4)); } }
+            else if (pd < d.range + 1) s = d.form === 'grenade' || d.form === 'singularity' ? (los ? 0.9 : 1.05) : 0.95; // lobs shine against cover
+            if (d.form === 'mine' && dist < 4) castDist = Math.min(pd, 2);
+            break;
+          case 'zone':
+            if (pd < d.range + 1 && w.topAt(px, py) !== -Infinity) s = d.form === 'meteor' ? (t.st.stun > 0 || t.st.root > 0 || t.st.freeze > 0 ? 1.3 : 0.85) : 0.95;
+            break;
           case 'dash':
-            if (los && dist > 2.5 && dist < d.range + 1.5) s = 1;
+            if (d.form === 'blink') {
+              if (f.hp < f.maxHp * 0.35 && dist < 4) {
+                s = 0.9; castAngle = Math.atan2(b.arena.center.y - f.y, b.arena.center.x - f.x); castDist = d.range;
+              } else if (dist > 5 && dist < d.range + 2) { s = 0.8; castDist = Math.max(1, dist - 1.5); }
+            } else if (los && dist > 2.5 && dist < d.range + 1.5) s = 1;
             else if (f.hp < f.maxHp * 0.35 && dist < 4) { s = 0.8; castAngle = angle + Math.PI; }
+            if (s && !this.groundAhead(b, Math.cos(castAngle), Math.sin(castAngle), Math.min(d.range, castDist + 1))) s = 0; // never dash off a ledge
             break;
-          case 'field': case 'rain': case 'mine':
-            if (pd < d.range + 1) s = 0.95;
-            if (d.form === 'mine' && dist < 4) { castDist = Math.min(pd, 2); }
+          case 'self':
+            if (d.form === 'nova') { if (dist < d.radius + t.radius) s = 1.2; }
+            else if (d.form === 'orbit') { if (dist < 6) s = 0.9; }
+            else if (dist < 5 || f.hp < f.maxHp * 0.55) s = 0.9;
             break;
-          case 'summon': if (dist < 14) s = 0.8; castDist = Math.min(d.range, 3); break;
           case 'wall':
             if (dist > 5 && t.powers.some((q) => q.def.ai.kind === 'ranged')) { s = 0.6; castDist = Math.min(d.range, dist * 0.45); }
             break;
-          case 'blink':
-            if (f.hp < f.maxHp * 0.35 && dist < 4) {
-              s = 0.9; castAngle = Math.atan2(b.arena.center.y - f.y, b.arena.center.x - f.x); castDist = d.range;
-            } else if (dist > 5 && dist < d.range + 2) { s = 0.8; castDist = Math.max(1, dist - 1.5); }
-            break;
-          case 'aura': if (dist < 5 || f.hp < f.maxHp * 0.55) s = 0.9; break;
         }
         if (!s) return;
+        if (d.combo) s *= 1.05;
         s *= (0.85 + this.rng.next() * 0.3) * (1 + d.tier * 0.05);
-        if (s > bs) { bs = s; best = { slot, angle: castAngle, dist: castDist }; }
+        if (s > bs) {
+          bs = s;
+          // AIs "hold" a charge power for a moment's worth of charge.
+          const charge = has('charge') ? XS.clamp(this.rng.range(0.3, 1) * (0.5 + sk * 0.5), 0, 1) : 0;
+          best = { slot, angle: castAngle, dist: XS.clamp(castDist, 1, d.range || 1), charge };
+        }
       });
       return best;
     }

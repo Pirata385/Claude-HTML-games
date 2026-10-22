@@ -45,7 +45,7 @@
       this.aura = null;
       this.st = XS.Status.fresh();
       this.inv = 1;
-      this.ctrl = { mx: 0, my: 0, aim: this.facing, castAngle: null, castDist: 6, attack: false, cast: -1, dodge: false };
+      this.ctrl = { mx: 0, my: 0, aim: this.facing, castAngle: null, castDist: 6, castCharge: 0, attack: false, cast: -1, dodge: false };
       this.faceLock = 0;
       this.stats = { dmg: 0, taken: 0, kos: 0, falls: 0, voxels: 0, casts: [0, 0, 0, 0], basic: 0 };
       this.lastSafe = { x: o.x, y: o.y, z: o.z };
@@ -207,10 +207,11 @@
       this.faceLock = 0.35;
       p.cd = p.def.cooldown;
       this.stats.casts[slot]++;
-      XS.Powers.cast(b, this, p.def, { angle, dist: c.castDist });
+      XS.Powers.cast(b, this, p.def, { angle, dist: c.castDist, charge: c.castCharge || 0 });
       if (this.rig) this.rig.cast();
       b.events.emit('cast', { f: this, def: p.def, slot });
       c.castAngle = null;
+      c.castCharge = 0;
       return true;
     }
 

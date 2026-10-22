@@ -10,6 +10,10 @@
   const S = XS.ISO.S;
   const TEAM_COLORS = ['#5ff0c8', '#ff6a6a', '#ffb24a', '#c88aff', '#6ab8ff'];
   const el0 = (def) => (def && def.elements && def.elements[0]) || null;
+  const TAU = Math.PI * 2;
+  const DIRT = ['#3a2a1c', '#6a4a2a', '#8a6a44', '#b08a5a'];
+  // Power objects drawn in the depth buckets (between terrain bands).
+  const BUCKETED = new Set(['proj', 'turret', 'mine', 'lob', 'bomb', 'wave', 'tornado', 'sing']);
 
   class Scene {
     constructor(screen, arena, opts = {}) {
@@ -65,8 +69,13 @@
           switch (o.kind) {
             case 'proj': {
               (o._trail || (o._trail = [])).push({ x: o.x, y: o.y, z: o.z });
-              if (o._trail.length > 8) o._trail.shift();
-              if (def.form === 'basic' || !R.chance([0.35, 0.8, 1][q])) break;
+              if (o._trail.length > (def.form === 'sniper' ? 12 : 8)) o._trail.shift();
+              if (o.burrow) {
+                fx.add({ kind: 'px', x: o.x + R.range(-0.3, 0.3), y: o.y + R.range(-0.3, 0.3), z: o.z + 0.4, vx: R.range(-2, 2), vy: R.range(-2, 2), vz: R.range(3, 6), grav: 22, life: 0.45, color: R.pick(DIRT) });
+                break;
+              }
+              if (o.drill && R.chance(0.5)) fx.add({ kind: 'spark', x: o.x, y: o.y, z: o.z, vx: R.range(-3, 3), vy: R.range(-3, 3), vz: R.range(-1, 3), life: 0.2, color: '#ffffff' });
+              if (def.form === 'basic' || o.pellet || !R.chance([0.35, 0.8, 1][q])) break;
               if (el === 'plasma') fx.add({ kind: 'ember', x: o.x, y: o.y, z: o.z, vx: R.range(-1, 1), vy: R.range(-1, 1), vz: R.range(0.5, 2), life: 0.35, color: R.pick(ramp), glow: true });
               else if (el === 'cryo' || el === 'crystal') fx.add({ kind: 'px', x: o.x + R.range(-0.3, 0.3), y: o.y + R.range(-0.3, 0.3), z: o.z, vx: 0, vy: 0, vz: -0.5, life: 0.5, color: R.chance(0.5) ? '#ffffff' : ramp[3] });
               else if (el === 'bio') fx.add({ kind: 'px', x: o.x, y: o.y, z: o.z, vx: 0, vy: 0, vz: 0, grav: 12, life: 0.5, color: ramp[2] });
@@ -97,6 +106,31 @@
               }
               break;
             }
+            case 'lob':
+              (o._trail || (o._trail = [])).push({ x: o.x, y: o.y, z: o.z });
+              if (o._trail.length > 7) o._trail.shift();
+              if (R.chance([0.2, 0.5, 0.8][q])) fx.add({ kind: 'spark', x: o.x, y: o.y, z: o.z, vx: R.range(-1, 1), vy: R.range(-1, 1), vz: R.range(-0.5, 1), life: 0.25, color: R.pick(ramp), glow: true });
+              break;
+            case 'wave': {
+              const ux = Math.cos(o.angle), uy = Math.sin(o.angle);
+              for (let i = 0; i < [1, 2, 4][q]; i++) {
+                const s = R.range(-1, 1) * o.r;
+                fx.add({ kind: 'px', x: o.x - uy * s, y: o.y + ux * s, z: o.z + (o.burrow ? 0.2 : 0.9), vx: ux * o.speed * 0.5 + R.range(-1.5, 1.5), vy: uy * o.speed * 0.5 + R.range(-1.5, 1.5), vz: R.range(3, 7), grav: 20, life: 0.5, color: o.burrow ? R.pick(DIRT) : R.pick([ramp[2], ramp[3], '#ffffff']) });
+              }
+              break;
+            }
+            case 'tornado':
+              for (let i = 0; i < [2, 3, 5][q]; i++) {
+                const a = R.range(0, TAU), h = R.range(0, 3.5), r = o.r * (0.3 + h * 0.2);
+                fx.add({ kind: 'spark', x: o.x + Math.cos(a) * r, y: o.y + Math.sin(a) * r, z: o.z + h, vx: -Math.sin(a) * 9, vy: Math.cos(a) * 9, vz: 2, life: 0.3, color: R.pick(ramp), glow: true });
+              }
+              break;
+            case 'sing':
+              for (let i = 0; i < [2, 3, 5][q]; i++) {
+                const a = R.range(0, TAU), r = o.r * R.range(0.8, 1.4);
+                fx.add({ kind: 'spark', x: o.x + Math.cos(a) * r, y: o.y + Math.sin(a) * r, z: o.z + R.range(-1, 0.6), vx: -Math.cos(a) * r * 2.6 - Math.sin(a) * r * 1.5, vy: -Math.sin(a) * r * 2.6 + Math.cos(a) * r * 1.5, vz: 0, life: 0.38, color: R.pick([ramp[2], ramp[3]]), glow: true });
+              }
+              break;
             case 'orbit':
               if (o.orbs) {
                 o._trails = o._trails || [];
@@ -182,7 +216,7 @@
       if (b) {
         for (const f of b.fighters) if (f.alive) put(Math.floor(f.x + f.radius * 0.7) + Math.floor(f.y + f.radius * 0.7), 'f', f);
         for (const o of b.objects) {
-          if (o.kind === 'proj' || o.kind === 'turret' || o.kind === 'mine') put(Math.floor(o.x) + Math.floor(o.y), o.kind, o);
+          if (BUCKETED.has(o.kind)) put(Math.floor(o.x) + Math.floor(o.y), o.kind, o);
           else if (o.kind === 'orbit' && o.orbs) o.orbs.forEach((q, i) => put(Math.floor(q.x) + Math.floor(q.y), 'orb', { o, q, i }));
         }
       }
@@ -280,6 +314,27 @@
           gfx.disc(ctx, sx, sy - S * 1.5, S, blink ? '#ff4040' : '#601010');
           break;
         }
+        case 'lob': this.drawLob(ctx, o, ox, oy); break;
+        case 'bomb': {
+          const sx = XS.isoX(o.x, o.y) + ox, sy = XS.isoY(o.x, o.y, o.z) + oy;
+          const on = Math.sin(this.time * (8 + 30 * (1 - o.t / o.T))) > 0;
+          gfx.glow(ctx, sx, sy - 2 * S, (on ? 14 : 8) * S, on ? '#ff4a4a' : o.def.ramp[2], 0.8);
+          gfx.disc(ctx, sx, sy - 2 * S, 4.5 * S, '#0c0816');
+          gfx.ball(ctx, sx, sy - 2 * S, 3.5 * S, o.def.ramp);
+          gfx.disc(ctx, sx, sy - 3 * S, 1.2 * S, on ? '#ff4040' : '#601010');
+          break;
+        }
+        case 'wave': this.drawWave(ctx, o, ox, oy); break;
+        case 'tornado': this.drawTornado(ctx, o, ox, oy); break;
+        case 'sing': {
+          const R = o.def.ramp, sx = XS.isoX(o.x, o.y) + ox, sy = XS.isoY(o.x, o.y, o.z) + oy;
+          const k = Math.min(1, (o.dur - o.t) / 0.25), r = (3 + 2 * Math.sin(this.time * 9)) * S * k + 2 * S;
+          gfx.glow(ctx, sx, sy, o.r * XS.ELX * 0.9, R[1], 0.6, 0.6);
+          for (let i = 0; i < 3; i++) gfx.ellipseRing(ctx, sx, sy, (r * 2.2 + i * 3 * S), (r * 2.2 + i * 3 * S) * 0.35, i ? R[2] : R[3], 3, Math.floor(this.time * (14 - i * 4)));
+          gfx.disc(ctx, sx, sy, r + S, R[3]);
+          gfx.disc(ctx, sx, sy, r, '#05020a');
+          break;
+        }
         case 'orb': {
           const q = o.q, R = o.o.def.ramp, sx = XS.isoX(q.x, q.y) + ox, sy = XS.isoY(q.x, q.y, q.z) + oy;
           const r = Math.max(2 * S, o.o.def.radius * XS.PXU);
@@ -291,6 +346,64 @@
           break;
         }
       }
+    }
+
+    drawLob(ctx, o, ox, oy) {
+      const def = o.def, R = def.ramp, sx = XS.isoX(o.x, o.y) + ox, sy = XS.isoY(o.x, o.y, o.z) + oy;
+      const g = this.arena.world.groundAt(o.x, o.y, o.z, 0);
+      if (g !== -Infinity) XS.drawShadow(ctx, o.x, o.y, g, o.payload === 'mini' ? 0.25 : 0.45, ox, oy, 0.6);
+      const r = (o.payload === 'mini' ? 1.6 : 2.6) * S;
+      if (o._trail) this.drawTrail(ctx, o._trail, ox, oy, r * 0.55, R);
+      gfx.glow(ctx, sx, sy, r * 3.2, R[2], 0.8);
+      switch (o.payload) {
+        case 'singularity': gfx.disc(ctx, sx, sy, r + S, R[3]); gfx.disc(ctx, sx, sy, r, '#05020a'); break;
+        case 'summon': {
+          const h = r * 1.6;
+          gfx.poly(ctx, [[sx, sy - h - 1], [sx + r + 1, sy], [sx, sy + h * 0.6 + 1], [sx - r - 1, sy]], '#0c0816');
+          gfx.poly(ctx, [[sx, sy - h], [sx + r, sy], [sx, sy + h * 0.6], [sx - r, sy]], R[2]);
+          break;
+        }
+        case 'field':
+          gfx.disc(ctx, sx, sy, r + 1, '#0c0816');
+          gfx.ball(ctx, sx, sy, r, R);
+          ctx.fillStyle = '#dfe8ff'; ctx.fillRect(Math.round(sx - S / 2), Math.round(sy - r - 2 * S), S, 2 * S);
+          break;
+        default:
+          gfx.disc(ctx, sx, sy, r + 1, '#0c0816');
+          gfx.ball(ctx, sx, sy, r, R);
+          if (o.payload === 'grenade' && Math.floor(this.time * 20) % 2) gfx.disc(ctx, sx + S, sy - r, S, '#ffffff');
+      }
+    }
+
+    // A crest of energy (or a dirt mound when burrowing) across its path.
+    drawWave(ctx, o, ox, oy) {
+      const R = o.def.ramp, ux = Math.cos(o.angle), uy = Math.sin(o.angle);
+      const top = [], base = [];
+      const H = o.burrow ? 0.6 : 1.5;
+      for (let i = 0; i <= 8; i++) {
+        const s = i / 4 - 1, px = o.x - uy * s * o.r, py = o.y + ux * s * o.r;
+        const h = H * (1 - s * s) * (0.85 + 0.15 * Math.sin(this.time * 24 + i));
+        top.push([XS.isoX(px, py) + ox, XS.isoY(px, py, o.z + h) + oy]);
+        base.unshift([XS.isoX(px, py) + ox, XS.isoY(px, py, o.z) + oy]);
+      }
+      const cx = XS.isoX(o.x, o.y) + ox, cy = XS.isoY(o.x, o.y, o.z + H * 0.5) + oy;
+      if (!o.burrow) gfx.glow(ctx, cx, cy, o.r * XS.ELX * 1.4, R[2], 0.7);
+      gfx.poly(ctx, top.concat(base), o.burrow ? DIRT[1] : R[1]);
+      for (let i = 1; i < top.length; i++) gfx.line(ctx, top[i - 1][0], top[i - 1][1], top[i][0], top[i][1], o.burrow ? DIRT[3] : R[3]);
+      if (!o.burrow) for (let i = 2; i < top.length - 2; i += 2) gfx.disc(ctx, top[i][0], top[i][1], S, '#ffffff');
+    }
+
+    drawTornado(ctx, o, ox, oy) {
+      const R = o.def.ramp, sx = XS.isoX(o.x, o.y) + ox;
+      const k = Math.min(1, (o.dur - o.t) / 0.3, o.t / 0.3 + 0.2);
+      gfx.glow(ctx, sx, XS.isoY(o.x, o.y, o.z) + oy, o.r * XS.ELX * 1.2, R[2], 0.5 * k, 0.5);
+      for (let i = 0; i < 7; i++) {
+        const h = i * 0.6, r = o.r * (0.25 + i * 0.14) * k;
+        const wob = Math.sin(this.time * 6 + i * 0.9) * 0.3;
+        const sy = XS.isoY(o.x, o.y, o.z + h) + oy;
+        gfx.ellipseRing(ctx, sx + wob * XS.ELX, sy, r * XS.ELX, r * XS.ELY, i % 2 ? R[2] : R[3], 3, Math.floor(this.time * 30 + i * 3));
+      }
+      gfx.glow(ctx, sx, XS.isoY(o.x, o.y, o.z + 1.5) + oy, 10 * S * k, R[3], 0.5);
     }
 
     drawTrail(ctx, pts, ox, oy, r, ramp) {
@@ -311,8 +424,45 @@
         gfx.ball(ctx, sx, sy, r, R);
         return;
       }
+      if (o.burrow) {
+        const h = Math.sin(this.time * 30) > 0 ? S : 0;
+        gfx.ellipse(ctx, sx, sy - S - h, 4 * S, 2 * S, DIRT[1]);
+        gfx.ellipse(ctx, sx, sy - 2 * S - h, 2.5 * S, 1.2 * S, DIRT[3]);
+        gfx.glow(ctx, sx, sy - S, 8 * S, R[2], 0.5, 0.5);
+        return;
+      }
+      if (o.pellet) {
+        const r = Math.max(1.5 * S, o.r * XS.PXU);
+        if (o._trail) this.drawTrail(ctx, o._trail.slice(-4), ox, oy, r * 0.6, R);
+        gfx.glow(ctx, sx, sy, r * 3, R[2], 0.7);
+        gfx.disc(ctx, sx, sy, r, R[3]);
+        return;
+      }
+      if (def.form === 'sniper') {
+        const tr = o._trail;
+        if (tr && tr.length > 1) {
+          const a = tr[0];
+          gfx.thickLine(ctx, XS.isoX(a.x, a.y) + ox, XS.isoY(a.x, a.y, a.z) + oy, sx, sy, S * 0.6, R[2]);
+          gfx.line(ctx, XS.isoX(a.x, a.y) + ox, XS.isoY(a.x, a.y, a.z) + oy, sx, sy, '#ffffff');
+        }
+        gfx.glow(ctx, sx, sy, 12 * S, R[3], 1);
+        gfx.disc(ctx, sx, sy, 1.5 * S, '#ffffff');
+        return;
+      }
       const r = Math.max(2.5 * S, o.r * XS.PXU * (o.child ? 0.8 : 1.15));
       if (o._trail) this.drawTrail(ctx, o._trail, ox, oy, r, R);
+      if (o.drill) {
+        const dsx = (o.vx - o.vy) * XS.ISO.HX, dsy = (o.vx + o.vy) * XS.ISO.HY;
+        const dl = Math.hypot(dsx, dsy) || 1, ux = dsx / dl, uy = dsy / dl, L = r * 2.4, spin = this.time * 40;
+        gfx.glow(ctx, sx, sy, r * 3, R[2], 0.8);
+        gfx.poly(ctx, [[sx + ux * L, sy + uy * L], [sx - uy * r, sy + ux * r], [sx - ux * r * 0.6, sy - uy * r * 0.6], [sx + uy * r, sy - ux * r]], R[1]);
+        for (let i = 0; i < 3; i++) {
+          const t = ((spin + i * 2) % 6) / 6, px = sx + ux * L * (1 - t) - ux * r * 0.5 * t, py = sy + uy * L * (1 - t) - uy * r * 0.5 * t, w = r * t;
+          gfx.line(ctx, px - uy * w, py + ux * w, px + uy * w, py - ux * w, R[3]);
+        }
+        gfx.disc(ctx, sx + ux * L, sy + uy * L, S, '#ffffff');
+        return;
+      }
       gfx.glow(ctx, sx, sy, r * 3.4, R[2], 0.9);
       // Direction on screen (for oriented shapes).
       const dsx = (o.vx - o.vy) * XS.ISO.HX, dsy = (o.vx + o.vy) * XS.ISO.HY;
@@ -445,7 +595,13 @@
           case 'turret': L.push({ x: o.x, y: o.y, z: o.z - 1.2, r: 1.6, color: R[2], a: 0.5 * pulse }); break;
           case 'mine': if (o.arm <= 0) L.push({ x: o.x, y: o.y, z: o.z, r: 1.1, color: R[2], a: 0.35 * pulse }); break;
           case 'strike': L.push({ x: o.x, y: o.y, z: o.z, r: o.r, color: R[2], a: 0.6 * (1 - o.t / o.delay) }); break;
-          case 'nova': L.push({ x: o.x, y: o.y, z: o.z, r: o.def.radius * (1 - o.t / 0.28), color: R[2], a: 0.8 }); break;
+          case 'nova': L.push({ x: o.x, y: o.y, z: o.z, r: o.r * (1 - o.t / o.T), color: R[2], a: 0.8 }); break;
+          case 'lob': if (o.payload !== 'mini') L.push({ x: o.x, y: o.y, z: Math.max(0, b.world.groundAt(o.x, o.y, o.z, 0)), r: 1.5, color: R[2], a: 0.4 }); break;
+          case 'bomb': L.push({ x: o.x, y: o.y, z: o.z, r: o.r * 0.6, color: '#ff4a4a', a: 0.45 * pulse }); break;
+          case 'wave': L.push({ x: o.x, y: o.y, z: o.z, r: o.r * 1.6, color: R[2], a: o.burrow ? 0.2 : 0.6 }); break;
+          case 'tornado': L.push({ x: o.x, y: o.y, z: o.z, r: o.r * 1.4, color: R[2], a: 0.5 * pulse }); break;
+          case 'sing': L.push({ x: o.x, y: o.y, z: o.ground, r: o.r * 1.2, color: R[1], a: 0.7 * pulse }); break;
+          case 'meteor': L.push({ x: o.x, y: o.y, z: o.z, r: o.r * (1 - o.t / o.T), color: R[2], a: 0.8 * (1 - o.t / o.T) }); break;
         }
       }
       for (const f of b.fighters) if (f.alive && f.aura) L.push({ x: f.x, y: f.y, z: f.z, r: f.aura.def.radius, color: f.aura.def.ramp[2], a: 0.4 * pulse });
@@ -486,7 +642,20 @@
           gfx.disc(ctx, sx, top, 1.5 * S, '#ffffff');
         } else if (o.kind === 'nova') {
           const f = o.owner, sx = XS.isoX(f.x, f.y) + ox, sy = XS.isoY(f.x, f.y, f.z + f.height * 0.5) + oy;
-          gfx.glow(ctx, sx, sy, (1 - o.t / 0.28) * 26 * S, o.def.ramp[3], 0.9);
+          gfx.glow(ctx, sx, sy, Math.max(0, 1 - o.t / 0.28) * 26 * S, o.def.ramp[3], 0.9);
+        } else if (o.kind === 'lob' && !o.tele && o.payload !== 'mini' && !o.overVoid) {
+          const sx = XS.isoX(o.tx, o.ty) + ox, sy = XS.isoY(o.tx, o.ty, o.tz) + oy, k = o.t / o.T;
+          gfx.ellipseRing(ctx, sx, sy, (0.5 + k * 0.5) * XS.ELX, (0.5 + k * 0.5) * XS.ELY, o.def.ramp[3], 2, Math.floor(this.time * 12));
+        } else if (o.kind === 'meteor' && o.t < 0.6) {
+          const R = o.def.ramp, k = o.t / 0.6;
+          const gx = XS.isoX(o.x, o.y) + ox, gy = XS.isoY(o.x, o.y, o.z) + oy;
+          const mx = gx - 30 * S * k, my = gy - 130 * S * k;
+          const rr = Math.max(3 * S, o.r * 1.6 * S);
+          gfx.glow(ctx, mx, my, rr * 4, R[2], 0.9);
+          gfx.thickLine(ctx, mx + 20 * S, my - 60 * S, mx, my, rr * 0.5, R[2]);
+          gfx.thickLine(ctx, mx + 10 * S, my - 30 * S, mx, my, rr * 0.35, R[3]);
+          gfx.disc(ctx, mx, my, rr + S, '#0c0816');
+          gfx.ball(ctx, mx, my, rr, ['#2a1c10', '#6a4a2a', R[2], R[3]]);
         }
       }
       for (const f of b.fighters) {

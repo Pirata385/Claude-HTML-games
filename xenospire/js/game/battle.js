@@ -75,7 +75,7 @@
       if (!target.alive) return 0;
       if (target.inv > 0 && !opts.dot && !opts.ignoreInv) return 0;
       const src = opts.src && opts.src.alive !== undefined ? opts.src : null;
-      let amt = amount * XS.Status.damageTakenMult(target) * (src ? src.dmgMult : 1) * (opts.mult || 1);
+      let amt = amount * XS.Status.damageTakenMult(target) * (src ? src.dmgMult * XS.Status.damageDealtMult(src) : 1) * (opts.mult || 1);
       if (target.st.shield > 0 && !opts.ignoreInv) {
         const absorbed = Math.min(target.st.shield, amt);
         target.st.shield -= absorbed;
@@ -95,7 +95,7 @@
       if (opts.kb && !opts.noKnock) {
         const l = Math.hypot(opts.kx || 0, opts.ky || 0) || 1;
         const stagger = def && def.status && def.status.includes('stagger') ? 1.8 : 1;
-        const k = (opts.kb * stagger * target.g.stats.knockTaken) / target.mass;
+        const k = (opts.kb * stagger * target.g.stats.knockTaken * (target.st.heavy > 0 ? 0.6 : 1)) / target.mass;
         target.kx += ((opts.kx || 0) / l) * k * 1.8;
         target.ky += ((opts.ky || 0) / l) * k * 1.8;
         if (k > 6 && target.grounded) { target.vz = Math.min(6, k * 0.35); target.grounded = false; }

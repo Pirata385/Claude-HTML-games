@@ -19,6 +19,7 @@ const LOGIC_FILES = [
   'game/status.js',
   'game/fighter.js',
   'game/powers.js',
+  'game/nav.js',
   'game/ai.js',
   'game/battle.js',
   'game/run.js',

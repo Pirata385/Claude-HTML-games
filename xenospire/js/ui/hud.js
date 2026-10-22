@@ -6,7 +6,7 @@
   const { el, esc } = XS.Cards;
   const STATUS_CHIPS = {
     freeze: ['❄', '#bff4ff', 'Congelado'], chill: ['❆', '#8fd8ff', 'Gelo'], stun: ['✦', '#ffe86a', 'Atordoado'], burn: ['♨', '#ff8a2a', 'Queimando'],
-    poison: ['☣', '#8be04a', 'Envenenado'], mark: ['◎', '#ff6ac0', 'Marcado'], timeslow: ['⌛', '#b8c0e0', 'Atrasado'], shield: ['⬡', '#e8fbff', 'Escudo'], haste: ['»', '#ffd166', 'Acelerado'],
+    poison: ['☣', '#8be04a', 'Envenenado'], mark: ['◎', '#ff6ac0', 'Marcado'], timeslow: ['⌛', '#b8c0e0', 'Atrasado'], shield: ['⬡', '#e8fbff', 'Escudo'], haste: ['»', '#ffd166', 'Acelerado'], root: ['⛓', '#ecd8b0', 'Enraizado'], blind: ['☀', '#ffe8ff', 'Ofuscado'],
   };
 
   class HUD {

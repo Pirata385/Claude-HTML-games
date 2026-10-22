@@ -320,6 +320,8 @@
     ev.on('dodge', () => s.play('dodge'));
     ev.on('explosion', (e) => s.play(e.small ? 'hit' : 'explosion', { gap: 0.06 }));
     ev.on('fall', () => s.play('fall'));
+    ev.on('quake', () => s.play('hitBig'));
+    ev.on('spike', () => s.play('break', { gap: 0.05, pitch: 0.7 }));
     ev.on('ko', (e) => {
       s.play('ko');
       s.voice(e.f.g, 'ko');

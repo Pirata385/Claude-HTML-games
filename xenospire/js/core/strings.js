@@ -15,6 +15,7 @@
     close: 'Fechar',
     confirm: 'Confirmar',
     cancel: 'Cancelar',
+    cancelAim: 'Cancelar',
     skip: 'Pular',
     next: 'Avançar',
     fight: 'Lutar!',
@@ -78,7 +79,7 @@
     tips: {
       move: 'Arraste à esquerda para andar',
       moveKeys: 'WASD ou setas para andar',
-      attack: 'Toque em ⚔ para o ataque básico',
+      attack: 'Toque em ⚔ para atacar — arraste para mirar',
       attackKeys: 'Clique ou J para o ataque básico',
       power: 'Toque num poder para usá-lo — arraste para mirar',
       powerKeys: '1, 2, 3 usam poderes — segure para mirar',

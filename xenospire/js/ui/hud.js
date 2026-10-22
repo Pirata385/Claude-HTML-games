@@ -25,6 +25,7 @@
         <div class="banner hidden"><div class="b1"></div><div class="b2"></div></div>
         <div class="touch">
           <div class="joy-zone"><div class="joy-base"><div class="joy-knob"></div></div></div>
+          <div class="aim-pad hidden"><div class="aim-ring"></div><div class="aim-knob"></div><span class="aim-cancel">${XS.S.cancelAim}</span></div>
           <div class="btns">
             <button type="button" class="btn-pow" data-slot="0"><canvas width="16" height="16"></canvas><i class="cd"></i><em></em></button>
             <button type="button" class="btn-pow" data-slot="1"><canvas width="16" height="16"></canvas><i class="cd"></i><em></em></button>
@@ -46,7 +47,7 @@
       this.els = {
         meName: q('.me-name'), hp: q('.me .hp'), sh: q('.me .sh'), hpText: q('.me .hpbar span'), chips: q('.me .chips'),
         floor: q('.floor-label'), pause: q('.pause-btn'), foes: q(".hud-foes"), tip: q('.tip'), banner: q('.banner'),
-        touch: q('.touch'), joyZone: q('.joy-zone'), joyBase: q('.joy-base'), joyKnob: q('.joy-knob'),
+        touch: q('.touch'), aimPad: q('.aim-pad'), joyZone: q('.joy-zone'), joyBase: q('.joy-base'), joyKnob: q('.joy-knob'),
         attack: q('.btn-atk'), dodge: q('.btn-dodge'), dodgeCd: q('.btn-dodge .cd'),
         powers: [...this.root.querySelectorAll('.btn-pow')], slots: [...this.root.querySelectorAll('.slot[data-slot]')],
         slotDodgeCd: q('.slot.mini:last-child .cd'), fps: q('.fps'), minimap: q('.minimap'),

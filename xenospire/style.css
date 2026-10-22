@@ -232,6 +232,14 @@ body { color: var(--ink); font: 600 var(--fs) / 1.4 var(--mono); user-select: no
 .btn-pow.aiming { box-shadow: inset 0 0 0 3px var(--gold), 0 0 0 3px var(--gold), 0 4px 0 #000 !important; }
 .btn-pow.cancel { box-shadow: inset 0 0 0 3px var(--danger), 0 0 0 3px var(--danger) !important; }
 .btn-pow.flash { animation: ready 0.45s; }
+.aim-pad { position: fixed; width: 0; height: 0; pointer-events: none; z-index: 5; }
+.aim-pad.hidden { display: none; }
+.aim-ring { position: absolute; left: -80px; top: -80px; width: 160px; height: 160px; border-radius: 50%; border: 3px solid rgba(255, 255, 255, 0.4); background: radial-gradient(rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0.12)); box-shadow: 0 0 0 3px rgba(0, 0, 0, 0.45); }
+.aim-knob { position: absolute; left: -22px; top: -22px; width: 44px; height: 44px; border-radius: 50%; background: var(--glow, #fff); border: 3px solid #000; opacity: 0.92; box-shadow: inset 0 -4px 0 rgba(0, 0, 0, 0.3); }
+.aim-cancel { display: none; position: absolute; left: 0; top: -112px; transform: translateX(-50%); color: var(--danger); text-shadow: 2px 2px 0 #000; font-size: 0.85em; white-space: nowrap; }
+.aim-pad.cancel .aim-ring { border-color: var(--danger); }
+.aim-pad.cancel .aim-knob { background: var(--danger); }
+.aim-pad.cancel .aim-cancel { display: block; }
 @keyframes ready { 0% { filter: brightness(2.2); } 100% { filter: none; } }
 .lefty .joy-zone { left: auto; right: 0; }
 .lefty .joy-base:not(.fixed) { left: 78%; }

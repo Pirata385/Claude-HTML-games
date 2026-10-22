@@ -741,40 +741,140 @@
       gfx.disc(ctx, bx, by, (2 + this.fx.rng.next() * 2) * S, '#ffffff');
     }
 
+    // ------------------------------------------------------- aim indicators
+    // Brawl Stars-style: a translucent shape on the ground for how the power
+    // is aimed (line, cone, thrown arc + landing zone, zone, dash arrow,
+    // circle around you, wall segment). Red when the aim is being cancelled.
     drawAim(ctx, f, aim, ox, oy) {
-      const def = aim.def, col = aim.cancel ? '#ff4040' : def.ramp[3];
-      const fx = XS.isoX(f.x, f.y) + ox, fy = XS.isoY(f.x, f.y, f.z) + oy;
-      const dot = (x, y, z, i) => {
-        if (!((i + Math.floor(this.time * 12)) % 3)) return;
-        const sx = Math.round(XS.isoX(x, y) + ox), sy = Math.round(XS.isoY(x, y, z) + oy);
-        ctx.fillStyle = '#0a0610'; ctx.fillRect(sx - 1, sy - 1, S + 2, S + 2);
-        ctx.fillStyle = col; ctx.fillRect(sx, sy, S, S);
-      };
-      const z = f.z + 0.1;
-      if (def.target === 'dir') {
-        const n = Math.ceil(def.range * 3);
-        const spreads = def.form === 'cone' ? [-def.angle / 2, def.angle / 2] : def.count > 1 && def.form !== 'beam' ? [-(def.count - 1) * 0.14, 0, (def.count - 1) * 0.14] : [0];
-        for (const s of spreads) for (let i = 2; i <= n; i++) dot(f.x + Math.cos(aim.angle + s) * (i / 3), f.y + Math.sin(aim.angle + s) * (i / 3), z, i);
-      } else if (def.target === 'point') {
-        const d = XS.clamp(aim.dist, 1, def.range);
-        const px = f.x + Math.cos(aim.angle) * d, py = f.y + Math.sin(aim.angle) * d;
-        const g = this.arena.world.groundAt(px, py, f.z + 4, 0);
-        const pz = g === -Infinity ? f.z : g;
-        const r = def.form === 'rain' ? def.spread : def.form === 'mine' && def.count > 1 ? 2.2 : def.form === 'wall' ? 0.6 : def.form === 'summon' ? 1 : def.radius;
-        for (let i = 2; i <= Math.ceil(d * 2); i++) dot(f.x + Math.cos(aim.angle) * (i / 2), f.y + Math.sin(aim.angle) * (i / 2), z, i);
-        const sx = XS.isoX(px, py) + ox, sy = XS.isoY(px, py, pz) + oy;
-        gfx.glow(ctx, sx, sy, r * XS.ELX * 1.2, col, 0.4, 0.5);
-        gfx.ellipseRing(ctx, sx, sy + 1, r * XS.ELX, r * XS.ELY, '#0a0610');
-        gfx.ellipseRing(ctx, sx, sy, r * XS.ELX, r * XS.ELY, col, 3, Math.floor(this.time * 12));
-        if (def.form === 'wall') {
-          const L = def.length / 2, wx = -Math.sin(aim.angle), wy = Math.cos(aim.angle);
-          gfx.thickLine(ctx, XS.isoX(px - wx * L, py - wy * L) + ox, XS.isoY(px - wx * L, py - wy * L, pz) + oy, XS.isoX(px + wx * L, py + wy * L) + ox, XS.isoY(px + wx * L, py + wy * L, pz) + oy, S * 0.6, col);
+      const def = aim.def, w = this.arena.world;
+      const col = aim.cancel ? '#ff4040' : XS.color.mix('#ffffff', def.ramp ? def.ramp[2] : '#ffd166', 0.3);
+      const alpha = aim.cancel ? 0.24 : 0.3 + 0.15 * (aim.charge || 0) + 0.05 * Math.sin(this.time * 8);
+      const z = f.z + 0.05;
+      const a = aim.angle, ux = Math.cos(a), uy = Math.sin(a), px = -uy, py = ux;
+      const P = (x, y, zz = z) => [XS.isoX(x, y) + ox, XS.isoY(x, y, zz) + oy];
+      const shape = (pts, zz = z) => {
+        const sp = pts.map(([x, y]) => P(x, y, zz));
+        ctx.save(); ctx.globalAlpha = alpha; gfx.poly(ctx, sp, col); ctx.restore();
+        for (let i = 0; i < sp.length; i++) {
+          const p0 = sp[i], p1 = sp[(i + 1) % sp.length];
+          gfx.line(ctx, p0[0], p0[1], p1[0], p1[1], col);
+          gfx.line(ctx, p0[0], p0[1] + 1, p1[0], p1[1] + 1, col);
         }
-      } else {
-        const r = def.form === 'orbit' ? def.orbit : def.radius;
-        gfx.glow(ctx, fx, fy, r * XS.ELX * 1.2, col, 0.35, 0.5);
-        gfx.ellipseRing(ctx, fx, fy + 1, r * XS.ELX, r * XS.ELY, '#0a0610');
-        gfx.ellipseRing(ctx, fx, fy, r * XS.ELX, r * XS.ELY, col, 3, Math.floor(this.time * 12));
+      };
+      const circle = (x, y, zz, r, fill = true) => {
+        const [sx, sy] = P(x, y, zz);
+        if (fill) { ctx.save(); ctx.globalAlpha = alpha; gfx.ellipse(ctx, sx, sy, r * XS.ELX, r * XS.ELY, col); ctx.restore(); }
+        gfx.ellipseRing(ctx, sx, sy, r * XS.ELX, r * XS.ELY, col, fill ? 0 : 3, Math.floor(this.time * 12));
+        if (fill) gfx.ellipseRing(ctx, sx, sy + 1, r * XS.ELX, r * XS.ELY, col);
+      };
+      // A straight (or curving) band from the fighter.
+      const band = (ang, len, hw, start, curve = 0, speed = 1) => {
+        const left = [], right = [];
+        let x = f.x + Math.cos(ang) * start, y = f.y + Math.sin(ang) * start, h = ang;
+        if (curve) h -= curve * (len / speed) / 2;
+        const n = curve ? 14 : 1, step = (len - start) / n;
+        for (let i = 0; i <= n; i++) {
+          left.push([x - Math.sin(h) * hw, y + Math.cos(h) * hw]);
+          right.unshift([x + Math.sin(h) * hw, y - Math.cos(h) * hw]);
+          x += Math.cos(h) * step; y += Math.sin(h) * step; h += curve * (step / speed);
+        }
+        shape(left.concat(right));
+      };
+      const wedge = (ang, half, r, start = 0.4) => {
+        const pts = [[f.x + Math.cos(ang) * start, f.y + Math.sin(ang) * start]];
+        for (let i = 0; i <= 12; i++) { const t = ang - half + (i / 12) * half * 2; pts.push([f.x + Math.cos(t) * r, f.y + Math.sin(t) * r]); }
+        shape(pts);
+      };
+      const target = () => {
+        const d = XS.clamp(aim.dist, 1, def.range || 1);
+        const x = f.x + ux * d, y = f.y + uy * d;
+        const g = w.groundAt(x, y, f.z + 6, 0);
+        return { x, y, z: (g === -Infinity ? f.z : g) + 0.05, d };
+      };
+      const dotted = (x1, y1, z1, x2, y2, z2, apex = 0) => {
+        const n = Math.max(6, Math.round(Math.hypot(x2 - x1, y2 - y1) * 2.5)), ph = Math.floor(this.time * 10);
+        let prev = null;
+        for (let i = 0; i <= n; i++) {
+          const k = i / n, q = P(XS.lerp(x1, x2, k), XS.lerp(y1, y2, k), XS.lerp(z1, z2, k) + apex * 4 * k * (1 - k));
+          if (prev && (i + ph) % 3 !== 0) { gfx.line(ctx, prev[0], prev[1], q[0], q[1], '#0a0610'); gfx.line(ctx, prev[0], prev[1] - 1, q[0], q[1] - 1, col); }
+          prev = q;
+        }
+      };
+
+      if (aim.basic) {
+        if (def.kind === 'spit') band(a, def.range, 0.35, f.radius * 0.6);
+        else if (def.kind === 'spin') circle(f.x, f.y, z, def.range);
+        else wedge(a, (def.arc || 1.6) / 2, def.range);
+        return;
+      }
+      const has = (m) => def.mods.includes(m);
+      const size = 1 + 0.4 * (aim.charge || 0);
+      const spread = { bolt: 0.28, boomerang: 0.28, hook: 0.28, sniper: 0.1, drill: 0.3, wave: 0.35, eruption: 0.4, tornado: 0.5, beam: 0.3 }[def.form] || 0.28;
+      const fanned = (fn) => { const n = def.count || 1; for (let i = 0; i < n; i++) fn(a + (i - (n - 1) / 2) * spread, i % 2 ? -1 : 1); };
+      switch (def.aim) {
+        case 'line': {
+          const hw = Math.max(0.3, (def.form === 'eruption' || def.form === 'tornado' || def.form === 'wave' ? def.radius : def.radius * 0.8) * size);
+          const start = def.form === 'eruption' ? f.radius + 0.6 : f.radius * 0.6;
+          const len = def.form === 'eruption' ? def.range + start : def.range;
+          const curve = has('curve') ? (def.form === 'wave' ? 1 : 1.2) : 0;
+          fanned((ang, side) => band(ang, len, hw, start, curve * side, def.speed || 10));
+          break;
+        }
+        case 'cone': wedge(a, def.angle / 2, def.range); break;
+        case 'lob': {
+          const t = target();
+          dotted(f.x, f.y, f.z + 1.4, t.x, t.y, t.z, 1.5 + t.d * 0.25);
+          if (def.form === 'mine') {
+            for (let i = 0; i < def.count; i++) {
+              const ang = (i / def.count) * Math.PI * 2 + a, rr = def.count > 1 ? 1.7 : 0;
+              circle(t.x + Math.cos(ang) * rr, t.y + Math.sin(ang) * rr, t.z, 1.2);
+            }
+          } else if (def.form === 'summon' || def.form === 'grenade') {
+            const n = def.count || 1, gap = def.form === 'summon' ? 2.2 : 1.8;
+            for (let i = 0; i < n; i++) { const off = (i - (n - 1) / 2) * gap; circle(t.x + px * off, t.y + py * off, t.z, def.form === 'summon' ? 1 : def.radius * size); }
+          } else circle(t.x, t.y, t.z, def.radius * size);
+          break;
+        }
+        case 'zone': {
+          const t = target();
+          dotted(f.x, f.y, z, t.x, t.y, t.z);
+          if (def.form === 'rain') { circle(t.x, t.y, t.z, def.spread); circle(t.x, t.y, t.z, def.radius, false); }
+          else { const n = def.count || 1; for (let i = 0; i < n; i++) { const off = (i - (n - 1) / 2) * 3.2; circle(t.x + px * off, t.y + py * off, t.z, def.radius * size * (has('delay') ? 1.2 : 1)); } }
+          break;
+        }
+        case 'dash': {
+          if (def.form === 'blink') {
+            const t = target();
+            dotted(f.x, f.y, z, t.x, t.y, t.z);
+            circle(t.x, t.y, t.z, def.radius);
+          } else {
+            const L = def.range, hw = Math.max(0.5, def.radius * 0.7), tip = L - 1.2;
+            const b0 = f.radius * 0.5;
+            shape([
+              [f.x + ux * b0 + px * hw, f.y + uy * b0 + py * hw], [f.x + ux * tip + px * hw, f.y + uy * tip + py * hw],
+              [f.x + ux * tip + px * hw * 1.8, f.y + uy * tip + py * hw * 1.8], [f.x + ux * L, f.y + uy * L],
+              [f.x + ux * tip - px * hw * 1.8, f.y + uy * tip - py * hw * 1.8], [f.x + ux * tip - px * hw, f.y + uy * tip - py * hw],
+              [f.x + ux * b0 - px * hw, f.y + uy * b0 - py * hw],
+            ]);
+          }
+          break;
+        }
+        case 'self': {
+          if (def.form === 'orbit') {
+            circle(f.x, f.y, z, def.orbit, false);
+            for (let i = 0; i < def.count; i++) { const t = this.time * 3.2 + (i / def.count) * Math.PI * 2; circle(f.x + Math.cos(t) * def.orbit, f.y + Math.sin(t) * def.orbit, z, def.radius + 0.2); }
+          } else circle(f.x, f.y, z, def.radius * (has('delay') ? 1.2 : 1) * size);
+          break;
+        }
+        case 'wall': {
+          const t = target(), L = def.length / 2;
+          shape([
+            [t.x - px * L - ux * 0.5, t.y - py * L - uy * 0.5], [t.x + px * L - ux * 0.5, t.y + py * L - uy * 0.5],
+            [t.x + px * L + ux * 0.5, t.y + py * L + uy * 0.5], [t.x - px * L + ux * 0.5, t.y - py * L + uy * 0.5],
+          ], t.z);
+          dotted(f.x, f.y, z, t.x, t.y, t.z);
+          break;
+        }
       }
     }
   }

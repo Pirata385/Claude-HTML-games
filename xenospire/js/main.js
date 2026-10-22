@@ -382,6 +382,16 @@
     const base = kb && intent.mouse.moved ? mouseAim(p, intent) : (app.settings.aimAssist ? autoTarget(p, null) : null);
     c.aim = base ? base.angle : (m > 0.2 ? Math.atan2(c.my, c.mx) : p.facing);
     c.attack = intent.attack;
+    // Aimed basic attack (dragged attack button): fire as soon as it's ready.
+    if (intent.basicCasts.length) {
+      const cst = intent.basicCasts[intent.basicCasts.length - 1];
+      app.atkPending = { angle: cst.auto ? null : vectorAim(p, null, cst.dx, cst.dy, 1).angle, t: 0.6, n: p.stats.basic };
+    }
+    const ap = app.atkPending;
+    if (ap) {
+      if (p.stats.basic > ap.n || (ap.t -= STEP) <= 0) app.atkPending = null;
+      else { if (ap.angle != null) c.aim = ap.angle; c.attack = true; }
+    }
     if (intent.dodge) c.dodge = true;
     if (intent.pause) app.pauseMenu(false);
     // Casting.
@@ -395,7 +405,7 @@
         else if (cst.manual) aim = vectorAim(p, slot.def, cst.dx, cst.dy, cst.pad ? Math.hypot(cst.dx, cst.dy) : cst.dist);
         else aim = (app.settings.aimAssist && autoTarget(p, slot.def)) || { angle: c.aim, dist: slot.def.range * 0.7 };
         if (slot.cd > 0) app.sound.play('cooldown');
-        c.cast = cst.slot; c.castAngle = aim.angle; c.castDist = aim.dist;
+        c.cast = cst.slot; c.castAngle = aim.angle; c.castDist = aim.dist; c.castCharge = cst.charge || 0;
         if (app.tutorial && app.tutorial.step === 2) app.tutorial.step++;
       }
     }
@@ -407,7 +417,11 @@
       if (a.source === 'key') aim = mouseAim(p, intent);
       else if (a.manual) aim = vectorAim(p, def, a.dx, a.dy, Math.hypot(a.dx, a.dy) / XS.Input.DRAG_FULL);
       else aim = (app.settings.aimAssist && autoTarget(p, def)) || { angle: c.aim, dist: def.range * 0.7 };
-      app.scene.aim = { def, angle: aim.angle, dist: aim.dist, cancel: !!a.cancel };
+      const charge = a.t0 && def.mods.includes('charge') ? XS.Input.chargeSince(a.t0) : 0;
+      app.scene.aim = { def, angle: aim.angle, dist: aim.dist, cancel: !!a.cancel, charge };
+    } else if (intent.basicAim && intent.basicAim.manual) {
+      const ba = intent.basicAim, aim = vectorAim(p, null, ba.dx, ba.dy, 1);
+      app.scene.aim = { def: p.basic.def, basic: true, angle: aim.angle, dist: p.basic.def.range, cancel: !!ba.cancel, charge: 0 };
     } else app.scene.aim = null;
     // Tutorial progress.
     const T = app.tutorial;

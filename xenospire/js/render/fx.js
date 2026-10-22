@@ -288,8 +288,7 @@
         const k = t.age / t.life;
         const sx = XS.isoX(t.x, t.y) + ox + t.ox, sy = XS.isoY(t.x, t.y, t.z) + oy - XS.easeOutCubic(Math.min(1, k * 1.5)) * 10;
         if (k > 0.75 && Math.floor(t.age * 20) % 2) continue;
-        gfx.text(ctx, t.str, sx, sy, t.color, 'center', '#0a0610');
-        if (t.big) gfx.text(ctx, t.str, sx + 1, sy, t.color, 'center');
+        gfx.text(ctx, t.str, sx, sy - (t.big ? 5 : 0), t.color, 'center', '#0a0610', t.big ? 2 : 1);
       }
     }
 

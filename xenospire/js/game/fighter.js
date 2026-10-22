@@ -28,7 +28,7 @@
       this.alive = true;
       this.grounded = true;
       this.glide = 0;
-      this.powers = (o.powers || []).map((def) => ({ def, cd: Math.min(2, def.cooldown * 0.4) }));
+      this.powers = (o.powers || []).map((def) => ({ def, cd: 0.5 }));
       const B = XS.Creature.BASICS[this.g.basic];
       const dmgScale = o.basicMult || 1;
       this.basic = {

@@ -29,8 +29,10 @@
   // ------------------------------------------------------------ helpers
   function resize() {
     // Portrait screens are narrow: zoom out a bit so more of the arena fits.
+    // Big screens (tablets, desktops) show a little more of the arena too.
     const portrait = window.innerHeight > window.innerWidth * 1.15;
-    const short = (XS.Settings.PIXEL_SHORT[app.settings.pixel] || 150) * (portrait ? 1.3 : 1);
+    const big = Math.min(window.innerWidth, window.innerHeight) > 560;
+    const short = (XS.Settings.PIXEL_SHORT[app.settings.pixel] || 150) * (portrait ? 1.3 : 1) * (big ? 1.2 : 1);
     app.screen.resize(window.innerWidth, window.innerHeight, short);
     if (app.scene) app.scene.resize();
   }

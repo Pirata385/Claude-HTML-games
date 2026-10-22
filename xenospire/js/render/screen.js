@@ -201,18 +201,19 @@
     fontCache.set(key, s);
     return s;
   }
-  const textWidth = (str) => Math.max(0, String(str).length * 4 - 1);
-  // Draw pixel text; align 'left' | 'center' | 'right'; outline colour optional.
-  function text(ctx, str, x, y, color, align = 'left', outline = null) {
+  const textWidth = (str, k = 1) => Math.max(0, String(str).length * 4 - 1) * k;
+  // Draw pixel text; align 'left' | 'center' | 'right'; outline colour
+  // optional; k = integer glyph scale.
+  function text(ctx, str, x, y, color, align = 'left', outline = null, k = 1) {
     const s = String(str).toUpperCase().replace(/[ÁÀÂÃÉÊÍÓÔÕÚÇ]/g, (c) => ACCENTS[c]);
-    let x0 = Math.round(x - (align === 'center' ? textWidth(s) / 2 : align === 'right' ? textWidth(s) : 0));
+    const x0 = Math.round(x - (align === 'center' ? textWidth(s, k) / 2 : align === 'right' ? textWidth(s, k) : 0));
     y = Math.round(y);
     if (outline) {
       for (const [ox, oy] of [[-1, 0], [1, 0], [0, -1], [0, 1], [1, 1]]) {
-        for (let i = 0; i < s.length; i++) ctx.drawImage(glyphSprite(s[i], outline), x0 + i * 4 + ox, y + oy);
+        for (let i = 0; i < s.length; i++) ctx.drawImage(glyphSprite(s[i], outline), x0 + i * 4 * k + ox, y + oy, 3 * k, 5 * k);
       }
     }
-    for (let i = 0; i < s.length; i++) ctx.drawImage(glyphSprite(s[i], color), x0 + i * 4, y);
+    for (let i = 0; i < s.length; i++) ctx.drawImage(glyphSprite(s[i], color), x0 + i * 4 * k, y, 3 * k, 5 * k);
   }
 
   XS.Screen = Screen;

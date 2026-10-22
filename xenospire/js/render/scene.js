@@ -262,12 +262,7 @@
       for (const f of b.fighters) {
         if (!f.alive) continue;
         const hx = Math.round(XS.isoX(f.x, f.y) + ox), hy = Math.round(XS.isoY(f.x, f.y, f.z + f.height) + oy) - 5;
-        if (f.isPlayer && this.occluded(f)) {
-          const a = ctx.globalAlpha;
-          ctx.globalAlpha = 0.45;
-          XS.drawRig(ctx, f.rig, ox, oy, { silhouette: true, outline: TEAM_COLORS[0] });
-          ctx.globalAlpha = a;
-        }
+        if (f.isPlayer && this.settings.xray !== false && this.occluded(f)) XS.drawRigOutline(ctx, f.rig, ox, oy, TEAM_COLORS[0]);
         const col = f.isPlayer ? TEAM_COLORS[0] : TEAM_COLORS[1 + (f.team % 4)];
         if (this.showBars) {
           const w = 14, k = Math.max(0, f.hp / f.maxHp);

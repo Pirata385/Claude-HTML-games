@@ -104,6 +104,33 @@
     if (p.style === 'fangs') { ctx.fillStyle = '#ffffff'; ctx.fillRect(x - w, y + 1, 1, 1); ctx.fillRect(x + w, y + 1, 1, 1); }
   }
 
+  // 1px outline of a rig's silhouette (x-ray view of the player behind walls):
+  // mask minus its 4-neighbour erosion, composed on two scratch canvases.
+  let scratchA = null, scratchB = null;
+  function drawRigOutline(ctx, rig, ox, oy, color) {
+    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+    for (let i = 0; i < rig.primCount; i++) {
+      const p = rig.prims[i];
+      const sx = XS.isoX(p.x, p.y) + ox, sy = XS.isoY(p.x, p.y, p.z) + oy, r = (p.r || 0.5) * PX + 3;
+      minX = Math.min(minX, sx - r); maxX = Math.max(maxX, sx + r); minY = Math.min(minY, sy - r); maxY = Math.max(maxY, sy + r);
+    }
+    if (!Number.isFinite(minX)) return;
+    minX = Math.floor(minX); minY = Math.floor(minY);
+    const w = Math.min(160, Math.ceil(maxX - minX)), h = Math.min(160, Math.ceil(maxY - minY));
+    if (!scratchA) { scratchA = gfx.makeCanvas(160, 160); scratchB = gfx.makeCanvas(160, 160); }
+    const a = scratchA.getContext('2d'), b = scratchB.getContext('2d');
+    a.clearRect(0, 0, 160, 160); b.clearRect(0, 0, 160, 160);
+    drawRig(a, rig, ox - minX, oy - minY, { silhouette: true, outline: color });
+    b.drawImage(scratchA, 0, 0);
+    b.globalCompositeOperation = 'destination-in';
+    for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) b.drawImage(scratchA, dx, dy);
+    b.globalCompositeOperation = 'source-over';
+    a.globalCompositeOperation = 'destination-out';
+    a.drawImage(scratchB, 0, 0);
+    a.globalCompositeOperation = 'source-over';
+    ctx.drawImage(scratchA, 0, 0, w, h, minX, minY, w, h);
+  }
+
   // Soft dithered shadow on the ground under an entity.
   function shadow(ctx, x, y, z, r, ox, oy, alpha = 1) {
     const sx = XS.isoX(x, y) + ox, sy = XS.isoY(x, y, z) + oy;
@@ -137,6 +164,7 @@
   }
 
   XS.drawRig = drawRig;
+  XS.drawRigOutline = drawRigOutline;
   XS.drawShadow = shadow;
   XS.Portrait = Portrait;
 })(globalThis.XS = globalThis.XS || {});

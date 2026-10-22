@@ -178,7 +178,7 @@
   function generate(seed, floor, opts = {}) {
     const rng = new XS.RNG(XS.hash(seed, floor, 'arena'));
     const theme = opts.theme || THEMES[XS.hash(seed, floor, 'theme') % THEMES.length];
-    const size = opts.big ? rng.int(36, 38) : rng.int(30, 34);
+    const size = opts.big ? rng.int(52, 56) : rng.int(44, 50);
     const W = size, D = size, H = 16;
     const world = new XS.VoxelWorld(W, D, H);
     const M = {};
@@ -221,10 +221,10 @@
 
     // ---- terraces and an optional central dais (all reachable by 1-voxel steps) ----
     const raise = (x, y, m) => { const t = top(x, y); if (t) put(x, y, t, m); };
-    const terraces = rng.int(1, 3);
+    const terraces = rng.int(2, 4);
     for (let k = 0; k < terraces; k++) {
       const tx = rng.int(4, W - 5), ty = rng.int(4, D - 5);
-      const r = rng.range(1.8, 3.4);
+      const r = rng.range(2.2, 4.5);
       for (let y = Math.floor(ty - r); y <= ty + r; y++) {
         for (let x = Math.floor(tx - r); x <= tx + r; x++) {
           if (world.inside(x, y, 0) && top(x, y) === BASE && Math.hypot(x - tx, y - ty) <= r) raise(x, y, M.accent);
@@ -263,7 +263,7 @@
     const column = (x, y, h, m) => { const t = top(x, y); if (!t) return; for (let k = 0; k < h; k++) put(x, y, t + k, m); };
     const PROPS = {
       pillar(x, y) {
-        const s = rng.int(2, 3), h = rng.int(4, 8), broken = rng.chance(0.35);
+        const s = rng.int(2, 3), h = rng.int(3, 6), broken = rng.chance(0.35);
         for (let j = 0; j < s; j++) for (let i = 0; i < s; i++) {
           const hh = broken ? Math.max(2, h - rng.int(0, 4)) : h;
           column(x + i, y + j, hh, M.wall);
@@ -272,7 +272,7 @@
         return 3;
       },
       ruin(x, y) {
-        const horiz = rng.chance(0.5), len = rng.int(4, 7), hmax = rng.int(2, 4);
+        const horiz = rng.chance(0.5), len = rng.int(4, 7), hmax = rng.int(2, 3);
         for (let i = 0; i < len; i++) {
           if (rng.chance(0.15)) continue;
           const h = hmax - (rng.chance(0.3) ? rng.int(1, 2) : 0);
@@ -283,14 +283,14 @@
       crystals(x, y) {
         const n = rng.int(3, 6);
         for (let k = 0; k < n; k++) {
-          const ox = rng.int(-2, 2), oy = rng.int(-2, 2), h = rng.int(2, 6), m = rng.chance(0.5) ? M.prop1 : M.prop2;
+          const ox = rng.int(-2, 2), oy = rng.int(-2, 2), h = rng.int(2, 5), m = rng.chance(0.5) ? M.prop1 : M.prop2;
           if (h >= 5) { column(x + ox + 1, y + oy, 2, m); column(x + ox, y + oy + 1, 2, m); }
           column(x + ox, y + oy, h, m);
         }
         return 3.5;
       },
       mushroom(x, y) {
-        const th = rng.int(2, 4), rc = rng.range(1.8, 2.9), m = rng.chance(0.5) ? M.prop1 : M.prop2;
+        const th = rng.int(2, 3), rc = rng.range(1.8, 2.7), m = rng.chance(0.5) ? M.prop1 : M.prop2;
         column(x, y, th, M.trunk);
         const t = top(x, y);
         for (let z = 0; z <= Math.ceil(rc * 0.6); z++) {
@@ -333,17 +333,18 @@
         return 3.5;
       },
       monolith(x, y) {
-        const h = rng.int(6, 9);
+        const h = rng.int(5, 7);
         for (let j = 0; j < 2; j++) for (let i = 0; i < 2; i++) column(x + i, y + j, h, M.prop1);
         return 3;
       },
     };
     const kinds = Object.keys(theme.props).map((k) => ({ k, w: theme.props[k] }));
-    const target = Math.round(size * 0.34) + (opts.big ? 3 : 0);
+    // Sparse props: open lanes to fight in, and less to hide the action.
+    const target = Math.round(size * 0.24) + (opts.big ? 3 : 0);
     let tries = 0;
     while (placed.length < target && tries++ < 400) {
       const x = rng.int(3, W - 4), y = rng.int(3, D - 4);
-      if (top(x, y) < BASE || !freeAt(x, y, 5)) continue;
+      if (top(x, y) < BASE || !freeAt(x, y, 6)) continue;
       const kind = rng.weighted(kinds).k;
       const r = PROPS[kind](x, y);
       placed.push({ x, y, r: r + 1.5, kind });

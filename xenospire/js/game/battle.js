@@ -34,7 +34,7 @@
       const basicScale = 1 + 0.05 * (this.floor - 1);
       for (const f of this.fighters) f.basic.def.damage = Math.round(f.basic.def.damage * basicScale);
       this.world.events.on('break', (e) => { if (e.source && e.source.stats) e.source.stats.voxels++; });
-      this.world.events.on('blast', (e) => this.events.emit('explosion', { x: e.x, y: e.y, z: e.z, r: e.r, ramp: ['#5a1a08', '#e0601a', '#ffb040', '#fff0b0'], terrain: true }));
+      this.world.events.on('blast', (e) => this.events.emit('explosion', { x: e.x, y: e.y, z: e.z, r: e.r, ramp: ['#5a1a08', '#e0601a', '#ffb040', '#fff0b0'], terrain: true, el: 'plasma' }));
     }
 
     get player() { return this.fighters.find((f) => f.isPlayer) || null; }
@@ -170,7 +170,7 @@
         if (Math.hypot(t.x - x, t.y - y) < r + 0.5) t.hp -= dmg;
       }
       if (opts.terrain !== 0) this.world.damageSphere(x, y, opts.terrainZ != null ? opts.terrainZ : z, opts.terrainR || r * 0.85, opts.terrain != null ? opts.terrain : (def ? def.terrain : 1) * 1.4, src);
-      this.events.emit('explosion', { x, y, z, r, ramp: def && def.ramp ? def.ramp : null, small: !!opts.small });
+      this.events.emit('explosion', { x, y, z, r, ramp: def && def.ramp ? def.ramp : null, small: !!opts.small, el: def && def.elements ? def.elements[0] : null });
       return hit;
     }
 

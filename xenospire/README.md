@@ -63,12 +63,13 @@ O dano de cada poder é calculado para que o valor esperado (dano por segundo + 
 ## O resto da torre
 
 - **Criaturas:** oito arquétipos (bípede, quadrúpede, hexápode, aracnídeo, serpente, flutuante, alado e gelatinoso). Os stats, o traço, o ataque básico e a esquiva saem da anatomia. A animação é procedural no estilo Spore: os pés ficam plantados e dão passos com IK, as caudas e tentáculos balançam como correntes, e a cabeça segue o alvo. No nocaute, a criatura se desmonta em pedaços.
+- **Visual:** pixel art em alta resolução, com brilho aditivo, luz projetada no chão, rastros, ondas de choque e uma assinatura visual própria para cada elemento.
 - **Voxels:** a arena inteira é destrutível. Blocos soltos desabam, núcleos de energia explodem em cadeia e alguns poderes erguem muralhas e cristais. Depois de 100 segundos, a arena começa a desmoronar pelas bordas.
 - **Qualidade de vida:**
   - salvamento automático a cada andar e semente compartilhável;
   - Códice de seres, poderes e escaladas;
   - tutorial que não interrompe o jogo;
-  - silhueta do jogador através de paredes e setas para inimigos fora da tela;
+  - obstáculos ficam semitransparentes quando você passa atrás deles, e setas mostram inimigos fora da tela;
   - telegrafia vermelha nos ataques de área;
   - pausa automática ao trocar de aba;
   - modo canhoto, joystick fixo ou flutuante, e tamanho e opacidade dos botões ajustáveis;

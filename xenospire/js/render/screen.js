@@ -10,17 +10,19 @@
       this.ctx = canvas.getContext('2d', { alpha: false });
       this.W = 320; this.H = 180; this.scale = 1;
     }
-    // Pick an integer scale so the short side is ~targetShort pixels.
-    resize(cssW, cssH, targetShort = 215) {
-      const short = Math.min(cssW, cssH);
-      const scale = Math.max(1, Math.round(short / targetShort));
-      this.scale = scale;
-      this.W = Math.ceil(cssW / scale);
-      this.H = Math.ceil(cssH / scale);
+    // Pick an integer number of *device* pixels per buffer pixel so the short
+    // side is ~targetShort buffer pixels and the image stays crisp.
+    resize(cssW, cssH, targetShort = 330) {
+      const dpr = Math.max(1, Math.min(4, (typeof window !== 'undefined' && window.devicePixelRatio) || 1));
+      const devW = cssW * dpr, devH = cssH * dpr;
+      const devScale = Math.max(1, Math.round(Math.min(devW, devH) / targetShort));
+      this.W = Math.ceil(devW / devScale);
+      this.H = Math.ceil(devH / devScale);
+      this.scale = devScale / dpr; // CSS pixels per buffer pixel
       this.canvas.width = this.W;
       this.canvas.height = this.H;
-      this.canvas.style.width = this.W * scale + 'px';
-      this.canvas.style.height = this.H * scale + 'px';
+      this.canvas.style.width = (this.W * devScale) / dpr + 'px';
+      this.canvas.style.height = (this.H * devScale) / dpr + 'px';
       this.ctx.imageSmoothingEnabled = false;
     }
     // CSS pixel -> buffer pixel.
@@ -56,18 +58,20 @@
 
   // ------------------------------------------------------------------ discs
   const inDisc = (dx, dy, r) => dx * dx + dy * dy < r * r + r * 0.8;
+  // Sprite caches keyed without building strings (hot path): colour -> radius.
   const discCache = new Map();
   function discSprite(color, r) {
     const r2 = Math.max(1, Math.round(r * 2));
-    const key = color + '|' + r2;
-    let s = discCache.get(key);
+    let byR = discCache.get(color);
+    if (!byR) { byR = new Map(); discCache.set(color, byR); }
+    let s = byR.get(r2);
     if (s) return s;
     const rr = r2 / 2, c = Math.ceil(rr), size = c * 2 + 1;
     const cv = makeCanvas(size, size), g = cv.getContext('2d');
     g.fillStyle = color;
     for (let y = -c; y <= c; y++) for (let x = -c; x <= c; x++) if (inDisc(x, y, rr)) g.fillRect(x + c, y + c, 1, 1);
     s = { cv, c };
-    discCache.set(key, s);
+    byR.set(r2, s);
     return s;
   }
   function disc(ctx, x, y, r, color) {
@@ -76,12 +80,13 @@
   }
 
   // Lit sphere using a 4-colour ramp (dark .. highlight), light from top-left.
-  const ballCache = new Map();
+  const ballCache = new WeakMap(); // ramp array -> radius -> sprite
   const L = (() => { const v = [-0.45, -0.62, 0.64], l = Math.hypot(...v); return v.map((a) => a / l); })();
   function ballSprite(ramp, r) {
     const r2 = Math.max(1, Math.round(r * 2));
-    const key = ramp.join(',') + '|' + r2;
-    let s = ballCache.get(key);
+    let byR = ballCache.get(ramp);
+    if (!byR) { byR = new Map(); ballCache.set(ramp, byR); }
+    let s = byR.get(r2);
     if (s) return s;
     const rr = r2 / 2, c = Math.ceil(rr), size = c * 2 + 1;
     const cv = makeCanvas(size, size), g = cv.getContext('2d');
@@ -101,7 +106,7 @@
       }
     }
     s = { cv, c };
-    ballCache.set(key, s);
+    byR.set(r2, s);
     return s;
   }
   function ball(ctx, x, y, r, ramp) {
@@ -148,7 +153,7 @@
     }
   }
   function thickLine(ctx, x0, y0, x1, y1, r, color) {
-    const n = Math.max(1, Math.ceil(Math.hypot(x1 - x0, y1 - y0) / Math.max(1, r * 0.8)));
+    const n = Math.max(1, Math.ceil(Math.hypot(x1 - x0, y1 - y0) / Math.max(1, r * 1.1)));
     for (let i = 0; i <= n; i++) disc(ctx, x0 + ((x1 - x0) * i) / n, y0 + ((y1 - y0) * i) / n, r, color);
   }
 
@@ -169,6 +174,40 @@
         if (b > a) ctx.fillRect(a, y, b - a, 1);
       }
     }
+  }
+
+  // Soft radial glow sprites, drawn with additive blending for light effects.
+  const glowCache = new Map();
+  function glowSprite(color, r) {
+    const rr = Math.max(2, Math.round(r));
+    const key = color + '|' + rr;
+    let s = glowCache.get(key);
+    if (s) return s;
+    const size = rr * 2 + 2;
+    s = makeCanvas(size, size);
+    const g = s.getContext('2d');
+    const grad = g.createRadialGradient(size / 2, size / 2, 0, size / 2, size / 2, rr);
+    grad.addColorStop(0, color);
+    grad.addColorStop(0.35, XS.color.mix(color, '#000000', 0.45));
+    grad.addColorStop(1, '#000000');
+    g.fillStyle = grad;
+    g.fillRect(0, 0, size, size);
+    glowCache.set(key, s);
+    if (glowCache.size > 600) glowCache.delete(glowCache.keys().next().value);
+    return s;
+  }
+  // Additive glow; sy scales the height (0.5 = flattened onto the floor).
+  function glow(ctx, x, y, r, color, alpha = 1, sy = 1) {
+    if (r < 1 || alpha <= 0.01) return;
+    const s = glowSprite(color, Math.min(96, r));
+    const k = r / Math.min(96, r);
+    const prevA = ctx.globalAlpha, prevC = ctx.globalCompositeOperation;
+    ctx.globalCompositeOperation = 'lighter';
+    ctx.globalAlpha = prevA * Math.min(1, alpha);
+    const w = s.width * k, h = s.height * k * sy;
+    ctx.drawImage(s, x - w / 2, y - h / 2, w, h);
+    ctx.globalAlpha = prevA;
+    ctx.globalCompositeOperation = prevC;
   }
 
   // ------------------------------------------------------------------- font
@@ -217,5 +256,5 @@
   }
 
   XS.Screen = Screen;
-  XS.gfx = { makeCanvas, bayer, BAYER4, ditherPattern, disc, discSprite, ball, ballSprite, ellipse, ellipseRing, line, thickLine, poly, text, textWidth };
+  XS.gfx = { makeCanvas, bayer, BAYER4, ditherPattern, disc, discSprite, ball, ballSprite, ellipse, ellipseRing, line, thickLine, poly, text, textWidth, glow, glowSprite };
 })(globalThis.XS = globalThis.XS || {});

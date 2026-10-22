@@ -67,10 +67,14 @@
   }
 
   // Live animated portrait canvas.
-  // Drawn at half resolution and upscaled 2x so the creature reads well.
+  // The backing store is sized to the creature, so every being fills its
+  // frame whatever its size (the canvas is then shown at `size` CSS px).
   function portrait(genome, size = 64, opts = {}) {
     const cv = el('canvas', 'portrait');
-    cv.width = Math.round(size / 2); cv.height = Math.round(size / 2);
+    const st = genome.stats;
+    const extent = Math.max(st.height * XS.ISO.VZ * 1.35, st.radius * XS.ELX * 2.8, genome.wings ? genome.wings.span * XS.PXU * 1.7 : 0) + 6;
+    const backing = Math.round(XS.clamp(extent, size * 0.7, size * 2.4));
+    cv.width = backing; cv.height = backing;
     cv.style.width = size + 'px'; cv.style.height = size + 'px';
     const p = new XS.Portrait(cv, genome, opts);
     p.canvas = cv;

@@ -63,6 +63,7 @@
       case 'dash': {
         const sp = def.range / 0.26 * (has(def, 'swift') ? 1.2 : 1);
         f.dash = { def, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, t: def.range / sp, hit: new Set(), trailT: 0, blocked: false };
+        b.events.emit('dash', { f, def });
         f.inv = Math.max(f.inv, 0.12);
         break;
       }
@@ -143,7 +144,7 @@
         if (hit.nx) o.vx = -o.vx;
         if (hit.ny) o.vy = -o.vy;
         o.x = hit.px + hit.nx * 0.05; o.y = hit.py + hit.ny * 0.05;
-        b.events.emit('ricochet', { x: o.x, y: o.y, z: o.z, ramp: def.ramp });
+        b.events.emit('ricochet', { x: o.x, y: o.y, z: o.z, ramp: def.ramp, el: def.elements && def.elements[0] });
         return true;
       }
       if (def.form === 'boomerang' && o.ret === 0) { o.ret = 1; o.hit.clear(); return true; }
@@ -191,8 +192,8 @@
 
   function endProjectile(b, o, x, y, z, direct, expired) {
     const def = o.def;
-    if (def.form === 'basic') { b.events.emit('impact', { x, y, z, ramp: def.ramp, small: true }); return; }
-    if (expired && !has(def, 'explosive') && !has(def, 'fractal')) { b.events.emit('fizzle', { x, y, z, ramp: def.ramp }); return; }
+    if (def.form === 'basic') { b.events.emit('impact', { x, y, z, ramp: def.ramp, small: true, el: null }); return; }
+    if (expired && !has(def, 'explosive') && !has(def, 'fractal')) { b.events.emit('fizzle', { x, y, z, ramp: def.ramp, el: def.elements[0] }); return; }
     impact(b, o.owner, def, x, y, z, direct, o.dmgMult, o.child);
   }
 
@@ -201,7 +202,7 @@
     if (has(def, 'explosive') && def.blast) {
       b.explosion(x, y, z, def.blast * (isChild ? 0.6 : 1), def.damage * 0.6 * dmgMult, f, def, { exclude: direct, terrain: def.terrain * 1.2 });
     } else {
-      b.events.emit('impact', { x, y, z, ramp: def.ramp, small: isChild });
+      b.events.emit('impact', { x, y, z, ramp: def.ramp, small: isChild, el: def.elements && def.elements[0] });
     }
     if (def.elements && def.elements.includes('gravity') || has(def, 'magnetic')) b.vortex(x, y, z, 3.4, f, 0.5, has(def, 'magnetic') ? 20 : 13);
     if (has(def, 'crystallize')) {
@@ -441,7 +442,7 @@
   function updateTurret(b, o, dt) {
     const f = o.owner, def = o.def;
     o.t -= dt;
-    if (o.hp <= 0 || o.t <= 0 || !f.alive) { b.events.emit('impact', { x: o.x, y: o.y, z: o.z, ramp: def.ramp }); return false; }
+    if (o.hp <= 0 || o.t <= 0 || !f.alive) { b.events.emit('impact', { x: o.x, y: o.y, z: o.z, ramp: def.ramp, el: def.elements[0] }); return false; }
     const target = b.nearestEnemy(f, o.x, o.y, 13);
     if (target) o.aim = Math.atan2(target.y - o.y, target.x - o.x);
     o.shot -= dt;

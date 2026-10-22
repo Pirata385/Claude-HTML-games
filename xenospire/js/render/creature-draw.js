@@ -3,15 +3,18 @@
 (function (XS) {
   'use strict';
 
-  const PX = 4.4; // world units -> pixels for radii
+  const PX = XS.PXU; // world units -> pixels for radii
+  const S = XS.ISO.S;
   const gfx = XS.gfx;
-  const tintCache = new Map();
+  const tintCache = new WeakMap(); // ramp -> "tint|k" -> tinted ramp (stable arrays)
   const WHITE = ['#d8d8e8', '#ffffff', '#ffffff', '#ffffff'];
 
   function tinted(ramp, tint, k) {
-    const key = ramp.join() + '|' + tint + '|' + k;
-    let r = tintCache.get(key);
-    if (!r) { r = ramp.map((c) => XS.color.mix(c, tint, k)); tintCache.set(key, r); }
+    let m = tintCache.get(ramp);
+    if (!m) { m = new Map(); tintCache.set(ramp, m); }
+    const key = tint + '|' + k.toFixed(2);
+    let r = m.get(key);
+    if (!r) { r = ramp.map((c) => XS.color.mix(c, tint, k)); m.set(key, r); }
     return r;
   }
 
@@ -38,8 +41,8 @@
 
     // Pass 1: silhouette outline.
     for (const p of order) {
-      if (p.k === 0 && !p.decor) gfx.disc(ctx, p.sx, p.sy, Math.max(1, p.r * PX) + 1, outline);
-      else if (p.k === 1) gfx.thickLine(ctx, p.ax, p.ay, p.bx, p.by, Math.max(0.5, p.r * PX) + 1, outline);
+      if (p.k === 0 && !p.decor) gfx.disc(ctx, p.sx, p.sy, Math.max(S, p.r * PX) + 1, outline);
+      else if (p.k === 1) gfx.thickLine(ctx, p.ax, p.ay, p.bx, p.by, Math.max(S * 0.5, p.r * PX) + 1, outline);
     }
     if (opts.silhouette) { ctx.globalAlpha = prevAlpha; return; }
 
@@ -52,10 +55,10 @@
         else if (opts.tint) ramp = tinted(ramp, opts.tint, opts.tintK || 0.45);
       }
       switch (p.k) {
-        case 0: gfx.ball(ctx, p.sx, p.sy, Math.max(0.5, p.r * PX), ramp); break;
+        case 0: gfx.ball(ctx, p.sx, p.sy, Math.max(S * 0.5, p.r * PX), ramp); break;
         case 1: {
-          const r = Math.max(0.5, p.r * PX);
-          const steps = Math.max(1, Math.ceil(Math.hypot(p.bx - p.ax, p.by - p.ay) / Math.max(1, r * 0.7)));
+          const r = Math.max(S * 0.5, p.r * PX);
+          const steps = Math.max(1, Math.ceil(Math.hypot(p.bx - p.ax, p.by - p.ay) / Math.max(1, r * 1.05)));
           for (let i = 0; i <= steps; i++) gfx.ball(ctx, p.ax + ((p.bx - p.ax) * i) / steps, p.ay + ((p.by - p.ay) * i) / steps, r, ramp);
           break;
         }
@@ -77,36 +80,41 @@
   }
 
   function drawEye(ctx, p, rig, flash) {
-    const r = Math.max(1.5, p.r * PX);
+    const r = Math.max(1.5 * S, p.r * PX);
     if (p.closed) {
       ctx.fillStyle = rig.g.palette.body[0];
-      ctx.fillRect(Math.round(p.sx - r), Math.round(p.sy), Math.round(r * 2), 1);
+      ctx.fillRect(Math.round(p.sx - r), Math.round(p.sy), Math.round(r * 2), S);
       return;
     }
     gfx.disc(ctx, p.sx, p.sy, r, flash ? '#ffffff' : p.col);
-    if (p.style === 'glow') { ctx.fillStyle = '#ffffff'; ctx.fillRect(Math.round(p.sx), Math.round(p.sy) - 1, 1, 1); return; }
+    if (p.style === 'glow') { ctx.fillStyle = '#ffffff'; ctx.fillRect(Math.round(p.sx), Math.round(p.sy) - S, S, S); return; }
     // Pupil shifted toward the look direction (projected on screen).
     const lx = (p.lookX - p.lookY) * 0.7, ly = (p.lookX + p.lookY) * 0.35;
-    const px = Math.round(p.sx + lx * Math.max(0, r - 1)), py = Math.round(p.sy + ly * Math.max(0, r - 1));
+    const pr = Math.max(1, Math.round(r * 0.45)); // pupil size
+    const px = Math.round(p.sx + lx * Math.max(0, r - pr) - pr / 2), py = Math.round(p.sy + ly * Math.max(0, r - pr) - pr / 2);
     ctx.fillStyle = '#120a18';
-    if (p.style === 'slit') ctx.fillRect(px, py - 1, 1, r >= 2 ? 3 : 2);
-    else if (p.style === 'compound') { ctx.fillRect(px - 1, py, 1, 1); ctx.fillRect(px + 1, py, 1, 1); ctx.fillRect(px, py - 1, 1, 1); ctx.fillRect(px, py + 1, 1, 1); }
-    else if (r >= 2.5) ctx.fillRect(px, py, 2, 2);
-    else ctx.fillRect(px, py, 1, 1);
+    if (p.style === 'slit') ctx.fillRect(px + Math.floor(pr / 3), py - pr, Math.max(1, Math.ceil(pr / 2)), pr * 3);
+    else if (p.style === 'compound') { for (let i = -1; i <= 1; i++) for (let j = -1; j <= 1; j++) if ((i + j) % 2) ctx.fillRect(px + i * pr, py + j * pr, pr, pr); }
+    else {
+      ctx.fillRect(px, py, pr, pr);
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(px - 1, py - 1, 1, 1); // catch-light
+    }
   }
 
   function drawMouth(ctx, p) {
-    const w = Math.max(1, Math.round(p.r * PX));
+    const w = Math.max(S, Math.round(p.r * PX));
     const x = Math.round(p.sx), y = Math.round(p.sy);
     ctx.fillStyle = p.col;
-    if (p.open > 0.3) { ctx.fillRect(x - w, y, w * 2 + 1, 2); }
-    else ctx.fillRect(x - w, y, w * 2 + 1, 1);
-    if (p.style === 'fangs') { ctx.fillStyle = '#ffffff'; ctx.fillRect(x - w, y + 1, 1, 1); ctx.fillRect(x + w, y + 1, 1, 1); }
+    if (p.open > 0.3) { ctx.fillRect(x - w, y, w * 2 + 1, 2 * S); }
+    else ctx.fillRect(x - w, y, w * 2 + 1, S);
+    if (p.style === 'fangs') { ctx.fillStyle = '#ffffff'; ctx.fillRect(x - w, y + S, S, S); ctx.fillRect(x + w - S + 1, y + S, S, S); }
   }
 
   // 1px outline of a rig's silhouette (x-ray view of the player behind walls):
   // mask minus its 4-neighbour erosion, composed on two scratch canvases.
   let scratchA = null, scratchB = null;
+  const SCR = 200 * S;
   function drawRigOutline(ctx, rig, ox, oy, color) {
     let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
     for (let i = 0; i < rig.primCount; i++) {
@@ -116,10 +124,10 @@
     }
     if (!Number.isFinite(minX)) return;
     minX = Math.floor(minX); minY = Math.floor(minY);
-    const w = Math.min(160, Math.ceil(maxX - minX)), h = Math.min(160, Math.ceil(maxY - minY));
-    if (!scratchA) { scratchA = gfx.makeCanvas(160, 160); scratchB = gfx.makeCanvas(160, 160); }
+    const w = Math.min(SCR, Math.ceil(maxX - minX)), h = Math.min(SCR, Math.ceil(maxY - minY));
+    if (!scratchA) { scratchA = gfx.makeCanvas(SCR, SCR); scratchB = gfx.makeCanvas(SCR, SCR); }
     const a = scratchA.getContext('2d'), b = scratchB.getContext('2d');
-    a.clearRect(0, 0, 160, 160); b.clearRect(0, 0, 160, 160);
+    a.clearRect(0, 0, SCR, SCR); b.clearRect(0, 0, SCR, SCR);
     drawRig(a, rig, ox - minX, oy - minY, { silhouette: true, outline: color });
     b.drawImage(scratchA, 0, 0);
     b.globalCompositeOperation = 'destination-in';
@@ -134,7 +142,7 @@
   // Soft dithered shadow on the ground under an entity.
   function shadow(ctx, x, y, z, r, ox, oy, alpha = 1) {
     const sx = XS.isoX(x, y) + ox, sy = XS.isoY(x, y, z) + oy;
-    XS.gfx.ellipse(ctx, sx, sy, r * 5.2, r * 2.6, XS.gfx.ditherPattern(ctx, '#05030a', 0.55 * alpha));
+    XS.gfx.ellipse(ctx, sx, sy, r * XS.ELX * 0.92, r * XS.ELY * 0.92, XS.gfx.ditherPattern(ctx, '#05030a', 0.55 * alpha));
   }
 
   // Animated portrait of a genome on a small canvas (menus, cards, codex).

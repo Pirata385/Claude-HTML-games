@@ -31,10 +31,14 @@
   const dist2d = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
 
   // ---- Isometric projection ----
-  // One world unit is one voxel. A voxel's top face is an 8x4 px diamond and
-  // its sides are 4 px tall. The viewer looks along -(1, 1, 1), so
-  // x + y + z grows toward the camera (used as the depth key).
-  const ISO = { HX: 4, HY: 2, VZ: 4, TILE_W: 8, TILE_H: 4 };
+  // One world unit is one voxel. A voxel's top face is a (8*S)x(4*S) px
+  // diamond and its sides are 4*S px tall; S is the art resolution (2 = fine
+  // pixels). The viewer looks along -(1, 1, 1), so x + y + z grows toward the
+  // camera (used as the depth key).
+  const S = 2;
+  const ISO = { S, HX: 4 * S, HY: 2 * S, VZ: 4 * S, TILE_W: 8 * S, TILE_H: 4 * S };
+  // World radius -> pixel radius, and the half-axes of a projected ground circle.
+  const PXU = 4.4 * S, ELX = ISO.HX * Math.SQRT2, ELY = ISO.HY * Math.SQRT2;
   const isoX = (x, y) => (x - y) * ISO.HX;
   const isoY = (x, y, z) => (x + y) * ISO.HY - z * ISO.VZ;
   const depth = (x, y, z) => x + y + z;
@@ -60,7 +64,7 @@
     clamp, lerp, invLerp, smooth, easeOutCubic, easeInCubic, easeOutBack, damp,
     TAU, wrapAngle, angleDiff, turnToward,
     v3, v3add, v3sub, v3scale, v3len, v3dot, v3cross, v3norm, v3lerp, v3dist, dist2d,
-    ISO, isoX, isoY, depth, screenDirToWorld, screenToWorld,
+    ISO, PXU, ELX, ELY, isoX, isoY, depth, screenDirToWorld, screenToWorld,
     fmt1, fmtInt,
   });
 })(globalThis.XS = globalThis.XS || {});

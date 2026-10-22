@@ -33,7 +33,9 @@
     // Big screens (tablets, desktops) show a little more of the arena too.
     const portrait = window.innerHeight > window.innerWidth * 1.15;
     const big = Math.min(window.innerWidth, window.innerHeight) > 560;
-    const short = (XS.Settings.PIXEL_SHORT[app.settings.pixel] || 150) * (portrait ? 1.3 : 1) * (big ? 1.2 : 1);
+    // Low quality renders fewer, bigger pixels.
+    const lowRes = app.settings.quality === 0 ? 0.8 : 1;
+    const short = (XS.Settings.PIXEL_SHORT[app.settings.pixel] || 330) * (portrait ? 1.3 : 1) * (big ? 1.15 : 1) * lowRes;
     app.screen.resize(window.innerWidth, window.innerHeight, short);
     if (app.scene) app.scene.resize();
   }
@@ -263,7 +265,7 @@
       }
     }
     if (key === 'pixel') resize();
-    if (key === 'quality' && app.scene) app.scene.fx.quality = app.settings.quality;
+    if (key === 'quality') { if (app.scene) app.scene.fx.quality = app.settings.quality; resize(); }
     if (['bigText', 'reduceMotion'].includes(key)) applyAccessibility();
     app.hud.applySettings();
   };
@@ -354,7 +356,7 @@
   }
   function mouseAim(p, intent) {
     const sc = app.scene;
-    const bx = intent.mouse.x / app.screen.scale, by = intent.mouse.y / app.screen.scale;
+    const { x: bx, y: by } = app.screen.toBuffer(intent.mouse.x, intent.mouse.y);
     const w = XS.screenToWorld(bx - sc.ox, by - sc.oy, p.z);
     return { angle: Math.atan2(w.y - p.y, w.x - p.x), dist: Math.hypot(w.x - p.x, w.y - p.y) };
   }

@@ -12,7 +12,7 @@
       this.sky = null;
       this.twinkles = [];
       this.tower = null;
-      this.pad = 24;
+      this.pad = 24 * XS.ISO.S;
     }
 
     resize(W, H) {
@@ -40,12 +40,13 @@
           let gg = stops[i0][1] + (stops[i0 + 1][1] - stops[i0][1]) * tt;
           let b = stops[i0][2] + (stops[i0 + 1][2] - stops[i0][2]) * tt;
           // Nebula clouds.
-          const n = XS.noise2(x / 46, y / 34, ns) * 0.65 + XS.noise2(x / 13, y / 11, ns + 1) * 0.35;
+          const S = XS.ISO.S;
+          const n = XS.noise2(x / (46 * S), y / (34 * S), ns) * 0.65 + XS.noise2(x / (13 * S), y / (11 * S), ns + 1) * 0.35;
           const k = (n - 0.52) / 0.48;
           if (k > 0) {
             const level = Math.floor(k * 4 + XS.gfx.bayer(x + 1, y + 2)) / 4;
             if (level > 0) {
-              const c = XS.noise2(x / 60, y / 60, ns + 2) > 0.5 ? neb[0] : neb[1];
+              const c = XS.noise2(x / (60 * S), y / (60 * S), ns + 2) > 0.5 ? neb[0] : neb[1];
               const a = Math.min(0.55, level * 0.42);
               r += (c[0] - r) * a; gg += (c[1] - gg) * a; b += (c[2] - b) * a;
             }
@@ -136,7 +137,7 @@
       const t = this.theme;
       const R = arena.size * 0.34;
       const hw = Math.ceil(R * XS.ISO.HX * Math.SQRT2), ry = Math.ceil(R * XS.ISO.HY * Math.SQRT2);
-      const Hh = 300;
+      const Hh = 300 * XS.ISO.S;
       const W = hw * 2 + 1;
       const cv = XS.gfx.makeCanvas(W, Hh + ry), g = cv.getContext('2d');
       const [dark, mid, win] = t.tower;
@@ -151,11 +152,11 @@
           if (fade > 1 || XS.gfx.bayer(x, y) < fade * fade * 1.1) continue;
           const light = -u * 0.7 + 0.3;
           let col = light + XS.gfx.bayer(x + 1, y) * 0.5 > 0.55 ? mid : dark;
-          const ringRow = Math.floor(yy) % 34;
+          const ringRow = Math.floor(yy) % (34 * XS.ISO.S);
           if (ringRow === 0) col = lighten(mid, 0.18);
           else if (ringRow === 1) col = darken(dark, 0.3);
-          else if (Math.abs(u) < 0.86 && ringRow > 6 && ringRow < 28 && Math.floor(yy) % 6 === 3 && Math.round(x) % 5 === 2) {
-            if (XS.hash3f(x, Math.floor(yy / 6), this.seed & 1023) > 0.45) col = fade < 0.5 ? win : mix(win, dark, fade);
+          else if (Math.abs(u) < 0.86 && ringRow > 8 && ringRow < 34 * XS.ISO.S - 8 && Math.floor(yy) % 7 < 2 && Math.round(x) % 6 < 2) {
+            if (XS.hash3f(Math.floor(x / 6), Math.floor(yy / 7), this.seed & 1023) > 0.45) col = fade < 0.5 ? win : mix(win, dark, fade);
           }
           g.fillStyle = col;
           g.fillRect(x, y, 1, 1);

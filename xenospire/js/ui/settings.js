@@ -9,7 +9,7 @@
     leftHanded: false, joystick: 0, buttonSize: 1, buttonOpacity: 0.85, vibration: true,
     reduceFlash: false, reduceMotion: false, elementCodes: false, bigText: false,
   };
-  const PIXEL_SHORT = [200, 150, 118]; // target short side (buffer px) for Menor / Auto / Maior
+  const PIXEL_SHORT = [400, 330, 270]; // target short side (buffer px) for Menor / Auto / Maior
 
   function load() {
     const s = Object.assign({}, DEFAULTS, XS.store.load('settings', {}));

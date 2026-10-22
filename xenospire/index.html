@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="theme-color" content="#07060f">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="description" content="Xenospire: seres de todo o universo lutam numa torre infinita com poderes gerados proceduralmente.">
+<title>Xenospire — A Torre Infinita</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect width='16' height='16' fill='%2307060f'/%3E%3Cpath d='M6 15h4V5L8 1 6 5z' fill='%23ffd166'/%3E%3Ccircle cx='12' cy='4' r='2' fill='%235ff0c8'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<canvas id="view" aria-label="Arena da Xenospire"></canvas>
+<div id="ui"></div>
+<noscript><p class="noscript">Xenospire precisa de JavaScript para funcionar.</p></noscript>
+<!-- Pure logic (also loaded by the Node tests, see tests/load.js) -->
+<script src="js/core/rng.js"></script>
+<script src="js/core/math.js"></script>
+<script src="js/core/events.js"></script>
+<script src="js/core/store.js"></script>
+<script src="js/core/strings.js"></script>
+<script src="js/gen/palette.js"></script>
+<script src="js/gen/lore.js"></script>
+<script src="js/gen/creature.js"></script>
+<script src="js/gen/power.js"></script>
+<script src="js/gen/arena.js"></script>
+<script src="js/world/voxels.js"></script>
+<script src="js/anim/rig.js"></script>
+<script src="js/game/status.js"></script>
+<script src="js/game/fighter.js"></script>
+<script src="js/game/powers.js"></script>
+<script src="js/game/ai.js"></script>
+<script src="js/game/battle.js"></script>
+<script src="js/game/run.js"></script>
+<!-- Rendering, input, audio and interface -->
+<script src="js/render/screen.js"></script>
+<script src="js/render/iso.js"></script>
+<script src="js/render/background.js"></script>
+<script src="js/render/creature-draw.js"></script>
+<script src="js/render/icons.js"></script>
+<script src="js/render/fx.js"></script>
+<script src="js/render/scene.js"></script>
+<script src="js/io/input.js"></script>
+<script src="js/io/audio.js"></script>
+<script src="js/ui/settings.js"></script>
+<script src="js/ui/cards.js"></script>
+<script src="js/ui/hud.js"></script>
+<script src="js/ui/screens.js"></script>
+<script src="js/main.js"></script>
+</body>
+</html>

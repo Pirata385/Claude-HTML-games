@@ -82,10 +82,11 @@
         amt -= absorbed;
       }
       amt = Math.max(0, amt);
+      const dealt = Math.min(amt, Math.max(0, target.hp)); // overkill doesn't count
       target.hp -= amt;
-      target.stats.taken += amt;
+      target.stats.taken += dealt;
       if (src && src !== target) {
-        src.stats.dmg += amt;
+        src.stats.dmg += dealt;
         target.lastHitBy = src;
         target.lastHitT = this.time;
       }

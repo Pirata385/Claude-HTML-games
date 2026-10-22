@@ -13,7 +13,7 @@ test('genomes are valid, varied and deterministic', () => {
     assert.ok(g.bio.world && g.epithet);
     const st = g.stats;
     for (const k of ['maxHp', 'speed', 'mass', 'radius', 'height']) assert.ok(Number.isFinite(st[k]) && st[k] > 0, k);
-    assert.ok(st.maxHp >= 120 && st.maxHp <= 240, `hp ${st.maxHp}`);
+    assert.ok(st.maxHp >= 180 && st.maxHp <= 380, `hp ${st.maxHp}`);
     assert.ok(st.speed >= 4.5 && st.speed <= 8.5, `speed ${st.speed}`);
     assert.ok(XS.Creature.TRAITS[g.trait] && XS.Creature.BASICS[g.basic] && XS.Creature.DODGES[g.dodge]);
     assert.equal(g.spine.radii.length, g.spine.n);

@@ -6,6 +6,7 @@
   // Tunables shared with balance (see tests/sim.test.js).
   const HP_BASE = 260;
   const SPEED_BASE = 6.2;
+  const BODY_SCALE = 1.3; // world size of beings relative to voxels
 
   const ARCHETYPES = {
     biped: { w: 3, legPairs: [1, 1], armPairs: [1, 1], posture: [0.72, 0.92], spine: [2, 3], tail: 0.5, wings: 0.12, knee: 'fwd', legLen: [2.2, 3.0], hp: 1, speed: 1 },
@@ -115,7 +116,7 @@
     const rng = new XS.RNG(XS.hash(seed, 'being'));
     const archetype = opts.archetype || rng.weighted(Object.keys(ARCHETYPES).map((k) => ({ k, w: ARCHETYPES[k].w }))).k;
     const A = ARCHETYPES[archetype];
-    const size = (opts.size || 1) * rng.range(0.88, 1.22);
+    const size = (opts.size || 1) * rng.range(0.88, 1.22) * BODY_SCALE;
 
     // Spine (index 0 = chest / front).
     const n = rng.int(A.spine[0], A.spine[1]);
@@ -173,7 +174,7 @@
     // ---- derived gameplay stats ----
     let volume = head.r ** 3;
     for (const r of radii) volume += r ** 3;
-    const volNorm = XS.clamp((volume - 0.9) / 7.5, 0, 1);
+    const volNorm = XS.clamp((volume / BODY_SCALE ** 3 - 0.9) / 7.5, 0, 1);
     let trait;
     if (wings) trait = 'planar';
     else if (archetype === 'floater') trait = 'levitante';
@@ -196,8 +197,8 @@
       maxHp: Math.round(HP_BASE * XS.lerp(0.85, 1.22, volNorm) * A.hp),
       speed: SPEED_BASE * XS.lerp(1.1, 0.9, volNorm) * A.speed * (trait === 'corredor' ? 1.08 : 1),
       mass: XS.lerp(0.78, 1.35, volNorm),
-      radius: XS.clamp(maxR * (trait === 'esguio' ? 0.95 : 1.15), 0.7, 1.7),
-      height: XS.clamp(bodyHeight, 2, 7),
+      radius: XS.clamp(maxR * (trait === 'esguio' ? 0.95 : 1.15), 0.9, 2.2),
+      height: XS.clamp(bodyHeight, 2.5, 9),
       knockTaken: trait === 'estavel' ? 0.7 : trait === 'elastico' ? 0.8 : 1,
       basicRate: trait === 'destro' ? 0.8 : 1,
     };
@@ -208,8 +209,8 @@
     let epithet = rng.pick(EPITHETS);
     if (head.eyes >= 4 && rng.chance(0.6)) epithet = FEATURE_EPITHETS.eyes;
     else if (wings && rng.chance(0.4)) epithet = FEATURE_EPITHETS.wings;
-    else if (size > 1.15 && rng.chance(0.4)) epithet = FEATURE_EPITHETS.big;
-    else if (size < 0.92 && rng.chance(0.4)) epithet = FEATURE_EPITHETS.small;
+    else if (size > 1.15 * BODY_SCALE && rng.chance(0.4)) epithet = FEATURE_EPITHETS.big;
+    else if (size < 0.92 * BODY_SCALE && rng.chance(0.4)) epithet = FEATURE_EPITHETS.small;
     else if (tail && tail.segs >= 5 && rng.chance(0.3)) epithet = FEATURE_EPITHETS.tail;
     const bio = {
       world: worldName(rng),
@@ -218,7 +219,7 @@
       hates: rng.pick(HATES),
       motive: rng.pick(MOTIVES),
     };
-    const voice = { pitch: XS.clamp(1.25 - (size - 0.88) * 1.3 + rng.range(-0.15, 0.15), 0.5, 1.6), wave: rng.pick(['sine', 'triangle', 'square', 'sawtooth']), wobble: rng.range(2, 9) };
+    const voice = { pitch: XS.clamp(1.25 - (size / BODY_SCALE - 0.88) * 1.3 + rng.range(-0.15, 0.15), 0.5, 1.6), wave: rng.pick(['sine', 'triangle', 'square', 'sawtooth']), wobble: rng.range(2, 9) };
 
     return {
       seed: seed >>> 0, archetype, size, posture,

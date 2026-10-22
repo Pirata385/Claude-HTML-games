@@ -94,7 +94,7 @@
       fps: 'Limite de FPS', showFps: 'Mostrar FPS',
       difficulty: 'Dificuldade', difficultyOpts: ['Relaxado', 'Normal', 'Brutal'],
       aimAssist: 'Mira assistida', damageNumbers: 'Números de dano', shake: 'Tremor de tela', hitstop: 'Pausa de impacto',
-      fadeWalls: 'Desbotar obstáculos',
+      fadeWalls: 'Silhueta através de paredes',
       leftHanded: 'Modo canhoto', joystick: 'Joystick', joystickOpts: ['Flutuante', 'Fixo'],
       buttonSize: 'Tamanho dos botões', buttonOpacity: 'Opacidade dos botões', vibration: 'Vibração',
       reduceFlash: 'Reduzir flashes', reduceMotion: 'Reduzir movimento', elementSymbols: 'Símbolos de elemento', bigText: 'Texto maior',

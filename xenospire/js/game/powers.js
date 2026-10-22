@@ -316,7 +316,7 @@
     const pierces = def.form === 'boomerang' || def.form === 'sniper' || o.drill || has(def, 'pierce');
     for (const t of b.fighters) {
       if (!t.alive || t.team === f.team || o.hit.has(t.id)) continue;
-      if (Math.hypot(t.x - o.x, t.y - o.y) > o.r + t.radius) continue;
+      if (Math.hypot(t.x - o.x, t.y - o.y) > o.r + t.hitR) continue;
       if (o.z < t.z - 0.4 || o.z > t.z + t.height + 0.4) continue;
       o.hit.add(t.id);
       hitFighter(b, f, def, t, o.vx, o.vy, o.dmgMult, o);
@@ -376,7 +376,7 @@
     }
     for (const t of b.fighters) {
       if (!t.alive || t.team === f.team || o.hit.has(t.id)) continue;
-      if (Math.hypot(t.x - o.x, t.y - o.y) > o.r + t.radius || Math.abs(t.z - o.z) > 1.6) continue;
+      if (Math.hypot(t.x - o.x, t.y - o.y) > o.r + t.hitR || Math.abs(t.z - o.z) > 1.6) continue;
       o.hit.add(t.id);
       hitFighter(b, f, def, t, o.vx, o.vy, o.dmgMult, o);
       if (t.alive && t.grounded) { t.vz = Math.max(t.vz, 6); t.grounded = false; }
@@ -592,8 +592,8 @@
       for (const t of b.fighters) {
         if (!t.alive || t.team === f.team) continue;
         const px = t.x - o.sx, py = t.y - o.sy, along = px * ux + py * uy;
-        if (along < 0 || along > len + t.radius) continue;
-        if (Math.abs(px * uy - py * ux) > o.r + t.radius) continue;
+        if (along < 0 || along > len + t.hitR) continue;
+        if (Math.abs(px * uy - py * ux) > o.r + t.hitR) continue;
         if (o.sz < t.z - 0.5 || o.sz > t.z + t.height + 0.5) continue;
         hitFighter(b, f, def, t, ux, uy, o.ci.dmg, o.ticks > 1 ? { child: true } : null);
       }
@@ -627,7 +627,7 @@
       o.tick = def.duration / def.ticks;
       for (const t of b.fighters) {
         if (!t.alive || t.team === f.team) continue;
-        const dx = t.x - f.x, dy = t.y - f.y, d = Math.hypot(dx, dy) - t.radius;
+        const dx = t.x - f.x, dy = t.y - f.y, d = Math.hypot(dx, dy) - t.hitR;
         if (d > def.range || Math.abs(t.z - f.z) > 3) continue;
         if (Math.abs(XS.angleDiff(o.angle, Math.atan2(dy, dx))) > def.angle / 2 + 0.15) continue;
         if (b.world.raycast(f.x, f.y, chestZ(f), t.x, t.y, chestZ(f))) continue;
@@ -644,7 +644,7 @@
     const half = def.angle / 2 + 0.15;
     for (const t of b.fighters) {
       if (!t.alive || t.team === f.team) continue;
-      const dx = t.x - f.x, dy = t.y - f.y, d = Math.hypot(dx, dy) - t.radius;
+      const dx = t.x - f.x, dy = t.y - f.y, d = Math.hypot(dx, dy) - t.hitR;
       if (d > def.range || Math.abs(t.z - f.z) > 2.5) continue;
       if (Math.abs(XS.angleDiff(angle, Math.atan2(dy, dx))) > half) continue;
       b.damage(t, def.damage * ci.dmg, { src: f, def, kx: dx, ky: dy, kb: def.knock });
@@ -697,7 +697,7 @@
     }
     for (const t of b.fighters) {
       if (!t.alive || t.team === f.team || o.hit.has(t.id)) continue;
-      if (Math.hypot(t.x - o.x, t.y - o.y) > o.r + t.radius || Math.abs(t.z - o.z) > 2) continue;
+      if (Math.hypot(t.x - o.x, t.y - o.y) > o.r + t.hitR || Math.abs(t.z - o.z) > 2) continue;
       o.hit.add(t.id);
       hitFighter(b, f, def, t, ux, uy, o.ci.dmg, o);
       if (t.alive) { t.vz = Math.max(t.vz, 7); t.grounded = false; }
@@ -747,7 +747,7 @@
     }
     for (const t of b.fighters) {
       if (!t.alive || t.team === f.team || o.hit.has(t.id)) continue;
-      if (Math.hypot(t.x - px, t.y - py) > def.radius + t.radius || Math.abs(t.z - g) > 2.5) continue;
+      if (Math.hypot(t.x - px, t.y - py) > def.radius + t.hitR || Math.abs(t.z - g) > 2.5) continue;
       o.hit.add(t.id);
       const sx = -Math.sin(o.angle), sy = Math.cos(o.angle), s = Math.sign((t.x - px) * sx + (t.y - py) * sy) || 1;
       b.damage(t, def.damage * o.ci.dmg, { src: f, def, kx: sx * s + Math.cos(o.angle) * 0.4, ky: sy * s + Math.sin(o.angle) * 0.4, kb: def.knock });
@@ -785,12 +785,12 @@
     for (const t of b.fighters) {
       if (!t.alive || t.team === f.team) continue;
       const dx = o.x - t.x, dy = o.y - t.y, d = Math.hypot(dx, dy);
-      if (d > o.r * 1.7 + t.radius || Math.abs(t.z - o.z) > 3) continue;
+      if (d > o.r * 1.7 + t.hitR || Math.abs(t.z - o.z) > 3) continue;
       if (d > 0.5) {
         t.kx += ((dx / d) * 12 + (-dy / d) * 6) * dt;
         t.ky += ((dy / d) * 12 + (dx / d) * 6) * dt;
       }
-      if (o.tick <= 0 && d < o.r + t.radius) b.damage(t, def.damage * o.ci.dmg, { src: f, def, kx: -dy, ky: dx, kb: def.knock });
+      if (o.tick <= 0 && d < o.r + t.hitR) b.damage(t, def.damage * o.ci.dmg, { src: f, def, kx: -dy, ky: dx, kb: def.knock });
     }
     if (o.tick <= 0) {
       o.tick = XS.Power.FORMS.tornado.tick;
@@ -819,9 +819,9 @@
     for (const t of b.fighters) {
       if (!t.alive || t.team === f.team) continue;
       const dx = o.x - t.x, dy = o.y - t.y, d = Math.hypot(dx, dy);
-      if (d > reach + t.radius || Math.abs(t.z - o.ground) > 3) continue;
+      if (d > reach + t.hitR || Math.abs(t.z - o.ground) > 3) continue;
       if (d > 0.7) { const s = 22 * (1 - 0.5 * d / reach); t.kx += (dx / d) * s * dt; t.ky += (dy / d) * s * dt; }
-      if (o.tick <= 0 && d < o.r + t.radius) b.damage(t, def.damage * o.dm, { src: f, def, kx: dx, ky: dy, kb: 0 });
+      if (o.tick <= 0 && d < o.r + t.hitR) b.damage(t, def.damage * o.dm, { src: f, def, kx: dx, ky: dy, kb: 0 });
     }
     if (o.tick <= 0) o.tick = def.tick || XS.Power.FORMS.singularity.tick;
     if (o.nibble <= 0) {
@@ -872,7 +872,7 @@
     for (const t of b.fighters) {
       if (!t.alive || t.team === f.team) continue;
       const dx = o.x - t.x, dy = o.y - t.y, d = Math.hypot(dx, dy);
-      if (d > o.r + t.radius * 0.5 || Math.abs(t.z - o.z) > 2.5) continue;
+      if (d > o.r + t.hitR * 0.5 || Math.abs(t.z - o.z) > 2.5) continue;
       if (pulls && d > 0.3) { t.kx += (dx / d) * 14 * dt; t.ky += (dy / d) * 14 * dt; }
       if (o.tick <= 0) b.damage(t, def.damage * o.dmgMult, { src: f, def: o.tag === 'trail' ? Object.assign({}, def, { status: [] }) : def, kx: -dx, ky: -dy, kb: def.knock * 0.3 });
     }
@@ -913,7 +913,7 @@
     D.t -= dt;
     for (const t of b.fighters) {
       if (!t.alive || t.team === f.team || D.hit.has(t.id)) continue;
-      if (Math.hypot(t.x - f.x, t.y - f.y) > def.radius + t.radius || Math.abs(t.z - f.z) > 2.5) continue;
+      if (Math.hypot(t.x - f.x, t.y - f.y) > def.radius + t.hitR || Math.abs(t.z - f.z) > 2.5) continue;
       D.hit.add(t.id);
       hitFighter(b, f, def, t, D.vx, D.vy, dm);
     }
@@ -950,7 +950,7 @@
       o.orbs[i] = { x, y, z };
       for (const t of b.fighters) {
         if (!t.alive || t.team === f.team) continue;
-        if (Math.hypot(t.x - x, t.y - y) > def.radius + t.radius || z < t.z - 0.5 || z > t.z + t.height + 0.5) continue;
+        if (Math.hypot(t.x - x, t.y - y) > def.radius + t.hitR || z < t.z - 0.5 || z > t.z + t.height + 0.5) continue;
         const key = t.id * 10 + i;
         if (b.time - (o.last.get(key) || -9) < 0.6) continue;
         o.last.set(key, b.time);
@@ -1008,7 +1008,7 @@
     if (b.world.topAt(o.x, o.y) < o.z - 0.5) return false; // floor under it destroyed
     for (const t of b.fighters) {
       if (!t.alive || t.team === f.team) continue;
-      if (Math.hypot(t.x - o.x, t.y - o.y) > 1.3 + t.radius || Math.abs(t.z - o.z) > 2) continue;
+      if (Math.hypot(t.x - o.x, t.y - o.y) > 1.3 + t.hitR || Math.abs(t.z - o.z) > 2) continue;
       if (has(def, 'delay')) {
         o.fuse = 1.2;
         o.tele = b.telegraph({ x: o.x, y: o.y, z: o.z, r: def.radius * 1.2, dur: 1.2, ramp: def.ramp, team: f.team });
@@ -1035,7 +1035,7 @@
       if (top === -Infinity) continue;
       for (let h = 0; h < H; h++) b.world.setTemp(cx, cy, top + h, mat, def.duration + h * 0.15);
       for (const t of b.fighters) {
-        if (!t.alive || Math.hypot(t.x - (cx + 0.5), t.y - (cy + 0.5)) > t.radius + 0.8) continue;
+        if (!t.alive || Math.hypot(t.x - (cx + 0.5), t.y - (cy + 0.5)) > t.hitR + 0.8) continue;
         if (t.team === f.team) { t.z = top + H; continue; } // allies get lifted onto it
         if (hitIds.has(t.id)) continue;
         hitIds.add(t.id);
@@ -1086,7 +1086,7 @@
       for (const t of b.fighters) {
         if (!t.alive || t.team === f.team) continue;
         const dx = t.x - f.x, dy = t.y - f.y, d = Math.hypot(dx, dy);
-        if (d > def.radius + t.radius || Math.abs(t.z - f.z) > 3) continue;
+        if (d > def.radius + t.hitR || Math.abs(t.z - f.z) > 3) continue;
         b.damage(t, def.damage, { src: f, def, kx: dx, ky: dy, kb: e === 'sonic' ? def.knock * 2 : def.knock });
         if (e === 'gravity' && d > 0.5) { t.kx -= (dx / d) * 9; t.ky -= (dy / d) * 9; }
       }

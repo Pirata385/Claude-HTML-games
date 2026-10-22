@@ -226,7 +226,7 @@
     for (let y = 0; y < D; y++) for (let x = 0; x < W; x++) {
       if (top(x, y) !== BASE || Math.hypot(x + 0.5 - cx, y + 0.5 - cy) < 7) continue;
       const n = XS.noise2(x * hk, y * hk, hseed);
-      lv[x + y * W] = n > 0.62 ? 1 + (n > 0.7 ? 1 : 0) + (n > 0.78 ? 1 : 0) : 0;
+      lv[x + y * W] = n > 0.68 ? 1 + (n > 0.77 ? 1 : 0) : 0;
     }
     for (let pass = 0; pass < 3; pass++) {
       for (let y = 1; y < D - 1; y++) for (let x = 1; x < W - 1; x++) {
@@ -254,7 +254,7 @@
         const d = Math.hypot(x + 0.5 - cx, y + 0.5 - cy);
         if (Math.abs(d - R) > 0.6 || top(x, y) !== BASE) continue;
         const a = Math.atan2(y + 0.5 - cy, x + 0.5 - cx) - rot;
-        const gate = Math.abs(Math.sin(a * 2)) < 0.22; // four 3-wide openings
+        const gate = Math.abs(Math.sin(a * 2)) < 0.38; // four wide openings
         if (gate) continue;
         const h = 3 + ((x + y) % 2 === 0 ? 1 : 0); // crenellations
         for (let k = 0; k < h; k++) put(x, y, BASE + k, k === h - 1 ? M.accent : M.wall);
@@ -369,15 +369,15 @@
       },
     };
     const kinds = Object.keys(theme.props).map((k) => ({ k, w: theme.props[k] }));
-    // Sparse props: open lanes to fight in, and less to hide the action.
-    const target = Math.round(size * 0.38) + (opts.big ? 4 : 0);
+    // Few props, far apart: wide lanes to fight in and less to hide the action.
+    const target = Math.round(size * 0.13) + (opts.big ? 2 : 0);
     let tries = 0;
     while (placed.length < target && tries++ < 1200) {
       const x = rng.int(3, W - 4), y = rng.int(3, D - 4);
-      if (top(x, y) < BASE || !freeAt(x, y, 6)) continue;
+      if (top(x, y) < BASE || !freeAt(x, y, 9) || Math.hypot(x - cx, y - cy) < 11) continue;
       const kind = rng.weighted(kinds).k;
       const r = PROPS[kind](x, y);
-      placed.push({ x, y, r: r + 1.5, kind });
+      placed.push({ x, y, r: r + 7, kind });
     }
 
     world.refreshAll();

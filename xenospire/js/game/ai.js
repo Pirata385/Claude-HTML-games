@@ -40,9 +40,11 @@
       if (this.strafeT <= 0) { this.strafe = -this.strafe; this.strafeT = this.rng.range(1.2, 3.2); }
 
       if (this.decide <= 0) {
-        this.decide = XS.lerp(0.36, 0.12, Math.min(1, s)) * this.rng.range(0.8, 1.2);
+        this.decide = XS.lerp(0.5, 0.15, Math.min(1, s)) * this.rng.range(0.8, 1.2);
         this.target = this.pickTarget(b);
-        this.aimErr = this.rng.gauss(0, (1 - Math.min(1, s)) * 0.32);
+        this.aimErr = this.rng.gauss(0, (1.15 - Math.min(1, s)) * 0.45);
+        // Weaker beings hesitate: they don't swing at every chance.
+        this.swing = this.rng.chance(0.35 + 0.6 * Math.min(1, s));
         this.plan(b);
       }
       c.mx = this.move.x; c.my = this.move.y;
@@ -84,8 +86,8 @@
         }
       } else if (f.dodge.cd <= 0) {
         const threat = this.findThreat(b);
-        if (threat && this.rng.chance(Math.min(0.92, s * 0.8 * this.p.dodge))) {
-          this.pendingDodge = { t: XS.lerp(0.32, 0.06, Math.min(1, s)), x: threat.x, y: threat.y };
+        if (threat && this.rng.chance(Math.min(0.85, s * 0.55 * this.p.dodge))) {
+          this.pendingDodge = { t: XS.lerp(0.5, 0.12, Math.min(1, s)), x: threat.x, y: threat.y };
         }
       }
 
@@ -94,14 +96,14 @@
         const choice = this.choosePower(b, t, dist);
         if (choice) {
           c.cast = choice.slot; c.castAngle = choice.angle; c.castDist = choice.dist; c.castCharge = choice.charge;
-          this.castGap = XS.lerp(1.5, 0.35, Math.min(1, s)) / this.p.cast * this.rng.range(0.7, 1.3);
+          this.castGap = XS.lerp(2.6, 0.7, Math.min(1, s)) / this.p.cast * this.rng.range(0.7, 1.3);
         }
       }
       // ---- basic attack ----
       const B = f.basic.def;
       const facing = Math.abs(XS.angleDiff(f.facing, Math.atan2(dy, dx))) < 1.2;
-      if (B.kind === 'spit') c.attack = dist < B.range * 0.9 && this.los(b, t) && this.rng.chance(0.5 + s * 0.4);
-      else c.attack = dist - t.radius < B.range + 0.3 && (facing || B.kind === 'spin');
+      if (B.kind === 'spit') c.attack = this.swing && dist < B.range * 0.9 && this.los(b, t) && this.rng.chance(0.3 + s * 0.5);
+      else c.attack = this.swing && dist - t.radius < B.range + 0.3 && (facing || B.kind === 'spin');
     }
 
     groundAhead(b, dx, dy, dist) {

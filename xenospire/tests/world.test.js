@@ -179,3 +179,18 @@ test('arena generation is deterministic', () => {
   assert.deepEqual(Array.from(a.world.mat), Array.from(b.world.mat));
   assert.deepEqual(a.spawns, b.spawns);
 });
+
+test('arenas leave wide open lanes', () => {
+  for (let seed = 1; seed <= 12; seed++) {
+    const a = XS.Arena.generate(seed * 104729, 1 + seed);
+    const w = a.world, B = XS.Arena.BASE;
+    let floor = 0, blocked = 0;
+    for (let y = 0; y < w.D; y++) for (let x = 0; x < w.W; x++) {
+      const t = w.colTop[x + y * w.W];
+      if (!t) continue;
+      floor++;
+      if (t > B + 2) blocked++; // walls and props (hills are walkable steps)
+    }
+    assert.ok(blocked / floor < 0.06, `${a.theme.id}: ${(100 * blocked / floor).toFixed(1)}% blocked`);
+  }
+});

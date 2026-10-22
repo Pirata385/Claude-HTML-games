@@ -5,6 +5,9 @@
 
   const { hexToRgb, mix, darken, lighten } = XS.color;
 
+  const SKY_CACHE = new Map();
+  const TOWER_CACHE = new Map();
+
   class Background {
     constructor(theme, seed) {
       this.theme = theme;
@@ -18,7 +21,16 @@
     resize(W, H) {
       if (this.sky && this.W === W && this.H === H) return;
       this.W = W; this.H = H;
-      this.sky = this.buildSky(W + this.pad * 2, H + this.pad * 2);
+      // Skies are cached per theme and size: new scenes (menus, floors) reuse them.
+      const key = this.theme.id + ':' + this.seed + ':' + W + 'x' + H;
+      let hit = SKY_CACHE.get(key);
+      if (!hit) {
+        hit = { sky: this.buildSky(W + this.pad * 2, H + this.pad * 2), twinkles: this.twinkles };
+        SKY_CACHE.set(key, hit);
+        if (SKY_CACHE.size > 4) SKY_CACHE.delete(SKY_CACHE.keys().next().value);
+      }
+      this.sky = hit.sky;
+      this.twinkles = hit.twinkles;
     }
 
     buildSky(W, H) {
@@ -137,10 +149,17 @@
       const t = this.theme;
       const R = arena.size * 0.34;
       const hw = Math.ceil(R * XS.ISO.HX * Math.SQRT2), ry = Math.ceil(R * XS.ISO.HY * Math.SQRT2);
+      const key = t.id + ':' + (this.seed & 1023) + ':' + hw;
+      const cached = TOWER_CACHE.get(key);
+      if (cached) { this.tower = { cv: cached, hw, ry, cx: arena.center.x, cy: arena.center.y }; return; }
       const Hh = 300 * XS.ISO.S;
       const W = hw * 2 + 1;
       const cv = XS.gfx.makeCanvas(W, Hh + ry), g = cv.getContext('2d');
+      const img = g.createImageData(W, Hh + ry), px = img.data;
+      const C = {};
+      const rgbOf = (c) => C[c] || (C[c] = hexToRgb(c));
       const [dark, mid, win] = t.tower;
+      const ringA = lighten(mid, 0.18), ringB = darken(dark, 0.3);
       for (let y = 0; y < Hh + ry; y++) {
         for (let x = 0; x < W; x++) {
           const u = (x - hw) / hw;
@@ -153,15 +172,18 @@
           const light = -u * 0.7 + 0.3;
           let col = light + XS.gfx.bayer(x + 1, y) * 0.5 > 0.55 ? mid : dark;
           const ringRow = Math.floor(yy) % (34 * XS.ISO.S);
-          if (ringRow === 0) col = lighten(mid, 0.18);
-          else if (ringRow === 1) col = darken(dark, 0.3);
+          if (ringRow === 0) col = ringA;
+          else if (ringRow === 1) col = ringB;
           else if (Math.abs(u) < 0.86 && ringRow > 8 && ringRow < 34 * XS.ISO.S - 8 && Math.floor(yy) % 7 < 2 && Math.round(x) % 6 < 2) {
-            if (XS.hash3f(Math.floor(x / 6), Math.floor(yy / 7), this.seed & 1023) > 0.45) col = fade < 0.5 ? win : mix(win, dark, fade);
+            if (XS.hash3f(Math.floor(x / 6), Math.floor(yy / 7), this.seed & 1023) > 0.45) col = fade < 0.5 ? win : mix(win, dark, Math.round(fade * 20) / 20);
           }
-          g.fillStyle = col;
-          g.fillRect(x, y, 1, 1);
+          const c = rgbOf(col), o = (y * W + x) * 4;
+          px[o] = c[0]; px[o + 1] = c[1]; px[o + 2] = c[2]; px[o + 3] = 255;
         }
       }
+      g.putImageData(img, 0, 0);
+      TOWER_CACHE.set(key, cv);
+      if (TOWER_CACHE.size > 3) TOWER_CACHE.delete(TOWER_CACHE.keys().next().value);
       this.tower = { cv, hw, ry, cx: arena.center.x, cy: arena.center.y };
     }
 

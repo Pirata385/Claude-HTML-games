@@ -7,8 +7,9 @@
 
   const gfx = XS.gfx;
   const S = XS.ISO.S;
-  const DEBRIS_CAP = [140, 320, 600];
-  const PART_CAP = [260, 650, 1300];
+  const DEBRIS_CAP = [70, 160, 320];
+  const PART_CAP = [200, 420, 900];
+  const DEBRIS_PER_FRAME = [6, 14, 28]; // a blast breaking 100 voxels still throws only a handful
   const FALLBACK = ['#5a1a08', '#e0601a', '#ffb040', '#fff0b0'];
 
   class FX {
@@ -30,6 +31,7 @@
       this.cubeCache = new Map();
       this.rng = new XS.RNG(XS.hash(77, 'fx'));
       this.unsub = [];
+      this.debrisBudget = DEBRIS_PER_FRAME[this.quality];
       this.unsub.push(world.events.on('break', (e) => this.debris(e, false)));
       this.unsub.push(world.events.on('fall', (e) => this.debris(e, true)));
       this.unsub.push(world.events.on('chunk', (e) => { this.smoke(e.x, e.y, e.z, Math.min(6, 1 + e.n / 8), '#b8b0a0'); this.shake(Math.min(0.25, 0.05 + e.n / 200)); }));
@@ -118,6 +120,8 @@
     debris(e, falling) {
       const d = e.def;
       if (!d) return;
+      if (this.debrisBudget <= 0) return;
+      this.debrisBudget--;
       let live = 0;
       for (const p of this.parts) if (p.kind === 'cube') live++;
       if (live > DEBRIS_CAP[this.quality]) return;
@@ -387,6 +391,7 @@
     // ---------------------------------------------------------- update
     update(dt) {
       const w = this.world;
+      this.debrisBudget = DEBRIS_PER_FRAME[this.quality];
       for (const p of this.parts) {
         p.age += dt;
         p.vz -= p.grav * dt;
@@ -444,8 +449,8 @@
           const px = Math.round(XS.isoX(p.px, p.py) + ox), py = Math.round(XS.isoY(p.px, p.py, p.pz) + oy);
           // Stretch the streak so fast sparks read as motion.
           const ex = sx + (sx - px), ey = sy + (sy - py);
-          gfx.line(ctx, px, py, ex, ey, p.color);
-          if (p.glow && this.quality) gfx.glow(ctx, sx, sy, 4 * S, p.color, 0.6 * k);
+          gfx.streak(ctx, px, py, ex, ey, p.color, S * 0.75);
+          if (p.glow && this.quality === 2) gfx.glow(ctx, sx, sy, 4 * S, p.color, 0.6 * k);
           break;
         }
         case 'ember': {
@@ -472,7 +477,7 @@
           break;
         }
         case 'smoke': {
-          const r = p.size * (1 + (1 - k)), a = k * 0.6;
+          const r = Math.round(p.size * (1 + (1 - k))), a = k * 0.6;
           gfx.ellipse(ctx, sx, sy, r, r, gfx.ditherPattern(ctx, p.color, a));
           break;
         }
@@ -529,8 +534,15 @@
         if (r.glow && this.quality) gfx.glow(ctx, sx, sy, rr * XS.ELX * 1.2, r.color, 0.35 * fade, 0.5);
         const prev = ctx.globalAlpha;
         ctx.globalAlpha = prev * Math.min(1, fade * 1.6);
+        // Expanding rings change size every frame: stroke them as paths.
         const wd = Math.max(1, Math.round(r.width * S * fade));
-        for (let i = 0; i < wd; i++) gfx.ellipseRing(ctx, sx, sy, rr * XS.ELX - i, rr * XS.ELY - i * 0.5, i === 0 ? '#ffffff' : r.color);
+        const rx = rr * XS.ELX, ry = rr * XS.ELY;
+        if (wd > 1 && rx > wd) {
+          ctx.strokeStyle = r.color; ctx.lineWidth = wd - 1;
+          ctx.beginPath(); ctx.ellipse(Math.round(sx), Math.round(sy), rx - wd / 2, Math.max(0.5, ry - wd / 4), 0, 0, Math.PI * 2); ctx.stroke();
+        }
+        ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 1;
+        ctx.beginPath(); ctx.ellipse(Math.round(sx) + 0.5, Math.round(sy) + 0.5, rx, ry, 0, 0, Math.PI * 2); ctx.stroke();
         ctx.globalAlpha = prev;
       }
       for (const b of this.bolts) {

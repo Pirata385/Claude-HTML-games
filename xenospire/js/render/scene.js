@@ -201,13 +201,15 @@
     // -------------------------------------------------------------- draw
     draw() {
       const ctx = this.screen.ctx, W = this.screen.W, H = this.screen.H;
+      this.frameNo = (this.frameNo || 0) + 1;
       const sh = this.fx.shakeOffset(this.time);
       const ox = Math.round(W / 2 - this.cam.x + sh.x), oy = Math.round(H / 2 - this.cam.y + sh.y);
       this.ox = ox; this.oy = oy;
       this.bg.draw(ctx, this.cam.x, this.cam.y, this.time, this.fx.quality);
       this.bg.drawTower(ctx, ox, oy);
+      const tv = this.terrain.view || (this.terrain.view = {});
+      tv.W = W; tv.H = H; tv.ox = ox; tv.oy = oy;
       this.terrain.update();
-      this.terrain.view = { W, H };
       this.terrain.drawFloor(ctx, ox, oy, W, H);
 
       const maxD = this.terrain.bands.length - 1;
@@ -335,8 +337,7 @@
         case 'lob': this.drawLob(ctx, o, ox, oy); break;
         case 'cv': {
           const { q, v } = o;
-          const spr = this.terrain.sprite(v.m, Math.floor(XS.hash3f(v.x, v.y, v.z) * 4), XS.clamp(Math.round(q.z), 0, 31), 0, XS.crackOf(v.hp), v.stain);
-          ctx.drawImage(spr, Math.round(XS.isoX(q.x, q.y) - XS.ISO.HX + ox), Math.round(XS.isoY(q.x, q.y, q.z + 1) + oy));
+          this.terrain.blit(ctx, v.m, Math.floor(XS.hash3f(v.x, v.y, v.z) * 4), XS.clamp(Math.round(q.z), 0, 31), 0, XS.crackOf(v.hp), v.stain, Math.round(XS.isoX(q.x, q.y) - XS.ISO.HX + ox), Math.round(XS.isoY(q.x, q.y, q.z + 1) + oy));
           break;
         }
         case 'bomb': {
@@ -354,7 +355,7 @@
           const R = o.def.ramp, sx = XS.isoX(o.x, o.y) + ox, sy = XS.isoY(o.x, o.y, o.z) + oy;
           const k = Math.min(1, (o.dur - o.t) / 0.25), r = (3 + 2 * Math.sin(this.time * 9)) * S * k + 2 * S;
           gfx.glow(ctx, sx, sy, o.r * XS.ELX * 0.9, R[1], 0.6, 0.6);
-          for (let i = 0; i < 3; i++) gfx.ellipseRing(ctx, sx, sy, (r * 2.2 + i * 3 * S), (r * 2.2 + i * 3 * S) * 0.35, i ? R[2] : R[3], 3, Math.floor(this.time * (14 - i * 4)));
+          for (let i = 0; i < 3; i++) gfx.ellipseRing(ctx, sx, sy, (r * 2.2 + i * 3 * S), (r * 2.2 + i * 3 * S) * 0.35, i ? R[2] : R[3], 3, Math.floor(this.time * (14 - i * 4)), false);
           gfx.disc(ctx, sx, sy, r + S, R[3]);
           gfx.disc(ctx, sx, sy, r, '#05020a');
           break;
@@ -425,7 +426,7 @@
         const h = i * 0.6, r = o.r * (0.25 + i * 0.14) * k;
         const wob = Math.sin(this.time * 6 + i * 0.9) * 0.3;
         const sy = XS.isoY(o.x, o.y, o.z + h) + oy;
-        gfx.ellipseRing(ctx, sx + wob * XS.ELX, sy, r * XS.ELX, r * XS.ELY, i % 2 ? R[2] : R[3], 3, Math.floor(this.time * 30 + i * 3));
+        gfx.ellipseRing(ctx, sx + wob * XS.ELX, sy, r * XS.ELX, r * XS.ELY, i % 2 ? R[2] : R[3], 3, Math.floor(this.time * 30 + i * 3), k >= 1);
       }
       gfx.glow(ctx, sx, XS.isoY(o.x, o.y, o.z + 1.5) + oy, 10 * S * k, R[3], 0.5);
     }
@@ -534,7 +535,7 @@
           gfx.disc(ctx, sx, sy, r, R[2]);
           for (let i = 1; i <= 2; i++) {
             const k = ((t * 3 + i * 0.5) % 1);
-            gfx.ellipseRing(ctx, sx + ux * r * i, sy + uy * r * i, r * (0.8 + k), r * (0.8 + k), R[3]);
+            gfx.ellipseRing(ctx, sx + ux * r * i, sy + uy * r * i, r * (0.8 + k), r * (0.8 + k), R[3], 0, 0, false);
           }
           break;
         case 'chrono': {
@@ -548,7 +549,7 @@
         case 'psi': {
           gfx.ball(ctx, sx, sy, r, R);
           const k = (t * 2.5) % 1;
-          gfx.ellipseRing(ctx, sx, sy, r * (1.2 + k), r * (1.2 + k), R[3]);
+          gfx.ellipseRing(ctx, sx, sy, r * (1.2 + k), r * (1.2 + k), R[3], 0, 0, false);
           break;
         }
         default:
@@ -571,7 +572,7 @@
       let alpha = 1;
       if (f.dodge.t > 0 && f.dodge.kind === 'fase') alpha = 0.3;
       else if (f.inv > 0 && f.inv < 1.6 && Math.floor(this.time * 14) % 2) alpha = 0.55;
-      XS.drawRig(ctx, f.rig, ox, oy, { flash: f.rig.flash > 0, tint, tintK, alpha });
+      this.drawPose(ctx, f, ox, oy, f.rig.flash > 0, tint, tintK, alpha);
       const hx = XS.isoX(f.x, f.y) + ox, hy = XS.isoY(f.x, f.y, f.z + f.height) + oy;
       const my = XS.isoY(f.x, f.y, f.z + f.height * 0.5) + oy;
       if (s.shield > 0) {
@@ -585,6 +586,49 @@
           ctx.fillRect(Math.round(hx + Math.cos(a) * 6 * S), Math.round(hy - 3 * S + Math.sin(a) * 2 * S), S, S);
         }
       }
+    }
+
+    // Creatures are drawn into a per-fighter sprite that is refreshed every
+    // other frame (30 Hz animation) and blitted at the current spot every frame:
+    // half the sprite work, no visible difference while moving.
+    drawPose(ctx, f, ox, oy, flash, tint, tintK, alpha) {
+      const rig = f.rig, pc = f._pose || (f._pose = { cv: null, g: null, w: 0, h: 0 });
+      const ax = XS.isoX(f.x, f.y) + ox, ay = XS.isoY(f.x, f.y, f.z) + oy;
+      const look = (flash ? 1 : 0) + '|' + tint + '|' + (tint ? tintK.toFixed(2) : '');
+      if (!pc.cv || pc.look !== look || (this.frameNo + f.id) % 2 === 0 || this.fx.quality === 2) {
+        // Screen bounds of the rig around its anchor.
+        let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+        for (let i = 0; i < rig.primCount; i++) {
+          const p = rig.prims[i], r = (p.r || 0.3) * XS.PXU + 3;
+          const sx = XS.isoX(p.x, p.y), sy = XS.isoY(p.x, p.y, p.z);
+          if (sx - r < x0) x0 = sx - r; if (sx + r > x1) x1 = sx + r;
+          if (sy - r < y0) y0 = sy - r; if (sy + r > y1) y1 = sy + r;
+          if (p.k === 1) for (const [qx, qy, qz] of [[p.x1, p.y1, p.z1], [p.x2, p.y2, p.z2]]) {
+            const tx = XS.isoX(qx, qy), ty = XS.isoY(qx, qy, qz);
+            if (tx - r < x0) x0 = tx - r; if (tx + r > x1) x1 = tx + r;
+            if (ty - r < y0) y0 = ty - r; if (ty + r > y1) y1 = ty + r;
+          }
+          if (p.k === 3) for (const q of p.pts) {
+            const tx = XS.isoX(q.x, q.y), ty = XS.isoY(q.x, q.y, q.z);
+            if (tx < x0) x0 = tx; if (tx > x1) x1 = tx; if (ty < y0) y0 = ty; if (ty > y1) y1 = ty;
+          }
+        }
+        x0 = Math.floor(x0) - 2; y0 = Math.floor(y0) - 2;
+        const w = Math.ceil(x1) + 2 - x0, h = Math.ceil(y1) + 2 - y0;
+        if (!pc.cv || pc.cv.width < w || pc.cv.height < h) {
+          pc.cv = gfx.makeCanvas(Math.ceil(w * 1.25), Math.ceil(h * 1.25));
+          pc.g = pc.cv.getContext('2d');
+        }
+        pc.g.clearRect(0, 0, pc.cv.width, pc.cv.height);
+        XS.drawRig(pc.g, rig, -x0, -y0, { flash, tint, tintK });
+        // Offset of the sprite from the fighter's anchor at render time.
+        pc.dx = x0 - XS.isoX(f.x, f.y); pc.dy = y0 - XS.isoY(f.x, f.y, f.z);
+        pc.w = w; pc.h = h; pc.look = look;
+      }
+      const prev = ctx.globalAlpha;
+      if (alpha !== 1) ctx.globalAlpha = prev * alpha;
+      ctx.drawImage(pc.cv, 0, 0, pc.w, pc.h, Math.round(ax + pc.dx), Math.round(ay + pc.dy), pc.w, pc.h);
+      ctx.globalAlpha = prev;
     }
 
     // Is something solid in front of the fighter (between it and the camera)?
@@ -651,7 +695,7 @@
         const rx = t.r * XS.ELX, ry = t.r * XS.ELY;
         const threat = t.team !== pt;
         gfx.glow(ctx, sx, sy, rx * 1.2 * k + 2, threat ? '#ff3a3a' : t.ramp[2], 0.25 + 0.5 * k, 0.5);
-        gfx.ellipse(ctx, sx, sy, rx * k, ry * k, gfx.ditherPattern(ctx, threat ? '#ff5a5a' : t.ramp[2], 0.35));
+        gfx.ellipse(ctx, sx, sy, rx * k, ry * k, gfx.ditherPattern(ctx, threat ? '#ff5a5a' : t.ramp[2], 0.35), false);
         gfx.ellipseRing(ctx, sx, sy, rx, ry, threat && Math.floor(this.time * 10) % 2 ? '#ff4a4a' : t.ramp[3], 3, Math.floor(this.time * 12));
       }
       // Beams, falling strikes, nova and aura rings.
@@ -669,7 +713,7 @@
           gfx.glow(ctx, sx, sy, Math.max(0, 1 - o.t / 0.28) * 26 * S, o.def.ramp[3], 0.9);
         } else if (o.kind === 'lob' && !o.tele && o.payload !== 'mini' && !o.overVoid) {
           const sx = XS.isoX(o.tx, o.ty) + ox, sy = XS.isoY(o.tx, o.ty, o.tz) + oy, k = o.t / o.T;
-          gfx.ellipseRing(ctx, sx, sy, (0.5 + k * 0.5) * XS.ELX, (0.5 + k * 0.5) * XS.ELY, o.def.ramp[3], 2, Math.floor(this.time * 12));
+          gfx.ellipseRing(ctx, sx, sy, (0.5 + k * 0.5) * XS.ELX, (0.5 + k * 0.5) * XS.ELY, o.def.ramp[3], 2, Math.floor(this.time * 12), false);
         } else if (o.kind === 'meteor' && o.t < 0.6) {
           const R = o.def.ramp, k = o.t / 0.6;
           const gx = XS.isoX(o.x, o.y) + ox, gy = XS.isoY(o.x, o.y, o.z) + oy;

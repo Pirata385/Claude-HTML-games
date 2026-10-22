@@ -194,11 +194,15 @@
       if (!b) return;
       if (this.bannerT > 0 && (this.bannerT -= dt) <= 0) this.els.banner.classList.add('hidden');
       const p = b.player;
+      // DOM writes only when something visibly changed (style recalcs and
+      // conic-gradient repaints are costly on phones).
+      const set = (el, key, prop, val) => { if (el['_' + key] !== val) { el['_' + key] = val; el.style.setProperty(prop, val); } };
+      const text = (el, val) => { if (el._t !== val) { el._t = val; el.textContent = val; } };
       const k = Math.max(0, p.hp / p.maxHp);
-      this.els.hp.style.width = (k * 100).toFixed(1) + '%';
+      set(this.els.hp, 'w', 'width', (Math.round(k * 200) / 2) + '%');
       this.els.hp.classList.toggle('low', k < 0.3);
-      this.els.sh.style.width = Math.min(100, (p.st.shield / p.maxHp) * 100).toFixed(1) + '%';
-      this.els.hpText.textContent = Math.ceil(p.hp) + ' / ' + p.maxHp;
+      set(this.els.sh, 'w', 'width', Math.round(Math.min(100, (p.st.shield / p.maxHp) * 100)) + '%');
+      text(this.els.hpText, Math.ceil(p.hp) + ' / ' + p.maxHp);
       const chips = XS.Status.labels(p).join(',');
       if (chips !== this.lastChips) {
         this.lastChips = chips;
@@ -206,30 +210,32 @@
       }
       for (const fe of this.foeEls) {
         const kk = Math.max(0, fe.f.hp / fe.f.maxHp);
-        fe.hp.style.width = (kk * 100).toFixed(1) + '%';
-        fe.sh.style.width = Math.min(100, (fe.f.st.shield / fe.f.maxHp) * 100).toFixed(1) + '%';
+        set(fe.hp, 'w', 'width', (Math.round(kk * 200) / 2) + '%');
+        set(fe.sh, 'w', 'width', Math.round(Math.min(100, (fe.f.st.shield / fe.f.maxHp) * 100)) + '%');
         fe.row.classList.toggle('dead', !fe.f.alive);
         fe.row.classList.toggle('enraged', !!fe.f.enraged);
       }
       p.powers.forEach((slot, i) => {
         const frac = slot.def.cooldown ? slot.cd / slot.def.cooldown : 0;
         const ready = slot.cd <= 0;
+        const deg = (Math.round(frac * 90) * 4) + 'deg';
         for (const h of [this.els.powers[i], this.els.slots[i]]) {
-          h.style.setProperty('--p', (frac * 360).toFixed(0) + 'deg');
+          set(h, 'p', '--p', deg);
           h.classList.toggle('ready', ready);
           h.classList.toggle('aiming', !!(aiming && aiming.slot === i));
           h.classList.toggle('cancel', !!(aiming && aiming.slot === i && aiming.cancel));
         }
         const label = this.els.powers[i].querySelector('em');
-        label.textContent = ready ? '' : Math.ceil(slot.cd);
+        text(label, ready ? '' : String(Math.ceil(slot.cd)));
         if (ready && !this.wasReady[i]) { this.els.powers[i].classList.remove('flash'); void this.els.powers[i].offsetWidth; this.els.powers[i].classList.add('flash'); }
         this.wasReady[i] = ready;
       });
       const dk = p.dodge.cd / 1.5;
-      this.els.dodgeCd.style.setProperty('--p', (dk * 360).toFixed(0) + 'deg');
-      if (this.els.slotDodgeCd) this.els.slotDodgeCd.style.setProperty('--p', (dk * 360).toFixed(0) + 'deg');
+      const ddeg = (Math.round(dk * 90) * 4) + 'deg';
+      set(this.els.dodgeCd, 'p', '--p', ddeg);
+      if (this.els.slotDodgeCd) set(this.els.slotDodgeCd, 'p', '--p', ddeg);
       this.els.dodge.classList.toggle('ready', p.dodge.cd <= 0);
-      if (fps != null && this.settings.showFps) this.els.fps.textContent = fps + ' FPS';
+      if (fps != null && this.settings.showFps) text(this.els.fps, fps + ' FPS');
       this.drawMinimap(dt);
     }
   }

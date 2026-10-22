@@ -10,6 +10,22 @@
   };
   const midi = (n) => 440 * Math.pow(2, (n - 69) / 12);
 
+  // A signature layer per form on top of the element's tone.
+  const FORM_SFX = {
+    sniper: (a) => { a.noiseHit({ type: 'highpass', f0: 5200, f1: 2600, dur: 0.06, vol: 0.2 }); a.tone({ wave: 'square', f0: 2400, f1: 900, dur: 0.1, vol: 0.06, cutoff: 6000 }); },
+    shotgun: (a) => a.noiseHit({ f0: 3000, f1: 300, dur: 0.18, vol: 0.26 }),
+    grenade: (a) => a.tone({ wave: 'triangle', f0: 180, f1: 320, dur: 0.12, vol: 0.12 }),
+    mine: (a) => a.tone({ wave: 'triangle', f0: 200, f1: 360, dur: 0.1, vol: 0.1 }),
+    field: (a) => a.tone({ wave: 'triangle', f0: 220, f1: 380, dur: 0.12, vol: 0.1 }),
+    singularity: (a) => a.tone({ wave: 'sine', f0: 400, f1: 60, dur: 0.9, vol: 0.14, vib: 10 }),
+    meteor: (a) => a.tone({ wave: 'sine', f0: 2200, f1: 260, dur: 1.2, vol: 0.08, vib: 4 }),
+    quake: (a) => { a.noiseHit({ f0: 400, f1: 40, dur: 0.6, vol: 0.32 }); a.tone({ wave: 'sine', f0: 70, f1: 30, dur: 0.5, vol: 0.3 }); },
+    wave: (a) => a.noiseHit({ type: 'bandpass', f0: 300, f1: 2400, dur: 0.5, vol: 0.16, q: 1.2 }),
+    eruption: (a) => { for (let i = 0; i < 4; i++) a.noiseHit({ f0: 1400, f1: 200, dur: 0.07, vol: 0.12, when: a.ctx.currentTime + i * 0.07 }); },
+    tornado: (a) => a.noiseHit({ type: 'bandpass', f0: 500, f1: 1400, dur: 1.2, vol: 0.12, q: 3 }),
+    drill: (a) => a.tone({ wave: 'square', f0: 140, f1: 120, dur: 0.6, vol: 0.06, cutoff: 1200, vib: 40 }),
+  };
+
   class Sound {
     constructor(settings) {
       this.settings = settings;
@@ -120,6 +136,13 @@
           break;
         }
         case 'explosion': this.noiseHit({ f0: 1200, f1: 60, dur: 0.6, vol: 0.4 }); this.tone({ wave: 'sine', f0: 110, f1: 35, dur: 0.45, vol: 0.35 }); break;
+        case 'thud': {
+          const k = opts.size || 0.5;
+          this.noiseHit({ f0: 500 + 400 * (1 - k), f1: 50, dur: 0.25 + k * 0.4, vol: 0.18 + k * 0.25 });
+          this.tone({ wave: 'sine', f0: 90 - k * 30, f1: 30, dur: 0.3 + k * 0.3, vol: 0.2 + k * 0.2 });
+          break;
+        }
+        case 'crack': this.noiseHit({ type: 'highpass', f0: 3200 * r(), f1: 1200, dur: 0.12, vol: 0.12 }); break;
         case 'fall': this.tone({ wave: 'triangle', f0: 800, f1: 90, dur: 0.6, vol: 0.18 }); break;
         case 'ko': this.tone({ wave: 'sawtooth', f0: 400, f1: 50, dur: 0.7, vol: 0.2, cutoff: 1600 }); this.noiseHit({ f0: 2500, f1: 100, dur: 0.5, vol: 0.25 }); break;
         case 'freeze': this.tone({ wave: 'triangle', f0: 1800, f1: 2600, dur: 0.25, vol: 0.1, vib: 30 }); break;
@@ -128,6 +151,7 @@
         case 'victory': [0, 4, 7, 12].forEach((s, i) => this.tone({ wave: 'square', f0: midi(72 + s), dur: 0.22, vol: 0.09, cutoff: 3000, when: this.ctx.currentTime + i * 0.11 })); break;
         case 'defeat': [7, 3, 0, -5].forEach((s, i) => this.tone({ wave: 'triangle', f0: midi(62 + s), dur: 0.35, vol: 0.12, when: this.ctx.currentTime + i * 0.2 })); break;
         case 'loom': [0, 7, 12, 19, 24].forEach((s, i) => this.tone({ wave: 'sine', f0: midi(67 + s), dur: 0.5, vol: 0.05, when: this.ctx.currentTime + i * 0.07 })); break;
+        case 'combo': [0, 7, 12].forEach((k, i) => this.tone({ wave: 'triangle', f0: midi(84 + k), dur: 0.12, vol: 0.05, when: this.ctx.currentTime + i * 0.05 })); break;
         case 'portal': this.tone({ wave: 'sine', f0: 200, f1: 1200, dur: 0.5, vol: 0.12, vib: 8 }); break;
       }
     }
@@ -137,6 +161,8 @@
       const s = def.sfx;
       this.tone({ wave: s.wave, f0: s.f0, f1: s.f1, dur: s.dur, vol: 0.13, cutoff: s.cutoff, vib: s.vib > 6 ? s.vib : 0 });
       if (s.noise > 0.2) this.noiseHit({ f0: s.cutoff, f1: Math.max(80, s.cutoff * 0.3), dur: s.dur * 0.8, vol: 0.12 * s.noise });
+      const layer = FORM_SFX[def.form];
+      if (layer) layer(this, s);
     }
 
     // Creature grunts from the genome's voice.

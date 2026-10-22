@@ -36,6 +36,7 @@
     const saved = XS.Run.loadRun();
     if (saved) menu.appendChild(button(`${S.continue} <small>${XS.t('floor', { n: saved.floor })}</small>`, 'primary', () => app.continueRun()));
     menu.appendChild(button(S.newRun, saved ? '' : 'primary', () => app.newRun()));
+    menu.appendChild(button('🧪 ' + S.lab.menu, '', () => app.enterLab()));
     menu.appendChild(button(S.codex, '', () => app.openCodex()));
     menu.appendChild(button(S.settings, '', () => app.openSettings()));
     menu.appendChild(button(S.lore, 'ghost', () => app.go('intro', { replay: true })));
@@ -277,6 +278,19 @@
   function pause(app, inMenu) {
     const m = el('div', 'modal-card pause');
     m.appendChild(el('h3', '', S.pause));
+    if (app.mode !== 'run' && app.lab) {
+      m.appendChild(el('p', 'muted', 'Seus poderes'));
+      const list = el('div', 'pause-powers');
+      for (const def of app.lab.kit.map(XS.Lab.powerOf)) list.appendChild(powerCard(def, { compact: true }));
+      m.appendChild(list);
+      const row = el('div', 'row wrap');
+      row.appendChild(button(S.resume, 'primary', () => app.resume()));
+      row.appendChild(button(S.settings, '', () => app.openSettings(true)));
+      if (app.mode === 'labtest') row.appendChild(button(S.lab.back, '', () => { app.closeModal(); app.go('lab'); }));
+      row.appendChild(button(S.lab.leave, 'danger', () => { app.closeModal(); app.go('title'); }));
+      m.appendChild(row);
+      return m;
+    }
     if (app.run && app.run.powers.length) {
       m.appendChild(el('p', 'muted', 'Seus poderes'));
       const list = el('div', 'pause-powers');

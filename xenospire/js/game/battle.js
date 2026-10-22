@@ -12,6 +12,7 @@
       this.arena = spec.arena;
       this.world = spec.arena.world;
       this.floor = spec.floor || 1;
+      this.lab = !!spec.lab; // Test Room: no sudden death, never ends, dummies never die
       this.rng = new XS.RNG(XS.hash(spec.seed || 1, this.floor, 'battle'));
       this.events = new XS.Emitter();
       this.time = 0;
@@ -60,6 +61,12 @@
       return t;
     }
 
+    // Mark an element leaves on the voxels it hits (see Power.ELEMENTS[].stain).
+    stainOf(def) {
+      const e = def && def.elements && def.elements[0];
+      return e && XS.Power.ELEMENTS[e] ? XS.Power.ELEMENTS[e].stain || 0 : 0;
+    }
+
     // Temporary voxel material for a given element (walls, crystals).
     elementMat(el) {
       if (!this.elementMats[el]) {
@@ -75,7 +82,7 @@
       if (!target.alive) return 0;
       if (target.inv > 0 && !opts.dot && !opts.ignoreInv) return 0;
       const src = opts.src && opts.src.alive !== undefined ? opts.src : null;
-      let amt = amount * XS.Status.damageTakenMult(target) * (src ? src.dmgMult : 1) * (opts.mult || 1);
+      let amt = amount * XS.Status.damageTakenMult(target) * (src ? src.dmgMult * XS.Status.damageDealtMult(src) : 1) * (opts.mult || 1);
       if (target.st.shield > 0 && !opts.ignoreInv) {
         const absorbed = Math.min(target.st.shield, amt);
         target.st.shield -= absorbed;
@@ -95,7 +102,7 @@
       if (opts.kb && !opts.noKnock) {
         const l = Math.hypot(opts.kx || 0, opts.ky || 0) || 1;
         const stagger = def && def.status && def.status.includes('stagger') ? 1.8 : 1;
-        const k = (opts.kb * stagger * target.g.stats.knockTaken) / target.mass;
+        const k = (opts.kb * stagger * target.g.stats.knockTaken * (target.st.heavy > 0 ? 0.6 : 1)) / target.mass;
         target.kx += ((opts.kx || 0) / l) * k * 1.8;
         target.ky += ((opts.ky || 0) / l) * k * 1.8;
         if (k > 6 && target.grounded) { target.vz = Math.min(6, k * 0.35); target.grounded = false; }
@@ -111,6 +118,11 @@
       if (target.rig && amt > 0 && !opts.dot) target.rig.hurt(opts.kx || 0, opts.ky || 0);
       this.events.emit('hit', { target, amount: amt, src, def, dot: !!opts.dot, tag: opts.tag, x: target.x, y: target.y, z: target.z + target.height * 0.6 });
       if (amt >= 14 && !opts.dot) this.hitstop = Math.max(this.hitstop, Math.min(0.09, 0.03 + amt / 600));
+      if (target.dummy) {
+        // Training dummies log what they take (for the DPS meter) and never fall.
+        (target.dps || (target.dps = [])).push(this.time, dealt);
+        target.hp = target.maxHp;
+      }
       if (target.hp <= 0) this.ko(target, src || (this.time - target.lastHitT < 6 ? target.lastHitBy : null));
       // The Guardian's fury phase.
       if (target.guardian && !target.enraged && target.hp < target.maxHp * 0.5 && target.alive) {
@@ -169,7 +181,7 @@
         if (src && t.owner.team === src.team) continue;
         if (Math.hypot(t.x - x, t.y - y) < r + 0.5) t.hp -= dmg;
       }
-      if (opts.terrain !== 0) this.world.damageSphere(x, y, opts.terrainZ != null ? opts.terrainZ : z, opts.terrainR || r * 0.85, opts.terrain != null ? opts.terrain : (def ? def.terrain : 1) * 1.4, src);
+      if (opts.terrain !== 0) this.world.damageSphere(x, y, opts.terrainZ != null ? opts.terrainZ : z, opts.terrainR || r * 0.85, opts.terrain != null ? opts.terrain : (def ? def.terrain : 1) * 1.4, src, this.stainOf(def));
       this.events.emit('explosion', { x, y, z, r, ramp: def && def.ramp ? def.ramp : null, small: !!opts.small, el: def && def.elements ? def.elements[0] : null });
       return hit;
     }
@@ -197,6 +209,7 @@
         f.update(this, dt);
       }
       this.separate();
+      if (this.world.chunks.length) this.crush();
       for (let i = 0; i < this.objects.length; i++) {
         const o = this.objects[i];
         if (o.update(this, o, dt) === false) o.dead = true;
@@ -205,10 +218,10 @@
       for (const t of this.telegraphs) t.age += dt;
       this.telegraphs = this.telegraphs.filter((t) => t.age < t.dur);
 
-      if (this.time > SUDDEN_DEATH_AT) this.crumble(dt);
+      if (this.time > SUDDEN_DEATH_AT && !this.lab) this.crumble(dt);
 
       const teams = new Set(this.alive().map((f) => f.team));
-      if (!this.over && teams.size <= 1) {
+      if (!this.over && !this.lab && teams.size <= 1) {
         this.endT += dt;
         if (this.endT === dt) {
           this.winnerTeam = teams.size ? [...teams][0] : null;
@@ -237,22 +250,46 @@
       }
     }
 
+    // Falling chunks of terrain hurt whoever they land on (once per chunk).
+    crush() {
+      const w = this.world;
+      for (const c of w.chunks) {
+        if (c.mode === 'fall' ? c.vz > -5 : c.angV < 2) continue;
+        for (const f of this.fighters) {
+          if (!f.alive || c.hit.has(f.id)) continue;
+          for (const v of c.vox) {
+            const p = w.chunkVoxelPos(c, v);
+            if (p.z > f.z + f.height || p.z + 1 < f.z + 0.3) continue;
+            const dx = f.x - (p.x + 0.5), dy = f.y - (p.y + 0.5);
+            if (Math.hypot(dx, dy) > f.radius + 0.55) continue;
+            c.hit.add(f.id);
+            const src = c.source && c.source.alive !== undefined ? c.source : null;
+            this.damage(f, Math.min(32, 3 + c.n * 0.7), { src, kx: dx, ky: dy, kb: 5, tag: 'crush', ignoreInv: false });
+            this.events.emit('crush', { f, n: c.n });
+            break;
+          }
+        }
+      }
+    }
+
     // Sudden death: the floor erodes inward from the rim.
     crumble(dt) {
-      if (!this.suddenDeath) { this.suddenDeath = true; this.events.emit('suddenDeath', {}); }
+      const w = this.world, c = this.arena.center;
+      const maxR = Math.hypot(w.W, w.D) / 2;
+      // Bigger arenas crumble proportionally faster, starting at their rim.
+      const scale = (this.arena.size || w.W) / 47;
+      if (!this.suddenDeath) { this.suddenDeath = true; this.crumbleR = Math.max(0, maxR - w.W * 0.5); this.events.emit('suddenDeath', {}); }
       this.crumbleT -= dt;
       if (this.crumbleT > 0) return;
       this.crumbleT = 0.12;
-      const w = this.world, c = this.arena.center;
-      const maxR = Math.hypot(w.W, w.D) / 2;
-      this.crumbleR = Math.min(maxR, this.crumbleR + 0.05);
+      this.crumbleR = Math.min(maxR, this.crumbleR + 0.05 * scale);
       const edge = maxR - this.crumbleR;
-      for (let k = 0; k < 6; k++) {
+      for (let k = 0; k < Math.round(6 * scale); k++) {
         const a = this.rng.range(0, Math.PI * 2);
         for (let rr = maxR; rr >= Math.max(3, edge); rr -= 0.5) {
           const x = Math.floor(c.x + Math.cos(a) * rr), y = Math.floor(c.y + Math.sin(a) * rr);
           if (w.topAt(x, y) === -Infinity) continue;
-          w.damageSphere(x + 0.5, y + 0.5, w.topAt(x, y) - 1, 1.2, 40, null);
+          for (let z = w.topAt(x, y) - 1; z >= 0; z--) w.damageSphere(x + 0.5, y + 0.5, z + 0.5, 0.75, 99, null);
           break;
         }
       }

@@ -3,7 +3,7 @@
 (function (XS) {
   'use strict';
 
-  const VERSION = 1;
+  const VERSION = 2;
   const DIFFICULTY = [0.72, 1, 1.22];
 
   // Power specs are stored as { seed, floor, tier } and regenerated on demand.
@@ -57,6 +57,17 @@
     const theme = XS.Arena.THEMES[run.themeOrder[(floor - 1) % run.themeOrder.length]];
     const rng = new XS.RNG(XS.hash(run.seed, 'floor', floor));
     const nFoes = type === 'melee' ? (floor < 15 ? 2 : 3) : 1;
+    const opponents = makeOpponents(run.seed, floor, type, nFoes, difficulty);
+    const foe = opponents[0];
+    const line = XS.Lore.floorIntro(rng, type, {
+      n: floor, foe: foe.genome.name, world: foe.genome.bio.world, likes: foe.genome.bio.likes, motive: foe.genome.bio.motive, theme: theme.name,
+    });
+    return { floor, type, theme, arenaSeed: XS.hash(run.seed, 'arena', floor), opponents, line };
+  }
+
+  // Opponents for a floor: each one drafts its own kit from Loom offers.
+  function makeOpponents(seed, floor, type, nFoes, difficulty = 1) {
+    const run = { seed };
     const early = floor <= 2 ? 0.85 : 1;
     const opponents = [];
     for (let i = 0; i < nFoes; i++) {
@@ -84,11 +95,7 @@
         guardian: type === 'guardian',
       });
     }
-    const foe = opponents[0];
-    const line = XS.Lore.floorIntro(rng, type, {
-      n: floor, foe: foe.genome.name, world: foe.genome.bio.world, likes: foe.genome.bio.likes, motive: foe.genome.bio.motive, theme: theme.name,
-    });
-    return { floor, type, theme, arenaSeed: XS.hash(run.seed, 'arena', floor), opponents, line };
+    return opponents;
   }
 
   // Build the Battle for a floor.
@@ -180,7 +187,7 @@
   }
 
   XS.Run = {
-    newRun, arrivalOptions, draftOptions, loomOptions, floorPlan, floorType, stageBattle, recordVictory, favoritePower,
+    newRun, arrivalOptions, draftOptions, loomOptions, floorPlan, floorType, makeOpponents, stageBattle, recordVictory, favoritePower,
     powerOf, specOf, saveRun, loadRun, clearRun, meta, saveMeta, remember, endRun, DIFFICULTY,
   };
 })(globalThis.XS = globalThis.XS || {});

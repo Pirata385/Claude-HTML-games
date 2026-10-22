@@ -6,7 +6,7 @@
   const { el, esc } = XS.Cards;
   const STATUS_CHIPS = {
     freeze: ['❄', '#bff4ff', 'Congelado'], chill: ['❆', '#8fd8ff', 'Gelo'], stun: ['✦', '#ffe86a', 'Atordoado'], burn: ['♨', '#ff8a2a', 'Queimando'],
-    poison: ['☣', '#8be04a', 'Envenenado'], mark: ['◎', '#ff6ac0', 'Marcado'], timeslow: ['⌛', '#b8c0e0', 'Atrasado'], shield: ['⬡', '#e8fbff', 'Escudo'], haste: ['»', '#ffd166', 'Acelerado'],
+    poison: ['☣', '#8be04a', 'Envenenado'], mark: ['◎', '#ff6ac0', 'Marcado'], timeslow: ['⌛', '#b8c0e0', 'Atrasado'], shield: ['⬡', '#e8fbff', 'Escudo'], haste: ['»', '#ffd166', 'Acelerado'], root: ['⛓', '#ecd8b0', 'Enraizado'], blind: ['☀', '#ffe8ff', 'Ofuscado'],
   };
 
   class HUD {
@@ -20,10 +20,19 @@
           <button class="pause-btn" type="button" aria-label="${XS.S.pause}">❚❚</button>
         </div>
         <div class="hud-foes"></div>
+        <div class="lab-bar hidden">
+          <button type="button" class="btn small" data-a="tear">🧵 ${XS.S.lab.bar.tear}</button>
+          <button type="button" class="btn small" data-a="being">👾 ${XS.S.lab.bar.being}</button>
+          <button type="button" class="btn small" data-a="battle">⚔ ${XS.S.lab.bar.battle}</button>
+          <button type="button" class="btn small" data-a="options">⚙ ${XS.S.lab.bar.options}</button>
+        </div>
+        <button type="button" class="btn ctx-btn hidden"></button>
+        <canvas class="minimap" width="2" height="2" aria-hidden="true"></canvas>
         <div class="tip hidden"></div>
         <div class="banner hidden"><div class="b1"></div><div class="b2"></div></div>
         <div class="touch">
           <div class="joy-zone"><div class="joy-base"><div class="joy-knob"></div></div></div>
+          <div class="aim-pad hidden"><div class="aim-ring"></div><div class="aim-knob"></div><span class="aim-cancel">${XS.S.cancelAim}</span></div>
           <div class="btns">
             <button type="button" class="btn-pow" data-slot="0"><canvas width="16" height="16"></canvas><i class="cd"></i><em></em></button>
             <button type="button" class="btn-pow" data-slot="1"><canvas width="16" height="16"></canvas><i class="cd"></i><em></em></button>
@@ -45,10 +54,11 @@
       this.els = {
         meName: q('.me-name'), hp: q('.me .hp'), sh: q('.me .sh'), hpText: q('.me .hpbar span'), chips: q('.me .chips'),
         floor: q('.floor-label'), pause: q('.pause-btn'), foes: q(".hud-foes"), tip: q('.tip'), banner: q('.banner'),
-        touch: q('.touch'), joyZone: q('.joy-zone'), joyBase: q('.joy-base'), joyKnob: q('.joy-knob'),
+        touch: q('.touch'), aimPad: q('.aim-pad'), joyZone: q('.joy-zone'), joyBase: q('.joy-base'), joyKnob: q('.joy-knob'),
         attack: q('.btn-atk'), dodge: q('.btn-dodge'), dodgeCd: q('.btn-dodge .cd'),
         powers: [...this.root.querySelectorAll('.btn-pow')], slots: [...this.root.querySelectorAll('.slot[data-slot]')],
-        slotDodgeCd: q('.slot.mini:last-child .cd'), fps: q('.fps'),
+        slotDodgeCd: q('.slot.mini:last-child .cd'), fps: q('.fps'), minimap: q('.minimap'),
+        labBar: q('.lab-bar'), ctx: q('.ctx-btn'),
       };
       this.bannerT = 0;
       this.lastChips = '';
@@ -73,11 +83,16 @@
 
     show(battle, plan) {
       this.battle = battle;
+      this.plan = plan;
       this.root.classList.remove('hidden');
       const p = battle.player;
       this.els.meName.textContent = p.name;
       const type = plan.type === 'guardian' ? XS.t('guardian', { n: plan.floor }) : plan.type === 'melee' ? XS.S.melee : XS.S.duel;
-      this.els.floor.innerHTML = `${XS.t('floor', { n: plan.floor })}<small>${esc(type)}</small>`;
+      if (plan.type === 'lab') this.els.floor.innerHTML = `${esc(XS.S.lab.title)}<small>${esc(XS.Lab.THEME.name)}</small>`;
+      else this.els.floor.innerHTML = `${XS.t('floor', { n: plan.floor })}<small>${esc(plan.lab ? XS.S.lab.battle : type)}</small>`;
+      this.root.classList.toggle('lab', plan.type === 'lab');
+      this.els.labBar.classList.toggle('hidden', plan.type !== 'lab');
+      this.context(null);
       this.els.foes.innerHTML = '';
       this.foeEls = battle.fighters.filter((f) => !f.isPlayer).map((f) => {
         const row = el('div', 'foe', `<span>${esc(f.name)}</span><div class="hpbar"><b class="hp"></b><i class="sh"></i></div>`);
@@ -98,9 +113,63 @@
       this.els.powers.forEach((b, i) => b.classList.toggle('hidden', !p.powers[i]));
       this.els.slots.forEach((b, i) => b.classList.toggle('hidden', !p.powers[i]));
       this.wasReady = p.powers.map(() => false);
+      // Minimap in the camera's orientation: one pixel per column, a diamond.
+      const w = battle.world, cv = this.els.minimap;
+      cv.width = w.W + w.D; cv.height = Math.ceil((w.W + w.D) / 2) + 1;
+      this.mm = { ver: -1, t: 0, base: null };
     }
 
-    hide() { this.root.classList.add('hidden'); this.tip(null); }
+    drawMinimap(dt) {
+      const b = this.battle, w = b.world, mm = this.mm, cv = this.els.minimap;
+      if ((mm.t -= dt) > 0) return;
+      mm.t = 0.2;
+      if (!mm.base || (w.version !== mm.ver && (mm.rebuilt || 0) + 0.6 < b.time)) {
+        mm.ver = w.version; mm.rebuilt = b.time;
+        mm.base = mm.base || XS.gfx.makeCanvas(cv.width, cv.height);
+        const g = mm.base.getContext('2d'), img = g.createImageData(cv.width, cv.height), px = img.data;
+        const mats = b.arena.theme.mats, base = XS.Arena.BASE;
+        const rgb = (c) => [parseInt(c.slice(1, 3), 16), parseInt(c.slice(3, 5), 16), parseInt(c.slice(5, 7), 16)];
+        const floor = rgb(XS.color.darken(mats.floorA.color, 0.15)), high = rgb(XS.color.lighten(mats.wall.color, 0.15)), pit = rgb(XS.color.darken(mats.sub.color, 0.45));
+        for (let y = 0; y < w.D; y++) for (let x = 0; x < w.W; x++) {
+          const t = w.colTop[x + y * w.W];
+          if (!t) continue;
+          const c = t > base + 1 ? high : t < base ? pit : floor;
+          const i = ((x + y) >> 1) * cv.width + (x - y + w.D - 1);
+          px[i * 4] = c[0]; px[i * 4 + 1] = c[1]; px[i * 4 + 2] = c[2]; px[i * 4 + 3] = 235;
+        }
+        g.putImageData(img, 0, 0);
+      }
+      const g = cv.getContext('2d');
+      g.clearRect(0, 0, cv.width, cv.height);
+      g.drawImage(mm.base, 0, 0);
+      for (const f of b.fighters) {
+        if (!f.alive) continue;
+        const sx = Math.round(f.x - f.y + w.D - 1), sy = Math.round((f.x + f.y) / 2);
+        const s = f.isPlayer ? 5 : 4;
+        g.fillStyle = '#000'; g.fillRect(sx - s / 2 - 1, sy - s / 2 - 1, s + 2, s + 2);
+        g.fillStyle = f.isPlayer ? XS.TEAM_COLORS[0] : XS.TEAM_COLORS[1 + (f.team % 4)];
+        g.fillRect(sx - s / 2, sy - s / 2, s, s);
+      }
+    }
+
+    hide() { this.root.classList.add('hidden'); this.tip(null); this.context(null); }
+
+    // Lab bar actions: { tear, being, battle, options } -> functions.
+    bindLab(actions) {
+      this.els.labBar.querySelectorAll('button').forEach((b) => b.addEventListener('click', (e) => { e.stopPropagation(); actions[b.dataset.a](); }));
+      this.els.ctx.addEventListener('click', (e) => { e.stopPropagation(); if (this.ctxAction) this.ctxAction(); });
+    }
+
+    // Contextual prompt ("Usar o Tear"...). label null hides it.
+    context(label, action) {
+      this.ctxAction = action || null;
+      if (!label) { this.els.ctx.classList.add('hidden'); this.ctxLabel = null; return; }
+      if (label !== this.ctxLabel) { this.ctxLabel = label; this.els.ctx.textContent = label + (this.settings && XS.app && XS.app.input.mode !== 'touch' ? ' (F)' : ''); }
+      this.els.ctx.classList.remove('hidden');
+    }
+
+    // Refresh the power buttons after the kit changed mid-fight (Test Room).
+    refreshKit() { if (this.battle && this.plan) this.show(this.battle, this.plan); }
 
     banner(main, sub = '', ms = 1400) {
       const b = this.els.banner;
@@ -161,6 +230,7 @@
       if (this.els.slotDodgeCd) this.els.slotDodgeCd.style.setProperty('--p', (dk * 360).toFixed(0) + 'deg');
       this.els.dodge.classList.toggle('ready', p.dodge.cd <= 0);
       if (fps != null && this.settings.showFps) this.els.fps.textContent = fps + ' FPS';
+      this.drawMinimap(dt);
     }
   }
 

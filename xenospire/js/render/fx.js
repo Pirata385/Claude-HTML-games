@@ -32,6 +32,13 @@
       this.unsub = [];
       this.unsub.push(world.events.on('break', (e) => this.debris(e, false)));
       this.unsub.push(world.events.on('fall', (e) => this.debris(e, true)));
+      this.unsub.push(world.events.on('chunk', (e) => { this.smoke(e.x, e.y, e.z, Math.min(6, 1 + e.n / 8), '#b8b0a0'); this.shake(Math.min(0.25, 0.05 + e.n / 200)); }));
+      this.unsub.push(world.events.on('chunkLand', (e) => {
+        const k = Math.min(1, e.n / 60);
+        this.smoke(e.x, e.y, e.z, 3 + Math.round(k * 8), '#a89880', 1 + k);
+        this.ring(e.x, e.y, e.z + 0.1, 1.5 + k * 3.5, '#d8d0c0', 0.5, { r0: 0.5, width: 2, glow: false });
+        this.shake(0.12 + k * 0.5);
+      }));
     }
 
     dispose() { for (const u of this.unsub) u(); this.unsub = []; }
@@ -280,8 +287,8 @@
       on('respawn', (e) => { this.ring(e.f.x, e.f.y, e.f.z, 1.8, '#ffffff', 0.4); this.burst(e.f.x, e.f.y, e.f.z + 1, ['#888', '#fff', '#fff', '#fff'], 10, 4, { glow: true }); this.light(e.f.x, e.f.y, e.f.z, 2.5, '#ffffff', 0.4); });
       on('slam', (e) => { this.smoke(e.x, e.y, e.z, 4); this.star(e.x, e.y, e.z, 7 * S, '#ffffff'); this.shake(0.25); });
       on('status', (e) => {
-        const label = e.type === 'freeze' ? 'CONGELADO' : 'ATORDOADO';
-        this.text(e.f.x, e.f.y, e.f.z + e.f.height + 1, label, e.type === 'freeze' ? '#bff4ff' : '#ffe86a');
+        const label = e.type === 'freeze' ? 'CONGELADO' : e.type === 'root' ? 'ENRAIZADO' : 'ATORDOADO';
+        this.text(e.f.x, e.f.y, e.f.z + e.f.height + 1, label, e.type === 'freeze' ? '#bff4ff' : e.type === 'root' ? '#ecd8b0' : '#ffe86a');
         if (e.type === 'freeze') this.burst(e.f.x, e.f.y, e.f.z + e.f.height * 0.5, ['#ffffff', '#bff4ff', '#8fd8ff', '#ffffff'], 10, 5, { kind: 'shard', grav: 10 });
       });
       on('enrage', (e) => { this.text(e.f.x, e.f.y, e.f.z + e.f.height + 1.5, 'FÚRIA!', '#ff4040', true); this.shake(0.5); this.flashScreen(0.3, '#ff3030'); this.ring(e.f.x, e.f.y, e.f.z, 4, '#ff4040', 0.6, { width: 3 }); });
@@ -305,6 +312,45 @@
         this.burst(hx, hy, z, ramp, 8, 4, { kind: 'ember', glow: true, life: 0.7 });
         this.ring(f.x, f.y, f.z + 0.1, 1.6, ramp[2], 0.3, { r0: 0.4, width: 1 });
       });
+      on('combo', (e) => {
+        const ramp = e.ramp || e.def.ramp;
+        this.star(e.x, e.y, e.z + 1, 10 * S, '#ffffff');
+        this.ring(e.x, e.y, e.z + 0.1, 2.6, ramp[3], 0.45, { r0: 0.3, width: 2 });
+        this.light(e.x, e.y, e.z, 3.5, ramp[2], 0.4, 1);
+        this.burst(e.x, e.y, e.z + 0.8, ramp, 10, 6, { kind: 'ember', glow: true, lift: 2, life: 0.9 });
+      });
+      on('quake', (e) => {
+        const f = e.f, ramp = e.def.ramp, R = this.rng;
+        for (let k = 1; k <= 5; k++) {
+          const rr = f.radius + (e.range * k) / 5, aa = e.angle + R.range(-e.spread / 2, e.spread / 2);
+          const x = f.x + Math.cos(aa) * rr, y = f.y + Math.sin(aa) * rr;
+          this.smoke(x, y, f.z, 2, '#a89880', 1.2);
+          this.burst(x, y, f.z + 0.3, ['#3a2a1c', '#6a4a2a', '#b08a5a', ramp[3]], 5, 5, { kind: 'px', grav: 20, lift: 5, life: 1 });
+        }
+        this.ring(f.x + Math.cos(e.angle) * e.range * 0.5, f.y + Math.sin(e.angle) * e.range * 0.5, f.z + 0.1, e.range * 0.7, ramp[2], 0.4, { r0: 0.5, width: 3 });
+        this.shake(0.45, Math.cos(e.angle), Math.sin(e.angle));
+      });
+      on('spike', (e) => {
+        const ramp = e.def.ramp;
+        this.burst(e.x, e.y, e.z + 1, ramp, 5, 6, { kind: 'shard', grav: 18, lift: 6, life: 0.8 });
+        if (this.rng.chance(0.5)) this.smoke(e.x, e.y, e.z, 1, '#a89880');
+        this.light(e.x, e.y, e.z, 1.8, ramp[2], 0.25, 0.8);
+        this.shake(0.06);
+      });
+      on('land', (e) => {
+        this.smoke(e.x, e.y, e.z, e.small ? 1 : 2);
+        if (e.splash) this.ring(e.x, e.y, e.z + 0.1, e.splash, e.ramp[3], 0.4, { r0: 0.4, width: 2 });
+        else this.burst(e.x, e.y, e.z + 0.3, e.ramp, 4, 3, { glow: true });
+      });
+      on('meteor', (e) => {
+        this.shake(0.85);
+        this.flashScreen(0.18, e.def.ramp[3]);
+        this.ring(e.x, e.y, e.z, e.r * 1.6, '#ffffff', 0.7, { r0: e.r * 0.5, width: 3 });
+        this.smoke(e.x, e.y, e.z, 10, '#8a7a70', 1.6);
+        this.burst(e.x, e.y, e.z + 0.5, ['#2a1c10', '#6a4a2a', e.def.ramp[2], e.def.ramp[3]], 24, 12, { kind: 'px', grav: 20, lift: 6, life: 1.4 });
+      });
+      on('crush', (e) => this.text(e.f.x, e.f.y, e.f.z + e.f.height + 1, 'ESMAGADO!', '#ffd08a', e.n > 20));
+      on('drill', (e) => this.burst(e.x, e.y, e.z, ['#ffffff', e.ramp[3], e.ramp[2], '#ffe8a0'], 3, 7, { life: 0.4 }));
       on('echo', (e) => this.ring(e.f.x, e.f.y, e.f.z + 0.1, 2, e.def.ramp[3], 0.35, { r0: 0.3, width: 1 }));
       on('dodge', (e) => { this.smoke(e.f.x, e.f.y, e.f.z, 2, '#d8d0e8'); if (e.f.rig) this.ghost(e.f.rig, '#d8e8ff', 0.25); });
       on('pull', (e) => this.bolts.push({ pts: this.lightning({ x1: e.f.x, y1: e.f.y, z1: e.f.z + 1, x2: e.by.x, y2: e.by.y, z2: e.by.z + 1 }), color: '#ffffff', glow: '#c8c8ff', life: 0.25, age: 0 }));

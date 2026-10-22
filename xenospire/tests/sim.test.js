@@ -74,3 +74,25 @@ test('every power form can be cast in a live battle', () => {
   }
   void arena;
 });
+
+test('AIs find each other on the big arenas (nobody stays stuck)', () => {
+  for (let i = 0; i < 6; i++) {
+    const seed = 52000 + i * 13, floor = 3 + i * 4, n = 2 + (i % 3);
+    const arena = XS.Arena.generate(seed, floor, { fighters: n });
+    const fighters = [];
+    for (let k = 0; k < n; k++) fighters.push({ genome: XS.Creature.generate(XS.hash(seed, 'g', k)), powers: [0, 1, 2].map((j) => XS.Power.generate(XS.hash(seed, 'p', k, j), floor)), team: k });
+    const b = new XS.Battle({ arena, seed, floor, fighters });
+    for (const f of b.fighters) f.ai = new XS.AI(f, { skill: 0.6 });
+    const anchor = b.fighters.map((f) => ({ x: f.x, y: f.y, t: 0 }));
+    for (let s = 0; s < 60 * 90 && !b.over; s++) {
+      b.step(1 / 60);
+      if (s % 30) continue;
+      b.fighters.forEach((f, k) => {
+        if (!f.alive) return;
+        const far = b.enemiesOf(f).every((e) => Math.hypot(e.x - f.x, e.y - f.y) > 12);
+        if (!far || Math.hypot(f.x - anchor[k].x, f.y - anchor[k].y) > 1.5) { anchor[k] = { x: f.x, y: f.y, t: b.time }; return; }
+        assert.ok(b.time - anchor[k].t < 12, `fighter ${k} stuck at (${f.x.toFixed(1)}, ${f.y.toFixed(1)}) on seed ${seed}`);
+      });
+    }
+  }
+});

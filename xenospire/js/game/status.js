@@ -7,7 +7,8 @@
     return {
       burn: null, poison: null, chill: 0, chillT: 0, freeze: 0, stun: 0, mark: 0, timeslow: 0,
       haste: 0, armor: 0, lifesteal: 0, regen: 0, regenHps: 0, shield: 0, shieldT: 0,
-      immuneFreeze: 0, immuneStun: 0, dotAcc: 0, dotSrc: null, dotTick: 0,
+      root: 0, blind: 0, heavy: 0,
+      immuneFreeze: 0, immuneStun: 0, immuneRoot: 0, dotAcc: 0, dotSrc: null, dotTick: 0,
     };
   }
 
@@ -38,6 +39,10 @@
         if (s.immuneStun <= 0) { s.stun = 0.35; s.immuneStun = 1.6; battle.events.emit('status', { f: target, type: 'stun' }); }
         break;
       case 'mark': s.mark = 4; break;
+      case 'root':
+        if (s.immuneRoot <= 0) { s.root = 0.6; s.immuneRoot = 2; battle.events.emit('status', { f: target, type: 'root' }); }
+        break;
+      case 'blind': s.blind = 3; break;
       case 'timeslow': s.timeslow = 2; break;
       case 'drain':
         if (src && src.alive) battle.heal(src, power * 0.35);
@@ -69,7 +74,7 @@
     } else { s.dotAcc = 0; }
     if (s.regen > 0) { battle.heal(f, s.regenHps * dt, true); s.regen -= dt; }
     if (s.chillT > 0 && (s.chillT -= dt) <= 0) s.chill = 0;
-    for (const k of ['freeze', 'stun', 'mark', 'timeslow', 'haste', 'armor', 'lifesteal', 'immuneFreeze', 'immuneStun']) {
+    for (const k of ['freeze', 'stun', 'mark', 'timeslow', 'haste', 'armor', 'lifesteal', 'root', 'blind', 'heavy', 'immuneFreeze', 'immuneStun', 'immuneRoot']) {
       if (s[k] > 0) s[k] = Math.max(0, s[k] - dt);
     }
     if (s.shieldT > 0 && (s.shieldT -= dt) <= 0) s.shield = 0;
@@ -77,12 +82,13 @@
 
   const speedMult = (f) => {
     const s = f.st;
-    if (s.freeze > 0 || s.stun > 0) return 0;
+    if (s.freeze > 0 || s.stun > 0 || s.root > 0) return 0;
     return (1 - 0.13 * s.chill) * (s.timeslow > 0 ? 0.65 : 1) * (s.haste > 0 ? 1.3 : 1);
   };
   const cooldownRate = (f) => (f.st.timeslow > 0 ? 0.7 : 1) * (f.st.haste > 0 ? 1.3 : 1);
   const canAct = (f) => f.st.freeze <= 0 && f.st.stun <= 0;
   const damageTakenMult = (f) => (f.st.mark > 0 ? 1.25 : 1) * (f.st.armor > 0 ? 0.7 : 1);
+  const damageDealtMult = (f) => (f.st.blind > 0 ? 0.75 : 1);
 
   // Short labels shown over fighters (and used by the HUD).
   function labels(f) {
@@ -90,6 +96,8 @@
     if (s.freeze > 0) out.push('freeze');
     else if (s.chill > 0) out.push('chill');
     if (s.stun > 0) out.push('stun');
+    if (s.root > 0) out.push('root');
+    if (s.blind > 0) out.push('blind');
     if (s.burn) out.push('burn');
     if (s.poison) out.push('poison');
     if (s.mark > 0) out.push('mark');
@@ -99,5 +107,5 @@
     return out;
   }
 
-  XS.Status = { fresh, apply, update, speedMult, cooldownRate, canAct, damageTakenMult, labels };
+  XS.Status = { fresh, apply, update, speedMult, cooldownRate, canAct, damageTakenMult, damageDealtMult, labels };
 })(globalThis.XS = globalThis.XS || {});

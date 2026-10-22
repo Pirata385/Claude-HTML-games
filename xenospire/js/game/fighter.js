@@ -45,7 +45,7 @@
       this.aura = null;
       this.st = XS.Status.fresh();
       this.inv = 1;
-      this.ctrl = { mx: 0, my: 0, aim: this.facing, castAngle: null, castDist: 6, attack: false, cast: -1, dodge: false };
+      this.ctrl = { mx: 0, my: 0, aim: this.facing, castAngle: null, castDist: 6, castCharge: 0, attack: false, cast: -1, dodge: false };
       this.faceLock = 0;
       this.stats = { dmg: 0, taken: 0, kos: 0, falls: 0, voxels: 0, casts: [0, 0, 0, 0], basic: 0 };
       this.lastSafe = { x: o.x, y: o.y, z: o.z };
@@ -71,6 +71,7 @@
       this.dodge.cd = Math.max(0, this.dodge.cd - dt);
       this.inv = Math.max(0, this.inv - dt);
       this.faceLock = Math.max(0, this.faceLock - dt);
+      if (this.hopT > 0) this.hopT -= dt;
       if (this.aura) XS.Powers.updateAura(b, this, dt);
 
       const c = this.ctrl;
@@ -171,8 +172,16 @@
       }
     }
 
-    // Being knocked hard into a wall hurts and breaks it a little.
+    // Being knocked hard into a wall hurts and breaks it a little. Walking into
+    // a ledge up to two voxels high hops onto it (so craters never trap anyone).
     slam(b, hit, axis) {
+      if (this.grounded && !this.dash && !this.forced && this.dodge.t <= 0 && (this.hopT || 0) <= 0) {
+        const rise = b.world.groundAt(hit.cx + 0.5, hit.cy + 0.5, this.z + 2.6, 0) - this.z;
+        const moving = Math.hypot(this.ctrl.mx, this.ctrl.my) > 0.3;
+        if (moving && rise > 1.05 && rise <= 2.2 && !b.world.blockedSpan(hit.cx, hit.cy, this.z + rise, this.z + rise + 2)) {
+          this.vz = 12; this.grounded = false; this.hopT = 0.45;
+        }
+      }
       const k = axis === 'x' ? this.kx : this.ky;
       if (Math.abs(k) > 9 && !this.dash) {
         b.world.damageSphere(hit.cx + 0.5, hit.cy + 0.5, this.z + 1, 1.3, Math.abs(k) * 0.12, this.lastHitBy);
@@ -207,10 +216,11 @@
       this.faceLock = 0.35;
       p.cd = p.def.cooldown;
       this.stats.casts[slot]++;
-      XS.Powers.cast(b, this, p.def, { angle, dist: c.castDist });
+      XS.Powers.cast(b, this, p.def, { angle, dist: c.castDist, charge: c.castCharge || 0 });
       if (this.rig) this.rig.cast();
       b.events.emit('cast', { f: this, def: p.def, slot });
       c.castAngle = null;
+      c.castCharge = 0;
       return true;
     }
 

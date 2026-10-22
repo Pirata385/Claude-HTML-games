@@ -55,17 +55,86 @@ test('explosive voxels chain into blasts', () => {
   assert.ok(!w.solid(3, 3, 3));
 });
 
-test('unsupported clusters collapse', () => {
+const settle = (w, secs = 4) => { for (let t = 0; t < secs * 60 && (w.chunks.length || w.needsSupport); t++) w.update(1 / 60); };
+
+test('loose clusters come off as a rigid chunk and settle as rubble', () => {
   const { w, tile } = slab();
   for (let z = 3; z < 8; z++) w.set(5, 5, z, tile);
   w.set(6, 5, 7, tile); // overhang attached to the pillar top
+  w.update(0);
+  const chunks = [], lands = [];
+  w.events.on('chunk', (e) => chunks.push(e));
+  w.events.on('chunkLand', (e) => lands.push(e));
   w.set(5, 5, 4, 0);    // cut the pillar
-  let fell = 0;
-  w.events.on('fall', () => fell++);
-  w.checkSupport();
-  assert.equal(fell, 4); // z = 5, 6, 7 of the pillar + the overhang
-  assert.ok(w.solid(5, 5, 3));
-  assert.ok(!w.solid(5, 5, 6) && !w.solid(6, 5, 7));
+  w.update(1 / 60);
+  assert.equal(chunks.length, 1);
+  assert.equal(chunks[0].n, 4); // z = 5, 6, 7 of the pillar + the overhang
+  assert.ok(w.solid(5, 5, 3), 'the stump stays');
+  assert.ok(!w.solid(5, 5, 6) && !w.solid(6, 5, 7), 'cluster left the grid');
+  settle(w);
+  assert.equal(w.chunks.length, 0);
+  assert.equal(lands.length, 1);
+  assert.ok(lands[0].placed >= 1, 'some of it stays as rubble');
+  let rubble = 0;
+  for (let z = 3; z < 10; z++) for (let y = 0; y < 12; y++) for (let x = 0; x < 12; x++) {
+    const i = w.idx(x, y, z);
+    if (w.mat[i] && !(x === 5 && y === 5 && z === 3)) { rubble++; assert.ok(w.hp[i] <= 0.61, 'rubble is cracked'); }
+  }
+  assert.equal(rubble, lands[0].placed);
+});
+
+test('a tall pillar topples and ends up lying down', () => {
+  const { w, tile } = slab(16, 16, 14);
+  for (let z = 3; z < 10; z++) w.set(8, 8, z, tile);
+  w.update(0);
+  w.damageSphere(8.1, 8.5, 3.5, 0.7, 40); // knock out the base from the -x side
+  w.update(1 / 60);
+  assert.equal(w.chunks.length, 1);
+  assert.equal(w.chunks[0].mode, 'topple');
+  settle(w);
+  let maxZ = 0, n = 0;
+  for (let z = 3; z < 14; z++) for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) if (w.solid(x, y, z) && !(x === 8 && y === 8)) { maxZ = Math.max(maxZ, z); n++; }
+  assert.ok(n > 0, 'rubble landed');
+  assert.ok(maxZ <= 5, `lying down (top at z ${maxZ})`);
+});
+
+test('elements stain voxels even where nothing breaks', () => {
+  const { w } = slab();
+  w.damageSphere(6, 6, 3.2, 1.2, 0.2, null, 1);
+  let stained = 0;
+  for (let i = 0; i < w.stain.length; i++) if (w.stain[i] === 1) stained++;
+  assert.ok(stained > 0);
+  assert.equal(w.count(), 12 * 12 * 3);
+});
+
+test('cracks run through brittle materials', () => {
+  const { w } = slab();
+  const glass = w.addMaterial({ kind: 'glass', color: '#aaffff' });
+  for (let y = 2; y < 10; y++) for (let x = 2; x < 10; x++) w.set(x, y, 3, glass);
+  w.update(0);
+  const n = w.damageSphere(5.5, 5.5, 3.5, 0.6, 3);
+  assert.ok(n >= 1, `shattered ${n}`);
+  let cracked = 0;
+  for (let y = 2; y < 10; y++) for (let x = 2; x < 10; x++) { const i = w.idx(x, y, 3); if (w.mat[i] && w.hp[i] < 1) cracked++; }
+  assert.ok(cracked >= 2, 'the crack spread');
+});
+
+test('craters are ragged and plating shrugs off ordinary shots', () => {
+  const { w } = slab(20, 20, 8);
+  const plate2 = w.addMaterial({ kind: 'plating', color: '#333333' });
+  for (let y = 0; y < 20; y++) for (let x = 0; x < 20; x++) w.set(x, y, 0, plate2);
+  const shapes = new Set();
+  for (let k = 0; k < 3; k++) {
+    const c = slab(20, 20, 8).w;
+    c.salt = k * 1000;
+    c.damageSphere(10, 10, 3, 2.2, 8);
+    let sig = '';
+    for (let y = 7; y < 14; y++) for (let x = 7; x < 14; x++) sig += c.solid(x, y, 2) ? '1' : '0';
+    shapes.add(sig);
+  }
+  assert.ok(shapes.size > 1, 'craters differ');
+  w.damageSphere(10.5, 10.5, 0.6, 1.2, 4.8); // a bolt-sized hit
+  assert.ok(w.solid(10, 10, 0), 'plating holds');
 });
 
 test('temporary voxels expire', () => {

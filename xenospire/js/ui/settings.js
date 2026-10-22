@@ -4,7 +4,7 @@
 
   const DEFAULTS = {
     master: 0.8, music: 0.6, sfx: 0.8,
-    quality: 1, pixel: 1, fps: 60, showFps: false,
+    quality: 1, autoQuality: true, pixel: 1, fps: 60, showFps: false, fullscreen: false,
     difficulty: 1, aimAssist: true, damageNumbers: true, shake: 1, hitstop: true, xray: true,
     leftHanded: false, joystick: 0, buttonSize: 1, buttonOpacity: 0.85, vibration: true,
     reduceFlash: false, reduceMotion: false, elementCodes: false, bigText: false,
@@ -23,7 +23,7 @@
     const S = XS.S.set;
     return [
       [S.audio, [['master', 'range', S.master], ['music', 'range', S.music], ['sfx', 'range', S.sfx]]],
-      [S.video, [['quality', 'choice', S.quality, S.qualityOpts], ['pixel', 'choice', S.pixelScale, S.pixelOpts], ['fps', 'choice', S.fps, ['30', '60'], [30, 60]], ['showFps', 'toggle', S.showFps]]],
+      [S.video, [['fullscreen', 'toggle', S.fullscreen], ['quality', 'choice', S.quality, S.qualityOpts], ['autoQuality', 'toggle', S.autoQuality], ['pixel', 'choice', S.pixelScale, S.pixelOpts], ['fps', 'choice', S.fps, ['30', '60'], [30, 60]], ['showFps', 'toggle', S.showFps]]],
       [S.game, [['difficulty', 'choice', S.difficulty, S.difficultyOpts], ['aimAssist', 'toggle', S.aimAssist], ['damageNumbers', 'toggle', S.damageNumbers], ['shake', 'range', S.shake], ['hitstop', 'toggle', S.hitstop], ['xray', 'toggle', S.fadeWalls]]],
       [S.controls, [['leftHanded', 'toggle', S.leftHanded], ['joystick', 'choice', S.joystick, S.joystickOpts], ['buttonSize', 'range', S.buttonSize, null, [0.75, 1.35]], ['buttonOpacity', 'range', S.buttonOpacity, null, [0.3, 1]], ['vibration', 'toggle', S.vibration]]],
       [S.access, [['reduceFlash', 'toggle', S.reduceFlash], ['reduceMotion', 'toggle', S.reduceMotion], ['elementCodes', 'toggle', S.elementSymbols], ['bigText', 'toggle', S.bigText]]],

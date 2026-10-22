@@ -162,6 +162,7 @@
 
     // ---- generative music ----
     startMusic(theme, opts = {}) {
+      this.musicId = theme.id || 'menu';
       if (!this.ctx) { this.pendingMusic = { theme, opts }; return; }
       this.stopMusic();
       if (this.settings.music <= 0 || this.settings.master <= 0) return;

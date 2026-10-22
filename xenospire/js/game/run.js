@@ -78,7 +78,7 @@
       }
       opponents.push({
         genomeSeed: gseed, genome, powers: picks, drafts,
-        hpMult: (1 + 0.06 * (floor - 1)) * early * (type === 'guardian' ? 3 : type === 'melee' ? 0.8 : 1),
+        hpMult: (1 + 0.06 * (floor - 1)) * early * (type === 'guardian' ? 2.4 : type === 'melee' ? 0.8 : 1),
         sizeMult: 1, dmgMult: type === 'guardian' ? 1.1 : 1,
         skill: XS.clamp((0.3 + floor * 0.025) * (DIFFICULTY[difficulty] || 1), 0.15, 1.1),
         guardian: type === 'guardian',

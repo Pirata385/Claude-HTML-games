@@ -202,6 +202,7 @@
 
     reset() {
       this.keys.clear(); this.attackHeld = false; this.mouse.down = false; this.aiming = null; this.castQueue.length = 0;
+      this.edges.dodge = false; this.edges.pause = false;
       this.joy.x = this.joy.y = 0;
     }
   }

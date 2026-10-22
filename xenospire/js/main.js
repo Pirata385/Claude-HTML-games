@@ -5,6 +5,7 @@
   'use strict';
 
   const STEP = 1 / 60;
+  const MENU_MUSIC = { id: 'menu', music: { root: 57, mode: 'dorian', bpm: 76 } };
   const canvas = document.getElementById('view');
   const uiRoot = document.getElementById('ui');
   const screenLayer = XS.Cards.el('div', 'screen-layer');
@@ -86,7 +87,7 @@
     scene.showBars = false;
     app.attractBattle = battle;
     setScene(scene);
-    app.sound.startMusic({ id: 'menu', music: { root: 57, mode: 'dorian', bpm: 76 } }, { calm: true });
+    if (app.sound.musicId !== 'menu' || !(app.sound.music || app.sound.pendingMusic)) app.sound.startMusic(MENU_MUSIC, { calm: true });
   }
 
   // ------------------------------------------------------------ states
@@ -147,6 +148,8 @@
     app.overHandled = false;
     app.countdown = 1.2;
     app.slowmo = 0;
+    app.deadT = 0;
+    app.castQueue = [];
     app.input.reset();
     app.input.enabled = true;
     app.hud.show(app.battle, app.plan);
@@ -256,7 +259,7 @@
       if (app.settings.music <= 0 || app.settings.master <= 0) app.sound.stopMusic();
       else if (!app.sound.music) {
         if (app.plan && app.state !== 'title') app.sound.startMusic(app.plan.theme, {});
-        else app.sound.startMusic({ id: 'menu', music: { root: 57, mode: 'dorian', bpm: 76 } }, { calm: true });
+        else app.sound.startMusic(MENU_MUSIC, { calm: true });
       }
     }
     if (key === 'pixel') resize();
@@ -315,7 +318,15 @@
     ev.on('dodge', () => s.play('dodge'));
     ev.on('explosion', (e) => s.play(e.small ? 'hit' : 'explosion', { gap: 0.06 }));
     ev.on('fall', () => s.play('fall'));
-    ev.on('ko', (e) => { s.play('ko'); s.voice(e.f.g, 'ko'); });
+    ev.on('ko', (e) => {
+      s.play('ko');
+      s.voice(e.f.g, 'ko');
+      if (e.f.isPlayer && b.alive().length > 1 && new Set(b.alive().map((f) => f.team)).size > 1) {
+        app.slowmo = app.settings.reduceMotion ? 0 : 1.1;
+        s.play('defeat');
+        app.hud.banner(XS.S.defeat, '', 1600);
+      }
+    });
     ev.on('status', (e) => { if (e.type === 'freeze') s.play('freeze'); });
     ev.on('heal', () => s.play('heal', { gap: 0.3 }));
     ev.on('decided', (e) => {
@@ -429,7 +440,8 @@
       const b = app.battle;
       const intent = app.input.poll();
       app.hud.setMode(intent.mode);
-      if (!app.paused) {
+      if (app.paused && intent.pause) app.resume();
+      else if (!app.paused) {
         if (app.countdown > 0) {
           app.countdown -= dt;
           if (app.countdown <= 0) app.hud.banner(XS.S.fight, '', 700);
@@ -445,6 +457,8 @@
           const p = b.player;
           app.sound.setIntensity(app.plan.type === 'guardian' || (p && p.hp < p.maxHp * 0.35) ? 1 : 0);
           if (b.over && !app.overHandled) { app.overHandled = true; onBattleOver(); }
+          // In a free-for-all the others may keep fighting after the player falls.
+          if (p && !p.alive && !app.overHandled && (app.deadT += dt) > 2.2) { app.overHandled = true; onBattleOver(); }
         }
         if (scene) scene.update(dt);
       }

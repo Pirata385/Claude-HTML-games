@@ -20,6 +20,7 @@
           <button class="pause-btn" type="button" aria-label="${XS.S.pause}">❚❚</button>
         </div>
         <div class="hud-foes"></div>
+        <canvas class="minimap" width="2" height="2" aria-hidden="true"></canvas>
         <div class="tip hidden"></div>
         <div class="banner hidden"><div class="b1"></div><div class="b2"></div></div>
         <div class="touch">
@@ -48,7 +49,7 @@
         touch: q('.touch'), joyZone: q('.joy-zone'), joyBase: q('.joy-base'), joyKnob: q('.joy-knob'),
         attack: q('.btn-atk'), dodge: q('.btn-dodge'), dodgeCd: q('.btn-dodge .cd'),
         powers: [...this.root.querySelectorAll('.btn-pow')], slots: [...this.root.querySelectorAll('.slot[data-slot]')],
-        slotDodgeCd: q('.slot.mini:last-child .cd'), fps: q('.fps'),
+        slotDodgeCd: q('.slot.mini:last-child .cd'), fps: q('.fps'), minimap: q('.minimap'),
       };
       this.bannerT = 0;
       this.lastChips = '';
@@ -98,6 +99,43 @@
       this.els.powers.forEach((b, i) => b.classList.toggle('hidden', !p.powers[i]));
       this.els.slots.forEach((b, i) => b.classList.toggle('hidden', !p.powers[i]));
       this.wasReady = p.powers.map(() => false);
+      // Minimap in the camera's orientation: one pixel per column, a diamond.
+      const w = battle.world, cv = this.els.minimap;
+      cv.width = w.W + w.D; cv.height = Math.ceil((w.W + w.D) / 2) + 1;
+      this.mm = { ver: -1, t: 0, base: null };
+    }
+
+    drawMinimap(dt) {
+      const b = this.battle, w = b.world, mm = this.mm, cv = this.els.minimap;
+      if ((mm.t -= dt) > 0) return;
+      mm.t = 0.2;
+      if (!mm.base || (w.version !== mm.ver && (mm.rebuilt || 0) + 0.6 < b.time)) {
+        mm.ver = w.version; mm.rebuilt = b.time;
+        mm.base = mm.base || XS.gfx.makeCanvas(cv.width, cv.height);
+        const g = mm.base.getContext('2d'), img = g.createImageData(cv.width, cv.height), px = img.data;
+        const mats = b.arena.theme.mats, base = XS.Arena.BASE;
+        const rgb = (c) => [parseInt(c.slice(1, 3), 16), parseInt(c.slice(3, 5), 16), parseInt(c.slice(5, 7), 16)];
+        const floor = rgb(XS.color.darken(mats.floorA.color, 0.15)), high = rgb(XS.color.lighten(mats.wall.color, 0.15)), pit = rgb(XS.color.darken(mats.sub.color, 0.45));
+        for (let y = 0; y < w.D; y++) for (let x = 0; x < w.W; x++) {
+          const t = w.colTop[x + y * w.W];
+          if (!t) continue;
+          const c = t > base + 1 ? high : t < base ? pit : floor;
+          const i = ((x + y) >> 1) * cv.width + (x - y + w.D - 1);
+          px[i * 4] = c[0]; px[i * 4 + 1] = c[1]; px[i * 4 + 2] = c[2]; px[i * 4 + 3] = 235;
+        }
+        g.putImageData(img, 0, 0);
+      }
+      const g = cv.getContext('2d');
+      g.clearRect(0, 0, cv.width, cv.height);
+      g.drawImage(mm.base, 0, 0);
+      for (const f of b.fighters) {
+        if (!f.alive) continue;
+        const sx = Math.round(f.x - f.y + w.D - 1), sy = Math.round((f.x + f.y) / 2);
+        const s = f.isPlayer ? 5 : 4;
+        g.fillStyle = '#000'; g.fillRect(sx - s / 2 - 1, sy - s / 2 - 1, s + 2, s + 2);
+        g.fillStyle = f.isPlayer ? XS.TEAM_COLORS[0] : XS.TEAM_COLORS[1 + (f.team % 4)];
+        g.fillRect(sx - s / 2, sy - s / 2, s, s);
+      }
     }
 
     hide() { this.root.classList.add('hidden'); this.tip(null); }
@@ -161,6 +199,7 @@
       if (this.els.slotDodgeCd) this.els.slotDodgeCd.style.setProperty('--p', (dk * 360).toFixed(0) + 'deg');
       this.els.dodge.classList.toggle('ready', p.dodge.cd <= 0);
       if (fps != null && this.settings.showFps) this.els.fps.textContent = fps + ' FPS';
+      this.drawMinimap(dt);
     }
   }
 

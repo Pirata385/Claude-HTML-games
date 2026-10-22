@@ -46,6 +46,19 @@
         this.plan(b);
       }
       c.mx = this.move.x; c.my = this.move.y;
+      // Wedged against something for a while: sidestep for a moment.
+      this.stuckT = (this.stuckT || 0) + dt;
+      if (this.stuckT > 1) {
+        const moved = this.lastPos ? Math.hypot(f.x - this.lastPos.x, f.y - this.lastPos.y) : 9;
+        this.lastPos = { x: f.x, y: f.y };
+        this.stuckT = 0;
+        if (moved < 0.6 && (c.mx || c.my) && !f.dash) {
+          const side = this.rng.sign();
+          this.unstick = { t: 0.8, x: -c.my * side - c.mx * 0.3, y: c.mx * side - c.my * 0.3 };
+          if (this.nav) this.nav.age = Infinity;
+        }
+      }
+      if (this.unstick && (this.unstick.t -= dt) > 0) { const l = Math.hypot(this.unstick.x, this.unstick.y) || 1; c.mx = this.unstick.x / l; c.my = this.unstick.y / l; }
       // Never walk off a ledge into the void, whatever the plan says.
       if ((c.mx || c.my) && !this.groundAhead(b, c.mx, c.my, 1.3)) {
         // Go around the hole along the distance field; else head for the
@@ -194,7 +207,7 @@
     // Direction along the distance field toward the target (null if unreachable).
     navDir(b, t) {
       const f = this.f;
-      if (!this.nav) this.nav = new XS.NavField(b.world);
+      if (!this.nav) this.nav = new XS.NavField(b.world, { clear: f.radius * 0.75 > 0.55 });
       this.nav.update(t.x, t.y, b.time - (this.navT || 0));
       this.navT = b.time;
       return this.nav.dirFrom(f.x, f.y);

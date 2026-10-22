@@ -1,6 +1,6 @@
-// Voxel terrain renderer. The arena is cut into diagonal bands (x + y = d);
-// each band is cached on its own canvas, cropped to its content, and only
-// re-rendered when a voxel on or next to it changes. Drawing bands
+// Voxel terrain renderer: voxel sprites (texture, lips, ambient occlusion,
+// cracks and element stains) and the Terrain cache that draws an arena as a
+// chunked floor plus diagonal bands of raised content. Drawing bands
 // back-to-front and inserting entities after their band gives correct
 // painter's ordering.
 (function (XS) {
@@ -169,11 +169,33 @@
     return cv;
   }
 
+  const CH = 16;           // floor chunk size, in columns
+  const SEG = 12;          // band segment length along x
+  const FLOOR_CACHE = 64;  // floor chunk canvases kept alive
+
+  // Terrain in two layers so big arenas stay cheap:
+  // - the floor (z < base) is cached in 16x16-column chunks, drawn first and
+  //   only re-rendered where something changed; chunks off screen are evicted;
+  // - raised content (z >= base: props, hills, walls, rubble) plus the floor
+  //   voxels on the front lip of pits lives in diagonal bands (x + y = d) cut
+  //   into short segments, drawn back-to-front between entity buckets.
   class Terrain {
-    constructor(world) {
+    constructor(world, opts = {}) {
       this.world = world;
+      this.base = opts.base != null ? opts.base : (XS.Arena ? XS.Arena.BASE : 3);
       this.sprites = new Map();
-      this.bands = new Array(world.W + world.D - 1).fill(null);
+      this.nBands = world.W + world.D - 1;
+      this.bands = new Array(this.nBands).fill(null);
+      this.bandDirty = new Uint8Array(this.nBands).fill(1);
+      this.cw = Math.ceil(world.W / CH); this.cd = Math.ceil(world.D / CH);
+      this.floorDirty = new Uint8Array(this.cw * this.cd).fill(1);
+      this.floor = new Map();
+      this.frame = 0;
+      // Chunks back to front.
+      this.order = [];
+      for (let j = 0; j < this.cd; j++) for (let i = 0; i < this.cw; i++) this.order.push(i + j * this.cw);
+      this.order.sort((a, b) => ((a % this.cw) + Math.floor(a / this.cw)) - ((b % this.cw) + Math.floor(b / this.cw)));
+      world.onDirty = (x, y) => this.touch(x, y);
     }
 
     sprite(m, variant, z, flags, crack = 0, stain = 0) {
@@ -186,69 +208,149 @@
       return s;
     }
 
+    // A voxel changed at column (x, y): its band and the next two (pit lips
+    // depend on the columns behind them), and the floor chunks around it.
+    touch(x, y) {
+      const d = x + y;
+      for (let k = d - 1; k <= d + 2; k++) if (k >= 0 && k < this.nBands) this.bandDirty[k] = 1;
+      const i0 = Math.max(0, (x - 1) >> 4), i1 = Math.min(this.cw - 1, (x + 1) >> 4);
+      const j0 = Math.max(0, (y - 1) >> 4), j1 = Math.min(this.cd - 1, (y + 1) >> 4);
+      for (let j = j0; j <= j1; j++) for (let i = i0; i <= i1; i++) this.floorDirty[i + j * this.cw] = 1;
+    }
+
+    // Floor voxels of a column go into the bands when a column behind it is
+    // lower than the floor (a pit or the void), so whatever stands in the pit
+    // is correctly hidden by the lip in front of it.
+    isLip(x, y) {
+      const w = this.world, t = (a, b) => (a < 0 || b < 0 || a >= w.W || b >= w.D ? 0 : w.colTop[a + b * w.W]);
+      const base = this.base;
+      return t(x - 1, y) < base || t(x, y - 1) < base || t(x - 1, y - 1) < base;
+    }
+
+    // Draw one voxel into a canvas context at canvas origin (ox0, oy0).
+    drawVoxel(g, x, y, z, d, ox0, oy0) {
+      const w = this.world, i = w.idx(x, y, z), m = w.mat[i];
+      if (!m) return;
+      const upAir = !w.solid(x, y, z + 1);
+      if (!upAir && w.solid(x + 1, y, z) && w.solid(x, y + 1, z)) return; // hidden
+      let flags = 0;
+      if (upAir) {
+        if (!w.solid(x - 1, y, z)) flags |= 1;
+        if (!w.solid(x, y - 1, z)) flags |= 2;
+        if (w.solid(x - 1, y, z + 1)) flags |= 4;
+        if (w.solid(x, y - 1, z + 1)) flags |= 8;
+      }
+      const variant = Math.floor(XS.hash3f(x, y, z) * 4);
+      g.drawImage(this.sprite(m, variant, Math.min(31, z), flags, XS.crackOf(w.hp[i]), w.stain[i]), (x - y) * HX - HX - ox0, d * HY - (z + 1) * VZ - oy0);
+    }
+
     // Re-render dirty bands; call once per frame before drawing.
     update() {
       const w = this.world;
-      for (let d = 0; d < this.bands.length; d++) {
-        if (w.allDirty || w.dirty[d] || !this.bands[d]) {
-          this.renderBand(d);
-          w.dirty[d] = 0;
-        }
+      if (w.allDirty) { this.bandDirty.fill(1); this.floorDirty.fill(1); w.allDirty = false; }
+      for (let d = 0; d < this.nBands; d++) {
+        if (this.bandDirty[d]) { this.renderBand(d); this.bandDirty[d] = 0; }
       }
-      w.allDirty = false;
+      this.frame++;
     }
 
     renderBand(d) {
-      const w = this.world;
+      const w = this.world, base = this.base;
       const xMin = Math.max(0, d - (w.D - 1)), xMax = Math.min(w.W - 1, d);
-      let maxTop = 0;
-      for (let x = xMin; x <= xMax; x++) maxTop = Math.max(maxTop, w.colTop[x + (d - x) * w.W]);
-      let band = this.bands[d];
-      if (!band) band = this.bands[d] = { cv: null, w: 0, h: 0, sx0: 0, sy0: 0, empty: true, topZ: 0 };
-      band.empty = maxTop === 0;
-      if (band.empty) return;
-      // Leave headroom for voxels that powers may raise later.
-      const topZ = Math.min(w.H, maxTop + 2);
-      const bw = (xMax - xMin) * 2 * HX + SW, bh = topZ * VZ + 2 * HY;
-      if (!band.cv || band.cv.width < bw || band.cv.height < bh) band.cv = XS.gfx.makeCanvas(bw, bh);
-      band.w = bw; band.h = bh; band.topZ = topZ;
-      band.sx0 = (2 * xMin - d) * HX - HX;
-      band.sy0 = d * HY - topZ * VZ;
-      const g = band.cv.getContext('2d');
-      g.clearRect(0, 0, band.cv.width, band.cv.height);
-      for (let x = xMin; x <= xMax; x++) {
-        const y = d - x;
-        const top = w.colTop[x + y * w.W];
-        for (let z = 0; z < top; z++) {
-          const i = w.idx(x, y, z);
-          const m = w.mat[i];
-          if (!m) continue;
-          const upAir = !w.solid(x, y, z + 1);
-          if (!upAir && w.solid(x + 1, y, z) && w.solid(x, y + 1, z)) continue; // hidden
-          let flags = 0;
-          if (upAir) {
-            if (!w.solid(x - 1, y, z)) flags |= 1;
-            if (!w.solid(x, y - 1, z)) flags |= 2;
-            if (w.solid(x - 1, y, z + 1)) flags |= 4;
-            if (w.solid(x, y - 1, z + 1)) flags |= 8;
-          }
-          const variant = Math.floor(XS.hash3f(x, y, z) * 4);
-          g.drawImage(this.sprite(m, variant, Math.min(31, z), flags, XS.crackOf(w.hp[i]), w.stain[i]), (x - y) * HX - HX - band.sx0, d * HY - (z + 1) * VZ - band.sy0);
+      const old = this.bands[d] || [];
+      const segs = [];
+      for (let k0 = xMin; k0 <= xMax; k0 += SEG) {
+        const k1 = Math.min(xMax, k0 + SEG - 1);
+        let maxTop = 0, minZ = Infinity, cx0 = Infinity, cx1 = -Infinity;
+        for (let x = k0; x <= k1; x++) {
+          const y = d - x, top = w.colTop[x + y * w.W];
+          if (!top) continue;
+          const z0 = this.isLip(x, y) ? 0 : base;
+          if (top <= z0) continue;
+          maxTop = Math.max(maxTop, top); minZ = Math.min(minZ, z0);
+          cx0 = Math.min(cx0, x); cx1 = Math.max(cx1, x);
         }
+        if (cx0 > cx1) continue;
+        const bw = (cx1 - cx0) * 2 * HX + SW, bh = (maxTop - minZ) * VZ + 2 * HY;
+        const prev = old[segs.length];
+        const cv = prev && prev.cv.width >= bw && prev.cv.height >= bh ? prev.cv : XS.gfx.makeCanvas(bw, bh);
+        const seg = { cv, w: bw, h: bh, sx0: (2 * cx0 - d) * HX - HX, sy0: d * HY - maxTop * VZ };
+        const g = cv.getContext('2d');
+        g.clearRect(0, 0, cv.width, cv.height);
+        for (let x = cx0; x <= cx1; x++) {
+          const y = d - x, top = w.colTop[x + y * w.W];
+          const z0 = this.isLip(x, y) ? 0 : base;
+          for (let z = z0; z < top; z++) this.drawVoxel(g, x, y, z, d, seg.sx0, seg.sy0);
+        }
+        segs.push(seg);
+      }
+      this.bands[d] = segs.length ? segs : null;
+    }
+
+    // Screen box of floor chunk c in world-screen coordinates.
+    chunkBox(c) {
+      const W = this.world.W, D = this.world.D;
+      const i = c % this.cw, j = Math.floor(c / this.cw);
+      const x0 = i * CH, y0 = j * CH, x1 = Math.min(W, x0 + CH), y1 = Math.min(D, y0 + CH);
+      const sx0 = (x0 - (y1 - 1)) * HX - HX, sx1 = (x1 - 1 - y0) * HX + HX;
+      const sy0 = (x0 + y0) * HY - this.base * VZ, sy1 = (x1 + y1 - 2) * HY + 2 * HY;
+      return { x0, y0, x1, y1, sx0, sy0, w: sx1 - sx0, h: sy1 - sy0 };
+    }
+
+    renderChunk(c) {
+      const w = this.world, base = this.base;
+      const b = this.chunkBox(c);
+      let ch = this.floor.get(c);
+      if (!ch) { ch = { cv: XS.gfx.makeCanvas(b.w, b.h), used: 0 }; this.floor.set(c, ch); }
+      const g = ch.cv.getContext('2d');
+      g.clearRect(0, 0, b.w, b.h);
+      let any = false;
+      for (let d = b.x0 + b.y0; d <= b.x1 + b.y1 - 2; d++) {
+        for (let x = Math.max(b.x0, d - (b.y1 - 1)); x <= Math.min(b.x1 - 1, d - b.y0); x++) {
+          const y = d - x, top = Math.min(base, w.colTop[x + y * w.W]);
+          for (let z = 0; z < top; z++) { this.drawVoxel(g, x, y, z, d, b.sx0, b.sy0); any = true; }
+        }
+      }
+      ch.empty = !any;
+      this.floorDirty[c] = 0;
+    }
+
+    // The floor layer: visible chunks, back to front.
+    drawFloor(ctx, ox, oy, W, H) {
+      for (const c of this.order) {
+        const b = this.chunkBox(c);
+        const x = ox + b.sx0, y = oy + b.sy0;
+        if (x > W || y > H || x + b.w < 0 || y + b.h < 0) continue;
+        if (this.floorDirty[c] || !this.floor.has(c)) this.renderChunk(c);
+        const ch = this.floor.get(c);
+        ch.used = this.frame;
+        if (!ch.empty) ctx.drawImage(ch.cv, x, y);
+      }
+      if (this.floor.size > FLOOR_CACHE) {
+        const old = [...this.floor.entries()].sort((a, b) => a[1].used - b[1].used);
+        for (let k = 0; k < this.floor.size - FLOOR_CACHE; k++) this.floor.delete(old[k][0]);
       }
     }
 
     // ox, oy: screen offset of the world-screen origin (camera translation).
     drawBand(ctx, d, ox, oy) {
-      const b = this.bands[d];
-      if (b && !b.empty) ctx.drawImage(b.cv, 0, 0, b.w, b.h, ox + b.sx0, oy + b.sy0, b.w, b.h);
+      const segs = this.bands[d];
+      if (!segs) return;
+      const v = this.view;
+      for (const s of segs) {
+        const x = ox + s.sx0, y = oy + s.sy0;
+        if (v && (x > v.W || y > v.H || x + s.w < 0 || y + s.h < 0)) continue;
+        ctx.drawImage(s.cv, 0, 0, s.w, s.h, x, y, s.w, s.h);
+      }
     }
 
     // Screen rect of a band (for the see-through window test).
     bandRect(d, ox, oy) {
-      const b = this.bands[d];
-      if (!b || b.empty) return null;
-      return { x: ox + b.sx0, y: oy + b.sy0, w: b.w, h: b.h };
+      const segs = this.bands[d];
+      if (!segs) return null;
+      let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+      for (const s of segs) { x0 = Math.min(x0, s.sx0); y0 = Math.min(y0, s.sy0); x1 = Math.max(x1, s.sx0 + s.w); y1 = Math.max(y1, s.sy0 + s.h); }
+      return { x: ox + x0, y: oy + y0, w: x1 - x0, h: y1 - y0 };
     }
   }
 

@@ -4,7 +4,7 @@
 (function (XS) {
   'use strict';
 
-  const BASE = 3; // floor voxels occupy z = 0..2, so fighters stand at z = 3
+  const BASE = 5; // floor voxels occupy z = 0..4, so fighters stand at z = 5
 
   const THEMES = [
     {
@@ -178,8 +178,8 @@
   function generate(seed, floor, opts = {}) {
     const rng = new XS.RNG(XS.hash(seed, floor, 'arena'));
     const theme = opts.theme || THEMES[XS.hash(seed, floor, 'theme') % THEMES.length];
-    const size = opts.big ? rng.int(52, 56) : rng.int(44, 50);
-    const W = size, D = size, H = 16;
+    const size = opts.size || (opts.big ? rng.int(104, 112) : rng.int(88, 100));
+    const W = size, D = size, H = 20;
     const world = new XS.VoxelWorld(W, D, H);
     const M = {};
     for (const key of Object.keys(theme.mats)) M[key] = world.addMaterial(Object.assign({ key }, theme.mats[key]));
@@ -199,7 +199,7 @@
     const cx = W / 2, cy = D / 2;
     const nseed = rng.int(0, 1 << 20);
     const inside = (x, y) => {
-      const e = theme.organic ? (XS.noise2(x * 0.22, y * 0.22, nseed) - 0.5) * 0.16 : 0;
+      const e = theme.organic ? (XS.noise2(x * 0.12, y * 0.12, nseed) - 0.5) * 0.14 : 0;
       return inShape(shape, (x + 0.5 - cx) / (W / 2), (y + 0.5 - cy) / (D / 2), e);
     };
     const pattern = (x, y) => {
@@ -214,24 +214,53 @@
       for (let x = 0; x < W; x++) {
         if (!inside(x, y)) continue;
         put(x, y, 0, M.plating);
-        put(x, y, 1, M.sub);
-        put(x, y, 2, pattern(x, y));
+        for (let z = 1; z < BASE - 1; z++) put(x, y, z, M.sub);
+        put(x, y, BASE - 1, pattern(x, y));
       }
     }
 
-    // ---- terraces and an optional central dais (all reachable by 1-voxel steps) ----
+    // ---- rolling hills: terraces one voxel apart, always walkable ----
     const raise = (x, y, m) => { const t = top(x, y); if (t) put(x, y, t, m); };
-    const terraces = rng.int(2, 4);
-    for (let k = 0; k < terraces; k++) {
-      const tx = rng.int(4, W - 5), ty = rng.int(4, D - 5);
-      const r = rng.range(2.2, 4.5);
-      for (let y = Math.floor(ty - r); y <= ty + r; y++) {
-        for (let x = Math.floor(tx - r); x <= tx + r; x++) {
-          if (world.inside(x, y, 0) && top(x, y) === BASE && Math.hypot(x - tx, y - ty) <= r) raise(x, y, M.accent);
-        }
+    const hseed = rng.int(0, 1 << 20), hk = rng.range(0.035, 0.055);
+    const lv = new Int8Array(W * D);
+    for (let y = 0; y < D; y++) for (let x = 0; x < W; x++) {
+      if (top(x, y) !== BASE || Math.hypot(x + 0.5 - cx, y + 0.5 - cy) < 7) continue;
+      const n = XS.noise2(x * hk, y * hk, hseed);
+      lv[x + y * W] = n > 0.62 ? 1 + (n > 0.7 ? 1 : 0) + (n > 0.78 ? 1 : 0) : 0;
+    }
+    for (let pass = 0; pass < 3; pass++) {
+      for (let y = 1; y < D - 1; y++) for (let x = 1; x < W - 1; x++) {
+        const i = x + y * W;
+        lv[i] = Math.min(lv[i], lv[i - 1] + 1, lv[i + 1] + 1, lv[i - W] + 1, lv[i + W] + 1);
       }
     }
-    if (rng.chance(0.45)) {
+    for (let y = 0; y < D; y++) for (let x = 0; x < W; x++) for (let k = 0; k < lv[x + y * W]; k++) raise(x, y, k === lv[x + y * W] - 1 ? M.accent : M.sub);
+
+    // ---- ravines through organic floors: a void core with a sunken lip ----
+    if (theme.organic && rng.chance(0.75)) {
+      const rseed = rng.int(0, 1 << 20);
+      for (let y = 0; y < D; y++) for (let x = 0; x < W; x++) {
+        if (!top(x, y) || Math.hypot(x + 0.5 - cx, y + 0.5 - cy) < 10) continue;
+        const d = Math.abs(XS.noise2(x * 0.03, y * 0.03, rseed) - 0.5);
+        if (d < 0.014) for (let z = 0; z < H; z++) put(x, y, z, 0);
+        else if (d < 0.022) for (let z = BASE - 1; z < H; z++) put(x, y, z, 0);
+      }
+    }
+
+    // ---- a landmark at the centre: a fortress ring with four gates, or a dais ----
+    if (!theme.organic && rng.chance(0.55)) {
+      const R = rng.int(7, 9), rot = rng.chance(0.5) ? 0 : Math.PI / 4;
+      for (let y = Math.floor(cy - R - 1); y <= cy + R + 1; y++) for (let x = Math.floor(cx - R - 1); x <= cx + R + 1; x++) {
+        const d = Math.hypot(x + 0.5 - cx, y + 0.5 - cy);
+        if (Math.abs(d - R) > 0.6 || top(x, y) !== BASE) continue;
+        const a = Math.atan2(y + 0.5 - cy, x + 0.5 - cx) - rot;
+        const gate = Math.abs(Math.sin(a * 2)) < 0.22; // four 3-wide openings
+        if (gate) continue;
+        const h = 3 + ((x + y) % 2 === 0 ? 1 : 0); // crenellations
+        for (let k = 0; k < h; k++) put(x, y, BASE + k, k === h - 1 ? M.accent : M.wall);
+      }
+    }
+    if (rng.chance(0.5)) {
       for (let y = 0; y < D; y++) {
         for (let x = 0; x < W; x++) {
           const d = Math.hypot(x + 0.5 - cx, y + 0.5 - cy);
@@ -249,7 +278,8 @@
     const a0 = rng.range(0, Math.PI * 2);
     for (let i = 0; i < nf; i++) {
       const a = a0 + (i / nf) * Math.PI * 2;
-      const rr = size * 0.3;
+      // Duels start ~24 voxels apart near the middle; free-for-alls spread out.
+      const rr = nf === 2 ? 12 : Math.min(size * 0.28, 12 + nf * 3);
       spawns.push(world.findSafeSpot(cx + Math.cos(a) * rr, cy + Math.sin(a) * rr, 6, rng));
     }
 
@@ -340,9 +370,9 @@
     };
     const kinds = Object.keys(theme.props).map((k) => ({ k, w: theme.props[k] }));
     // Sparse props: open lanes to fight in, and less to hide the action.
-    const target = Math.round(size * 0.24) + (opts.big ? 3 : 0);
+    const target = Math.round(size * 0.38) + (opts.big ? 4 : 0);
     let tries = 0;
-    while (placed.length < target && tries++ < 400) {
+    while (placed.length < target && tries++ < 1200) {
       const x = rng.int(3, W - 4), y = rng.int(3, D - 4);
       if (top(x, y) < BASE || !freeAt(x, y, 6)) continue;
       const kind = rng.weighted(kinds).k;
@@ -413,7 +443,7 @@
           if (!world.inside(x, y, 0)) continue;
           for (let z = 0; z < world.H; z++) {
             const i = world.idx(x, y, z);
-            const m = z === 0 ? M.plating : z === 1 ? M.sub : z === 2 ? pattern(x, y) : 0;
+            const m = z === 0 ? M.plating : z < BASE - 1 ? M.sub : z === BASE - 1 ? pattern(x, y) : 0;
             world.mat[i] = m; world.hp[i] = m ? 1 : 0;
           }
         }

@@ -268,20 +268,22 @@
 
     // Sudden death: the floor erodes inward from the rim.
     crumble(dt) {
-      if (!this.suddenDeath) { this.suddenDeath = true; this.events.emit('suddenDeath', {}); }
+      const w = this.world, c = this.arena.center;
+      const maxR = Math.hypot(w.W, w.D) / 2;
+      // Bigger arenas crumble proportionally faster, starting at their rim.
+      const scale = (this.arena.size || w.W) / 47;
+      if (!this.suddenDeath) { this.suddenDeath = true; this.crumbleR = Math.max(0, maxR - w.W * 0.5); this.events.emit('suddenDeath', {}); }
       this.crumbleT -= dt;
       if (this.crumbleT > 0) return;
       this.crumbleT = 0.12;
-      const w = this.world, c = this.arena.center;
-      const maxR = Math.hypot(w.W, w.D) / 2;
-      this.crumbleR = Math.min(maxR, this.crumbleR + 0.05);
+      this.crumbleR = Math.min(maxR, this.crumbleR + 0.05 * scale);
       const edge = maxR - this.crumbleR;
-      for (let k = 0; k < 6; k++) {
+      for (let k = 0; k < Math.round(6 * scale); k++) {
         const a = this.rng.range(0, Math.PI * 2);
         for (let rr = maxR; rr >= Math.max(3, edge); rr -= 0.5) {
           const x = Math.floor(c.x + Math.cos(a) * rr), y = Math.floor(c.y + Math.sin(a) * rr);
           if (w.topAt(x, y) === -Infinity) continue;
-          w.damageSphere(x + 0.5, y + 0.5, w.topAt(x, y) - 1, 1.2, 40, null);
+          for (let z = w.topAt(x, y) - 1; z >= 0; z--) w.damageSphere(x + 0.5, y + 0.5, z + 0.5, 0.75, 99, null);
           break;
         }
       }

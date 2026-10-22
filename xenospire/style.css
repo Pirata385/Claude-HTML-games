@@ -196,6 +196,7 @@ body { color: var(--ink); font: 600 var(--fs) / 1.4 var(--mono); user-select: no
 .floor-label small { display: block; color: var(--muted); font-size: 0.78em; }
 .pause-btn { pointer-events: auto; font: inherit; width: 40px; height: 40px; border: 3px solid #000; border-radius: 9px; background: rgba(21, 17, 38, 0.85); color: var(--ink); box-shadow: 0 3px 0 #000; cursor: pointer; }
 .hud-foes { position: absolute; top: calc(52px + var(--safe-t)); right: calc(56px + var(--safe-r)); display: flex; flex-direction: column; gap: 4px; width: min(200px, 34vw); }
+.minimap { position: absolute; left: calc(8px + var(--safe-l)); top: calc(62px + var(--safe-t)); width: min(150px, 26vw); image-rendering: pixelated; pointer-events: none; opacity: 0.88; filter: drop-shadow(2px 2px 0 #000); }
 .foe { font-size: 0.72em; text-shadow: 1px 1px 0 #000; color: var(--team); }
 .foe span { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .foe .hp { background: var(--team); }

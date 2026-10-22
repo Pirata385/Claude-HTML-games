@@ -207,25 +207,35 @@
       this.bg.draw(ctx, this.cam.x, this.cam.y, this.time, this.fx.quality);
       this.bg.drawTower(ctx, ox, oy);
       this.terrain.update();
+      this.terrain.view = { W, H };
+      this.terrain.drawFloor(ctx, ox, oy, W, H);
 
       const maxD = this.terrain.bands.length - 1;
       const buckets = this.buckets;
       for (let d = 0; d <= maxD; d++) { if (buckets[d]) buckets[d].length = 0; else buckets[d] = []; }
       const put = (d, kind, o) => buckets[XS.clamp(d, 0, maxD)].push(kind, o);
+      // Things below the floor line over the void are hidden by the slab in front.
+      const BASE = this.terrain.base, wld = this.arena.world;
+      const underSlab = (x, y, z) => {
+        if (z > BASE - 0.3 || wld.topAt(x, y) !== -Infinity) return false;
+        for (let t = 0.5; z + t < BASE + 0.5; t += 0.5) if (wld.solid(x + t, y + t, z + t)) return true;
+        return false;
+      };
       const b = this.battle;
       if (b) {
-        for (const f of b.fighters) if (f.alive) put(Math.floor(f.x + f.radius * 0.7) + Math.floor(f.y + f.radius * 0.7), 'f', f);
+        for (const f of b.fighters) if (f.alive && !underSlab(f.x, f.y, f.z + f.height * 0.6)) put(Math.floor(f.x + f.radius * 0.7) + Math.floor(f.y + f.radius * 0.7), 'f', f);
         for (const o of b.objects) {
           if (BUCKETED.has(o.kind)) put(Math.floor(o.x) + Math.floor(o.y), o.kind, o);
           else if (o.kind === 'orbit' && o.orbs) o.orbs.forEach((q, i) => put(Math.floor(q.x) + Math.floor(q.y), 'orb', { o, q, i }));
         }
       }
-      for (const p of this.fx.parts) put(Math.floor(p.x) + Math.floor(p.y), 'p', p);
+      for (const p of this.fx.parts) if (!underSlab(p.x, p.y, p.z)) put(Math.floor(p.x) + Math.floor(p.y), 'p', p);
       // Chunks of terrain falling or toppling, voxel by voxel.
       const w = this.arena.world;
       for (const c of w.chunks) {
         for (const v of c.vox) {
           const q = w.chunkVoxelPos(c, v);
+          if (underSlab(q.x + 0.5, q.y + 0.5, q.z + 0.5)) continue;
           put(Math.floor(q.x + 0.5) + Math.floor(q.y + 0.5), 'cv', { q, v });
         }
       }

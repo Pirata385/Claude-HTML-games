@@ -6,7 +6,7 @@
 (function (XS) {
   'use strict';
 
-  const BUDGET_BASE = 2.8;          // expected damage per second at floor 1, tier Comum
+  const BUDGET_BASE = 3.1;          // expected damage per second at floor 1, tier Comum
   const FLOOR_GROWTH = 0.07;         // +7% budget per floor
   const TIER_MULT = [1, 1.12, 1.25, 1.42];
   const TIER_MODS = [1, 2, 3, 3];
@@ -198,8 +198,12 @@
     if (form === 'aura') util += 0.4;
     util += Math.min(0.3, def.knock * 0.025);
     const b = budget(floor, tier);
-    const raw = (b * def.cooldown) / (hits * hitM * extra * (1 + util));
-    def.damage = Math.max(1, Math.round(raw));
+    const value = hits * hitM * extra * (1 + util); // expected damage per point of per-hit damage
+    def.damage = Math.max(1, Math.round((b * def.cooldown) / value));
+    // Re-derive the cooldown from the rounded damage so small per-hit numbers
+    // don't drift away from the budget.
+    const [cdMin, cdMax] = F.cd;
+    def.cooldown = XS.clamp(Math.round(((def.damage * value) / b) * 10) / 10, cdMin * 0.6 * cdM, cdMax * 1.5 * cdM);
     def.budget = b;
     def.expected = (def.damage * hits * hitM * extra * (1 + util)) / def.cooldown;
     def.hitsPerCast = hits * hitM * extra;

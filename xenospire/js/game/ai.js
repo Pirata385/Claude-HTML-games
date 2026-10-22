@@ -46,6 +46,11 @@
         this.plan(b);
       }
       c.mx = this.move.x; c.my = this.move.y;
+      // Never walk off a ledge into the void, whatever the plan says.
+      if ((c.mx || c.my) && !this.groundAhead(b, c.mx, c.my, 1.3)) {
+        const toC = this.towardCenter(b);
+        c.mx = toC.x; c.my = toC.y;
+      }
       const t = this.target;
       if (!t || !t.alive) { c.attack = false; return; }
       const dx = t.x - f.x, dy = t.y - f.y, dist = Math.hypot(dx, dy);
@@ -55,7 +60,8 @@
       if (this.pendingDodge) {
         this.pendingDodge.t -= dt;
         if (this.pendingDodge.t <= 0) {
-          c.mx = this.pendingDodge.x; c.my = this.pendingDodge.y; c.dodge = true;
+          const d = this.safeDodge(b, this.pendingDodge.x, this.pendingDodge.y);
+          c.mx = d.x; c.my = d.y; c.dodge = true;
           this.pendingDodge = null;
         }
       } else if (f.dodge.cd <= 0) {
@@ -78,6 +84,26 @@
       const facing = Math.abs(XS.angleDiff(f.facing, Math.atan2(dy, dx))) < 1.2;
       if (B.kind === 'spit') c.attack = dist < B.range * 0.9 && this.los(b, t) && this.rng.chance(0.5 + s * 0.4);
       else c.attack = dist - t.radius < B.range + 0.3 && (facing || B.kind === 'spin');
+    }
+
+    groundAhead(b, dx, dy, dist) {
+      const f = this.f;
+      const g = b.world.groundAt(f.x + dx * dist, f.y + dy * dist, f.z + 1.1, 0);
+      return g !== -Infinity && g > f.z - 2.5;
+    }
+
+    towardCenter(b) {
+      const c = b.arena.center, dx = c.x - this.f.x, dy = c.y - this.f.y, d = Math.hypot(dx, dy) || 1;
+      return { x: dx / d, y: dy / d };
+    }
+
+    // Prefer the suggested dodge direction, else its opposite, else the centre.
+    safeDodge(b, dx, dy) {
+      const dist = this.f.dodge.def.dist;
+      const ok = (x, y) => this.groundAhead(b, x, y, dist * 0.5) && this.groundAhead(b, x, y, dist);
+      if (ok(dx, dy)) return { x: dx, y: dy };
+      if (ok(-dx, -dy)) return { x: -dx, y: -dy };
+      return this.towardCenter(b);
     }
 
     pickTarget(b) {

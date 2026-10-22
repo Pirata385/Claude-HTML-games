@@ -1,0 +1,2 @@
+html, body { margin: 0; height: 100%; overflow: hidden; background: #07060f; }
+#view { position: fixed; left: 0; top: 0; image-rendering: pixelated; image-rendering: crisp-edges; touch-action: none; }

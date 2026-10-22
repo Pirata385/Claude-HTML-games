@@ -10,6 +10,7 @@ A collection of self-contained browser games. Open **`index.html`** at the repos
 | --- | --- | --- |
 | Procedural Marine Bestiary | [`procedural-marine-bestiary/`](procedural-marine-bestiary/) | An infinite procedural ocean to explore. |
 | Procedural Creature Explorer | [`procedural-creature-explorer/`](procedural-creature-explorer/) | An isometric pixel-art world with procedurally evolved creatures to discover, analyse, name and catalogue. |
+| Xenospire — A Torre Infinita | [`xenospire/`](xenospire/) | A mobile-first isometric pixel-art arena fighter (in Portuguese): procedural beings with Spore-style animation climb an infinite space tower, drafting procedurally generated powers on destructible voxel floors. |
 
 ## Structure
 

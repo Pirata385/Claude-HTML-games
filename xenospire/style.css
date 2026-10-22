@@ -192,10 +192,10 @@ body { color: var(--ink); font: 600 var(--fs) / 1.4 var(--mono); user-select: no
 .hpbar span { position: absolute; right: 4px; top: -1px; font-size: 10px; text-shadow: 1px 1px 0 #000; }
 .chips { display: flex; gap: 3px; margin-top: 2px; min-height: 18px; }
 .chips i { font-style: normal; font-size: 12px; width: 18px; height: 18px; display: grid; place-items: center; border: 2px solid #000; border-radius: 4px; background: #120c1e; color: var(--c); }
-.floor-label { margin-left: auto; text-align: right; font-size: 0.85em; color: var(--gold); text-shadow: 2px 2px 0 #000; line-height: 1.1; }
+.floor-label { margin-left: auto; text-align: right; white-space: nowrap; font-size: 0.85em; color: var(--gold); text-shadow: 2px 2px 0 #000; line-height: 1.1; }
 .floor-label small { display: block; color: var(--muted); font-size: 0.78em; }
 .pause-btn { pointer-events: auto; font: inherit; width: 40px; height: 40px; border: 3px solid #000; border-radius: 9px; background: rgba(21, 17, 38, 0.85); color: var(--ink); box-shadow: 0 3px 0 #000; cursor: pointer; }
-.foes { position: absolute; top: calc(52px + var(--safe-t)); right: calc(56px + var(--safe-r)); display: flex; flex-direction: column; gap: 4px; width: min(200px, 34vw); }
+.hud-foes { position: absolute; top: calc(52px + var(--safe-t)); right: calc(56px + var(--safe-r)); display: flex; flex-direction: column; gap: 4px; width: min(200px, 34vw); }
 .foe { font-size: 0.72em; text-shadow: 1px 1px 0 #000; color: var(--team); }
 .foe span { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .foe .hp { background: var(--team); }
@@ -266,5 +266,8 @@ body { color: var(--ink); font: 600 var(--fs) / 1.4 var(--mono); user-select: no
   .vs-grid { grid-template-columns: minmax(0, 0.8fr) auto minmax(0, 1.4fr); }
   .vs-mark { display: block; }
   .curator p { min-height: 0; }
+}
+@media (orientation: portrait) {
+  .tip { bottom: auto; top: 24%; white-space: normal; text-align: center; }
 }
 html.reduce-motion *, html.reduce-motion *::after { animation: none !important; transition: none !important; }

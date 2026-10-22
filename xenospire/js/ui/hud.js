@@ -19,7 +19,7 @@
           <div class="floor-label"></div>
           <button class="pause-btn" type="button" aria-label="${XS.S.pause}">❚❚</button>
         </div>
-        <div class="foes"></div>
+        <div class="hud-foes"></div>
         <div class="tip hidden"></div>
         <div class="banner hidden"><div class="b1"></div><div class="b2"></div></div>
         <div class="touch">
@@ -44,7 +44,7 @@
       const q = (s) => this.root.querySelector(s);
       this.els = {
         meName: q('.me-name'), hp: q('.me .hp'), sh: q('.me .sh'), hpText: q('.me .hpbar span'), chips: q('.me .chips'),
-        floor: q('.floor-label'), pause: q('.pause-btn'), foes: q('.foes'), tip: q('.tip'), banner: q('.banner'),
+        floor: q('.floor-label'), pause: q('.pause-btn'), foes: q(".hud-foes"), tip: q('.tip'), banner: q('.banner'),
         touch: q('.touch'), joyZone: q('.joy-zone'), joyBase: q('.joy-base'), joyKnob: q('.joy-knob'),
         attack: q('.btn-atk'), dodge: q('.btn-dodge'), dodgeCd: q('.btn-dodge .cd'),
         powers: [...this.root.querySelectorAll('.btn-pow')], slots: [...this.root.querySelectorAll('.slot[data-slot]')],

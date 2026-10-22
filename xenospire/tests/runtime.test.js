@@ -141,3 +141,15 @@ test('falling terrain crushes whoever is under it', () => {
   assert.ok(e.hp < hp0);
   assert.equal(w.chunks.length, 0, 'the roof settled');
 });
+
+test('fighters hop out of a two-deep crater', () => {
+  const def = XS.Power.generate(1, 1, { tier: 0, forms: ['bolt'] });
+  const { b, a } = duel(def, 8);
+  const w = b.world, cx = Math.floor(a.x), cy = Math.floor(a.y), z = Math.round(a.z);
+  for (let y = cy - 3; y <= cy + 3; y++) for (let x = cx - 3; x <= cx + 3; x++) for (let k = 1; k <= 2; k++) w.set(x, y, z - k, 0);
+  a.z = z - 2;
+  for (let s = 0; s < 30; s++) b.step(1 / 60);
+  assert.equal(Math.round(a.z), z - 2, 'standing in the pit');
+  for (let s = 0; s < 120; s++) { a.ctrl.mx = 0; a.ctrl.my = 1; b.step(1 / 60); }
+  assert.ok(a.y > cy + 3.5 && a.z >= z - 0.1, `climbed out (${a.y.toFixed(1)}, z ${a.z.toFixed(1)})`);
+});

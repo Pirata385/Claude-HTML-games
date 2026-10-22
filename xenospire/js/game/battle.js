@@ -12,6 +12,7 @@
       this.arena = spec.arena;
       this.world = spec.arena.world;
       this.floor = spec.floor || 1;
+      this.lab = !!spec.lab; // Test Room: no sudden death, never ends, dummies never die
       this.rng = new XS.RNG(XS.hash(spec.seed || 1, this.floor, 'battle'));
       this.events = new XS.Emitter();
       this.time = 0;
@@ -117,6 +118,11 @@
       if (target.rig && amt > 0 && !opts.dot) target.rig.hurt(opts.kx || 0, opts.ky || 0);
       this.events.emit('hit', { target, amount: amt, src, def, dot: !!opts.dot, tag: opts.tag, x: target.x, y: target.y, z: target.z + target.height * 0.6 });
       if (amt >= 14 && !opts.dot) this.hitstop = Math.max(this.hitstop, Math.min(0.09, 0.03 + amt / 600));
+      if (target.dummy) {
+        // Training dummies log what they take (for the DPS meter) and never fall.
+        (target.dps || (target.dps = [])).push(this.time, dealt);
+        target.hp = target.maxHp;
+      }
       if (target.hp <= 0) this.ko(target, src || (this.time - target.lastHitT < 6 ? target.lastHitBy : null));
       // The Guardian's fury phase.
       if (target.guardian && !target.enraged && target.hp < target.maxHp * 0.5 && target.alive) {
@@ -212,10 +218,10 @@
       for (const t of this.telegraphs) t.age += dt;
       this.telegraphs = this.telegraphs.filter((t) => t.age < t.dur);
 
-      if (this.time > SUDDEN_DEATH_AT) this.crumble(dt);
+      if (this.time > SUDDEN_DEATH_AT && !this.lab) this.crumble(dt);
 
       const teams = new Set(this.alive().map((f) => f.team));
-      if (!this.over && teams.size <= 1) {
+      if (!this.over && !this.lab && teams.size <= 1) {
         this.endT += dt;
         if (this.endT === dt) {
           this.winnerTeam = teams.size ? [...teams][0] : null;

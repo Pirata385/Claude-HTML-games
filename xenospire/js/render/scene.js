@@ -706,6 +706,10 @@
           ctx.fillStyle = col;
           for (let i = 0; i < 3 * S; i++) ctx.fillRect(hx - (3 * S - i), hy - 7 * S + i, (3 * S - i) * 2 + 1, 1);
         }
+        if (f.dummy && XS.Lab) {
+          const d = XS.Lab.dps(f, b.time);
+          gfx.text(ctx, d > 0 ? `DPS ${d.toFixed(1)}` : f.dummy === 'still' ? 'DPS' : '', hx, hy - 9 * S, '#ffd166', 'center', '#0a0610', S);
+        }
         const sx = XS.isoX(f.x, f.y) + ox, sy = XS.isoY(f.x, f.y, f.z + f.height / 2) + oy;
         if (!f.isPlayer && (sx < 0 || sy < 0 || sx > W || sy > H)) {
           const cx = XS.clamp(sx, 7 * S, W - 7 * S), cy = XS.clamp(sy, 7 * S, H - 7 * S);

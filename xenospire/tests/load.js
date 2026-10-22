@@ -22,6 +22,7 @@ const LOGIC_FILES = [
   'game/nav.js',
   'game/ai.js',
   'game/battle.js',
+  'game/lab.js',
   'game/run.js',
 ];
 

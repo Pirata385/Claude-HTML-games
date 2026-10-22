@@ -71,6 +71,7 @@
       this.dodge.cd = Math.max(0, this.dodge.cd - dt);
       this.inv = Math.max(0, this.inv - dt);
       this.faceLock = Math.max(0, this.faceLock - dt);
+      if (this.hopT > 0) this.hopT -= dt;
       if (this.aura) XS.Powers.updateAura(b, this, dt);
 
       const c = this.ctrl;
@@ -171,8 +172,16 @@
       }
     }
 
-    // Being knocked hard into a wall hurts and breaks it a little.
+    // Being knocked hard into a wall hurts and breaks it a little. Walking into
+    // a ledge up to two voxels high hops onto it (so craters never trap anyone).
     slam(b, hit, axis) {
+      if (this.grounded && !this.dash && !this.forced && this.dodge.t <= 0 && (this.hopT || 0) <= 0) {
+        const rise = b.world.groundAt(hit.cx + 0.5, hit.cy + 0.5, this.z + 2.6, 0) - this.z;
+        const moving = Math.hypot(this.ctrl.mx, this.ctrl.my) > 0.3;
+        if (moving && rise > 1.05 && rise <= 2.2 && !b.world.blockedSpan(hit.cx, hit.cy, this.z + rise, this.z + rise + 2)) {
+          this.vz = 12; this.grounded = false; this.hopT = 0.45;
+        }
+      }
       const k = axis === 'x' ? this.kx : this.ky;
       if (Math.abs(k) > 9 && !this.dash) {
         b.world.damageSphere(hit.cx + 0.5, hit.cy + 0.5, this.z + 1, 1.3, Math.abs(k) * 0.12, this.lastHitBy);

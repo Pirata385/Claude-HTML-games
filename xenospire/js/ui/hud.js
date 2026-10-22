@@ -20,6 +20,13 @@
           <button class="pause-btn" type="button" aria-label="${XS.S.pause}">❚❚</button>
         </div>
         <div class="hud-foes"></div>
+        <div class="lab-bar hidden">
+          <button type="button" class="btn small" data-a="tear">🧵 ${XS.S.lab.bar.tear}</button>
+          <button type="button" class="btn small" data-a="being">👾 ${XS.S.lab.bar.being}</button>
+          <button type="button" class="btn small" data-a="battle">⚔ ${XS.S.lab.bar.battle}</button>
+          <button type="button" class="btn small" data-a="options">⚙ ${XS.S.lab.bar.options}</button>
+        </div>
+        <button type="button" class="btn ctx-btn hidden"></button>
         <canvas class="minimap" width="2" height="2" aria-hidden="true"></canvas>
         <div class="tip hidden"></div>
         <div class="banner hidden"><div class="b1"></div><div class="b2"></div></div>
@@ -51,6 +58,7 @@
         attack: q('.btn-atk'), dodge: q('.btn-dodge'), dodgeCd: q('.btn-dodge .cd'),
         powers: [...this.root.querySelectorAll('.btn-pow')], slots: [...this.root.querySelectorAll('.slot[data-slot]')],
         slotDodgeCd: q('.slot.mini:last-child .cd'), fps: q('.fps'), minimap: q('.minimap'),
+        labBar: q('.lab-bar'), ctx: q('.ctx-btn'),
       };
       this.bannerT = 0;
       this.lastChips = '';
@@ -75,11 +83,16 @@
 
     show(battle, plan) {
       this.battle = battle;
+      this.plan = plan;
       this.root.classList.remove('hidden');
       const p = battle.player;
       this.els.meName.textContent = p.name;
       const type = plan.type === 'guardian' ? XS.t('guardian', { n: plan.floor }) : plan.type === 'melee' ? XS.S.melee : XS.S.duel;
-      this.els.floor.innerHTML = `${XS.t('floor', { n: plan.floor })}<small>${esc(type)}</small>`;
+      if (plan.type === 'lab') this.els.floor.innerHTML = `${esc(XS.S.lab.title)}<small>${esc(XS.Lab.THEME.name)}</small>`;
+      else this.els.floor.innerHTML = `${XS.t('floor', { n: plan.floor })}<small>${esc(plan.lab ? XS.S.lab.battle : type)}</small>`;
+      this.root.classList.toggle('lab', plan.type === 'lab');
+      this.els.labBar.classList.toggle('hidden', plan.type !== 'lab');
+      this.context(null);
       this.els.foes.innerHTML = '';
       this.foeEls = battle.fighters.filter((f) => !f.isPlayer).map((f) => {
         const row = el('div', 'foe', `<span>${esc(f.name)}</span><div class="hpbar"><b class="hp"></b><i class="sh"></i></div>`);
@@ -139,7 +152,24 @@
       }
     }
 
-    hide() { this.root.classList.add('hidden'); this.tip(null); }
+    hide() { this.root.classList.add('hidden'); this.tip(null); this.context(null); }
+
+    // Lab bar actions: { tear, being, battle, options } -> functions.
+    bindLab(actions) {
+      this.els.labBar.querySelectorAll('button').forEach((b) => b.addEventListener('click', (e) => { e.stopPropagation(); actions[b.dataset.a](); }));
+      this.els.ctx.addEventListener('click', (e) => { e.stopPropagation(); if (this.ctxAction) this.ctxAction(); });
+    }
+
+    // Contextual prompt ("Usar o Tear"...). label null hides it.
+    context(label, action) {
+      this.ctxAction = action || null;
+      if (!label) { this.els.ctx.classList.add('hidden'); this.ctxLabel = null; return; }
+      if (label !== this.ctxLabel) { this.ctxLabel = label; this.els.ctx.textContent = label + (this.settings && XS.app && XS.app.input.mode !== 'touch' ? ' (F)' : ''); }
+      this.els.ctx.classList.remove('hidden');
+    }
+
+    // Refresh the power buttons after the kit changed mid-fight (Test Room).
+    refreshKit() { if (this.battle && this.plan) this.show(this.battle, this.plan); }
 
     banner(main, sub = '', ms = 1400) {
       const b = this.els.banner;

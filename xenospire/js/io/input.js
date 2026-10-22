@@ -13,7 +13,7 @@
   const KEYMAP = {
     KeyW: 'up', ArrowUp: 'up', KeyS: 'down', ArrowDown: 'down', KeyA: 'left', ArrowLeft: 'left', KeyD: 'right', ArrowRight: 'right',
     Digit1: 'p0', Digit2: 'p1', Digit3: 'p2', KeyQ: 'p0', KeyE: 'p1', KeyR: 'p2', KeyJ: 'atk', KeyK: 'dodge', Space: 'dodge', ShiftLeft: 'dodge',
-    Escape: 'pause', KeyP: 'pause',
+    Escape: 'pause', KeyP: 'pause', KeyF: 'use',
   };
 
   class Input {
@@ -45,6 +45,7 @@
         if (e.target && /INPUT|TEXTAREA/.test(e.target.tagName)) return;
         this.mode = 'kb';
         if (k === 'pause') { this.edges.pause = true; return; }
+        if (k === 'use') { this.edges.use = true; return; }
         if (!this.enabled) return;
         e.preventDefault();
         if (this.keys.has(k)) return;
@@ -233,6 +234,7 @@
         attack: this.attackHeld || this.keys.has('atk') || this.mouse.down || !!(pad && pad.attack),
         dodge: this.edges.dodge || !!(pad && pad.dodge),
         pause: this.edges.pause || !!(pad && pad.pause),
+        use: !!this.edges.use,
         casts: this.castQueue.splice(0),
         aiming: this.aiming, mouse: this.mouse, pad,
         basicAim: this.atkAim, basicCasts: this.atkQueue.splice(0),
@@ -253,6 +255,7 @@
       }
       this.edges.dodge = false;
       this.edges.pause = false;
+      this.edges.use = false;
       return intent;
     }
 

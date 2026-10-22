@@ -19,6 +19,8 @@
     state: 'boot',
     run: null, plan: null, battle: null, scene: null,
     running: false, paused: false, countdown: 0, slowmo: 0, overHandled: false,
+    mode: 'run', // 'run' | 'lab' (Test Room) | 'labtest' (a test battle from the room)
+    lab: null,
   };
   app.screen = new XS.Screen(canvas);
   app.sound = new XS.Sound(app.settings);
@@ -26,6 +28,8 @@
   app.hud = new XS.HUD(uiRoot, app.settings);
   app.input.bindTouch(app.hud.els);
   app.hud.els.pause.addEventListener('click', () => app.pauseMenu(false));
+  app.hud.bindLab({ tear: () => app.labPanel('tear'), being: () => app.labPanel('being'), battle: () => app.labPanel('battle'), options: () => app.labPanel('options') });
+  const inFight = () => app.state === 'battle' || app.state === 'lab';
 
   // ------------------------------------------------------------ helpers
   function resize() {
@@ -62,7 +66,7 @@
   app.closeModal = () => {
     modalLayer.classList.add('hidden');
     modalLayer.innerHTML = '';
-    if (app.state === 'battle' && app.paused) { app.paused = false; app.input.reset(); }
+    if (inFight() && app.paused) { app.paused = false; app.input.reset(); }
   };
   app.showPower = (def) => app.openModal(XS.Screens.powerInfo(app, def));
 
@@ -99,7 +103,8 @@
     app.state = state;
     screenLayer.innerHTML = '';
     screenLayer.className = 'screen-layer state-' + state;
-    if (state !== 'battle') { app.hud.hide(); app.input.enabled = false; app.running = false; }
+    if (state !== 'battle' && state !== 'lab') { app.hud.hide(); app.input.enabled = false; app.running = false; }
+    if (state === 'title') app.mode = 'run';
     const menuStates = ['title', 'intro', 'arrival', 'draft', 'codex', 'gameover'];
     if (menuStates.includes(state) && (!app.attractBattle || !menuStates.includes(prev))) attract();
     if (['title', 'codex'].includes(state)) app.prevMenu = state === 'codex' ? app.prevMenu : 'title';
@@ -111,6 +116,7 @@
       case 'draft': node = XS.Screens.draft(app); break;
       case 'versus': node = enterVersus(); break;
       case 'battle': enterBattle(); break;
+      case 'lab': enterLabRoom(); break;
       case 'victory': node = XS.Screens.victory(app, data); break;
       case 'loom': node = XS.Screens.loom(app); app.sound.play('loom'); break;
       case 'gameover': node = XS.Screens.gameover(app, data); break;
@@ -157,12 +163,82 @@
     app.hud.show(app.battle, app.plan);
     app.hud.setMode(app.input.mode);
     app.hud.banner(XS.t('floor', { n: app.plan.floor }), app.plan.type === 'guardian' ? XS.t('guardian', { n: app.plan.floor }) : app.plan.type === 'melee' ? XS.S.melee : XS.S.duel, 1100);
+    if (app.mode !== 'run') { app.tutorial = null; return; }
     app.run.phase = 'versus';
     app.tutorial = !app.meta.tutorialDone && app.plan.floor === 1 ? { step: 0, t: 0, moved: 0 } : null;
   }
 
+  // ------------------------------------------------------- Test Room
+  function enterLabRoom() {
+    app.mode = 'lab';
+    app.lab = app.lab || XS.Lab.load();
+    app.attractBattle = null;
+    const battle = XS.Lab.stage(app.lab);
+    const scene = new XS.Scene(app.screen, battle.arena, { seed: 1, settings: app.settings });
+    scene.setBattle(battle, { playerHit: onPlayerHit });
+    setScene(scene);
+    wireBattleAudio(battle);
+    app.battle = battle;
+    app.plan = { floor: 1, type: 'lab', theme: XS.Lab.THEME };
+    app.sound.startMusic(XS.Lab.THEME, { calm: true });
+    app.running = true; app.paused = false; app.overHandled = false; app.countdown = 0; app.slowmo = 0; app.deadT = 0;
+    app.castQueue = [];
+    app.tutorial = null;
+    app.input.reset();
+    app.input.enabled = true;
+    app.hud.show(battle, app.plan);
+    app.hud.setMode(app.input.mode);
+    app.hud.banner(XS.S.lab.title, XS.Lab.THEME.name, 1100);
+  }
+  app.enterLab = () => { app.closeModal(); app.go('lab'); };
+  app.labPanel = (which) => {
+    if (app.state !== 'lab') return;
+    app.paused = true;
+    app.openModal(XS.LabUI[which](app));
+  };
+  app.labEquip = (slot, spec) => {
+    app.lab.kit[slot] = spec;
+    XS.Lab.save(app.lab);
+    const p = app.battle && app.battle.player;
+    if (p) { p.powers[slot] = { def: XS.Lab.powerOf(spec), cd: 0 }; app.hud.refreshKit(); }
+    app.sound.play('select');
+    toast(XS.t('lab.equipped', { n: slot + 1 }));
+  };
+  app.labBeing = (gseed) => {
+    app.lab.genomeSeed = gseed;
+    XS.Lab.save(app.lab);
+    app.sound.play('portal');
+    app.enterLab();
+  };
+  app.labTest = () => {
+    app.closeModal();
+    app.mode = 'labtest';
+    const { battle, plan } = XS.Lab.testBattle(app.lab, app.settings);
+    app.battle = battle; app.plan = plan;
+    const scene = new XS.Scene(app.screen, battle.arena, { seed: battle.floor, settings: app.settings });
+    scene.setBattle(battle, { playerHit: onPlayerHit });
+    setScene(scene);
+    wireBattleAudio(battle);
+    app.sound.play('portal');
+    app.sound.startMusic(plan.theme, {});
+    app.go('battle');
+  };
+  // Prompts near the Tear, the portal and the terminal.
+  function labPrompt(intent) {
+    const L = app.battle.arena.lab, p = app.battle.player;
+    if (!L || !p || !p.alive || app.paused) { app.hud.context(null); return; }
+    const near = (q, r) => Math.hypot(q.x - p.x, q.y - p.y) < r;
+    let label = null, act = null;
+    if (near(L.tear, 8.5)) { label = XS.S.lab.useTear; act = () => app.labPanel('tear'); }
+    else if (near(L.portal, 4.5)) { label = XS.S.lab.usePortal; act = () => app.labPanel('battle'); }
+    else if (near(L.terminal, 4.5)) { label = XS.S.lab.useTerminal; act = () => app.labPanel('being'); }
+    app.hud.context(label, act);
+    if (act && intent.use) act();
+  }
+
   // ------------------------------------------------------------ actions
   app.newRun = (seed) => {
+    app.mode = 'run';
     app.run = XS.Run.newRun(seed != null ? seed : XS.randomSeed());
     XS.Run.saveRun(app.run);
     if (!app.meta.introSeen) app.go('intro', { then: 'arrival' });
@@ -174,6 +250,7 @@
     app.go(data && data.replay ? 'title' : 'arrival');
   };
   app.continueRun = () => {
+    app.mode = 'run';
     const run = XS.Run.loadRun();
     if (!run) { app.go('title'); return; }
     app.run = run;
@@ -245,12 +322,12 @@
     finishRun(null);
   };
   app.pauseMenu = (inMenu) => {
-    if (app.state === 'battle') app.paused = true;
+    if (inFight()) app.paused = true;
     app.openModal(XS.Screens.pause(app, inMenu));
   };
   app.resume = () => app.closeModal();
   app.openSettings = (fromPause) => {
-    if (app.state === 'battle') app.paused = true;
+    if (inFight()) app.paused = true;
     app.openModal(XS.Screens.settings(app, fromPause));
   };
   app.openCodex = () => { app.prevMenu = app.state === 'gameover' ? 'title' : app.state; app.go('codex', 'beings'); };
@@ -287,6 +364,12 @@
     const b = app.battle, p = b.player;
     app.running = false;
     app.input.enabled = false;
+    if (app.mode === 'labtest') {
+      // Test battles always return to the room.
+      app.hud.banner(p.alive ? XS.S.victory : XS.S.defeat, XS.S.lab.back, 1500);
+      setTimeout(() => { if (app.mode === 'labtest' && app.state === 'battle') app.go('lab'); }, 1700);
+      return;
+    }
     if (p.alive) {
       XS.Run.recordVictory(app.run, b);
       XS.Run.saveRun(app.run);
@@ -456,7 +539,7 @@
     frames++; fpsT += dt;
     if (fpsT >= 0.5) { fps = Math.round(frames / fpsT); frames = 0; fpsT = 0; }
     const scene = app.scene;
-    if (app.state === 'battle' && app.battle) {
+    if (inFight() && app.battle) {
       const b = app.battle;
       const intent = app.input.poll();
       app.hud.setMode(intent.mode);
@@ -472,7 +555,9 @@
           if (app.slowmo > 0) { app.slowmo -= dt; scale = 0.35; }
           acc += dt * scale;
           let n = 0;
-          while (acc >= STEP && n++ < 6) { b.step(STEP); acc -= STEP; }
+          const lab = app.state === 'lab';
+          while (acc >= STEP && n++ < 6) { b.step(STEP); if (lab) XS.Lab.tick(app.lab, b); acc -= STEP; }
+          if (lab) labPrompt(intent);
           updateTutorial();
           const p = b.player;
           app.sound.setIntensity(app.plan.type === 'guardian' || (p && p.hp < p.maxHp * 0.35) ? 1 : 0);

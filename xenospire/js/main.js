@@ -405,6 +405,7 @@
     ev.on('fall', () => s.play('fall'));
     ev.on('quake', () => s.play('hitBig'));
     ev.on('spike', () => s.play('break', { gap: 0.05, pitch: 0.7 }));
+    ev.on('combo', () => s.play('combo', { gap: 0.1 }));
     ev.on('ko', (e) => {
       s.play('ko');
       s.voice(e.f.g, 'ko');

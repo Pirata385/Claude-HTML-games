@@ -6,7 +6,6 @@
 (function (XS) {
   'use strict';
 
-  const { mix, lighten, darken, scale } = XS.color;
   const { HX, HY, VZ } = XS.ISO;
   const SW = 2 * HX, SH = 2 * HY + VZ; // voxel sprite size
 
@@ -34,15 +33,26 @@
     return Math.floor(py + 0.5 - top);
   }
 
+  // Colours as numbers for the sprite builders (no string churn).
+  const rgb = (c) => { const n = parseInt(c.slice(1), 16); return [(n >> 16) & 255, (n >> 8) & 255, n & 255]; };
+  const mixN = (a, b, t) => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t];
+  const WHITE = [255, 255, 255], BLACK = [0, 0, 0];
+  const lt = (c, t) => mixN(c, WHITE, t);
+  const dk = (c, t) => mixN(c, BLACK, t);
+  // A sprite canvas filled from an RGBA buffer (one putImageData, not 256 fillRects).
+  function spriteFrom(buf) {
+    const cv = XS.gfx.makeCanvas(SW, SH), g = cv.getContext('2d');
+    const img = g.createImageData(SW, SH);
+    img.data.set(buf);
+    g.putImageData(img, 0, 0);
+    return cv;
+  }
+
   // Crack masks per variant and level: 1 = fissure pixel, 2 = chipped edge.
   // A fissure starts near the middle of the top face, wanders to an edge and
   // runs down a side face.
-  const crackCache = new Map();
   function crackMask(variant, level) {
-    const key = variant * 4 + level;
-    let m = crackCache.get(key);
-    if (m) return m;
-    m = new Uint8Array(SW * SH);
+    const m = new Uint8Array(SW * SH);
     for (let k = 0; k < level; k++) {
       let x = HX + (XS.hash3f(variant, k, 11) - 0.5) * HX * 0.8, y = HY + (XS.hash3f(variant, k, 12) - 0.5) * HY * 0.6;
       let a = XS.hash3f(variant, k, 13) * Math.PI * 2;
@@ -63,36 +73,66 @@
         if (FACE[py * SW + px] && Math.hypot(px - cx, (py - cy) * 1.4) < 2.6 + (variant % 2)) m[py * SW + px] = 2;
       }
     }
-    crackCache.set(key, m);
     return m;
   }
 
-  // Battle marks left by elements on a voxel (see Power.ELEMENTS[].stain).
-  function stainColor(col, stain, face, h) {
-    const top = face === 1;
-    switch (stain) {
-      case 1: return h < 0.72 ? mix(col, '#1a1210', top ? 0.62 : 0.4) : col;            // scorch
-      case 2: return mix(col, '#eaf8ff', top ? (h < 0.8 ? 0.6 : 0.35) : 0.22);          // frost
-      case 3: return h < 0.55 ? mix(col, '#5aa02a', top ? 0.55 : 0.35) : col;           // acid
-      case 4: return h > 0.975 ? '#e070ff' : h < 0.7 ? mix(col, '#22102e', top ? 0.6 : 0.35) : col; // void
-      case 5: return h < 0.5 ? mix(col, '#a8fff0', top ? 0.45 : 0.25) : col;            // crystal
+  // Cracks and element stains are translucent overlays drawn over the voxel
+  // sprite (alpha blending is exactly the colour mix), so they don't multiply
+  // the number of voxel sprites.
+  const overlays = new Map();
+  function crackOverlay(variant, level) {
+    const key = 'c' + variant + level;
+    let o = overlays.get(key);
+    if (o) return o;
+    const mask = crackMask(variant, level), buf = new Uint8ClampedArray(SW * SH * 4);
+    for (let i = 0; i < SW * SH; i++) {
+      const px = i % SW, py = (i / SW) | 0, c = mask[i];
+      if (c === 1) buf[i * 4 + 3] = 128;
+      else if (c === 2) buf[i * 4 + 3] = 97;
+      else if (FACE[i] && px > 0 && py > 0 && mask[(py - 1) * SW + px - 1] === 1) { buf[i * 4] = buf[i * 4 + 1] = buf[i * 4 + 2] = 255; buf[i * 4 + 3] = 31; }
     }
-    return col;
+    o = spriteFrom(buf);
+    overlays.set(key, o);
+    return o;
+  }
+  // [colour, alpha on top, alpha on sides, coverage test(h)]
+  const STAINS = [null,
+    [[26, 18, 16], 0.62, 0.4, (h) => h < 0.72],     // scorch
+    [[234, 248, 255], 0.6, 0.22, () => true],        // frost
+    [[90, 160, 42], 0.55, 0.35, (h) => h < 0.55],    // acid
+    [[34, 16, 46], 0.6, 0.35, (h) => h < 0.7],       // void
+    [[168, 255, 240], 0.45, 0.25, (h) => h < 0.5],   // crystal
+  ];
+  function stainOverlay(variant, stain) {
+    const key = 's' + variant + stain;
+    let o = overlays.get(key);
+    if (o) return o;
+    const [col, aTop, aSide, on] = STAINS[stain], buf = new Uint8ClampedArray(SW * SH * 4);
+    for (let i = 0; i < SW * SH; i++) {
+      const face = FACE[i];
+      if (!face) continue;
+      const h = XS.hash3f((i % SW) + variant * 31, ((i / SW) | 0) + 77, variant + 9);
+      if (stain === 4 && h > 0.975) { buf.set([224, 112, 255, 255], i * 4); continue; }
+      if (!on(h)) continue;
+      const a = face === 1 ? (stain === 2 && h >= 0.8 ? 0.35 : aTop) : aSide;
+      buf.set([col[0], col[1], col[2], Math.round(a * 255)], i * 4);
+    }
+    o = spriteFrom(buf);
+    overlays.set(key, o);
+    return o;
   }
 
   // flags: 1 lip back-left, 2 lip back-right, 4 AO left, 8 AO right
-  // crack: 0..2 (from the voxel's hp); stain: 0..5
-  function makeVoxelSprite(def, variant, z, flags, crack = 0, stain = 0) {
-    const cv = XS.gfx.makeCanvas(SW, SH), g = cv.getContext('2d');
+  function makeVoxelSprite(def, variant, z, flags) {
     const shade = def.emissive ? 1 : Math.max(0.74, Math.min(1.06, 0.8 + z * 0.065));
-    const base = scale(def.color, shade);
-    const top = def.emissive ? lighten(base, 0.2) : lighten(base, 0.12);
+    const base = rgb(def.color).map((c) => Math.min(255, c * shade));
+    const top = def.emissive ? lt(base, 0.2) : lt(base, 0.12);
     const left = base;
-    const right = def.emissive ? darken(base, 0.12) : darken(base, 0.24);
-    const lip = lighten(base, 0.38);
+    const right = def.emissive ? dk(base, 0.12) : dk(base, 0.24);
+    const lip = lt(base, 0.38);
     const tex = def.texture;
     const v = variant;
-    const cracks = crack ? crackMask(v, crack) : null;
+    const buf = new Uint8ClampedArray(SW * SH * 4);
     for (let py = 0; py < SH; py++) {
       for (let px = 0; px < SW; px++) {
         const face = FACE[py * SW + px];
@@ -105,73 +145,67 @@
           const inner = !upper && faceAt(px, py - 2) !== 1;
           // Texture.
           if (tex === 'tile') {
-            if (lower) col = darken(col, 0.14);
-            else if (inner) col = lighten(col, 0.08);
+            if (lower) col = dk(col, 0.14);
+            else if (inner) col = lt(col, 0.08);
           } else if (tex === 'plate') {
-            if (lower) col = darken(col, 0.18);
-            else if ((px === HX - 3 || px === HX + 2) && py === HY + (v % 2 ? -1 : 0)) col = lighten(col, 0.35);
-            else if (h < 0.1) col = darken(col, 0.05);
+            if (lower) col = dk(col, 0.18);
+            else if ((px === HX - 3 || px === HX + 2) && py === HY + (v % 2 ? -1 : 0)) col = lt(col, 0.35);
+            else if (h < 0.1) col = dk(col, 0.05);
           } else if (tex === 'crystal') {
             const diag = (px + py * 2 + v * 3) % 9;
-            if (diag === 0) col = lighten(col, 0.3);
-            else if (diag === 1) col = lighten(col, 0.12);
-            else if (lower) col = darken(col, 0.1);
+            if (diag === 0) col = lt(col, 0.3);
+            else if (diag === 1) col = lt(col, 0.12);
+            else if (lower) col = dk(col, 0.1);
           } else if (tex === 'glow') {
             const d = Math.abs(px + 0.5 - HX) / HX + Math.abs(py + 0.5 - HY) / HY;
-            col = d < 0.45 ? lighten(col, 0.45) : d < 0.75 ? lighten(col, 0.2) : col;
+            col = d < 0.45 ? lt(col, 0.45) : d < 0.75 ? lt(col, 0.2) : col;
           } else if (tex === 'grain') {
-            if ((py + (v % 3)) % 3 === 0 && h < 0.7) col = darken(col, 0.07);
-            if (lower) col = darken(col, 0.08);
+            if ((py + (v % 3)) % 3 === 0 && h < 0.7) col = dk(col, 0.07);
+            if (lower) col = dk(col, 0.08);
           } else { // noise: stone / soil speckles
-            col = h < 0.14 ? darken(col, 0.1) : h > 0.88 ? lighten(col, 0.08) : col;
-            if (lower && h < 0.6) col = darken(col, 0.06);
+            col = h < 0.14 ? dk(col, 0.1) : h > 0.88 ? lt(col, 0.08) : col;
+            if (lower && h < 0.6) col = dk(col, 0.06);
           }
           if (upper && ((flags & 1) && px < HX || (flags & 2) && px >= HX)) col = lip;
-          if ((flags & 4) && px < HX) col = darken(col, 0.2 * (1 - (px / HX) * 0.5));
-          if ((flags & 8) && px >= HX) col = darken(col, 0.2 * (0.5 + ((px - HX) / HX) * 0.5));
+          if ((flags & 4) && px < HX) col = dk(col, 0.2 * (1 - (px / HX) * 0.5));
+          if ((flags & 8) && px >= HX) col = dk(col, 0.2 * (0.5 + ((px - HX) / HX) * 0.5));
         } else {
           col = face === 2 ? left : right;
           const row = sideRow(face, px, py);
           const outer = face === 2 ? px === 0 : px === SW - 1;
           const seam = face === 2 ? px === HX - 1 : px === HX;
           // Light from above: top rows of a side a touch brighter.
-          if (row === 0) col = lighten(col, 0.1);
+          if (row === 0) col = lt(col, 0.1);
           if (tex === 'tile' || tex === 'plate') {
-            if (row === VZ - 1) col = darken(col, 0.16);
-            if (tex === 'plate' && (px === (face === 2 ? 3 : SW - 4))) col = darken(col, 0.1);
+            if (row === VZ - 1) col = dk(col, 0.16);
+            if (tex === 'plate' && (px === (face === 2 ? 3 : SW - 4))) col = dk(col, 0.1);
           } else if (tex === 'noise') {
             // Little bricks: mortar every half voxel, staggered by variant.
             const half = Math.floor(VZ / 2);
             const brickX = (px + (row < half ? 0 : 3) + v) % 6 === 0;
-            if (row === half || row === VZ - 1 || (brickX && row > 0)) col = darken(col, 0.14);
-            else if (h < 0.12) col = darken(col, 0.07);
+            if (row === half || row === VZ - 1 || (brickX && row > 0)) col = dk(col, 0.14);
+            else if (h < 0.12) col = dk(col, 0.07);
           } else if (tex === 'grain') {
-            if (row % 2 === 0) col = darken(col, 0.07 + (h < 0.3 ? 0.04 : 0));
+            if (row % 2 === 0) col = dk(col, 0.07 + (h < 0.3 ? 0.04 : 0));
           } else if (tex === 'crystal') {
-            if ((px + row + v) % 7 === 0) col = lighten(col, 0.28);
+            if ((px + row + v) % 7 === 0) col = lt(col, 0.28);
           } else if (tex === 'glow') {
-            col = mix(col, top, 0.25 + 0.25 * (1 - row / VZ));
+            col = mixN(col, top, 0.25 + 0.25 * (1 - row / VZ));
           }
-          if (outer && !def.emissive) col = darken(col, 0.12);
-          if (seam) col = darken(col, 0.05);
+          if (outer && !def.emissive) col = dk(col, 0.12);
+          if (seam) col = dk(col, 0.05);
         }
-        if (stain) col = stainColor(col, stain, face, XS.hash3f(px + v * 31, py + 77, v + 9));
-        if (cracks) {
-          const c = cracks[py * SW + px];
-          if (c === 1) col = darken(col, 0.5);
-          else if (c === 2) col = darken(col, 0.38);
-          else if (px > 0 && py > 0 && cracks[(py - 1) * SW + px - 1] === 1) col = lighten(col, 0.12);
-        }
-        g.fillStyle = col;
-        g.fillRect(px, py, 1, 1);
+        const o = (py * SW + px) * 4;
+        buf[o] = col[0]; buf[o + 1] = col[1]; buf[o + 2] = col[2]; buf[o + 3] = 255;
       }
     }
-    return cv;
+    return spriteFrom(buf);
   }
 
   const CH = 16;           // floor chunk size, in columns
-  const SEG = 12;          // band segment length along x
+  const SEG = 28;          // band segment length along x
   const FLOOR_CACHE = 64;  // floor chunk canvases kept alive
+  const BUDGET_MS = 3;     // terrain re-render time per frame (beyond the first couple)
 
   // Terrain in two layers so big arenas stay cheap:
   // - the floor (z < base) is cached in 16x16-column chunks, drawn first and
@@ -187,6 +221,7 @@
       this.nBands = world.W + world.D - 1;
       this.bands = new Array(this.nBands).fill(null);
       this.bandDirty = new Uint8Array(this.nBands).fill(1);
+      this.rendered = new Uint8Array(this.nBands);
       this.cw = Math.ceil(world.W / CH); this.cd = Math.ceil(world.D / CH);
       this.floorDirty = new Uint8Array(this.cw * this.cd).fill(1);
       this.floor = new Map();
@@ -198,14 +233,21 @@
       world.onDirty = (x, y) => this.touch(x, y);
     }
 
-    sprite(m, variant, z, flags, crack = 0, stain = 0) {
-      const key = ((((m * 4 + variant) * 32 + z) * 16 + flags) * 3 + crack) * 6 + stain;
+    sprite(m, variant, z, flags) {
+      const key = ((m * 4 + variant) * 32 + z) * 16 + flags;
       let s = this.sprites.get(key);
       if (!s) {
-        s = makeVoxelSprite(this.world.materials[m], variant, z, flags, crack, stain);
+        s = makeVoxelSprite(this.world.materials[m], variant, z, flags);
         this.sprites.set(key, s);
       }
       return s;
+    }
+
+    // A voxel sprite with its stain and crack overlays at (sx, sy).
+    blit(g, m, variant, z, flags, crack, stain, sx, sy) {
+      g.drawImage(this.sprite(m, variant, Math.min(31, z), flags), sx, sy);
+      if (stain) g.drawImage(stainOverlay(variant, stain), sx, sy);
+      if (crack) g.drawImage(crackOverlay(variant, crack), sx, sy);
     }
 
     // A voxel changed at column (x, y): its band and the next two (pit lips
@@ -241,15 +283,37 @@
         if (w.solid(x, y - 1, z + 1)) flags |= 8;
       }
       const variant = Math.floor(XS.hash3f(x, y, z) * 4);
-      g.drawImage(this.sprite(m, variant, Math.min(31, z), flags, XS.crackOf(w.hp[i]), w.stain[i]), (x - y) * HX - HX - ox0, d * HY - (z + 1) * VZ - oy0);
+      this.blit(g, m, variant, z, flags, XS.crackOf(w.hp[i]), w.stain[i], (x - y) * HX - HX - ox0, d * HY - (z + 1) * VZ - oy0);
     }
 
-    // Re-render dirty bands; call once per frame before drawing.
+    // Is band d on screen (by its vertical extent)? view: { W, H, ox, oy }
+    bandVisible(d) {
+      const v = this.view;
+      if (!v) return true;
+      const y1 = v.oy + d * HY + 2 * HY, y0 = v.oy + d * HY - this.world.H * VZ;
+      return y1 >= 0 && y0 <= v.H;
+    }
+
+    // Re-render dirty bands; call once per frame before drawing (with
+    // this.view set). Bands never drawn are rendered at once; changed bands on
+    // screen share a small time budget, and off-screen ones wait until they
+    // scroll into view, so a big blast never freezes a frame.
     update() {
       const w = this.world;
       if (w.allDirty) { this.bandDirty.fill(1); this.floorDirty.fill(1); w.allDirty = false; }
+      const t0 = performance.now();
+      let n = 0;
       for (let d = 0; d < this.nBands; d++) {
-        if (this.bandDirty[d]) { this.renderBand(d); this.bandDirty[d] = 0; }
+        if (!this.bandDirty[d]) continue;
+        const fresh = !this.rendered[d];
+        if (!fresh) {
+          if (!this.bandVisible(d)) continue;
+          if (n >= 2 && performance.now() - t0 > BUDGET_MS) continue;
+        }
+        this.renderBand(d);
+        this.bandDirty[d] = 0;
+        this.rendered[d] = 1;
+        n++;
       }
       this.frame++;
     }
@@ -273,10 +337,11 @@
         if (cx0 > cx1) continue;
         const bw = (cx1 - cx0) * 2 * HX + SW, bh = (maxTop - minZ) * VZ + 2 * HY;
         const prev = old[segs.length];
-        const cv = prev && prev.cv.width >= bw && prev.cv.height >= bh ? prev.cv : XS.gfx.makeCanvas(bw, bh);
-        const seg = { cv, w: bw, h: bh, sx0: (2 * cx0 - d) * HX - HX, sy0: d * HY - maxTop * VZ };
-        const g = cv.getContext('2d');
-        g.clearRect(0, 0, cv.width, cv.height);
+        const reuse = prev && prev.cv.width >= bw && prev.cv.height >= bh;
+        const cv = reuse ? prev.cv : XS.gfx.makeCanvas(bw, bh);
+        const g = reuse ? prev.g : cv.getContext('2d');
+        const seg = { cv, g, w: bw, h: bh, sx0: (2 * cx0 - d) * HX - HX, sy0: d * HY - maxTop * VZ };
+        g.clearRect(0, 0, Math.min(cv.width, Math.max(bw, prev ? prev.w : bw)), Math.min(cv.height, Math.max(bh, prev ? prev.h : bh)));
         for (let x = cx0; x <= cx1; x++) {
           const y = d - x, top = w.colTop[x + y * w.W];
           const z0 = this.isLip(x, y) ? 0 : base;
@@ -301,8 +366,8 @@
       const w = this.world, base = this.base;
       const b = this.chunkBox(c);
       let ch = this.floor.get(c);
-      if (!ch) { ch = { cv: XS.gfx.makeCanvas(b.w, b.h), used: 0 }; this.floor.set(c, ch); }
-      const g = ch.cv.getContext('2d');
+      if (!ch) { const cv = XS.gfx.makeCanvas(b.w, b.h); ch = { cv, g: cv.getContext('2d'), used: 0 }; this.floor.set(c, ch); }
+      const g = ch.g;
       g.clearRect(0, 0, b.w, b.h);
       let any = false;
       for (let d = b.x0 + b.y0; d <= b.x1 + b.y1 - 2; d++) {
@@ -315,13 +380,18 @@
       this.floorDirty[c] = 0;
     }
 
-    // The floor layer: visible chunks, back to front.
+    // The floor layer: visible chunks, back to front. Missing chunks render at
+    // once; changed ones refresh one or two per frame.
     drawFloor(ctx, ox, oy, W, H) {
-      for (const c of this.order) {
-        const b = this.chunkBox(c);
+      const t0 = performance.now();
+      let n = 0;
+      this.boxes = this.boxes || this.order.map((c) => this.chunkBox(c));
+      for (let k = 0; k < this.order.length; k++) {
+        const c = this.order[k], b = this.boxes[k];
         const x = ox + b.sx0, y = oy + b.sy0;
         if (x > W || y > H || x + b.w < 0 || y + b.h < 0) continue;
-        if (this.floorDirty[c] || !this.floor.has(c)) this.renderChunk(c);
+        if (!this.floor.has(c)) this.renderChunk(c);
+        else if (this.floorDirty[c] && (n++ < 1 || performance.now() - t0 < BUDGET_MS)) this.renderChunk(c);
         const ch = this.floor.get(c);
         ch.used = this.frame;
         if (!ch.empty) ctx.drawImage(ch.cv, x, y);

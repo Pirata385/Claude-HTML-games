@@ -46,6 +46,7 @@ Um botão contextual aparece perto de cada estação (no teclado: F).
 | Poderes | tocar = mira assistida; arrastar = mira manual (a distância do arrasto define o alcance dos arremessos); voltar ao centro cancela | 1, 2, 3 (Q, E, R); segure para mirar | X, Y, B (segure + analógico direito) |
 | Esquiva | ↯ | Espaço / K / botão direito | RB / LB |
 | Interagir (Sala de Testes) | botão contextual | F | — |
+| Tela cheia | ⛶ no título ou na pausa | ⛶ no título ou na pausa | — |
 | Pausa | ❚❚ | Esc / P | Start |
 
 Ao mirar, um indicador no chão mostra o alcance e a área de cada tipo de poder: faixa para disparos, cunha para sopros, arco tracejado e zona de queda para arremessos, círculo para áreas, seta para investidas e barra para muralhas. Poderes **carregáveis** ficam mais fortes quanto mais tempo você mira.
@@ -92,7 +93,7 @@ As chances de Épico e Anômalo sobem com o andar. O dano de cada poder é calcu
 
 - **Criaturas:** oito arquétipos (bípede, quadrúpede, hexápode, aracnídeo, serpente, flutuante, alado e gelatinoso). Os stats, o traço, o ataque básico e a esquiva saem da anatomia. A animação é procedural no estilo Spore: os pés ficam plantados e dão passos com IK, as caudas e tentáculos balançam como correntes, e a cabeça segue o alvo. No nocaute, a criatura se desmonta em pedaços.
 - **Visual:** pixel art em alta resolução, com brilho aditivo, luz projetada no chão, rastros, ondas de choque e uma assinatura visual própria para cada elemento.
-- **Arenas:** de 88 a 112 voxels de lado, com colinas em terraços, ravinas nos temas orgânicos e, às vezes, uma fortaleza no centro. Um minimapa mostra a arena e os lutadores. A IA navega por um mapa de distâncias e contorna paredes e buracos.
+- **Arenas:** de 88 a 112 voxels de lado, abertas, com poucos obstáculos bem espaçados, colinas baixas em terraços, ravinas nos temas orgânicos e, às vezes, uma fortaleza com portões largos no centro. Um minimapa mostra a arena e os lutadores. A IA navega por um mapa de distâncias e contorna paredes e buracos.
 - **Voxels:** a arena inteira é destrutível.
   - As crateras saem irregulares, e meteoros podem furar até o vazio.
   - Os blocos racham antes de quebrar, e rachaduras se espalham pelo vidro, cristal e gelo.
@@ -108,7 +109,8 @@ As chances de Épico e Anômalo sobem com o andar. O dano de cada poder é calcu
   - telegrafia vermelha nos ataques de área;
   - pausa automática ao trocar de aba;
   - modo canhoto, joystick fixo ou flutuante, e tamanho e opacidade dos botões ajustáveis;
-  - qualidade gráfica, tamanho dos pixels e limite de FPS;
+  - tela cheia (no iPhone, que não permite tela cheia no navegador: Compartilhar → "Adicionar à Tela de Início");
+  - qualidade gráfica (com ajuste automático: se a luta ficar lenta, a qualidade baixa sozinha), tamanho dos pixels e limite de FPS;
   - dificuldade, mira assistida, tremor de tela e pausa de impacto;
   - acessibilidade: reduzir flashes e movimento, códigos de elemento nos ícones e texto maior.
 - **Som:** tudo é sintetizado com WebAudio. Isso inclui o som de cada poder, as vozes das criaturas, a "fala" do Curador e a música generativa de cada tema de andar.

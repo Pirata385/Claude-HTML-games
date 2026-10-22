@@ -38,12 +38,12 @@ test('every form hurts a target it is aimed at', () => {
     for (const tier of [0, 1, 2]) {
       const def = XS.Power.generate(XS.hash('rt', form, tier), 3, { tier, forms: [form] });
       const { b, a, e } = duel(def, form === 'aura' ? 1.5 : DIST[def.aim] || 5);
-      const hp0 = e.hp;
+      const hp0 = e.hp, home = e.x;
       a.ctrl.cast = 0; a.ctrl.castAngle = 0; a.ctrl.castDist = Math.hypot(e.x - a.x, e.y - a.y); a.ctrl.castCharge = 1;
       let errors = 0;
       for (let s = 0; s < 60 * 6; s++) {
         try { b.step(1 / 60); } catch (err) { errors++; throw new Error(`${form} t${tier}: ${err.stack}`); }
-        if (form !== 'wall') e.x += (a.x + (DIST[def.aim] || 5) - e.x) * 0.2; // stay put despite knockback
+        if (form !== 'wall') e.x += (home - e.x) * 0.2; // stay put despite knockback
       }
       assert.equal(errors, 0);
       assert.equal(a.stats.casts[0], 1, `${form} t${tier} was cast`);
@@ -135,7 +135,7 @@ test('falling terrain crushes whoever is under it', () => {
   let crushed = 0;
   b.events.on('crush', (ev) => { if (ev.f === e) crushed++; });
   const hp0 = e.hp;
-  w.set(tx + 3, ty, z, 0); // knock the pillar out
+  for (let h = 0; h < 4; h++) w.set(tx + 3, ty, z + h, 0); // knock most of the pillar out
   for (let s = 0; s < 120; s++) b.step(1 / 60);
   assert.equal(crushed, 1, 'crushed once');
   assert.ok(e.hp < hp0);

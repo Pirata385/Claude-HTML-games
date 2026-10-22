@@ -6,7 +6,7 @@
   // Tunables shared with balance (see tests/sim.test.js).
   const HP_BASE = 260;
   const SPEED_BASE = 6.2;
-  const BODY_SCALE = 1.3; // world size of beings relative to voxels
+  const BODY_SCALE = 0.85; // world size of beings relative to voxels
 
   const ARCHETYPES = {
     biped: { w: 3, legPairs: [1, 1], armPairs: [1, 1], posture: [0.72, 0.92], spine: [2, 3], tail: 0.5, wings: 0.12, knee: 'fwd', legLen: [2.2, 3.0], hp: 1, speed: 1 },
@@ -197,8 +197,8 @@
       maxHp: Math.round(HP_BASE * XS.lerp(0.85, 1.22, volNorm) * A.hp),
       speed: SPEED_BASE * XS.lerp(1.1, 0.9, volNorm) * A.speed * (trait === 'corredor' ? 1.08 : 1),
       mass: XS.lerp(0.78, 1.35, volNorm),
-      radius: XS.clamp(maxR * (trait === 'esguio' ? 0.95 : 1.15), 0.9, 2.2),
-      height: XS.clamp(bodyHeight, 2.5, 9),
+      radius: XS.clamp(maxR * (trait === 'esguio' ? 0.95 : 1.15), 0.6, 1.5),
+      height: XS.clamp(bodyHeight, 1.7, 6),
       knockTaken: trait === 'estavel' ? 0.7 : trait === 'elastico' ? 0.8 : 1,
       basicRate: trait === 'destro' ? 0.8 : 1,
     };

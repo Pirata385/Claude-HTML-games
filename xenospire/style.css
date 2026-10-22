@@ -69,7 +69,7 @@ body { color: var(--ink); font: 600 var(--fs) / 1.4 var(--mono); user-select: no
 .toast { z-index: 11; position: absolute; left: 50%; bottom: calc(18px + var(--safe-b)); transform: translateX(-50%); background: var(--panel); border: 3px solid #000; border-radius: 8px; padding: 8px 14px; box-shadow: 0 4px 0 #000; }
 
 /* ---------- title ---------- */
-.title-screen { justify-content: center; gap: 18px; }
+.title-screen { justify-content: center; gap: 18px; position: relative; }
 .logo { text-align: center; }
 .logo h1 {
   margin: 0; font-size: clamp(38px, 11vw, 84px); letter-spacing: 0.14em; color: var(--gold); line-height: 1;
@@ -215,6 +215,7 @@ body { color: var(--ink); font: 600 var(--fs) / 1.4 var(--mono); user-select: no
 .lab-results .slot-buttons { margin-top: 6px; gap: 6px; }
 .lab-kit { display: flex; gap: 8px; align-items: center; justify-content: center; }
 .btn.toggle.on { box-shadow: inset 0 0 0 3px var(--gold), 0 4px 0 #000; }
+.fs-btn { position: absolute; top: calc(10px + var(--safe-t)); right: calc(10px + var(--safe-r)); min-height: 40px; min-width: 44px; font-size: 1.2em; padding: 4px 10px; z-index: 2; }
 .minimap { position: absolute; left: calc(8px + var(--safe-l)); top: calc(62px + var(--safe-t)); width: min(150px, 26vw); image-rendering: pixelated; pointer-events: none; opacity: 0.88; filter: drop-shadow(2px 2px 0 #000); }
 .foe { font-size: 0.72em; text-shadow: 1px 1px 0 #000; color: var(--team); }
 .foe span { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }

@@ -96,3 +96,19 @@ test('AIs find each other on the big arenas (nobody stays stuck)', () => {
     }
   }
 });
+
+test('early floors are winnable for an average player', () => {
+  let wins = 0;
+  const N = 10;
+  for (let i = 0; i < N; i++) {
+    const run = XS.Run.newRun(61000 + i * 37);
+    run.genomeSeed = XS.hash(run.seed, 'me');
+    run.powers = [0, 1, 2].map((k) => ({ seed: XS.hash(run.seed, 'pk', k), floor: 1, tier: 1 }));
+    const plan = XS.Run.floorPlan(run, 1);
+    const b = XS.Run.stageBattle(run, plan, { difficulty: 1 });
+    b.player.ai = new XS.AI(b.player, { skill: 0.45 });
+    for (let s = 0; s < 60 * 200 && !b.over; s++) b.step(1 / 60);
+    if (b.player.alive) wins++;
+  }
+  assert.ok(wins >= 7, `won ${wins}/${N} on floor 1`);
+});

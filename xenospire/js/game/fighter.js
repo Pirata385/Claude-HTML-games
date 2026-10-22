@@ -21,6 +21,7 @@
       this.mass = st.mass * (o.massMult || 1);
       this.radius = st.radius * (o.sizeMult || 1);
       this.height = st.height * (o.sizeMult || 1);
+      this.hitR = Math.max(0.9, this.radius * 1.1); // a forgiving hitbox for powers
       this.x = o.x; this.y = o.y; this.z = o.z;
       this.vx = 0; this.vy = 0; this.vz = 0; this.kx = 0; this.ky = 0;
       this.facing = o.facing || 0;

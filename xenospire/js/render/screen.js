@@ -51,6 +51,7 @@
       g.fillStyle = color;
       for (let i = 0; i < 16; i++) if (BAYER4[i] < q) g.fillRect(i % 4, i >> 2, 1, 1);
       p = ctx.createPattern(c, 'repeat');
+      p._key = key; p._src = c;
       patternCache.set(key, p);
     }
     return p;
@@ -115,27 +116,75 @@
   }
 
   // Filled ellipse (row spans). Used for iso shadows and telegraphs.
-  function ellipse(ctx, cx, cy, rx, ry, fill) {
-    if (rx < 0.5 || ry < 0.5) return;
-    ctx.fillStyle = fill;
+  // Ellipses and rings are drawn into small cached sprites (radius rounded to
+  // half a pixel): one drawImage per frame instead of dozens of fillRects.
+  const shapeCache = new Map();
+  const remember = (key, s) => { shapeCache.set(key, s); if (shapeCache.size > 700) shapeCache.delete(shapeCache.keys().next().value); return s; };
+  function ellipseRows(g, cx, cy, rx, ry) {
     const R = Math.ceil(ry);
-    cx = Math.round(cx); cy = Math.round(cy);
     for (let dy = -R; dy <= R; dy++) {
       const t = 1 - (dy * dy) / (ry * ry);
       if (t < 0) continue;
       const hw = Math.round(rx * Math.sqrt(t));
-      ctx.fillRect(cx - hw, cy + dy, hw * 2 + 1, 1);
+      g.fillRect(cx - hw, cy + dy, hw * 2 + 1, 1);
     }
   }
-  // Ellipse outline, optionally dashed (dash > 0 = segment length in steps).
-  function ellipseRing(ctx, cx, cy, rx, ry, color, dash = 0, phase = 0) {
-    ctx.fillStyle = color;
-    const n = Math.max(16, Math.round((rx + ry) * 2.2));
-    for (let i = 0; i < n; i++) {
-      if (dash && Math.floor((i + phase) / dash) % 2) continue;
-      const a = (i / n) * Math.PI * 2;
-      ctx.fillRect(Math.round(cx + Math.cos(a) * rx), Math.round(cy + Math.sin(a) * ry), 1, 1);
+  // cache = false for sizes that change every frame (growing telegraphs).
+  function ellipse(ctx, cx, cy, rx, ry, fill, cache = true) {
+    if (rx < 0.5 || ry < 0.5) return;
+    const fk = typeof fill === 'string' ? fill : fill && fill._key;
+    if (!fk || !cache) { ctx.fillStyle = fill; ellipseRows(ctx, Math.round(cx), Math.round(cy), rx, ry); return; }
+    rx = Math.round(rx * 2) / 2; ry = Math.round(ry * 2) / 2;
+    const key = 'e' + fk + '|' + rx + '|' + ry;
+    let s = shapeCache.get(key);
+    if (!s) {
+      const ox = Math.ceil(rx) + 1, oy = Math.ceil(ry) + 1;
+      const cv = makeCanvas(ox * 2 + 1, oy * 2 + 1), g = cv.getContext('2d');
+      g.fillStyle = typeof fill === 'string' ? fill : g.createPattern(fill._src, 'repeat');
+      ellipseRows(g, ox, oy, rx, ry);
+      s = remember(key, { cv, ox, oy });
     }
+    ctx.drawImage(s.cv, Math.round(cx) - s.ox, Math.round(cy) - s.oy);
+  }
+  // Ellipse outline, optionally dashed (dash > 0 = segment length in steps).
+  function ellipseRing(ctx, cx, cy, rx, ry, color, dash = 0, phase = 0, cache = true) {
+    if (rx < 0.5 || ry < 0.5) return;
+    if (!cache) {
+      ctx.fillStyle = color;
+      const n = Math.max(16, Math.round((rx + ry) * 2.2));
+      for (let i = 0; i < n; i++) {
+        if (dash && Math.floor((i + phase) / dash) % 2) continue;
+        const a = (i / n) * Math.PI * 2;
+        ctx.fillRect(Math.round(cx + Math.cos(a) * rx), Math.round(cy + Math.sin(a) * ry), 1, 1);
+      }
+      return;
+    }
+    rx = Math.round(rx * 2) / 2; ry = Math.round(ry * 2) / 2;
+    const ph = dash ? (((phase % (2 * dash)) + 2 * dash) % (2 * dash)) : 0;
+    const key = 'r' + color + '|' + rx + '|' + ry + '|' + dash + '|' + ph;
+    let s = shapeCache.get(key);
+    if (!s) {
+      const ox = Math.ceil(rx) + 1, oy = Math.ceil(ry) + 1;
+      const cv = makeCanvas(ox * 2 + 1, oy * 2 + 1), g = cv.getContext('2d');
+      g.fillStyle = color;
+      const n = Math.max(16, Math.round((rx + ry) * 2.2));
+      for (let i = 0; i < n; i++) {
+        if (dash && Math.floor((i + ph) / dash) % 2) continue;
+        const a = (i / n) * Math.PI * 2;
+        g.fillRect(Math.round(ox + Math.cos(a) * rx), Math.round(oy + Math.sin(a) * ry), 1, 1);
+      }
+      s = remember(key, { cv, ox, oy });
+    }
+    ctx.drawImage(s.cv, Math.round(cx) - s.ox, Math.round(cy) - s.oy);
+  }
+  // A quick straight stroke (sparks, streaks): one path instead of a pixel walk.
+  function streak(ctx, x0, y0, x1, y1, color, w = 1) {
+    ctx.strokeStyle = color;
+    ctx.lineWidth = w;
+    ctx.beginPath();
+    ctx.moveTo(Math.round(x0) + 0.5, Math.round(y0) + 0.5);
+    ctx.lineTo(Math.round(x1) + 0.5, Math.round(y1) + 0.5);
+    ctx.stroke();
   }
 
   function line(ctx, x0, y0, x1, y1, color) {
@@ -242,19 +291,30 @@
   }
   const textWidth = (str, k = 1) => Math.max(0, String(str).length * 4 - 1) * k;
   // Draw pixel text; align 'left' | 'center' | 'right'; outline colour
-  // optional; k = integer glyph scale.
+  // optional; k = integer glyph scale. Each string is rendered once into a
+  // cached sprite.
+  const textCache = new Map();
   function text(ctx, str, x, y, color, align = 'left', outline = null, k = 1) {
-    const s = String(str).toUpperCase().replace(/[ÁÀÂÃÉÊÍÓÔÕÚÇ]/g, (c) => ACCENTS[c]);
-    const x0 = Math.round(x - (align === 'center' ? textWidth(s, k) / 2 : align === 'right' ? textWidth(s, k) : 0));
-    y = Math.round(y);
-    if (outline) {
-      for (const [ox, oy] of [[-1, 0], [1, 0], [0, -1], [0, 1], [1, 1]]) {
-        for (let i = 0; i < s.length; i++) ctx.drawImage(glyphSprite(s[i], outline), x0 + i * 4 * k + ox, y + oy, 3 * k, 5 * k);
+    const key = str + '|' + color + '|' + outline + '|' + k;
+    let t = textCache.get(key);
+    if (!t) {
+      const s = String(str).toUpperCase().replace(/[ÁÀÂÃÉÊÍÓÔÕÚÇ]/g, (c) => ACCENTS[c]);
+      const w = Math.max(1, textWidth(s, k)) + 2, h = 5 * k + 2;
+      const cv = makeCanvas(w, h), g = cv.getContext('2d');
+      if (outline) {
+        for (const [ox, oy] of [[-1, 0], [1, 0], [0, -1], [0, 1], [1, 1]]) {
+          for (let i = 0; i < s.length; i++) g.drawImage(glyphSprite(s[i], outline), 1 + i * 4 * k + ox, 1 + oy, 3 * k, 5 * k);
+        }
       }
+      for (let i = 0; i < s.length; i++) g.drawImage(glyphSprite(s[i], color), 1 + i * 4 * k, 1, 3 * k, 5 * k);
+      t = { cv, w: w - 2 };
+      textCache.set(key, t);
+      if (textCache.size > 300) textCache.delete(textCache.keys().next().value);
     }
-    for (let i = 0; i < s.length; i++) ctx.drawImage(glyphSprite(s[i], color), x0 + i * 4 * k, y, 3 * k, 5 * k);
+    const x0 = Math.round(x - (align === 'center' ? t.w / 2 : align === 'right' ? t.w : 0));
+    ctx.drawImage(t.cv, x0 - 1, Math.round(y) - 1);
   }
 
   XS.Screen = Screen;
-  XS.gfx = { makeCanvas, bayer, BAYER4, ditherPattern, disc, discSprite, ball, ballSprite, ellipse, ellipseRing, line, thickLine, poly, text, textWidth, glow, glowSprite };
+  XS.gfx = { makeCanvas, bayer, BAYER4, ditherPattern, disc, discSprite, ball, ballSprite, ellipse, ellipseRing, line, streak, thickLine, poly, text, textWidth, glow, glowSprite };
 })(globalThis.XS = globalThis.XS || {});

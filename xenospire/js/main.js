@@ -53,7 +53,36 @@
     clearTimeout(toast.t);
     toast.t = setTimeout(() => toastEl.classList.add('hidden'), ms);
   }
-  const unlock = () => app.sound.unlock();
+  // ------------------------------------------------------ fullscreen
+  const docEl = document.documentElement;
+  const fullscreen = app.fullscreen = {
+    supported: !!(docEl.requestFullscreen || docEl.webkitRequestFullscreen),
+    active: () => !!(document.fullscreenElement || document.webkitFullscreenElement),
+    enter() {
+      if (!this.supported) { toast(XS.S.fullscreenIOS, 5000); return; }
+      try {
+        const p = docEl.requestFullscreen ? docEl.requestFullscreen({ navigationUI: 'hide' }) : docEl.webkitRequestFullscreen();
+        if (p && p.catch) p.catch(() => {});
+      } catch (err) { /* refused (no user gesture) */ }
+    },
+    exit() {
+      try {
+        const p = document.exitFullscreen ? document.exitFullscreen() : document.webkitExitFullscreen && document.webkitExitFullscreen();
+        if (p && p.catch) p.catch(() => {});
+      } catch (err) { /* not in fullscreen */ }
+    },
+    toggle() {
+      if (this.active()) { this.exit(); app.settings.fullscreen = false; } else { this.enter(); app.settings.fullscreen = true; }
+      XS.Settings.save(app.settings);
+    },
+  };
+  for (const ev of ['fullscreenchange', 'webkitfullscreenchange']) document.addEventListener(ev, () => setTimeout(resize, 60));
+  // The browser only allows fullscreen from a tap: honour the saved preference
+  // on the first one.
+  const unlock = () => {
+    app.sound.unlock();
+    if (app.settings.fullscreen && fullscreen.supported && !fullscreen.active() && !unlock.tried) { unlock.tried = true; fullscreen.enter(); }
+  };
   window.addEventListener('pointerdown', unlock, { passive: true });
   window.addEventListener('keydown', unlock);
   document.addEventListener('click', (e) => { if (e.target.closest && e.target.closest('button')) app.sound.play('ui', { gap: 0.02 }); });
@@ -342,6 +371,7 @@
       }
     }
     if (key === 'pixel') resize();
+    if (key === 'fullscreen') { if (app.settings.fullscreen) fullscreen.enter(); else fullscreen.exit(); }
     if (key === 'quality') { if (app.scene) app.scene.fx.quality = app.settings.quality; resize(); }
     if (['bigText', 'reduceMotion'].includes(key)) applyAccessibility();
     app.hud.applySettings();
@@ -531,14 +561,27 @@
   }
 
   // ------------------------------------------------------------ loop
-  let last = performance.now(), acc = 0, frames = 0, fpsT = 0, fps = 60, skip = false, portraitT = 0;
+  let last = performance.now(), acc = 0, frames = 0, fpsT = 0, fps = 60, skip = false, portraitT = 0, autoSlow = 0;
   function frame(now) {
     requestAnimationFrame(frame);
     let dt = Math.min(0.1, (now - last) / 1000);
     if (app.settings.fps === 30) { skip = !skip; if (skip) return; }
     last = now;
     frames++; fpsT += dt;
-    if (fpsT >= 0.5) { fps = Math.round(frames / fpsT); frames = 0; fpsT = 0; }
+    if (fpsT >= 0.5) {
+      fps = Math.round(frames / fpsT); frames = 0; fpsT = 0;
+      // Automatic quality: a fight that keeps running slowly steps quality down.
+      const S = app.settings;
+      if (S.autoQuality && S.quality > 0 && inFight() && app.running && !app.paused && !document.hidden) {
+        autoSlow = fps < (S.fps === 30 ? 26 : 40) ? autoSlow + 0.5 : Math.max(0, autoSlow - 1);
+        if (autoSlow >= 4) {
+          autoSlow = 0;
+          S.quality--;
+          app.settingChanged('quality');
+          toast(XS.t('set.qualityLowered', { q: XS.S.set.qualityOpts[S.quality] }), 3000);
+        }
+      }
+    }
     const scene = app.scene;
     if (inFight() && app.battle) {
       const b = app.battle;

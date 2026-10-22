@@ -127,7 +127,7 @@
       // The Guardian's fury phase.
       if (target.guardian && !target.enraged && target.hp < target.maxHp * 0.5 && target.alive) {
         target.enraged = true;
-        target.dmgMult *= 1.25;
+        target.dmgMult *= 1.15;
         this.events.emit('enrage', { f: target });
       }
       return amt;
@@ -172,8 +172,8 @@
         if (!e.alive || (src && e.team === src.team) || (opts.exclude && opts.exclude === e)) continue;
         const dz = z - (e.z + e.height * 0.5);
         const d = Math.hypot(e.x - x, e.y - y, dz * 0.5);
-        if (d > r + e.radius) continue;
-        const fall = 1 - 0.4 * Math.min(1, Math.max(0, d - e.radius) / r);
+        if (d > r + e.hitR) continue;
+        const fall = 1 - 0.4 * Math.min(1, Math.max(0, d - e.hitR) / r);
         this.damage(e, dmg * fall, { src, def, kx: e.x - x, ky: e.y - y, kb: (def ? def.knock : 4) * (opts.kbMult || 1), tag: opts.tag });
         hit.push(e);
       }

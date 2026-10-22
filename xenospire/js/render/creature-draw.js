@@ -42,7 +42,12 @@
     // Pass 1: silhouette outline.
     for (const p of order) {
       if (p.k === 0 && !p.decor) gfx.disc(ctx, p.sx, p.sy, Math.max(S, p.r * PX) + 1, outline);
-      else if (p.k === 1) gfx.thickLine(ctx, p.ax, p.ay, p.bx, p.by, Math.max(S * 0.5, p.r * PX) + 1, outline);
+      else if (p.k === 1) {
+        // Limb outline: overlapping discs, spaced as far as still reads solid.
+        const r = Math.max(S * 0.5, p.r * PX) + 1;
+        const steps = Math.max(1, Math.ceil(Math.hypot(p.bx - p.ax, p.by - p.ay) / Math.max(1, r * 1.5)));
+        for (let i = 0; i <= steps; i++) gfx.disc(ctx, p.ax + ((p.bx - p.ax) * i) / steps, p.ay + ((p.by - p.ay) * i) / steps, r, outline);
+      }
     }
     if (opts.silhouette) { ctx.globalAlpha = prevAlpha; return; }
 
@@ -58,7 +63,7 @@
         case 0: gfx.ball(ctx, p.sx, p.sy, Math.max(S * 0.5, p.r * PX), ramp); break;
         case 1: {
           const r = Math.max(S * 0.5, p.r * PX);
-          const steps = Math.max(1, Math.ceil(Math.hypot(p.bx - p.ax, p.by - p.ay) / Math.max(1, r * 1.05)));
+          const steps = Math.max(1, Math.ceil(Math.hypot(p.bx - p.ax, p.by - p.ay) / Math.max(1, r * 1.4)));
           for (let i = 0; i <= steps; i++) gfx.ball(ctx, p.ax + ((p.bx - p.ax) * i) / steps, p.ay + ((p.by - p.ay) * i) / steps, r, ramp);
           break;
         }

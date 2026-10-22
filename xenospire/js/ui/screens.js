@@ -32,6 +32,9 @@
     const m = app.meta;
     const s = el('div', 'screen title-screen');
     s.innerHTML = `<div class="logo"><h1>${S.title}</h1><p>${S.subtitle}</p></div>`;
+    const fsBtn = button('⛶', 'ghost fs-btn', () => app.fullscreen.toggle());
+    fsBtn.title = S.fullscreen; fsBtn.setAttribute('aria-label', S.fullscreen);
+    s.appendChild(fsBtn);
     const menu = el('nav', 'menu');
     const saved = XS.Run.loadRun();
     if (saved) menu.appendChild(button(`${S.continue} <small>${XS.t('floor', { n: saved.floor })}</small>`, 'primary', () => app.continueRun()));
@@ -286,6 +289,7 @@
       const row = el('div', 'row wrap');
       row.appendChild(button(S.resume, 'primary', () => app.resume()));
       row.appendChild(button(S.settings, '', () => app.openSettings(true)));
+      row.appendChild(button('⛶ ' + S.fullscreen, '', () => app.fullscreen.toggle()));
       if (app.mode === 'labtest') row.appendChild(button(S.lab.back, '', () => { app.closeModal(); app.go('lab'); }));
       row.appendChild(button(S.lab.leave, 'danger', () => { app.closeModal(); app.go('title'); }));
       m.appendChild(row);
@@ -300,6 +304,7 @@
     const row = el('div', 'row wrap');
     row.appendChild(button(S.resume, 'primary', () => app.resume()));
     row.appendChild(button(S.settings, '', () => app.openSettings(true)));
+    row.appendChild(button('⛶ ' + S.fullscreen, '', () => app.fullscreen.toggle()));
     if (!inMenu) row.appendChild(button(S.abandon, 'danger', () => confirm(app, S.abandonConfirm, () => app.abandon())));
     else row.appendChild(button('Menu', 'ghost', () => { app.closeModal(); app.go('title'); }));
     m.appendChild(row);

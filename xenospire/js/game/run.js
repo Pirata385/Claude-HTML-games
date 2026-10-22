@@ -68,7 +68,7 @@
   // Opponents for a floor: each one drafts its own kit from Loom offers.
   function makeOpponents(seed, floor, type, nFoes, difficulty = 1) {
     const run = { seed };
-    const early = floor <= 2 ? 0.85 : 1;
+    const early = floor <= 3 ? 0.8 : 1;
     const opponents = [];
     for (let i = 0; i < nFoes; i++) {
       const gseed = XS.hash(run.seed, 'foe', floor, i);
@@ -89,9 +89,9 @@
       }
       opponents.push({
         genomeSeed: gseed, genome, powers: picks, drafts,
-        hpMult: (1 + 0.06 * (floor - 1)) * early * (type === 'guardian' ? 2.4 : type === 'melee' ? 0.8 : 1),
-        sizeMult: 1, dmgMult: type === 'guardian' ? 1.1 : 1,
-        skill: XS.clamp((0.3 + floor * 0.025) * (DIFFICULTY[difficulty] || 1), 0.15, 1.1),
+        hpMult: (1 + 0.045 * (floor - 1)) * early * (type === 'guardian' ? 1.4 : type === 'melee' ? 0.8 : 1),
+        sizeMult: 1, dmgMult: type === 'guardian' ? 0.85 : 1,
+        skill: XS.clamp((0.12 + floor * 0.02) * (DIFFICULTY[difficulty] || 1), 0.1, 0.95),
         guardian: type === 'guardian',
       });
     }

@@ -90,7 +90,8 @@
     set: {
       audio: 'Áudio', video: 'Vídeo', game: 'Jogo', controls: 'Controles', access: 'Acessibilidade', data: 'Dados',
       master: 'Volume geral', music: 'Música', sfx: 'Efeitos',
-      quality: 'Qualidade', qualityOpts: ['Baixa', 'Média', 'Alta'],
+      quality: 'Qualidade', qualityOpts: ['Baixa', 'Média', 'Alta'], autoQuality: 'Qualidade automática', fullscreen: 'Tela cheia',
+      qualityLowered: 'Qualidade ajustada para {q} para o jogo rodar liso.',
       pixelScale: 'Tamanho dos pixels', pixelOpts: ['Menor', 'Auto', 'Maior'],
       fps: 'Limite de FPS', showFps: 'Mostrar FPS',
       difficulty: 'Dificuldade', difficultyOpts: ['Relaxado', 'Normal', 'Brutal'],
@@ -117,6 +118,8 @@
       useTear: 'Usar o Tear', usePortal: 'Entrar no portal', useTerminal: 'Trocar de ser',
       bar: { tear: 'Tear', being: 'Ser', battle: 'Batalha', options: 'Opções' },
     },
+    fullscreen: 'Tela cheia',
+    fullscreenIOS: 'No iPhone: toque em Compartilhar → "Adicionar à Tela de Início" e abra o jogo por lá para jogar em tela cheia.',
     rotateHint: 'Dica: o jogo funciona em pé ou deitado.',
     loading: 'Tecendo a torre…',
     tapToStart: 'Toque para começar',

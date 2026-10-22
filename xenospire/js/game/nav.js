@@ -10,6 +10,28 @@
 
   const N8 = [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [1, -1], [-1, 1], [-1, -1]];
 
+  // Cells with no wall (a column more than a step higher) around them, shared
+  // by every field on the same world and refreshed at most once a second
+  // while the terrain keeps changing.
+  const roomyCache = new WeakMap();
+  function roomyFor(w) {
+    let c = roomyCache.get(w);
+    if (c && (c.version === w.version || w.clock - c.clock < 1)) return c.grid;
+    const W = w.W, D = w.D, top = w.colTop;
+    const grid = c ? c.grid : new Uint8Array(W * D);
+    for (let y = 0; y < D; y++) for (let x = 0; x < W; x++) {
+      const i = x + y * W, t = top[i];
+      let ok = t ? 1 : 0;
+      for (let oy = -1; oy <= 1 && ok; oy++) for (let ox = -1; ox <= 1; ox++) {
+        const nx = x + ox, ny = y + oy;
+        if (nx >= 0 && ny >= 0 && nx < W && ny < D && top[nx + ny * W] > t + 1) { ok = 0; break; }
+      }
+      grid[i] = ok;
+    }
+    roomyCache.set(w, { grid, version: w.version, clock: w.clock });
+    return grid;
+  }
+
   class NavField {
     constructor(world, opts = {}) {
       this.w = world;
@@ -17,7 +39,6 @@
       const n = world.W * world.D;
       this.dist = new Int16Array(n);
       this.queue = new Int32Array(n);
-      this.roomy = new Uint8Array(n);
       this.gx = -1; this.gy = -1;
       this.age = Infinity;
     }
@@ -36,19 +57,7 @@
       dist.fill(-1);
       this.gx = gx; this.gy = gy; this.age = 0;
       if (gx < 0 || gy < 0 || gx >= W || gy >= D || !top[gx + gy * W]) return;
-      // Cells with no wall (a column more than a step higher) around them.
-      const roomy = this.roomy;
-      if (this.clear) {
-        for (let y = 0; y < D; y++) for (let x = 0; x < W; x++) {
-          const i = x + y * W, t = top[i];
-          let ok = t ? 1 : 0;
-          for (let oy = -1; oy <= 1 && ok; oy++) for (let ox = -1; ox <= 1; ox++) {
-            const nx = x + ox, ny = y + oy;
-            if (nx >= 0 && ny >= 0 && nx < W && ny < D && top[nx + ny * W] > t + 1) { ok = 0; break; }
-          }
-          roomy[i] = ok;
-        }
-      }
+      const roomy = this.clear ? roomyFor(w) : null;
       let head = 0, tail = 0;
       dist[gx + gy * W] = 0;
       q[tail++] = gx + gy * W;

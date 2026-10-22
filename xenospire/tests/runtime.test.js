@@ -123,3 +123,21 @@ test('navigation finds a way around a wall', () => {
   }
   assert.ok(Math.hypot(x - (cx + 5.5), y - (cy + 0.5)) < 1.5, `reached the goal (${x.toFixed(1)}, ${y.toFixed(1)})`);
 });
+
+test('falling terrain crushes whoever is under it', () => {
+  const def = XS.Power.generate(1, 1, { tier: 0, forms: ['bolt'] });
+  const { b, e } = duel(def, 6);
+  const w = b.world, tx = Math.floor(e.x), ty = Math.floor(e.y), z = Math.round(e.z);
+  const stone = 1;
+  for (let h = 0; h <= 5; h++) w.set(tx + 3, ty, z + h, stone);           // a pillar
+  for (let y = ty - 1; y <= ty + 1; y++) for (let x = tx - 1; x <= tx + 3; x++) w.set(x, y, z + 5, stone); // a roof on it
+  b.step(1 / 60);
+  let crushed = 0;
+  b.events.on('crush', (ev) => { if (ev.f === e) crushed++; });
+  const hp0 = e.hp;
+  w.set(tx + 3, ty, z, 0); // knock the pillar out
+  for (let s = 0; s < 120; s++) b.step(1 / 60);
+  assert.equal(crushed, 1, 'crushed once');
+  assert.ok(e.hp < hp0);
+  assert.equal(w.chunks.length, 0, 'the roof settled');
+});

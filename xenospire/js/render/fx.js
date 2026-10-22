@@ -32,6 +32,13 @@
       this.unsub = [];
       this.unsub.push(world.events.on('break', (e) => this.debris(e, false)));
       this.unsub.push(world.events.on('fall', (e) => this.debris(e, true)));
+      this.unsub.push(world.events.on('chunk', (e) => { this.smoke(e.x, e.y, e.z, Math.min(6, 1 + e.n / 8), '#b8b0a0'); this.shake(Math.min(0.25, 0.05 + e.n / 200)); }));
+      this.unsub.push(world.events.on('chunkLand', (e) => {
+        const k = Math.min(1, e.n / 60);
+        this.smoke(e.x, e.y, e.z, 3 + Math.round(k * 8), '#a89880', 1 + k);
+        this.ring(e.x, e.y, e.z + 0.1, 1.5 + k * 3.5, '#d8d0c0', 0.5, { r0: 0.5, width: 2, glow: false });
+        this.shake(0.12 + k * 0.5);
+      }));
     }
 
     dispose() { for (const u of this.unsub) u(); this.unsub = []; }
@@ -342,6 +349,7 @@
         this.smoke(e.x, e.y, e.z, 10, '#8a7a70', 1.6);
         this.burst(e.x, e.y, e.z + 0.5, ['#2a1c10', '#6a4a2a', e.def.ramp[2], e.def.ramp[3]], 24, 12, { kind: 'px', grav: 20, lift: 6, life: 1.4 });
       });
+      on('crush', (e) => this.text(e.f.x, e.f.y, e.f.z + e.f.height + 1, 'ESMAGADO!', '#ffd08a', e.n > 20));
       on('drill', (e) => this.burst(e.x, e.y, e.z, ['#ffffff', e.ramp[3], e.ramp[2], '#ffe8a0'], 3, 7, { life: 0.4 }));
       on('echo', (e) => this.ring(e.f.x, e.f.y, e.f.z + 0.1, 2, e.def.ramp[3], 0.35, { r0: 0.3, width: 1 }));
       on('dodge', (e) => { this.smoke(e.f.x, e.f.y, e.f.z, 2, '#d8d0e8'); if (e.f.rig) this.ghost(e.f.rig, '#d8e8ff', 0.25); });

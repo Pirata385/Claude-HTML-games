@@ -34,8 +34,55 @@
     return Math.floor(py + 0.5 - top);
   }
 
+  // Crack masks per variant and level: 1 = fissure pixel, 2 = chipped edge.
+  // A fissure starts near the middle of the top face, wanders to an edge and
+  // runs down a side face.
+  const crackCache = new Map();
+  function crackMask(variant, level) {
+    const key = variant * 4 + level;
+    let m = crackCache.get(key);
+    if (m) return m;
+    m = new Uint8Array(SW * SH);
+    for (let k = 0; k < level; k++) {
+      let x = HX + (XS.hash3f(variant, k, 11) - 0.5) * HX * 0.8, y = HY + (XS.hash3f(variant, k, 12) - 0.5) * HY * 0.6;
+      let a = XS.hash3f(variant, k, 13) * Math.PI * 2;
+      for (let s = 0; s < SW + VZ * 2; s++) {
+        const px = Math.floor(x), py = Math.floor(y);
+        const f = faceAt(px, py);
+        if (!f) break;
+        m[py * SW + px] = 1;
+        a += (XS.hash3f(variant * 7 + k, s, 14) - 0.5) * 1.1;
+        if (f !== 1) a = Math.PI / 2 + (XS.hash3f(variant, k, s) - 0.5) * 1.4; // down the side
+        x += Math.cos(a); y += Math.sin(a) * (f === 1 ? 0.6 : 1);
+      }
+    }
+    if (level >= 2) {
+      // A chipped outer corner on the right face.
+      const cx = SW - 2, cy = 2 * HY;
+      for (let py = 0; py < SH; py++) for (let px = 0; px < SW; px++) {
+        if (FACE[py * SW + px] && Math.hypot(px - cx, (py - cy) * 1.4) < 2.6 + (variant % 2)) m[py * SW + px] = 2;
+      }
+    }
+    crackCache.set(key, m);
+    return m;
+  }
+
+  // Battle marks left by elements on a voxel (see Power.ELEMENTS[].stain).
+  function stainColor(col, stain, face, h) {
+    const top = face === 1;
+    switch (stain) {
+      case 1: return h < 0.72 ? mix(col, '#1a1210', top ? 0.62 : 0.4) : col;            // scorch
+      case 2: return mix(col, '#eaf8ff', top ? (h < 0.8 ? 0.6 : 0.35) : 0.22);          // frost
+      case 3: return h < 0.55 ? mix(col, '#5aa02a', top ? 0.55 : 0.35) : col;           // acid
+      case 4: return h > 0.975 ? '#e070ff' : h < 0.7 ? mix(col, '#22102e', top ? 0.6 : 0.35) : col; // void
+      case 5: return h < 0.5 ? mix(col, '#a8fff0', top ? 0.45 : 0.25) : col;            // crystal
+    }
+    return col;
+  }
+
   // flags: 1 lip back-left, 2 lip back-right, 4 AO left, 8 AO right
-  function makeVoxelSprite(def, variant, z, flags) {
+  // crack: 0..2 (from the voxel's hp); stain: 0..5
+  function makeVoxelSprite(def, variant, z, flags, crack = 0, stain = 0) {
     const cv = XS.gfx.makeCanvas(SW, SH), g = cv.getContext('2d');
     const shade = def.emissive ? 1 : Math.max(0.74, Math.min(1.06, 0.8 + z * 0.065));
     const base = scale(def.color, shade);
@@ -45,6 +92,7 @@
     const lip = lighten(base, 0.38);
     const tex = def.texture;
     const v = variant;
+    const cracks = crack ? crackMask(v, crack) : null;
     for (let py = 0; py < SH; py++) {
       for (let px = 0; px < SW; px++) {
         const face = FACE[py * SW + px];
@@ -107,6 +155,13 @@
           if (outer && !def.emissive) col = darken(col, 0.12);
           if (seam) col = darken(col, 0.05);
         }
+        if (stain) col = stainColor(col, stain, face, XS.hash3f(px + v * 31, py + 77, v + 9));
+        if (cracks) {
+          const c = cracks[py * SW + px];
+          if (c === 1) col = darken(col, 0.5);
+          else if (c === 2) col = darken(col, 0.38);
+          else if (px > 0 && py > 0 && cracks[(py - 1) * SW + px - 1] === 1) col = lighten(col, 0.12);
+        }
         g.fillStyle = col;
         g.fillRect(px, py, 1, 1);
       }
@@ -121,11 +176,11 @@
       this.bands = new Array(world.W + world.D - 1).fill(null);
     }
 
-    sprite(m, variant, z, flags) {
-      const key = ((m * 4 + variant) * 32 + z) * 16 + flags;
+    sprite(m, variant, z, flags, crack = 0, stain = 0) {
+      const key = ((((m * 4 + variant) * 32 + z) * 16 + flags) * 3 + crack) * 6 + stain;
       let s = this.sprites.get(key);
       if (!s) {
-        s = makeVoxelSprite(this.world.materials[m], variant, z, flags);
+        s = makeVoxelSprite(this.world.materials[m], variant, z, flags, crack, stain);
         this.sprites.set(key, s);
       }
       return s;
@@ -165,7 +220,8 @@
         const y = d - x;
         const top = w.colTop[x + y * w.W];
         for (let z = 0; z < top; z++) {
-          const m = w.mat[w.idx(x, y, z)];
+          const i = w.idx(x, y, z);
+          const m = w.mat[i];
           if (!m) continue;
           const upAir = !w.solid(x, y, z + 1);
           if (!upAir && w.solid(x + 1, y, z) && w.solid(x, y + 1, z)) continue; // hidden
@@ -177,7 +233,7 @@
             if (w.solid(x, y - 1, z + 1)) flags |= 8;
           }
           const variant = Math.floor(XS.hash3f(x, y, z) * 4);
-          g.drawImage(this.sprite(m, variant, Math.min(31, z), flags), (x - y) * HX - HX - band.sx0, d * HY - (z + 1) * VZ - band.sy0);
+          g.drawImage(this.sprite(m, variant, Math.min(31, z), flags, XS.crackOf(w.hp[i]), w.stain[i]), (x - y) * HX - HX - band.sx0, d * HY - (z + 1) * VZ - band.sy0);
         }
       }
     }

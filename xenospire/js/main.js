@@ -341,6 +341,8 @@
     });
     ev.on('suddenDeath', () => app.hud.banner('!', XS.Lore.SUDDEN[0], 2200));
     ev.on('enrage', (e) => app.hud.banner('FÚRIA!', e.f.name, 1300));
+    b.world.events.on('chunk', () => s.play('crack', { gap: 0.08 }));
+    b.world.events.on('chunkLand', (e) => s.play('thud', { gap: 0.08, size: Math.min(1, e.n / 60) }));
     b.world.events.on('break', (e) => s.play('break', { gap: 0.045, pitch: e.def && e.def.kind === 'metal' ? 0.6 : e.def && (e.def.kind === 'crystal' || e.def.kind === 'glass' || e.def.kind === 'ice') ? 1.8 : 1 }));
   }
   function onPlayerHit(e) {

@@ -120,6 +120,13 @@
           break;
         }
         case 'explosion': this.noiseHit({ f0: 1200, f1: 60, dur: 0.6, vol: 0.4 }); this.tone({ wave: 'sine', f0: 110, f1: 35, dur: 0.45, vol: 0.35 }); break;
+        case 'thud': {
+          const k = opts.size || 0.5;
+          this.noiseHit({ f0: 500 + 400 * (1 - k), f1: 50, dur: 0.25 + k * 0.4, vol: 0.18 + k * 0.25 });
+          this.tone({ wave: 'sine', f0: 90 - k * 30, f1: 30, dur: 0.3 + k * 0.3, vol: 0.2 + k * 0.2 });
+          break;
+        }
+        case 'crack': this.noiseHit({ type: 'highpass', f0: 3200 * r(), f1: 1200, dur: 0.12, vol: 0.12 }); break;
         case 'fall': this.tone({ wave: 'triangle', f0: 800, f1: 90, dur: 0.6, vol: 0.18 }); break;
         case 'ko': this.tone({ wave: 'sawtooth', f0: 400, f1: 50, dur: 0.7, vol: 0.2, cutoff: 1600 }); this.noiseHit({ f0: 2500, f1: 100, dur: 0.5, vol: 0.25 }); break;
         case 'freeze': this.tone({ wave: 'triangle', f0: 1800, f1: 2600, dur: 0.25, vol: 0.1, vib: 30 }); break;

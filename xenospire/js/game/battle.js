@@ -60,6 +60,12 @@
       return t;
     }
 
+    // Mark an element leaves on the voxels it hits (see Power.ELEMENTS[].stain).
+    stainOf(def) {
+      const e = def && def.elements && def.elements[0];
+      return e && XS.Power.ELEMENTS[e] ? XS.Power.ELEMENTS[e].stain || 0 : 0;
+    }
+
     // Temporary voxel material for a given element (walls, crystals).
     elementMat(el) {
       if (!this.elementMats[el]) {
@@ -169,7 +175,7 @@
         if (src && t.owner.team === src.team) continue;
         if (Math.hypot(t.x - x, t.y - y) < r + 0.5) t.hp -= dmg;
       }
-      if (opts.terrain !== 0) this.world.damageSphere(x, y, opts.terrainZ != null ? opts.terrainZ : z, opts.terrainR || r * 0.85, opts.terrain != null ? opts.terrain : (def ? def.terrain : 1) * 1.4, src);
+      if (opts.terrain !== 0) this.world.damageSphere(x, y, opts.terrainZ != null ? opts.terrainZ : z, opts.terrainR || r * 0.85, opts.terrain != null ? opts.terrain : (def ? def.terrain : 1) * 1.4, src, this.stainOf(def));
       this.events.emit('explosion', { x, y, z, r, ramp: def && def.ramp ? def.ramp : null, small: !!opts.small, el: def && def.elements ? def.elements[0] : null });
       return hit;
     }
@@ -197,6 +203,7 @@
         f.update(this, dt);
       }
       this.separate();
+      if (this.world.chunks.length) this.crush();
       for (let i = 0; i < this.objects.length; i++) {
         const o = this.objects[i];
         if (o.update(this, o, dt) === false) o.dead = true;
@@ -233,6 +240,28 @@
           const nx = dx / d, ny = dy / d;
           if (!a.blocked(this, a.x - nx * push, a.y - ny * push)) { a.x -= nx * push; a.y -= ny * push; }
           if (!b.blocked(this, b.x + nx * push, b.y + ny * push)) { b.x += nx * push; b.y += ny * push; }
+        }
+      }
+    }
+
+    // Falling chunks of terrain hurt whoever they land on (once per chunk).
+    crush() {
+      const w = this.world;
+      for (const c of w.chunks) {
+        if (c.mode === 'fall' ? c.vz > -5 : c.angV < 2) continue;
+        for (const f of this.fighters) {
+          if (!f.alive || c.hit.has(f.id)) continue;
+          for (const v of c.vox) {
+            const p = w.chunkVoxelPos(c, v);
+            if (p.z > f.z + f.height || p.z + 1 < f.z + 0.3) continue;
+            const dx = f.x - (p.x + 0.5), dy = f.y - (p.y + 0.5);
+            if (Math.hypot(dx, dy) > f.radius + 0.55) continue;
+            c.hit.add(f.id);
+            const src = c.source && c.source.alive !== undefined ? c.source : null;
+            this.damage(f, Math.min(32, 3 + c.n * 0.7), { src, kx: dx, ky: dy, kb: 5, tag: 'crush', ignoreInv: false });
+            this.events.emit('crush', { f, n: c.n });
+            break;
+          }
         }
       }
     }

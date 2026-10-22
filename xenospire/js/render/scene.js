@@ -221,6 +221,14 @@
         }
       }
       for (const p of this.fx.parts) put(Math.floor(p.x) + Math.floor(p.y), 'p', p);
+      // Chunks of terrain falling or toppling, voxel by voxel.
+      const w = this.arena.world;
+      for (const c of w.chunks) {
+        for (const v of c.vox) {
+          const q = w.chunkVoxelPos(c, v);
+          put(Math.floor(q.x + 0.5) + Math.floor(q.y + 0.5), 'cv', { q, v });
+        }
+      }
 
       const win = this.seeThrough(b, ox, oy);
       for (let d = 0; d <= maxD; d++) {
@@ -315,6 +323,12 @@
           break;
         }
         case 'lob': this.drawLob(ctx, o, ox, oy); break;
+        case 'cv': {
+          const { q, v } = o;
+          const spr = this.terrain.sprite(v.m, Math.floor(XS.hash3f(v.x, v.y, v.z) * 4), XS.clamp(Math.round(q.z), 0, 31), 0, XS.crackOf(v.hp), v.stain);
+          ctx.drawImage(spr, Math.round(XS.isoX(q.x, q.y) - XS.ISO.HX + ox), Math.round(XS.isoY(q.x, q.y, q.z + 1) + oy));
+          break;
+        }
         case 'bomb': {
           const sx = XS.isoX(o.x, o.y) + ox, sy = XS.isoY(o.x, o.y, o.z) + oy;
           const on = Math.sin(this.time * (8 + 30 * (1 - o.t / o.T))) > 0;

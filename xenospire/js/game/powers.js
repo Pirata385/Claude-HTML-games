@@ -282,7 +282,7 @@
         o.carveT = 0.05;
         const ux = o.vx / o.speed, uy = o.vy / o.speed;
         if (b.world.blockedSpan(o.x + ux * 0.6, o.y + uy * 0.6, o.z - 0.6, o.z + 0.6)) {
-          b.world.damageSphere(o.x + ux * 0.6, o.y + uy * 0.6, o.z, o.r + 0.7, def.terrain * 0.45, f);
+          b.world.damageSphere(o.x + ux * 0.6, o.y + uy * 0.6, o.z, o.r + 0.7, def.terrain * 0.45, f, b.stainOf(def));
           b.events.emit('drill', { x: o.x + ux * 0.6, y: o.y + uy * 0.6, z: o.z, ramp: def.ramp });
         }
       }
@@ -371,7 +371,7 @@
     if (w.groundAt(o.x, o.y, o.z + 0.3, 0) < o.z - 1.2) { endProjectile(b, o, o.x, o.y, o.z + 0.5, null); return false; }
     if ((o.carveT -= dt) <= 0) {
       o.carveT = 0.05;
-      w.damageSphere(o.x, o.y, o.z, 0.75, def.terrain * 0.35, f);
+      w.damageSphere(o.x, o.y, o.z, 0.75, def.terrain * 0.35, f, b.stainOf(def));
       b.events.emit('burrow', { x: o.x, y: o.y, z: o.z + 0.3, ramp: def.ramp });
     }
     for (const t of b.fighters) {
@@ -433,7 +433,7 @@
 
   function terrainHit(b, o, x, y, z) {
     const def = o.def;
-    b.world.damageSphere(x, y, z, 0.9 + (o.r || 0.4) * 0.6, (def.terrain || 0.5) * (o.child || o.pellet ? 0.5 : 1), o.owner);
+    b.world.damageSphere(x, y, z, 0.9 + (o.r || 0.4) * 0.6, (def.terrain || 0.5) * (o.child || o.pellet ? 0.5 : 1), o.owner, b.stainOf(def));
   }
 
   function hitFighter(b, f, def, t, kx, ky, dmgMult = 1, src) {
@@ -549,7 +549,7 @@
   // Grenade/mine/meteor blast with every modifier that rides on it.
   function detonate(b, f, def, x, y, z, ci, dm, size, angle, opts = {}) {
     const r = def.radius * size;
-    b.explosion(x, y, z + 0.6, r, def.damage * dm, f, def, { terrain: def.terrain * (opts.terrainMult || 1), terrainZ: z + (opts.deep ? -0.6 : 0.1), terrainR: r * (opts.deep ? 0.9 : 0.75) });
+    b.explosion(x, y, z + 0.6, r, def.damage * dm, f, def, { terrain: def.terrain * (opts.terrainMult || 1), terrainZ: z + (opts.deep ? -1.0 : -0.3), terrainR: r * (opts.deep ? 0.9 : 0.75) });
     extras(b, f, def, x, y, z, 1);
     const minis = (has(def, 'cluster') ? 4 : 0) + (has(def, 'fractal') ? 3 : 0);
     for (let i = 0; i < minis; i++) {
@@ -598,8 +598,8 @@
         hitFighter(b, f, def, t, ux, uy, o.ci.dmg, o.ticks > 1 ? { child: true } : null);
       }
       if (pierce) {
-        for (let s = 1; s < len; s += 1.5) b.world.damageSphere(o.sx + ux * s, o.sy + uy * s, o.sz, 0.8, def.terrain / def.ticks * 0.6, f);
-      } else b.world.damageSphere(o.ex, o.ey, o.ez, 1.1, def.terrain / def.ticks * 1.5, f);
+        for (let s = 1; s < len; s += 1.5) b.world.damageSphere(o.sx + ux * s, o.sy + uy * s, o.sz, 0.8, def.terrain / def.ticks * 0.6, f, b.stainOf(def));
+      } else b.world.damageSphere(o.ex, o.ey, o.ez, 1.1, def.terrain / def.ticks * 1.5, f, b.stainOf(def));
       if (o.ticks === def.ticks) impact(b, f, def, o.ex, o.ey, o.ez, null, o.ci.dmg, false, o.ci, o.angle);
     }
     return o.t < 0.38;
@@ -634,7 +634,7 @@
         hitFighter(b, f, def, t, dx, dy, o.ci.dmg, { child: true });
       }
       const rr = def.range * b.rng.range(0.4, 1), aa = o.angle + b.rng.range(-def.angle / 2, def.angle / 2);
-      b.world.damageSphere(f.x + Math.cos(aa) * rr, f.y + Math.sin(aa) * rr, chestZ(f), 1, def.terrain * 0.4, f);
+      b.world.damageSphere(f.x + Math.cos(aa) * rr, f.y + Math.sin(aa) * rr, chestZ(f), 1, def.terrain * 0.4, f, b.stainOf(def));
     }
     return o.t < def.duration;
   }
@@ -654,7 +654,7 @@
     }
     for (let k = 0; k < 6; k++) {
       const rr = f.radius + 0.8 + (def.range - f.radius) * (k / 6), aa = angle + b.rng.range(-def.angle / 2, def.angle / 2) * (k / 6);
-      b.world.damageSphere(f.x + Math.cos(aa) * rr, f.y + Math.sin(aa) * rr, f.z - 0.2, 1.1, def.terrain * 0.6, f);
+      b.world.damageSphere(f.x + Math.cos(aa) * rr, f.y + Math.sin(aa) * rr, f.z - 0.2, 1.1, def.terrain * 0.6, f, b.stainOf(def));
     }
     b.events.emit('quake', { f, def, angle, range: def.range, spread: def.angle });
   }
@@ -684,7 +684,7 @@
     const g = w.groundAt(ax, ay, o.z + 1.2, 0);
     if (g === -Infinity || g < o.z - 3) return endWave(b, o);
     if (g > o.z && !o.burrow && w.blockedSpan(ax, ay, o.z + 1.2, o.z + 2.6)) {
-      w.damageSphere(ax, ay, o.z + 1.5, o.r * 0.9, def.terrain, f);
+      w.damageSphere(ax, ay, o.z + 1.5, o.r * 0.9, def.terrain, f, b.stainOf(def));
       b.events.emit('impact', { x: ax, y: ay, z: o.z + 1.5, ramp: def.ramp, el: def.elements[0] });
       return endWave(b, o);
     }
@@ -693,7 +693,7 @@
     o.dist += step;
     if ((o.carveT -= dt) <= 0) {
       o.carveT = 0.06;
-      w.damageSphere(o.x, o.y, o.z - 0.4, o.r * (o.burrow ? 0.7 : 0.55), def.terrain * (o.burrow ? 0.45 : 0.35), f);
+      w.damageSphere(o.x, o.y, o.z - 0.4, o.r * (o.burrow ? 0.7 : 0.55), def.terrain * (o.burrow ? 0.45 : 0.35), f, b.stainOf(def));
     }
     for (const t of b.fighters) {
       if (!t.alive || t.team === f.team || o.hit.has(t.id)) continue;
@@ -736,7 +736,7 @@
     const g = w.groundAt(px, py, o.z + 2.2, 0);
     if (g === -Infinity) return true; // chasm: the row keeps going on the other side
     o.z = g;
-    w.damageSphere(px, py, g + 1.4, 0.9, def.terrain * 0.6, f);
+    w.damageSphere(px, py, g + 1.4, 0.9, def.terrain * 0.6, f, b.stainOf(def));
     const mat = b.elementMat(def.elements[0]);
     const cx = Math.floor(px), cy = Math.floor(py);
     const H = o.step % 3 === 0 ? 3 : 2;
@@ -776,7 +776,7 @@
     const nx = o.x + Math.cos(o.angle) * def.speed * dt, ny = o.y + Math.sin(o.angle) * def.speed * dt;
     if (w.blockedSpan(nx, ny, o.z + 1.1, o.z + 2.6)) {
       // Grinds through walls instead of passing them.
-      if (o.nibble <= 0) { o.nibble = 0.15; w.damageSphere(nx, ny, o.z + 1.6, o.r * 0.7, def.terrain * 0.6, f); }
+      if (o.nibble <= 0) { o.nibble = 0.15; w.damageSphere(nx, ny, o.z + 1.6, o.r * 0.7, def.terrain * 0.6, f, b.stainOf(def)); }
     } else {
       o.x = nx; o.y = ny;
       const g = w.groundAt(nx, ny, o.z + 1.2, 0);
@@ -795,7 +795,7 @@
     if (o.tick <= 0) {
       o.tick = XS.Power.FORMS.tornado.tick;
       const a = b.rng.range(0, TAU);
-      w.damageSphere(o.x + Math.cos(a) * o.r * 0.6, o.y + Math.sin(a) * o.r * 0.6, o.z + 0.4, 0.9, def.terrain * 0.4, f);
+      w.damageSphere(o.x + Math.cos(a) * o.r * 0.6, o.y + Math.sin(a) * o.r * 0.6, o.z + 0.4, 0.9, def.terrain * 0.4, f, b.stainOf(def));
     }
     if (has(def, 'trail') && (o.trailT -= dt) <= 0) { o.trailT = 0.2; spawnZone(b, f, def, o.x, o.y, 1.1, 1.6, 0.25, 'trail', o.z); }
     if (o.t <= 0) {
@@ -827,7 +827,7 @@
     if (o.nibble <= 0) {
       o.nibble = 0.25;
       const a = b.rng.range(0, TAU), rr = b.rng.range(0.6, o.r);
-      b.world.damageSphere(o.x + Math.cos(a) * rr, o.y + Math.sin(a) * rr, o.ground + 0.3, 0.9, def.terrain * 0.3, f);
+      b.world.damageSphere(o.x + Math.cos(a) * rr, o.y + Math.sin(a) * rr, o.ground + 0.3, 0.9, def.terrain * 0.3, f, b.stainOf(def));
     }
     if (o.t > 0) return true;
     // Implosion: one last crush and a crater.
@@ -880,7 +880,7 @@
       o.tick = 0.5;
       if (o.tag === 'field' && def.terrain > 0) {
         const a = b.rng.range(0, TAU), rr = b.rng.range(0, o.r);
-        b.world.damageSphere(o.x + Math.cos(a) * rr, o.y + Math.sin(a) * rr, o.z - 0.5, 0.9, def.terrain * 0.5, f);
+        b.world.damageSphere(o.x + Math.cos(a) * rr, o.y + Math.sin(a) * rr, o.z - 0.5, 0.9, def.terrain * 0.5, f, b.stainOf(def));
       }
     }
     if (o.t > 0) return true;
@@ -918,7 +918,7 @@
       hitFighter(b, f, def, t, D.vx, D.vy, dm);
     }
     if (D.blocked) {
-      b.world.damageSphere(f.x + Math.sign(D.vx) * f.radius, f.y + Math.sign(D.vy) * f.radius, f.z + 1, 1.6, def.terrain, f);
+      b.world.damageSphere(f.x + Math.sign(D.vx) * f.radius, f.y + Math.sign(D.vy) * f.radius, f.z + 1, 1.6, def.terrain, f, b.stainOf(def));
       D.t = 0;
     }
     if (has(def, 'trail') && (D.trailT -= dt) <= 0) {
@@ -956,7 +956,7 @@
         o.last.set(key, b.time);
         hitFighter(b, f, def, t, t.x - f.x, t.y - f.y, 1, { child: true });
       }
-      if (o.nibble <= 0) b.world.damageSphere(x, y, z, def.radius + 0.4, def.terrain * 0.4, f);
+      if (o.nibble <= 0) b.world.damageSphere(x, y, z, def.radius + 0.4, def.terrain * 0.4, f, b.stainOf(def));
       if (has(def, 'trail') && o.trailT <= 0) spawnZone(b, f, def, x, y, 0.8, 1.2, 0.2, 'trail', f.z);
     }
     if (o.nibble <= 0) o.nibble = 0.3;

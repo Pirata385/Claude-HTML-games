@@ -280,7 +280,7 @@
         for (let yy = cy - r; yy <= cy + r; yy++) {
           for (let xx = cx - r; xx <= cx + r; xx++) {
             if (Math.max(Math.abs(xx - cx), Math.abs(yy - cy)) !== r) continue;
-            if (this._safe(xx, yy, headroom)) candidates.push({ x: xx + 0.5, y: yy + 0.5, z: this.colTop[xx + yy * this.W] });
+            if (this.isSafe(xx, yy, headroom)) candidates.push({ x: xx + 0.5, y: yy + 0.5, z: this.colTop[xx + yy * this.W] });
           }
         }
         if (candidates.length) return rng ? rng.pick(candidates) : candidates[0];
@@ -288,7 +288,7 @@
       return { x: this.W / 2, y: this.D / 2, z: this.H };
     }
 
-    _safe(x, y, headroom) {
+    isSafe(x, y, headroom) {
       if (x < 1 || y < 1 || x >= this.W - 1 || y >= this.D - 1) return false;
       const t = this.colTop[x + y * this.W];
       if (!t) return false;

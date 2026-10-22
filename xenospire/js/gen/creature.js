@@ -4,7 +4,7 @@
   'use strict';
 
   // Tunables shared with balance (see tests/sim.test.js).
-  const HP_BASE = 170;
+  const HP_BASE = 260;
   const SPEED_BASE = 6.2;
 
   const ARCHETYPES = {
@@ -41,10 +41,10 @@
   };
 
   const BASICS = {
-    garra: { name: 'Garra', kind: 'melee', damage: 8, cooldown: 0.5, range: 2.1, arc: 1.9 },
-    mordida: { name: 'Mordida', kind: 'melee', damage: 10, cooldown: 0.62, range: 1.9, arc: 1.3 },
-    cauda: { name: 'Chicote de cauda', kind: 'spin', damage: 9, cooldown: 0.75, range: 2.6, arc: 6.3 },
-    cuspe: { name: 'Cuspe', kind: 'spit', damage: 6, cooldown: 0.55, range: 9, speed: 15 },
+    garra: { name: 'Garra', kind: 'melee', damage: 5, cooldown: 0.55, range: 2.1, arc: 1.9 },
+    mordida: { name: 'Mordida', kind: 'melee', damage: 7, cooldown: 0.7, range: 1.9, arc: 1.3 },
+    cauda: { name: 'Chicote de cauda', kind: 'spin', damage: 6, cooldown: 0.8, range: 2.6, arc: 6.3 },
+    cuspe: { name: 'Cuspe', kind: 'spit', damage: 4, cooldown: 0.6, range: 9, speed: 15 },
   };
   const DODGES = {
     rolamento: { name: 'Rolamento', dist: 5, time: 0.28 },

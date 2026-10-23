@@ -138,3 +138,26 @@ Os módulos de lógica não tocam o DOM e rodam no Node. Os testes incluem cente
 ```
 node --test xenospire/tests/*.test.js
 ```
+
+## APK para Android
+
+Um APK pronto para instalar está em [`releases/Xenospire-v1.0.apk`](releases/Xenospire-v1.0.apk). É um app nativo mínimo (uma `WebView` em tela cheia) que carrega os mesmos arquivos deste jogo — sem servidor, sem conexão.
+
+Para instalar: baixe o `.apk` no celular, abra-o e permita "instalar app de fonte desconhecida" se o Android pedir (o APK é assinado com a chave de debug padrão do Android, não publicado na Play Store).
+
+### Gerando o APK você mesmo
+
+O projeto Android fica em [`android/`](android/). Ele embute uma cópia de `index.html`, `style.css` e `js/` em `android/app/src/main/assets/www/` — depois de editar o jogo, repita a cópia antes de gerar um novo APK:
+
+```
+cp -r xenospire/index.html xenospire/style.css xenospire/js xenospire/android/app/src/main/assets/www/
+```
+
+Com o Android SDK (`platform-tools`, `platforms;android-34`, `build-tools;34.0.0`) instalado e `ANDROID_HOME`/`local.properties` configurados, builde com:
+
+```
+cd xenospire/android
+gradle assembleDebug
+```
+
+O APK sai em `android/app/build/outputs/apk/debug/app-debug.apk`.

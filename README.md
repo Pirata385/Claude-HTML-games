@@ -11,6 +11,9 @@ A collection of self-contained browser games. Open **`index.html`** at the repos
 | Procedural Marine Bestiary | [`procedural-marine-bestiary/`](procedural-marine-bestiary/) | An infinite procedural ocean to explore. |
 | Procedural Creature Explorer | [`procedural-creature-explorer/`](procedural-creature-explorer/) | An isometric pixel-art world with procedurally evolved creatures to discover, analyse, name and catalogue. |
 | Xenospire — A Torre Infinita | [`xenospire/`](xenospire/) | A mobile-first isometric pixel-art arena fighter (in Portuguese): procedural beings with Spore-style animation climb an infinite space tower, drafting procedurally generated powers on destructible voxel floors. |
+| Descents | [`descents/`](descents/) | A first-person 3D exploration game about descending into a vast, procedurally generated abyss of layers, caves, ruins, creatures and artifacts. |
+| Procedurality-3D | [`procedurality-3d/`](procedurality-3d/) | An open-universe 3D observatory: drift through a seeded galaxy of stars, planets and ecosystems, and civilizations that rise, trade and war on their own. |
+| Intergalactic Life | [`intergalactic-life/`](intergalactic-life/) | A 2.5D procedural space exploration, combat, trading and colonization game in a living galaxy of factions and aliens. |
 
 ## Structure
 

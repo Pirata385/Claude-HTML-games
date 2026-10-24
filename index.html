@@ -110,6 +110,14 @@ footer { text-align: center; color: var(--muted); font-weight: 500; font-size: 0
       palette: ['#05060b', '#223047', '#5a7290', '#5ff0c8', '#ffb347'],
       scene: 'dock',
     },
+    {
+      path: 'chess-roguelike/index.html',
+      title: 'Peões & Perdição',
+      desc: 'Chess as a roguelike, in a chunky cartoon 2.5D isometric style: lead a permadeath army across three acts of branching maps, mutate your pieces, collect amulets and take down three bosses. Mobile-first, in Portuguese.',
+      tags: ['isometric', 'chess', 'roguelike', 'cartoon', 'mobile'],
+      palette: ['#1b1028', '#62c8ff', '#72c94a', '#fff4d6', '#ff4d6d'],
+      scene: 'chess',
+    },
   ];
   const nav = document.getElementById('games');
   const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
@@ -203,6 +211,27 @@ footer { text-align: center; color: var(--muted); font-weight: 500; font-size: 0
       ctx.fillStyle = '#0b1520'; ctx.fillRect(19, 13, 1, 3); ctx.fillRect(25, 13, 1, 3);
       ctx.fillStyle = P[3]; ctx.fillRect(31, 19, 2, 2);
       ctx.fillStyle = P[4]; ctx.fillRect(9, 19, 3, 2); ctx.fillRect(6, 20, 2, 1); ctx.fillRect(3, 20, 1, 1);
+    } else if (g.scene === 'chess') {
+      ctx.fillStyle = P[1]; ctx.fillRect(0, 0, W, H);
+      ctx.fillStyle = '#ffcf3f'; ctx.fillRect(80, 4, 7, 7);
+      // Isometric 4x4 board: top faces, then 3px of block side below them.
+      const tileAt = (px, py) => {
+        const dx = (px - 48) / 7, dy = (py - 13) / 3.5, fx = (dx + dy) / 2, fy = (dy - dx) / 2;
+        return fx >= 0 && fy >= 0 && fx < 4 && fy < 4 ? (Math.floor(fx) + Math.floor(fy)) % 2 : -1;
+      };
+      for (let py = 0; py < H; py++) for (let px = 0; px < W; px++) {
+        const t = tileAt(px, py);
+        if (t >= 0) { ctx.fillStyle = t ? P[2] : '#b2ea6a'; ctx.fillRect(px, py, 1, 1); continue; }
+        for (let k = 1; k <= 3; k++) if (tileAt(px, py - k) >= 0) { ctx.fillStyle = px < 48 ? '#9a6436' : '#71431f'; ctx.fillRect(px, py, 1, 1); break; }
+      }
+      // A cream pawn facing a purple king.
+      ctx.fillStyle = P[0]; ctx.fillRect(36, 18, 7, 9); ctx.fillStyle = P[3]; ctx.fillRect(37, 19, 5, 7);
+      ctx.fillStyle = '#2ed3b7'; ctx.fillRect(37, 17, 5, 2); ctx.fillRect(35, 26, 9, 2);
+      ctx.fillStyle = P[0]; ctx.fillRect(38, 21, 1, 1); ctx.fillRect(40, 21, 1, 1);
+      ctx.fillStyle = P[0]; ctx.fillRect(56, 9, 8, 13); ctx.fillStyle = '#54397f'; ctx.fillRect(57, 11, 6, 10);
+      ctx.fillStyle = '#ffcf3f'; ctx.fillRect(56, 6, 8, 3); ctx.fillRect(59, 3, 2, 3);
+      ctx.fillStyle = P[4]; ctx.fillRect(55, 21, 10, 2);
+      ctx.fillStyle = '#ffe14d'; ctx.fillRect(58, 13, 1, 1); ctx.fillRect(61, 13, 1, 1);
     } else {
       ctx.fillStyle = '#5ea8c9'; ctx.fillRect(0, 0, W, H);
       ctx.fillStyle = '#f7e3a1'; ctx.fillRect(74, 5, 6, 6);

@@ -1,0 +1,32 @@
+# Peões & Perdição
+
+Chess as a roguelike, drawn in a chunky cartoon 2.5D isometric style. The UI is in Portuguese.
+
+Open `index.html` in a browser (or pick it from the root menu). No build step and no assets: every piece, board, background and effect is drawn in code on a canvas.
+
+## How a run works
+
+- **Pick a King.** Each one starts with a different army and amulet: *Rei Barrigudo* (the King has a shield), *Rei Mercador* (more gold) or *Rei Louco* (hopping pawns that promote at the middle of the board).
+- **Three acts.** Each act is a branching map of about 7 floors with battles ⚔️, elites 💀, shops 🛒, events ❓ and campfires 🔥, ending in a boss 👑:
+  - Act I: **Torre Viva** summons a pawn every 3 turns.
+  - Act II: **Rei Fantasma** has a King that moves like a Queen, jumps like a Knight and starts with a shield.
+  - Act III: **Rainha Vermelha** moves twice per turn.
+- **Battles.** Turn-based chess on 6×6 to 8×8 boards with rocks and pits. Before the fight you rearrange your troops on the green rows, and pieces that don't fit wait on the bench. **Capturing the enemy King wins.** There is no check: if your King is captured, the run is over.
+- **Permadeath.** Captured pieces leave your army for good. Promoted pawns stay promoted.
+- **Rewards.** After each win you get gold and pick 1 of 3 rewards: a new piece, a mutation or an amulet.
+- **Mutations** (per piece): Saltitante, Marcha-ré, Passo Reto, Passo Torto, Galope, Escudo, Explosivo, Vampiro.
+- **Amulets** (rule changes): Coroa de Ferro, Pergaminho da Ascensão, Pena de Fênix, Bolsa Gulosa, Trevo de 4 Folhas, Tambor de Guerra, Saqueador.
+
+The run saves to `localStorage` at every map step. If you reload during a battle, that battle starts over.
+
+## Controls
+
+Tap or click a piece to see its moves, then tap where it should go. Tapping an enemy piece shows its reach in orange. ☰ opens the pause menu (army, help, sound, abandon run).
+
+## Files
+
+| File | What it holds |
+| --- | --- |
+| `index.html` | Rendering (isometric canvas, cartoon pieces, effects), screens and input |
+| `logic.js` | Pure game logic: move generation, mutations, boss rules, minimax AI, map/encounter/reward generation, seeded RNG |
+| `tests/logic.test.js` | Logic tests: `node --test chess-roguelike/tests/*.test.js` |

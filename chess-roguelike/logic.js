@@ -50,15 +50,15 @@
   const KING_DEAD = 100000;
 
   const MUTATIONS = {
-    hop: { name: 'Saltitante', icon: '⏫', desc: 'Sempre pode avançar 2 casas.', only: ['P'] },
-    retreat: { name: 'Marcha-ré', icon: '⏬', desc: 'Também anda 1 casa para trás.', only: ['P'] },
-    orth1: { name: 'Passo Reto', icon: '✚', desc: 'Também anda/captura 1 casa em linha reta.', not: ['Q', 'R', 'K'] },
-    diag1: { name: 'Passo Torto', icon: '✖', desc: 'Também anda/captura 1 casa na diagonal.', not: ['Q', 'B', 'K'] },
-    leap: { name: 'Galope', icon: '🐴', desc: 'Também salta como o Cavalo.', not: ['N'] },
-    shield: { name: 'Escudo', icon: '🛡️', desc: 'Sobrevive ao primeiro ataque de cada batalha.' },
-    bomb: { name: 'Explosivo', icon: '💣', desc: 'Ao ser capturado explode e leva junto todos ao redor (menos reis).', not: ['K'] },
-    vampire: { name: 'Vampiro', icon: '🦇', desc: 'Ao capturar, ganha um escudo.' },
-    royal: { name: 'Majestade', icon: '👑', desc: 'Anda como a Rainha.', only: ['K'], hidden: true },
+    hop: { name: 'Saltitante', icon: 'hop', desc: 'Sempre pode avançar 2 casas.', only: ['P'] },
+    retreat: { name: 'Marcha-ré', icon: 'retreat', desc: 'Também anda 1 casa para trás.', only: ['P'] },
+    orth1: { name: 'Passo Reto', icon: 'orth', desc: 'Também anda/captura 1 casa em linha reta.', not: ['Q', 'R', 'K'] },
+    diag1: { name: 'Passo Torto', icon: 'diag', desc: 'Também anda/captura 1 casa na diagonal.', not: ['Q', 'B', 'K'] },
+    leap: { name: 'Galope', icon: 'leap', desc: 'Também salta como o Cavalo.', not: ['N'] },
+    shield: { name: 'Escudo', icon: 'shield', desc: 'Sobrevive ao primeiro ataque de cada batalha.' },
+    bomb: { name: 'Explosivo', icon: 'bomb', desc: 'Ao ser capturado explode e leva junto todos ao redor (menos reis).', not: ['K'] },
+    vampire: { name: 'Vampiro', icon: 'fang', desc: 'Ao capturar, ganha um escudo.' },
+    royal: { name: 'Majestade', icon: 'crown', desc: 'Anda como a Rainha.', only: ['K'], hidden: true },
   };
   const canMutate = (type, muts, id) => {
     const m = MUTATIONS[id];
@@ -69,13 +69,13 @@
   };
 
   const AMULETS = {
-    aegis: { name: 'Coroa de Ferro', icon: '⛑️', desc: 'Seu Rei começa toda batalha com escudo.' },
-    midPromo: { name: 'Pergaminho da Ascensão', icon: '📜', desc: 'Peões promovem ao cruzar o meio do tabuleiro.' },
-    phoenix: { name: 'Pena de Fênix', icon: '🪶', desc: 'A primeira peça perdida em cada batalha volta depois dela.' },
-    greed: { name: 'Bolsa Gulosa', icon: '💰', desc: '+50% de ouro das batalhas.' },
-    lucky: { name: 'Trevo de 4 Folhas', icon: '🍀', desc: 'Recompensas oferecem 4 opções.' },
-    warband: { name: 'Tambor de Guerra', icon: '🥁', desc: '+1 fileira para posicionar tropas.' },
-    spoils: { name: 'Saqueador', icon: '🏴‍☠️', desc: '+6 de ouro por peça inimiga capturada.' },
+    aegis: { name: 'Coroa de Ferro', icon: 'helm', desc: 'Seu Rei começa toda batalha com escudo.' },
+    midPromo: { name: 'Pergaminho da Ascensão', icon: 'scroll', desc: 'Peões promovem ao cruzar o meio do tabuleiro.' },
+    phoenix: { name: 'Pena de Fênix', icon: 'feather', desc: 'A primeira peça perdida em cada batalha volta depois dela.' },
+    greed: { name: 'Bolsa Gulosa', icon: 'pouch', desc: '+50% de ouro das batalhas.' },
+    lucky: { name: 'Trevo de 4 Folhas', icon: 'clover', desc: 'Recompensas oferecem 4 opções.' },
+    warband: { name: 'Tambor de Guerra', icon: 'drum', desc: '+1 fileira para posicionar tropas.' },
+    spoils: { name: 'Saqueador', icon: 'flag', desc: '+6 de ouro por peça inimiga capturada.' },
   };
 
   const KINGS = [
@@ -461,7 +461,7 @@
     const n = amulets.includes('warband') ? 3 : 2;
     return Array.from({ length: n }, (_, i) => h - 1 - i);
   }
-  // army: [{id, type, muts}] → { placed: [{id,x,y}], bench: [id] }
+  // army: [{id, type, muts}] -> { placed: [{id,x,y}], bench: [id] }
   function autoDeploy(enc, army, amulets) {
     const { w, h, tiles } = enc;
     const rows = deployRows(h, amulets);

@@ -155,3 +155,15 @@ test('offers respect the lucky amulet', () => {
   assert.strictEqual(C.makeOffers(rng, 1, 'battle', []).length, 3);
   assert.strictEqual(C.makeOffers(rng, 1, 'elite', ['lucky']).length, 4);
 });
+
+test('catalogue texts and icons contain no emoji', () => {
+  const EMOJI = /[\u{1F000}-\u{1FAFF}\u{2600}-\u{27BF}\u{2B00}-\u{2BFF}\u{FE0F}\u{200D}]/u;
+  const texts = [];
+  for (const m of Object.values(C.MUTATIONS)) texts.push(m.name, m.icon, m.desc);
+  for (const a of Object.values(C.AMULETS)) texts.push(a.name, a.icon, a.desc);
+  for (const k of C.KINGS) texts.push(k.name, k.desc);
+  for (const b of Object.values(C.BOSSES)) texts.push(b.name, b.desc);
+  for (const t of texts) assert.ok(!EMOJI.test(t), `emoji in "${t}"`);
+  for (const m of Object.values(C.MUTATIONS)) assert.match(m.icon, /^[a-z]+$/);
+  for (const a of Object.values(C.AMULETS)) assert.match(a.icon, /^[a-z]+$/);
+});

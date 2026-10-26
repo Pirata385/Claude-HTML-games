@@ -8,6 +8,7 @@ This repository holds a collection of HTML games shown on a menu page (`index.ht
 - **Updates:** change an existing game only when the user specifically asks for that game.
 - **One folder per game:** each game has its own dedicated folder containing its code, assets, `README.md` and any tests.
 - **Menu:** when you add a game, register it in the `GAMES` array of the root `index.html` and add it to the table in the root `README.md`. That is the only cross-project edit a new game needs.
+- **Animations:** animations live in `animacoes/<animation-folder>/` and appear in the menu's **Animações** tab. Register a new one in the `ANIMATIONS` array of the root `index.html`, and add it to the tables in the root `README.md` and `animacoes/README.md`. The same scope rules apply: work only on the animation the request is about.
 
 ## Original instructions (moved here from the README)
 

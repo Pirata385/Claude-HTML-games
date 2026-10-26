@@ -1,0 +1,1159 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#000000">
+<title>Raio × Sangue</title>
+<!-- ============================== CSS ============================== -->
+<style>
+:root { --mono: ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace; --accent: #ffd166; }
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; background: #000; overflow: hidden; color: #fff; font: 600 14px var(--mono); }
+canvas { display: block; width: 100vw; height: 100vh; height: 100dvh; }
+.overlay {
+  position: fixed; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px;
+  text-align: center; padding: 24px; background: rgba(8, 8, 10, 0.82);
+}
+.overlay h1 { margin: 0; font: italic 900 clamp(34px, 9vw, 72px) "Helvetica Neue", Helvetica, Arial, sans-serif; letter-spacing: 0.02em; color: #efe6d2; }
+.overlay h1 .v { color: #3ef0ff; }
+.overlay h1 .c { color: #e01b3c; }
+.overlay p { margin: 0; color: #a59e90; font-weight: 500; max-width: 480px; }
+.overlay button {
+  font: inherit; font-size: 16px; cursor: pointer; padding: 11px 22px; border-radius: 9px; border: 2px solid #000;
+  background: #4a3a14; color: var(--accent); box-shadow: inset 0 0 0 2px rgba(255, 209, 102, 0.45), 0 4px 0 #000;
+}
+.overlay a { color: #a59e90; }
+.hud {
+  position: fixed; left: 0; right: 0; bottom: 0; display: flex; align-items: center; gap: 10px;
+  padding: 26px calc(14px + env(safe-area-inset-right)) calc(12px + env(safe-area-inset-bottom)) calc(14px + env(safe-area-inset-left));
+  background: linear-gradient(transparent, rgba(0, 0, 0, 0.65)); transition: opacity 0.4s;
+}
+.hud button, .hud a {
+  font: inherit; color: #fff; cursor: pointer; min-width: 38px; height: 34px; padding: 0 9px; border-radius: 8px; text-decoration: none;
+  display: inline-flex; align-items: center; justify-content: center; background: rgba(255, 255, 255, 0.1); border: 1px solid rgba(255, 255, 255, 0.22);
+}
+.bar { flex: 1; height: 6px; border-radius: 3px; background: rgba(255, 255, 255, 0.18); position: relative; cursor: pointer; }
+.bar i { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 3px; background: linear-gradient(90deg, #3ef0ff, #e01b3c); }
+.time { min-width: 86px; text-align: right; color: #ccc; }
+.idle .hud { opacity: 0; }
+[hidden] { display: none !important; }
+</style>
+</head>
+<body>
+<!-- ============================== HTML ============================== -->
+<canvas id="stage" aria-label="Curta-metragem animada: Raio contra Sangue, uma luta de stickmans"></canvas>
+<div class="hud" id="hud" hidden>
+  <button id="play" title="Pausar / continuar (espaço)" aria-label="Pausar">❚❚</button>
+  <button id="restart" title="Recomeçar (R)" aria-label="Recomeçar">↺</button>
+  <button id="mute" title="Som (M)" aria-label="Som">🔊</button>
+  <div class="bar" id="bar"><i id="fill"></i></div>
+  <span class="time" id="time">0:00 / 1:30</span>
+  <a href="../../index.html#animacoes" title="Voltar ao menu">Menu</a>
+</div>
+<div class="overlay" id="intro">
+  <h1><span class="v">RAIO</span> × <span class="c">SANGUE</span></h1>
+  <p>Uma curta de luta de stickmans: Volt, mestre dos raios, contra Carmim, que dobra o próprio sangue. Cerca de 1min30, com efeitos sonoros sintetizados ao vivo.</p>
+  <button id="start">▶ Assistir</button>
+  <a href="../../index.html#animacoes">← voltar ao menu</a>
+</div>
+<div class="overlay" id="outro" hidden>
+  <h1>FIM</h1>
+  <button id="again">↺ Assistir de novo</button>
+  <a href="../../index.html#animacoes">← voltar ao menu</a>
+</div>
+<!-- ============================== JS ============================== -->
+<script>
+(function () {
+  'use strict';
+  // The film is drawn on a virtual 1280x720 stage scaled to fit the window.
+  // World units: the arena floor is y = 0, up is negative y, the arena spans about x = -760..760.
+  const VW = 1280, VH = 720, END = 90, BAR = 58;
+  const TAU = Math.PI * 2, D2R = Math.PI / 180;
+  const SANS = '"Helvetica Neue", Helvetica, Arial, sans-serif';
+  const MONO = 'ui-monospace, "SF Mono", Menlo, Consolas, monospace';
+  const INK = '#121212', CYAN = '#3ef0ff', YEL = '#ffe14d', RED = '#e01b3c', DRED = '#7a0614';
+  const cv = document.getElementById('stage'), ctx = cv.getContext('2d');
+  const clamp = (v, a = 0, b = 1) => (v < a ? a : v > b ? b : v);
+  const lerp = (a, b, t) => a + (b - a) * t;
+  const seg = (t, a, b) => clamp((t - a) / (b - a));
+  const hash = (n) => { const x = Math.sin(n * 127.1 + 311.7) * 43758.5453123; return x - Math.floor(x); };
+  const EASE = {
+    io: (t) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2),
+    o: (t) => 1 - Math.pow(1 - t, 3),
+    i: (t) => t * t * t,
+    l: (t) => t,
+    s: (t) => (t >= 1 ? 1 : 0),
+    back: (t) => { const c1 = 1.70158, c3 = c1 + 1; return 1 + c3 * Math.pow(t - 1, 3) + c1 * Math.pow(t - 1, 2); },
+  };
+  // Piecewise-linear lookup in a [[time, value], ...] table.
+  const tab = (T, arr) => {
+    if (T <= arr[0][0]) return arr[0][1];
+    for (let i = 1; i < arr.length; i++) if (T < arr[i][0]) { const [t0, v0] = arr[i - 1], [t1, v1] = arr[i]; return lerp(v0, v1, (T - t0) / (t1 - t0)); }
+    return arr[arr.length - 1][1];
+  };
+  const rgb = (h) => [parseInt(h.slice(1, 3), 16), parseInt(h.slice(3, 5), 16), parseInt(h.slice(5, 7), 16)];
+  const mix = (a, b, t) => { const A = rgb(a), B = rgb(b); return `rgb(${A.map((v, i) => Math.round(lerp(v, B[i], clamp(t)))).join(',')})`; };
+  const mixh = (a, b, t) => { const A = rgb(a), B = rgb(b); return '#' + A.map((v, i) => Math.round(lerp(v, B[i], clamp(t))).toString(16).padStart(2, '0')).join(''); };
+
+  // ------------------------------------------------------------------ poses
+  // [torso lean, head tilt, back upper arm, back forearm, front upper arm, front forearm, back thigh, back shin, front thigh, front shin]
+  // Angles in degrees for a figure facing right: limbs 0 = straight down, 90 = forward, 180 = up, -90 = backward.
+  const POSES = {
+    idle: [3, 0, -12, -5, 12, 5, -10, -5, 12, 4],
+    stance: [12, -8, 25, 150, 55, 140, -28, -12, 30, 8],
+    punch: [22, -10, 20, 155, 92, 90, -40, -25, 45, 10],
+    punchB: [25, -10, 92, 90, 40, 140, -40, -25, 45, 10],
+    uppercut: [5, -20, 30, 150, 150, 175, -20, -10, 25, 5],
+    block: [-5, 10, 70, 165, 80, 170, -30, -20, 25, 0],
+    crouch: [35, -20, 40, 120, 60, 120, 10, -75, 70, -15],
+    land: [40, -10, -40, -60, 20, 0, 10, -80, 80, -10],
+    kick: [-25, 10, -70, -40, 40, 100, -8, -2, 95, 95],
+    lowsweep: [30, -10, -40, -20, 10, 0, 10, -90, 80, 85],
+    axekick: [-20, 0, -60, -30, 60, 40, -5, 0, 170, 170],
+    jump: [15, 0, 100, 40, 120, 60, 70, -20, 110, 10],
+    flykick: [-10, 0, -60, -90, 60, 140, 20, -60, 95, 90],
+    hurt: [-40, 30, 130, 150, 110, 120, -10, -20, 35, 25],
+    hurtLow: [50, 20, 20, 60, 40, 70, -15, -10, 15, 5],
+    limp: [0, 15, -30, -20, 40, 60, -5, 0, 15, 30],
+    kneel: [15, 10, 30, 20, 70, 0, -5, -95, 85, 0],
+    cast: [15, -5, 80, 85, 90, 90, -35, -20, 35, 10],
+    castUp: [-10, -25, 165, 175, 160, 170, -25, -10, 25, 10],
+    slashWind: [-10, -5, 40, 60, -150, -170, -30, -15, 30, 5],
+    slashFollow: [30, -10, -40, -60, 60, 20, -45, -30, 50, 10],
+    dash: [50, -30, -70, -80, -60, -70, -50, -100, 60, 10],
+    charge: [20, 25, 25, 110, 30, 115, -35, -5, 35, 5],
+    roar: [-20, -35, -100, -120, 110, 130, -35, -5, 35, 5],
+    backkick: [35, -60, 20, 60, 40, 70, -100, -95, 5, 0],
+    matrix: [-60, -10, -120, -100, -100, -90, -20, 0, 40, 20],
+    slam: [70, -10, 30, 10, 35, 15, 10, -80, 80, -5],
+    whipUp: [-10, -10, -40, -30, 150, 160, 40, -30, 90, 20],
+    whipDown: [30, -10, -60, -40, 60, 30, 20, -40, 80, 30],
+    float: [0, -10, -35, -30, 35, 30, -5, 5, 8, 15],
+    pant: [25, 15, 10, 20, 25, 40, -25, -10, 25, 5],
+    lungeEnd: [45, -20, -80, -90, 105, 100, -75, -75, 85, 0],
+    afterSwing: [35, -10, 20, 40, -60, -40, -60, -70, 70, 0],
+    victory: [-3, -15, 8, 0, 170, 178, -10, -3, 12, 3],
+  };
+  // Cyclic poses are computed from time.
+  function pose(name, t) {
+    if (name === 'walk') {
+      const p = t * TAU * 1.6, leg = (q) => { const th = 28 * Math.sin(q); return [th, th - 45 * Math.max(0, Math.cos(q))]; };
+      const [h1, k1] = leg(p + Math.PI), [h2, k2] = leg(p), sa = -22 * Math.sin(p);
+      return [6, 0, sa, sa + 20, -sa, -sa + 20, h1, k1, h2, k2];
+    }
+    if (name === 'run') {
+      const p = t * TAU * 3, leg = (q) => { const th = 50 * Math.sin(q) + 15; return [th, th - 95 * Math.pow(Math.max(0, Math.cos(q)), 0.7)]; };
+      const [h1, k1] = leg(p + Math.PI), [h2, k2] = leg(p), sa = -60 * Math.sin(p);
+      return [25, -10, sa, sa + 85, -sa, -sa + 85, h1, k1, h2, k2];
+    }
+    return POSES[name];
+  }
+
+  // ------------------------------------------------------------------ choreography
+  // Keyframes per fighter: k(track, time, x, pose, {air, rot, f (facing), e (easing into this key), hide, sink, tr (tremble)}).
+  // Facing and rotation carry over from the previous key when omitted.
+  const V = [], C = [];
+  function k(tr, t, x, p, o = {}) {
+    const prev = tr[tr.length - 1];
+    tr.push({ t, x, pose: p, air: o.air || 0, sink: o.sink || 0, rot: o.rot !== undefined ? o.rot : prev ? prev.rot : 0, f: o.f !== undefined ? o.f : prev ? prev.f : 1, e: o.e || 'io', hide: !!o.hide, tr: o.tr || 0 });
+  }
+  // Intro and entrances.
+  k(V, 0, -380, 'land', { f: 1, hide: true }); k(V, 6.62, -380, 'land'); k(V, 7.7, -380, 'land'); k(V, 8.5, -380, 'stance');
+  k(V, 9.25, -380, 'stance'); k(V, 9.4, -375, 'punch', { e: 'o' }); k(V, 9.9, -380, 'stance');
+  k(C, 0, 380, 'crouch', { f: -1, hide: true }); k(C, 11.8, 380, 'crouch', { sink: 150 }); k(C, 13.2, 380, 'idle', { e: 'o' });
+  k(C, 13.6, 380, 'idle'); k(C, 14.2, 380, 'stance'); k(C, 14.5, 380, 'stance'); k(C, 14.65, 375, 'slashFollow', { e: 'o' }); k(C, 15.2, 380, 'stance');
+  // Round 1: hand to hand.
+  k(V, 20.0, -380, 'stance'); k(V, 20.35, -385, 'crouch'); k(V, 20.5, -370, 'dash', { e: 'i' }); k(V, 21.25, -130, 'run', { e: 'l' });
+  k(V, 21.45, -72, 'punch', { e: 'o' }); k(V, 22.0, -170, 'stance', { e: 'o' }); k(V, 22.4, -165, 'stance'); k(V, 22.55, -150, 'block', { e: 'o' });
+  k(V, 22.85, -152, 'block'); k(V, 23.0, -150, 'crouch', { e: 'o' }); k(V, 23.2, -150, 'crouch'); k(V, 23.38, -100, 'uppercut', { e: 'o', air: 12 });
+  k(V, 23.7, -90, 'stance'); k(V, 24.35, -60, 'stance'); k(V, 24.6, 120, 'flykick', { air: 70 }); k(V, 24.9, 180, 'land', { e: 'i' });
+  k(V, 25.25, 180, 'stance'); k(V, 25.45, 190, 'jump', { air: 110, e: 'o' }); k(V, 25.7, 215, 'axekick', { air: 80 }); k(V, 25.9, 235, 'crouch', { e: 'i' });
+  k(V, 26.3, 250, 'stance'); k(V, 26.5, 300, 'punch', { e: 'o' }); k(V, 26.62, 300, 'stance'); k(V, 26.72, 305, 'punchB', { e: 'o' });
+  k(V, 26.84, 305, 'stance'); k(V, 26.95, 310, 'punch', { e: 'o' }); k(V, 27.25, 305, 'punch'); k(V, 27.32, 300, 'hurt');
+  k(V, 27.75, 60, 'hurt', { air: 70, rot: -60, e: 'o' }); k(V, 28.05, -160, 'jump', { air: 30, rot: -360 }); k(V, 28.35, -240, 'land', { rot: -360, e: 'o' });
+  k(V, 28.351, -240, 'land', { rot: 0, e: 's' }); k(V, 28.7, -280, 'land'); k(V, 29.1, -280, 'stance');
+  k(C, 20.0, 380, 'stance'); k(C, 20.35, 385, 'crouch'); k(C, 20.5, 370, 'dash', { e: 'i' }); k(C, 21.25, 130, 'run', { e: 'l' });
+  k(C, 21.45, 72, 'punch', { e: 'o' }); k(C, 22.0, 170, 'stance', { e: 'o' }); k(C, 22.2, 165, 'stance'); k(C, 22.45, -20, 'dash', { e: 'i' });
+  k(C, 22.6, -45, 'punch', { e: 'o' }); k(C, 22.85, -45, 'stance'); k(C, 23.05, -60, 'kick', { e: 'o' }); k(C, 23.25, -60, 'stance');
+  k(C, 23.38, -60, 'hurt'); k(C, 23.7, 60, 'hurt', { air: 130, rot: -200, e: 'o' }); k(C, 24.0, 170, 'jump', { air: 80, rot: -340 });
+  k(C, 24.25, 230, 'land', { rot: -360, e: 'i' }); k(C, 24.251, 230, 'land', { rot: 0, e: 's' }); k(C, 24.4, 230, 'stance');
+  k(C, 24.62, 230, 'block', { e: 'o' }); k(C, 25.0, 340, 'block', { e: 'o' }); k(C, 25.2, 340, 'stance'); k(C, 25.45, 260, 'lowsweep', { e: 'o' });
+  k(C, 25.65, 265, 'crouch'); k(C, 25.95, 400, 'jump', { rot: -360, air: 30 }); k(C, 26.15, 420, 'stance', { rot: -360, e: 'o' });
+  k(C, 26.151, 420, 'stance', { rot: 0, e: 's' }); k(C, 26.45, 420, 'block'); k(C, 26.85, 420, 'block'); k(C, 27.05, 430, 'stance');
+  k(C, 27.18, 425, 'crouch', { f: 1 }); k(C, 27.32, 410, 'backkick', { e: 'o' }); k(C, 27.7, 410, 'backkick'); k(C, 28.0, 420, 'stance', { f: -1 });
+  // Powers: lightning vs blood shield, blood crescents, the blink and the palm strike.
+  k(V, 29.3, -280, 'stance'); k(V, 29.55, -290, 'cast', { e: 'o' }); k(V, 30.1, -290, 'cast'); k(V, 30.4, -290, 'stance');
+  k(V, 30.95, -290, 'crouch'); k(V, 31.2, -290, 'jump', { air: 110, e: 'o' }); k(V, 31.45, -290, 'land', { e: 'i' }); k(V, 31.6, -290, 'stance');
+  k(V, 31.8, -295, 'matrix', { e: 'o' }); k(V, 32.05, -295, 'matrix'); k(V, 32.25, -290, 'stance'); k(V, 32.3, -290, 'dash', { hide: true });
+  k(V, 32.35, 470, 'dash', { f: -1 }); k(V, 32.45, 470, 'crouch'); k(V, 32.6, 455, 'cast', { e: 'o' }); k(V, 33.1, 455, 'cast');
+  k(V, 33.6, 450, 'stance'); k(V, 34.2, 450, 'stance'); k(V, 36.0, 250, 'walk', { e: 'l' }); k(V, 36.4, 250, 'stance');
+  k(C, 29.35, 420, 'stance'); k(C, 29.55, 420, 'cast', { e: 'o' }); k(C, 30.3, 420, 'cast'); k(C, 30.5, 420, 'stance');
+  k(C, 30.6, 420, 'slashWind'); k(C, 30.75, 410, 'slashFollow', { e: 'o' }); k(C, 31.2, 410, 'slashWind'); k(C, 31.4, 400, 'slashFollow', { e: 'o' });
+  k(C, 31.85, 400, 'slashWind'); k(C, 32.05, 390, 'slashFollow', { e: 'o' }); k(C, 32.45, 392, 'slashFollow'); k(C, 32.6, 395, 'hurt', { f: 1 });
+  k(C, 33.05, -300, 'hurt', { air: 90, e: 'o' }); k(C, 33.3, -620, 'hurt', { air: 60, e: 'l' }); k(C, 33.7, -600, 'limp', { rot: -90, e: 'i' });
+  // Carmim rises, blood spikes, the whip and the crater.
+  k(C, 35.2, -600, 'limp'); k(C, 36.3, -590, 'kneel', { rot: 0 }); k(C, 37.3, -580, 'kneel'); k(C, 38.3, -560, 'pant'); k(C, 39.0, -560, 'stance');
+  k(C, 39.2, -560, 'stance'); k(C, 39.45, -540, 'slam', { e: 'o' }); k(C, 40.6, -540, 'slam'); k(C, 40.9, -300, 'dash', { e: 'i' });
+  k(C, 41.15, 100, 'whipUp', { air: 200, e: 'o' }); k(C, 41.35, 180, 'whipDown', { air: 220, e: 'o' }); k(C, 41.7, 250, 'land', { e: 'i' });
+  k(C, 42.3, 250, 'stance'); k(C, 42.6, 250, 'stance'); k(C, 44.6, 330, 'walk', { e: 'l' }); k(C, 44.9, 330, 'castUp'); k(C, 46.4, 330, 'castUp');
+  k(V, 40.0, 250, 'stance'); k(V, 40.15, 255, 'crouch'); k(V, 40.45, 370, 'jump', { air: 120, rot: -180 }); k(V, 40.7, 470, 'land', { rot: -360, e: 'i' });
+  k(V, 40.701, 470, 'land', { rot: 0, e: 's' }); k(V, 40.75, 470, 'crouch'); k(V, 41.0, 440, 'jump', { air: 230, e: 'o' }); k(V, 41.3, 415, 'jump', { air: 250 });
+  k(V, 41.35, 415, 'hurt', { air: 250 }); k(V, 41.6, 460, 'hurt', { rot: -90, e: 'i' }); k(V, 41.65, 460, 'limp'); k(V, 46.4, 460, 'limp');
+  // Volt's burst, the storm and the power-up.
+  k(V, 47.4, 440, 'float', { rot: 0, air: 50 }); k(V, 48.5, 430, 'float', { air: 40 }); k(V, 48.9, 420, 'charge'); k(V, 54.0, 420, 'charge');
+  k(V, 54.3, 420, 'roar', { e: 'o' }); k(V, 55.4, 420, 'roar');
+  k(C, 46.9, 60, 'hurt', { air: 40, e: 'o' }); k(C, 47.2, -60, 'land', { e: 'i' }); k(C, 47.8, -80, 'stance'); k(C, 48.5, -80, 'stance');
+  k(C, 49.2, -90, 'castUp'); k(C, 54.0, -90, 'castUp'); k(C, 54.3, -95, 'roar', { e: 'o' }); k(C, 55.4, -95, 'roar');
+  // Beam struggle and explosion.
+  k(V, 55.6, 410, 'crouch'); k(V, 56.2, 170, 'dash', { e: 'i' }); k(V, 56.4, 150, 'cast', { e: 'o' }); k(V, 57.6, 175, 'cast', { tr: 1 });
+  k(V, 58.6, 160, 'cast', { tr: 1 }); k(V, 59.4, 200, 'cast', { tr: 1 }); k(V, 60.2, 170, 'cast', { tr: 1 }); k(V, 61.0, 180, 'cast', { tr: 1 });
+  k(V, 61.5, 150, 'roar', { tr: 1 }); k(V, 62.2, 520, 'hurt', { air: 60, e: 'o' }); k(V, 62.6, 560, 'kneel', { e: 'i' });
+  k(C, 55.6, -90, 'crouch'); k(C, 56.2, -170, 'dash', { e: 'i' }); k(C, 56.4, -150, 'cast', { e: 'o' }); k(C, 57.6, -140, 'cast', { tr: 1 });
+  k(C, 58.6, -180, 'cast', { tr: 1 }); k(C, 59.4, -150, 'cast', { tr: 1 }); k(C, 60.2, -175, 'cast', { tr: 1 }); k(C, 61.0, -165, 'cast', { tr: 1 });
+  k(C, 61.5, -190, 'hurt', { tr: 1 }); k(C, 62.2, -520, 'hurt', { air: 60, e: 'o' }); k(C, 62.6, -560, 'kneel', { e: 'i' });
+  // Aftermath, then the final flurry.
+  k(V, 64.6, 560, 'kneel'); k(V, 66.0, 555, 'pant'); k(V, 67.6, 400, 'walk', { e: 'l' }); k(V, 68.0, 400, 'stance'); k(V, 68.4, 405, 'crouch');
+  k(V, 68.85, 70, 'dash', { e: 'i' }); k(V, 68.9, 65, 'punch', { e: 'o' });
+  k(C, 64.6, -560, 'kneel'); k(C, 66.0, -555, 'pant'); k(C, 67.6, -400, 'walk', { e: 'l' }); k(C, 68.0, -400, 'stance'); k(C, 68.4, -405, 'crouch');
+  k(C, 68.85, -70, 'dash', { e: 'i' }); k(C, 68.9, -65, 'punch', { e: 'o' });
+  const FL_V = ['punch', 'block', 'kick', 'uppercut', 'block', 'punchB', 'flykick', 'block', 'punch', 'crouch', 'cast'];
+  const FL_C = ['block', 'punch', 'block', 'hurtLow', 'kick', 'block', 'block', 'slashFollow', 'block', 'kick', 'block'];
+  const FLURRY = [];
+  for (let j = 0; j < FL_V.length; j++) {
+    const t = 69.05 + j * 0.27, air = j === 6 || j === 7 ? 70 : 0;
+    k(V, t - 0.13, 74, 'stance', { air }); k(V, t, FL_V[j] === 'block' ? 78 : 66, FL_V[j], { e: 'o', air });
+    k(C, t - 0.13, -74, 'stance', { air }); k(C, t, FL_C[j] === 'block' ? -78 : -66, FL_C[j], { e: 'o', air });
+    FLURRY.push([t, FL_V[j] === 'block' ? 'red' : 'cyan', air]);
+  }
+  k(V, 72.0, 70, 'punch'); k(V, 72.4, 230, 'crouch', { e: 'o' }); k(V, 72.9, 230, 'crouch'); k(V, 73.3, 200, 'dash'); k(V, 73.36, 190, 'dash');
+  k(C, 72.0, -70, 'punch'); k(C, 72.4, -230, 'crouch', { e: 'o' }); k(C, 72.9, -230, 'crouch'); k(C, 73.3, -180, 'dash'); k(C, 73.36, -170, 'dash');
+  // The pass, the fake-out and the fall.
+  k(V, 73.46, -330, 'lungeEnd', { e: 'o' }); k(V, 75.3, -330, 'lungeEnd'); k(V, 75.9, -330, 'kneel', { e: 'o' }); k(V, 78.6, -330, 'kneel');
+  k(V, 80.0, -330, 'pant'); k(V, 80.6, -330, 'idle', { f: 1 }); k(V, 81.6, -330, 'idle'); k(V, 82.3, -330, 'victory', { e: 'o' }); k(V, 90, -330, 'victory');
+  k(C, 73.46, 300, 'afterSwing', { e: 'o' }); k(C, 75.6, 300, 'afterSwing'); k(C, 76.4, 300, 'idle'); k(C, 76.6, 300, 'idle', { f: -1 });
+  k(C, 77.4, 300, 'hurtLow'); k(C, 78.0, 320, 'limp', { rot: 90, e: 'i' }); k(C, 90, 320, 'limp');
+
+  // Impacts drive hit-stop, impact frames, screen shake, sparks and hit sounds. [t, x, y, power 1-3, colour]
+  const IMPACTS = [
+    [6.62, -380, -20, 3, 'cyan'], [21.45, 0, -112, 3, 'white'], [22.6, -112, -110, 1, 'red'], [23.38, -72, -125, 2, 'cyan'],
+    [24.62, 186, -125, 1, 'cyan'], [25.9, 262, 0, 2, 'white'], [26.5, 372, -112, 1, 'cyan'], [26.72, 372, -112, 1, 'cyan'],
+    [27.32, 345, -112, 3, 'red'], [29.62, 352, -110, 2, 'cyan'], [32.6, 405, -105, 3, 'cyan'], [33.3, -650, -100, 2, 'white'],
+    [39.45, -480, 0, 1, 'red'], [41.35, 415, -300, 3, 'red'], [41.6, 460, 0, 3, 'white'], [46.4, 460, -40, 3, 'cyan'],
+    [54.35, 160, -150, 2, 'white'], [56.45, 0, -115, 3, 'white'], [58.6, 40, -115, 2, 'red'], [60.2, 30, -115, 2, 'cyan'],
+    [61.5, 120, -115, 3, 'white'], [68.9, 0, -112, 3, 'white'],
+    ...FLURRY.map(([t, col, air], j) => [t, 0, -112 - air, j % 3 === 2 ? 2 : 1, col]),
+    [72.0, 0, -112, 3, 'white'], [73.4, 0, -110, 3, 'slash'], [78.0, 300, 0, 1, 'white'], [82.35, -330, -230, 2, 'cyan'],
+  ];
+  const COL = { cyan: CYAN, red: RED, white: '#ffffff', slash: '#ffffff' };
+  const HITSTOP = { 1: 0.035, 2: 0.07, 3: 0.14 };
+  // Fighters freeze during hit-stop while effects keep moving.
+  function fighterTime(T) {
+    for (const im of IMPACTS) { const hs = im[4] === 'slash' || im[0] === 61.5 ? 0 : HITSTOP[im[3]]; if (T >= im[0] && T < im[0] + hs) return im[0]; }
+    return T;
+  }
+
+  // Energy levels over time.
+  const ELEC = [[0, 0], [6.6, 1], [8.2, 0.35], [29.2, 0.35], [29.5, 0.9], [30.3, 0.4], [31.9, 0.4], [32.05, 1], [32.9, 0.4], [41.6, 0.3], [46.3, 0.15], [46.4, 1], [47.5, 0.6], [48.9, 0.6], [54.3, 1], [61.5, 1], [61.6, 0.25], [66, 0.25], [68.5, 0.5], [72.5, 0.6], [73.4, 1], [74, 0.5], [75.2, 0.5], [75.8, 0], [82.2, 0], [82.3, 0.9], [84, 0.5]];
+  const BLOOD = [[0, 0], [11.8, 0.4], [37.2, 0.4], [37.8, 1], [39.5, 0.7], [49.2, 1], [61.5, 1], [61.6, 0.3], [76.8, 0.3], [77.2, 0]];
+  const STORM = [[0, 0], [46.4, 0], [48, 1], [78.5, 1], [81, 0]];
+  const DAWN = [[0, 0], [78.5, 0], [81.5, 1]];
+  const RAIN = [[0, 0], [47, 0], [48.5, 1], [78, 1], [80.5, 0]];
+  const SKYBOLTS = [47.0, 49.5, 51.2, 52.6, 53.8, 57.2, 59.9, 64.2, 70.0, 76.0];
+  const BEAM = [[56.45, 0], [57.6, -60], [58.6, 40], [59.4, -90], [60.2, 30], [61.0, -20], [61.4, 140], [61.5, 140]];
+  const SPEED = [[20.5, 21.45], [24.3, 24.6], [32.3, 32.6], [40.9, 41.35], [56.0, 56.45], [68.5, 72.4], [73.2, 73.5]];
+
+  // ------------------------------------------------------------------ skeleton
+  // Returns joint positions in world space for a sampled state.
+  function joints(st) {
+    const P = st.P, f = st.f, R = st.rot * D2R, cr = Math.cos(R), sr = Math.sin(R);
+    const L = (a, len, o) => [o[0] + Math.sin(a * D2R) * len, o[1] + Math.cos(a * D2R) * len];
+    const neck = [Math.sin(P[0] * D2R) * 50, -Math.cos(P[0] * D2R) * 50];
+    const sh = [neck[0] * 0.9, neck[1] * 0.9];
+    const head = [neck[0] + Math.sin((P[0] + P[1]) * D2R) * 19, neck[1] - Math.cos((P[0] + P[1]) * D2R) * 19];
+    const e1 = L(P[2], 27, sh), h1 = L(P[3], 26, e1), e2 = L(P[4], 27, sh), h2 = L(P[5], 26, e2);
+    const k1 = L(P[6], 32, [0, 0]), f1 = L(P[7], 32, k1), k2 = L(P[8], 32, [0, 0]), f2 = L(P[9], 32, k2);
+    const pts = { hip: [0, 0], neck, sh, head, e1, h1, e2, h2, k1, f1, k2, f2 };
+    let low = -1e9;
+    for (const key in pts) {
+      const [x, y] = pts[key];
+      pts[key] = [(x * cr - y * sr) * f, x * sr + y * cr];
+      low = Math.max(low, pts[key][1] + (key === 'head' ? 13 : 0));
+    }
+    // Plant the lowest point on the floor, then lift by the jump height.
+    const hipY = -low - st.air + st.sink;
+    for (const key in pts) { pts[key][0] += st.x; pts[key][1] += hipY; }
+    return pts;
+  }
+  function sample(tr, t) {
+    let i = 0;
+    while (i + 1 < tr.length && tr[i + 1].t <= t) i++;
+    const a = tr[i], b = tr[i + 1] || a;
+    const u = b === a ? 0 : EASE[b.e](clamp((t - a.t) / (b.t - a.t)));
+    const Pa = pose(a.pose, t), Pb = pose(b.pose, t), P = Pa.map((v, j) => lerp(v, Pb[j], u));
+    const br = Math.sin(t * 2.4);
+    P[0] += br * 1.5; P[2] += br * 3; P[4] -= br * 3;
+    let x = lerp(a.x, b.x, u);
+    if (a.tr) x += (hash(Math.floor(t * 40)) - 0.5) * 8;
+    const st = { x, air: lerp(a.air, b.air, u), sink: lerp(a.sink, b.sink, u), rot: lerp(a.rot, b.rot, u), f: a.f, hide: a.hide, P };
+    st.J = joints(st);
+    return st;
+  }
+  const at = (tr, t) => sample(tr, t);
+
+  // ------------------------------------------------------------------ drawing helpers
+  const circ = (c, x, y, r) => { c.beginPath(); c.arc(x, y, Math.max(0.01, r), 0, TAU); };
+  const ell = (c, x, y, rx, ry, rot = 0) => { c.beginPath(); c.ellipse(x, y, Math.max(0.01, rx), Math.max(0.01, ry), rot, 0, TAU); };
+  // Jagged lightning path by midpoint displacement.
+  function boltPts(x1, y1, x2, y2, seed, rough = 0.35, depth = 5) {
+    let pts = [[x1, y1], [x2, y2]];
+    for (let d = 0; d < depth; d++) {
+      const np = [pts[0]];
+      for (let i = 0; i < pts.length - 1; i++) {
+        const [ax, ay] = pts[i], [bx, by] = pts[i + 1], len = Math.hypot(bx - ax, by - ay) || 1;
+        const o = (hash(seed * 13.7 + d * 7.1 + i * 3.3) - 0.5) * len * rough;
+        np.push([(ax + bx) / 2 - ((by - ay) / len) * o, (ay + by) / 2 + ((bx - ax) / len) * o], pts[i + 1]);
+      }
+      pts = np;
+    }
+    return pts;
+  }
+  function strokePts(c, pts) { c.beginPath(); c.moveTo(pts[0][0], pts[0][1]); for (let i = 1; i < pts.length; i++) c.lineTo(pts[i][0], pts[i][1]); c.stroke(); }
+  function bolt(c, pts, w, glow = 0.6, col = CYAN) {
+    c.lineJoin = 'round'; c.lineCap = 'round';
+    c.strokeStyle = `rgba(6, 30, 44, ${0.5 * glow})`; c.lineWidth = w + 6; strokePts(c, pts);
+    c.strokeStyle = col; c.lineWidth = w + 2; strokePts(c, pts);
+    c.strokeStyle = '#ffffff'; c.lineWidth = Math.max(1, w * 0.45); strokePts(c, pts);
+  }
+  function starburst(c, x, y, r, n, seed, fill, stroke) {
+    c.beginPath();
+    for (let i = 0; i < n * 2; i++) { const a = (i / (n * 2)) * TAU + seed, rr = i % 2 ? r * (0.35 + hash(seed + i) * 0.2) : r * (0.8 + hash(seed + i * 3) * 0.4); c.lineTo(x + Math.cos(a) * rr, y + Math.sin(a) * rr); }
+    c.closePath(); c.fillStyle = fill; c.fill();
+    if (stroke) { c.lineWidth = 4; c.strokeStyle = stroke; c.stroke(); }
+  }
+
+  // ------------------------------------------------------------------ fighters
+  const LIMBS = [['sh', 'e1', 'h1', 1], ['hip', 'k1', 'f1', 1], ['hip', 'neck', null, 0], ['hip', 'k2', 'f2', 0], ['sh', 'e2', 'h2', 0]];
+  function skeleton(c, J, ink, back, w) {
+    c.lineCap = 'round'; c.lineJoin = 'round'; c.lineWidth = w;
+    for (const [a, b, d, isBack] of LIMBS) {
+      c.strokeStyle = isBack ? back : ink;
+      c.beginPath(); c.moveTo(J[a][0], J[a][1]); c.lineTo(J[b][0], J[b][1]); if (d) c.lineTo(J[d][0], J[d][1]); c.stroke();
+    }
+    c.fillStyle = ink; circ(c, J.head[0], J.head[1], 13 + (w - 8) * 0.4); c.fill();
+  }
+  function scarfPts(T, ft) {
+    const len = T < 61.5 ? 11 : 7, pts = [], wind = 2 + tab(T, STORM) * 3;
+    for (let i = 0; i < len; i++) {
+      const s = at(C, ft - i * 0.035), n = s.J.neck;
+      pts.push([n[0] - s.f * i * 3.2 + Math.sin(T * 3 + i * 0.7) * i * 1.2 - wind * i * 0.4, n[1] + 4 + i * 1.6 + Math.sin(T * 4.3 + i) * i * 0.6]);
+    }
+    // Keep it a scarf when he moves fast: each segment is at most 11 units long.
+    for (let i = 1; i < pts.length; i++) {
+      const dx = pts[i][0] - pts[i - 1][0], dy = pts[i][1] - pts[i - 1][1], d = Math.hypot(dx, dy);
+      if (d > 11) { pts[i][0] = pts[i - 1][0] + (dx / d) * 11; pts[i][1] = pts[i - 1][1] + (dy / d) * 11; }
+    }
+    return pts;
+  }
+  function drawScarf(c, pts, col, cut = 0) {
+    c.lineCap = 'round';
+    for (let i = 0; i < pts.length - 1; i++) {
+      if (cut && i >= pts.length * (1 - cut)) break;
+      c.strokeStyle = col; c.lineWidth = 9 - i * 0.6;
+      c.beginPath(); c.moveTo(pts[i][0], pts[i][1]); c.lineTo(pts[i + 1][0], pts[i + 1][1]); c.stroke();
+    }
+  }
+  function drawFighter(c, who, T, ft, flat) {
+    const tr = who === 'V' ? V : C, st = at(tr, ft);
+    if (st.hide) return;
+    const J = st.J, isV = who === 'V';
+    c.save();
+    if (st.sink > 0) { c.beginPath(); c.rect(-5000, -5000, 10000, 5000); c.clip(); }
+    if (flat) {
+      if (!isV && T < 77) drawScarf(c, scarfPts(T, ft), flat);
+      skeleton(c, J, flat, flat, 11);
+      c.restore(); return;
+    }
+    const accent = isV ? CYAN : RED;
+    // Motion smears from past samples.
+    for (let s = 3; s >= 1; s--) {
+      const g = at(tr, ft - s * 0.022);
+      if (g.hide) continue;
+      const v = Math.hypot(g.J.hip[0] - J.hip[0], g.J.hip[1] - J.hip[1]) / (s * 0.022);
+      if (v < 650) continue;
+      c.globalAlpha = 0.28 / s; skeleton(c, g.J, accent, accent, 10); c.globalAlpha = 1;
+    }
+    const el = isV ? tab(T, ELEC) : 0, bl = isV ? 0 : tab(T, BLOOD);
+    if (isV && el > 0.55) {
+      c.save(); c.globalAlpha = (el - 0.55) * 1.6; c.shadowColor = CYAN; c.shadowBlur = 24; skeleton(c, J, CYAN, CYAN, 18); c.restore();
+    }
+    if (!isV && bl > 0.5) {
+      for (let i = 0; i < 26 * bl; i++) {
+        const ph = (T * 0.7 + hash(i * 1.3)) % 1, x = J.hip[0] + (hash(i * 3.1) - 0.5) * 90 + Math.sin(ph * 6 + i) * 10, y = J.hip[1] + 60 - ph * 210;
+        c.fillStyle = `rgba(200, 16, 40, ${0.45 * (1 - ph) * bl})`; circ(c, x, y, 9 * (1 - ph) + 2); c.fill();
+      }
+    }
+    if (!isV) {
+      const cut = T > 77 ? seg(T, 77, 78) : 0;
+      if (T < 78.2) drawScarfOutline(c, scarfPts(T, ft), cut);
+    }
+    // Halo keeps the ink readable on dark skies, then the ink itself.
+    const halo = `rgba(236, 230, 218, ${0.85 - tab(T, STORM) * 0.4})`;
+    skeleton(c, J, halo, halo, 14);
+    skeleton(c, J, INK, '#2c2c2c', 8);
+    // Eye glint on the facing side.
+    const fx = st.f * Math.cos(st.rot * D2R);
+    c.strokeStyle = accent; c.lineWidth = 3; c.beginPath();
+    c.moveTo(J.head[0] + fx * 3, J.head[1] - 2); c.lineTo(J.head[0] + fx * 10, J.head[1] - 3); c.stroke();
+    if (isV) {
+      // Jagged hair strands that flicker with his charge.
+      c.lineWidth = 3; c.strokeStyle = YEL;
+      for (let i = 0; i < 3; i++) {
+        const bx = J.head[0] - fx * 8, by = J.head[1] - 8 + i * 6, s = Math.floor(T * 14) + i;
+        const len = 14 + el * 14;
+        c.beginPath(); c.moveTo(bx, by);
+        for (let q = 1; q <= 3; q++) c.lineTo(bx - fx * len * (q / 3), by - 6 - q * 3 + (hash(s * 7 + q) - 0.5) * 8);
+        c.stroke();
+      }
+      if (el > 0.05) {
+        for (const hnd of [J.h1, J.h2]) for (let i = 0; i < 1 + el * 3; i++) {
+          const s = Math.floor(T * 18) * 7 + i * 13 + (hnd === J.h1 ? 1 : 2), a = hash(s) * TAU, r = 14 + hash(s + 1) * 26 * el;
+          if (hash(s + 2) > el + 0.2) continue;
+          bolt(c, boltPts(hnd[0], hnd[1], hnd[0] + Math.cos(a) * r, hnd[1] + Math.sin(a) * r, s, 0.5, 3), 1.2, 0.4);
+        }
+      }
+    } else if (bl > 0.05) {
+      for (const hnd of [J.h1, J.h2]) for (let i = 0; i < 2; i++) {
+        const ph = (T * 1.4 + i * 0.5 + (hnd === J.h1 ? 0.25 : 0)) % 1;
+        c.fillStyle = `rgba(160, 8, 24, ${1 - ph})`; ell(c, hnd[0], hnd[1] + 4 + ph * 50, 2.5, 4); c.fill();
+      }
+    }
+    c.restore();
+  }
+  function drawScarfOutline(c, pts, cut) {
+    drawScarf(c, pts, 'rgba(236, 230, 218, 0.85)', cut);
+    c.save();
+    c.lineCap = 'round';
+    for (let i = 0; i < pts.length - 1; i++) {
+      if (cut && i >= pts.length * (1 - cut)) break;
+      c.strokeStyle = i % 3 === 2 ? DRED : RED; c.lineWidth = 6 - i * 0.4;
+      c.beginPath(); c.moveTo(pts[i][0], pts[i][1]); c.lineTo(pts[i + 1][0], pts[i + 1][1]); c.stroke();
+    }
+    c.restore();
+    if (cut > 0) {
+      for (let i = 0; i < 24; i++) {
+        const p = pts[Math.floor(hash(i) * pts.length)], d = cut * 1.4;
+        c.fillStyle = `rgba(200, 16, 40, ${1 - cut})`; circ(c, p[0] + (hash(i * 3) - 0.5) * 40 * d, p[1] + d * d * 90 * (0.5 + hash(i * 5)), 3); c.fill();
+      }
+    }
+  }
+
+  // ------------------------------------------------------------------ camera
+  const CAM = [
+    { t: 0, m: 'fix', x: -500, y: -170, z: 0.8 }, { t: 6.4, m: 'fix', x: -120, y: -160, z: 0.85 },
+    { t: 6.45, m: 'V', z: 1.5, dy: -60 }, { t: 10.8, m: 'V', z: 2.0, dy: -60 },
+    { t: 10.85, m: 'fix', x: 380, y: -80, z: 1.5 }, { t: 12.5, m: 'C', z: 1.6, dy: -60 }, { t: 15.9, m: 'C', z: 2.0, dy: -60 },
+    { t: 15.95, m: 'auto' }, { t: 17.6, m: 'auto' }, { t: 17.65, m: 'Vh', z: 3.2 }, { t: 18.4, m: 'Vh', z: 3.6 },
+    { t: 18.45, m: 'Ch', z: 3.2 }, { t: 19.2, m: 'Ch', z: 3.6 }, { t: 19.25, m: 'auto' },
+    { t: 36.2, m: 'auto' }, { t: 36.25, m: 'C', z: 2.4, dy: -40 }, { t: 38.6, m: 'C', z: 2.8, dy: -60 }, { t: 38.65, m: 'auto' },
+    { t: 44.5, m: 'auto' }, { t: 44.55, m: 'fix', x: 400, y: -150, z: 1.4 }, { t: 45.5, m: 'fix', x: 420, y: -120, z: 1.6 },
+    { t: 45.55, m: 'Vh', z: 3.0 }, { t: 46.35, m: 'Vh', z: 3.3 }, { t: 46.4, m: 'auto' },
+    { t: 50.2, m: 'auto' }, { t: 50.25, m: 'Vh', z: 3.2 }, { t: 51.25, m: 'Vh', z: 3.5 }, { t: 51.3, m: 'Ch', z: 3.2 }, { t: 52.35, m: 'Ch', z: 3.5 },
+    { t: 52.4, m: 'fix', x: 160, y: -220, z: 0.8 }, { t: 54.0, m: 'fix', x: 160, y: -190, z: 0.9 }, { t: 54.05, m: 'auto' },
+    { t: 56.4, m: 'auto' }, { t: 56.45, m: 'fix', x: 0, y: -130, z: 1.35 }, { t: 61.4, m: 'fix', x: 0, y: -130, z: 1.6 },
+    { t: 61.45, m: 'fix', x: 0, y: -160, z: 0.8 }, { t: 64.8, m: 'fix', x: 0, y: -150, z: 0.85 },
+    { t: 64.85, m: 'Vh', z: 3.4 }, { t: 65.6, m: 'Vh', z: 3.6 }, { t: 65.65, m: 'Ch', z: 3.4 }, { t: 66.4, m: 'Ch', z: 3.6 }, { t: 66.45, m: 'auto' },
+    { t: 68.85, m: 'auto' }, { t: 68.9, m: 'fix', x: 0, y: -120, z: 1.7, r: 0.04 }, { t: 70.5, m: 'fix', x: 0, y: -125, z: 1.9, r: -0.06 },
+    { t: 72.0, m: 'fix', x: 0, y: -120, z: 2.0, r: 0.05 }, { t: 72.05, m: 'auto' }, { t: 73.3, m: 'auto' },
+    { t: 73.35, m: 'fix', x: 0, y: -130, z: 0.95 }, { t: 76.4, m: 'fix', x: 0, y: -120, z: 1.15 },
+    { t: 78.6, m: 'fix', x: -60, y: -140, z: 1.05 }, { t: 80.6, m: 'fix', x: -200, y: -130, z: 1.2 },
+    { t: 82.2, m: 'V', z: 1.9, dy: -50 }, { t: 86.5, m: 'V', z: 2.15, dy: -50 },
+  ];
+  function autoCam(ft) {
+    let x = 0, y = 0, z = 0;
+    for (let i = 0; i < 6; i++) {
+      const a = at(V, ft - i * 0.07), b = at(C, ft - i * 0.07);
+      const pa = a.hide ? b.J.hip : a.J.hip, pb = b.hide ? a.J.hip : b.J.hip;
+      x += (pa[0] + pb[0]) / 2; y += Math.min(pa[1], pb[1]) - 40;
+      z += clamp(1100 / (Math.abs(pa[0] - pb[0]) + 520), 0.72, 1.45);
+    }
+    return { x: x / 6, y: y / 6, z: z / 6, r: 0 };
+  }
+  function camVal(key, ft) {
+    if (key.m === 'fix') return { x: key.x, y: key.y, z: key.z, r: key.r || 0 };
+    if (key.m === 'auto') return autoCam(ft);
+    const st = at(key.m[0] === 'V' ? V : C, ft), p = key.m.length > 1 ? st.J.head : st.J.hip;
+    return { x: p[0], y: p[1] + (key.dy || 0), z: key.z, r: key.r || 0 };
+  }
+  function camera(T, ft) {
+    let i = 0;
+    while (i + 1 < CAM.length && CAM[i + 1].t <= T) i++;
+    const a = CAM[i], b = CAM[i + 1] || a, va = camVal(a, ft);
+    if (b === a) return va;
+    const vb = camVal(b, ft), u = EASE.io(clamp((T - a.t) / (b.t - a.t)));
+    return { x: lerp(va.x, vb.x, u), y: lerp(va.y, vb.y, u), z: lerp(va.z, vb.z, u), r: lerp(va.r, vb.r, u) };
+  }
+  function shake(T) {
+    let s = 0;
+    for (const im of IMPACTS) { const d = T - im[0]; if (d >= 0 && d < 1) s += im[3] * im[3] * 3.2 * Math.exp(-d * 9); }
+    if (T > 48.9 && T < 56.2) s += 1.5 + seg(T, 48.9, 55) * 4;
+    if (T > 56.45 && T < 61.5) s += 5;
+    return s;
+  }
+  // Parallax layers pass p < 1 and move less than the world.
+  function applyCam(c, cam, p = 1) {
+    const s = 1 + (cam.z - 1) * p;
+    c.translate(VW / 2 + cam.sx * p, VH / 2 + cam.sy * p); c.rotate(cam.r * p); c.scale(s, s); c.translate(-cam.x * p, -cam.y * p);
+  }
+
+  // ------------------------------------------------------------------ set
+  const GRAIN = document.createElement('canvas');
+  GRAIN.width = GRAIN.height = 160;
+  { const g = GRAIN.getContext('2d'), d = g.createImageData(160, 160); for (let i = 0; i < d.data.length; i += 4) { const v = Math.random() * 255; d.data[i] = d.data[i + 1] = d.data[i + 2] = v; d.data[i + 3] = 22; } g.putImageData(d, 0, 0); }
+  let grainPat = null;
+
+  function background(c, T, cam) {
+    const st = tab(T, STORM), dw = tab(T, DAWN);
+    const g = c.createLinearGradient(0, 0, 0, VH);
+    g.addColorStop(0, mix(mixh('#efe6d2', '#101219', st), '#f0a46a', dw)); g.addColorStop(1, mix(mixh('#d8cbb0', '#2a2e39', st), '#ffe2b4', dw));
+    c.fillStyle = g; c.fillRect(0, 0, VW, VH);
+    // Ink sun by day, a rising sun at dawn.
+    c.save(); c.translate(-cam.x * 0.04, 0);
+    if (st < 1) { c.fillStyle = `rgba(200, 55, 45, ${0.85 * (1 - st) * (1 - dw)})`; circ(c, 930, 200, 92); c.fill(); }
+    if (dw > 0) { c.fillStyle = `rgba(255, 140, 60, ${dw})`; circ(c, 930, 330 - dw * 80, 110); c.fill(); }
+    c.restore();
+    // Sky lightning.
+    for (const s of SKYBOLTS) {
+      const d = T - s;
+      if (d < 0 || d > 0.45) continue;
+      const a = d < 0.06 ? 1 : d < 0.12 ? 0.3 : d < 0.2 ? 0.8 : 1 - d / 0.45;
+      c.fillStyle = `rgba(220, 235, 255, ${a * 0.35})`; c.fillRect(0, 0, VW, VH);
+      const x = 150 + hash(s) * 980;
+      c.globalAlpha = a; bolt(c, boltPts(x, 0, x + (hash(s * 3) - 0.5) * 300, 360, Math.floor(s * 10), 0.4), 2, 0.3, '#cfe9ff'); c.globalAlpha = 1;
+    }
+    // Storm clouds.
+    if (st > 0) {
+      for (let i = 0; i < 9; i++) {
+        const x = ((hash(i) * 1800 + T * (14 + i * 3) - cam.x * 0.05) % 1800) - 260, y = 40 + hash(i * 2) * 120;
+        c.fillStyle = `rgba(22, 24, 32, ${0.75 * st})`; ell(c, x, y, 220, 50 + hash(i * 3) * 30); c.fill();
+      }
+    }
+    // Far mountains (ink wash) and the ruined colosseum, with parallax.
+    c.save(); applyCam(c, cam, 0.15);
+    for (let l = 0; l < 2; l++) {
+      c.fillStyle = mix(mixh(l ? '#a89d88' : '#c3b9a4', l ? '#1a1c24' : '#22252f', st), l ? '#c8805a' : '#e0a274', dw);
+      c.beginPath(); c.moveTo(-2400, 400);
+      for (let x = -2400; x <= 2400; x += 40) c.lineTo(x, 60 - l * 40 - Math.abs(Math.sin(x * 0.0021 + l * 2)) * (120 + l * 60) - Math.sin(x * 0.011) * 10);
+      c.lineTo(2400, 400); c.closePath(); c.fill();
+    }
+    c.restore();
+    c.save(); applyCam(c, cam, 0.45);
+    const ruin = mix(mixh('#9c917c', '#15171e', st), '#9a5a40', dw);
+    c.fillStyle = ruin;
+    for (let i = -10; i <= 10; i++) {
+      const x = i * 150, h = 170 + hash(i + 20) * 90, broken = hash(i * 7) > 0.6;
+      c.fillRect(x - 18, 120 - h, 36, h);
+      if (!broken) { c.beginPath(); c.moveTo(x + 18, 120 - h + 30); c.arc(x + 75, 120 - h + 30, 57, Math.PI, 0); c.lineTo(x + 132, 120 - h); c.lineTo(x + 18, 120 - h); c.fill(); }
+    }
+    c.fillRect(-1800, 60, 3600, 70);
+    c.restore();
+  }
+  function arena(c, T) {
+    const st = tab(T, STORM), dw = tab(T, DAWN);
+    c.fillStyle = mix(mixh('#b5aa94', '#3d3f48', st), '#c99a72', dw); c.fillRect(-3000, 0, 6000, 30);
+    c.fillStyle = mix(mixh('#8c8270', '#24262d', st), '#8e5e44', dw); c.fillRect(-3000, 30, 6000, 700);
+    c.strokeStyle = 'rgba(0, 0, 0, 0.25)'; c.lineWidth = 2;
+    for (let y = 30; y < 400; y += 46) { c.beginPath(); c.moveTo(-3000, y); c.lineTo(3000, y); c.stroke(); for (let x = -3000 + ((y / 46) % 2) * 60; x < 3000; x += 120) { c.beginPath(); c.moveTo(x, y); c.lineTo(x, y + 46); c.stroke(); } }
+    c.strokeStyle = INK; c.lineWidth = 3; c.beginPath(); c.moveTo(-3000, 0); c.lineTo(3000, 0); c.stroke();
+    // Pillars at the arena edges; the left one cracks when Carmim hits it.
+    for (const side of [-1, 1]) {
+      const x = side * 730;
+      c.fillStyle = mix(mixh('#a39883', '#2e3038', st), '#a46a4c', dw); c.fillRect(x - 34, -330, 68, 330);
+      c.fillStyle = mix(mixh('#8a7f6b', '#25272e', st), '#8a5640', dw); c.fillRect(x - 46, -350, 92, 26); c.fillRect(x - 44, -18, 88, 18);
+      if (side < 0 && T >= 33.3) {
+        c.strokeStyle = INK; c.lineWidth = 2.5;
+        for (let i = 0; i < 7; i++) { const a = (i / 7) * TAU, l = 40 + hash(i) * 50; c.beginPath(); c.moveTo(x + 20, -100); c.lineTo(x + 20 + Math.cos(a) * l * 0.5, -100 + Math.sin(a) * l * 0.6 + 6); c.lineTo(x + 20 + Math.cos(a) * l, -100 + Math.sin(a) * l); c.stroke(); }
+        c.fillStyle = mix(mixh('#efe6d2', '#101219', st), '#f0a46a', dw); c.beginPath(); c.moveTo(x + 34, -140); c.lineTo(x + 8, -112); c.lineTo(x + 18, -80); c.lineTo(x + 34, -70); c.fill();
+      }
+    }
+    // Ground decals: craters, scorch and blood.
+    const crater = (x, r, t0) => {
+      if (T < t0) return;
+      c.fillStyle = 'rgba(30, 24, 20, 0.55)'; ell(c, x, 6, r, r * 0.14); c.fill();
+      c.strokeStyle = INK; c.lineWidth = 2;
+      for (let i = 0; i < 9; i++) { const a = hash(i + x) * Math.PI - Math.PI, l = r * (0.8 + hash(i * 3 + x) * 0.9); c.beginPath(); c.moveTo(x, 4); c.lineTo(x + Math.cos(a) * l, 4 + Math.abs(Math.sin(a)) * l * 0.12 + (i % 2 ? 2 : 6)); c.stroke(); }
+    };
+    crater(262, 60, 25.9); crater(460, 120, 41.6);
+    if (T >= 46.4) {
+      const a = T < 62 ? 0.6 + 0.4 * Math.sin(T * 9) : clamp(1 - (T - 62) / 4) * 0.5;
+      if (a > 0) { c.strokeStyle = `rgba(62, 240, 255, ${a})`; c.lineWidth = 2; for (let i = 0; i < 9; i++) { const ang = hash(i + 99) * Math.PI - Math.PI, l = 140 * (0.8 + hash(i * 3 + 9)); c.beginPath(); c.moveTo(460, 4); c.lineTo(460 + Math.cos(ang) * l, 4 + (i % 2 ? 3 : 7)); c.stroke(); } }
+    }
+    if (T >= 11 && T < 21) {
+      const r = 110 * EASE.o(seg(T, 11, 12)) * (1 - seg(T, 19.5, 20.5));
+      c.fillStyle = DRED; ell(c, 380, 6, r, r * 0.13); c.fill(); c.fillStyle = 'rgba(255, 120, 120, 0.4)'; ell(c, 360, 4, r * 0.4, r * 0.03); c.fill();
+    }
+    for (const [t0, x] of [[14.7, 330], [31.45, -730], [31.9, -730], [32.5, -730], [41.4, 430]]) {
+      if (T < t0 || T > 62) continue;
+      c.fillStyle = 'rgba(120, 6, 20, 0.8)';
+      for (let i = 0; i < 7; i++) { ell(c, x + (hash(i + t0) - 0.5) * 120, 4 + hash(i * 2 + t0) * 6, 5 + hash(i * 3 + t0) * 14, 2 + hash(i) * 2); c.fill(); }
+    }
+  }
+
+  // ------------------------------------------------------------------ effects
+  function effects(c, T, ft) {
+    const vS = at(V, ft), cS = at(C, ft);
+    // Volt's entrance: lightning from the sky.
+    if (T > 6.5 && T < 7.3) {
+      const d = T - 6.5, a = d < 0.3 ? 1 : 1 - (d - 0.3) / 0.5;
+      c.globalAlpha = a; bolt(c, boltPts(-380, -1200, -380, 0, Math.floor(T * 20), 0.25, 6), 10, 1); c.globalAlpha = 1;
+    }
+    // Lightning bolt into the blood shield.
+    if (T > 29.55 && T < 30.15) bolt(c, boltPts(vS.J.h2[0], vS.J.h2[1], 352, -110 + Math.sin(T * 30) * 20, Math.floor(T * 25), 0.4), 5);
+    if (T > 29.45 && T < 30.9) {
+      const h = 210 * (T < 30.4 ? EASE.back(seg(T, 29.45, 29.62)) : 1 - EASE.i(seg(T, 30.4, 30.85)));
+      const x = 352;
+      c.fillStyle = RED; c.strokeStyle = DRED; c.lineWidth = 4; c.beginPath(); c.moveTo(x - 18, 0);
+      for (let y = 0; y >= -h; y -= 10) c.lineTo(x - 18 + Math.sin(y * 0.08 + T * 9) * 5, y);
+      for (let y = -h; y <= 0; y += 10) c.lineTo(x + 18 + Math.sin(y * 0.07 - T * 8) * 5, y);
+      c.closePath(); c.fill(); c.stroke();
+      if (T > 29.6 && T < 30.15) for (let i = 0; i < 4; i++) { const s = Math.floor(T * 30) + i * 5, a = hash(s) * TAU; bolt(c, boltPts(x - 14, -110, x - 14 + Math.cos(a) * 60, -110 + Math.sin(a) * 60, s, 0.5, 3), 1.5, 0.4); }
+    }
+    // Blood crescents.
+    for (const [t0, y, big] of [[30.75, -110, 0], [31.4, -150, 0], [32.05, -110, 1]]) {
+      const d = T - t0, x = 380 - d * 1500, hitWall = x < -700;
+      if (d < 0 || d > 1.1) continue;
+      if (!hitWall) {
+        c.save(); c.translate(x, y); c.scale(big ? 1.6 : 1, big ? 1.6 : 1);
+        for (let k2 = 1; k2 <= 4; k2++) { c.fillStyle = `rgba(200, 16, 40, ${0.25 / k2})`; circ(c, 30 * k2, (hash(k2 + t0) - 0.5) * 30, 10 - k2); c.fill(); }
+        c.fillStyle = RED; c.strokeStyle = DRED; c.lineWidth = 3;
+        c.beginPath(); c.arc(0, 0, 46, Math.PI * 0.55, Math.PI * 1.45); c.arc(16, 0, 40, Math.PI * 1.35, Math.PI * 0.65, true); c.closePath(); c.fill(); c.stroke();
+        c.restore();
+      } else {
+        const dd = (x + 700) / -1500;
+        for (let i = 0; i < 14; i++) { const a = hash(i + t0) * Math.PI - Math.PI / 2; c.fillStyle = RED; circ(c, -700 + Math.cos(a) * dd * 240, y + Math.sin(a) * dd * 200 + dd * dd * 400, 5 - dd * 3); c.fill(); }
+      }
+    }
+    // Blink: lightning flash where Volt vanishes and reappears.
+    for (const [t0, x] of [[32.3, -290], [32.35, 470]]) {
+      const d = T - t0;
+      if (d < 0 || d > 0.3) continue;
+      c.globalAlpha = 1 - d / 0.3; bolt(c, boltPts(x, -260, x + 10, 0, Math.floor(T * 30) + x, 0.5), 5); c.globalAlpha = 1;
+    }
+    if (T > 32.3 && T < 32.36) { c.globalAlpha = 0.7; bolt(c, boltPts(-290, -100, 470, -100, Math.floor(T * 60), 0.12, 6), 8); c.globalAlpha = 1; }
+    // Blood spikes racing across the floor, then the giant one.
+    for (let i = 0; i < 21; i++) {
+      const xi = -480 + i * 55, ti = 39.5 + i * 0.07, d = T - ti;
+      if (d < 0 || d > 0.9) continue;
+      const H = 70 + hash(i) * 50, h = H * (d < 0.08 ? EASE.o(d / 0.08) : d < 0.6 ? 1 : 1 - (d - 0.6) / 0.3);
+      spike(c, xi, h, 14, i);
+    }
+    if (T > 40.72 && T < 41.8) { const d = T - 40.72; spike(c, 475, 270 * (d < 0.1 ? EASE.back(d / 0.1) : d < 0.7 ? 1 : 1 - (d - 0.7) / 0.38), 36, 99); }
+    // Blood whip.
+    if (T > 41.05 && T < 41.6) {
+      const h = cS.J.h2, tx = 415, ty = -300, p = T < 41.35 ? EASE.o(seg(T, 41.05, 41.35)) : 1 - seg(T, 41.35, 41.6);
+      const cx = (h[0] + tx) / 2, cy = Math.min(h[1], ty) - 120, n = 24;
+      c.lineCap = 'round';
+      for (let i = 0; i < n * p; i++) {
+        const q0 = i / n, q1 = (i + 1) / n, P0 = qb(h, [cx, cy], [tx, ty], q0), P1 = qb(h, [cx, cy], [tx, ty], q1);
+        c.strokeStyle = i % 4 === 3 ? DRED : RED; c.lineWidth = 9 - q0 * 6; c.beginPath(); c.moveTo(P0[0], P0[1]); c.lineTo(P1[0], P1[1]); c.stroke();
+      }
+    }
+    // Blood scythe forming above Carmim.
+    if (T > 44.6 && T < 46.4) {
+      const g = EASE.back(seg(T, 44.6, 45.4)), h = cS.J.h2;
+      c.save(); c.translate(h[0], h[1]); c.scale(g * 0.7, g * 0.7); c.rotate(Math.sin(T * 2) * 0.05);
+      c.strokeStyle = DRED; c.lineWidth = 7; c.beginPath(); c.moveTo(0, 60); c.lineTo(0, -120); c.stroke();
+      c.fillStyle = RED; c.strokeStyle = DRED; c.lineWidth = 3;
+      c.beginPath(); c.moveTo(0, -120); c.quadraticCurveTo(-140, -150, -170, -40); c.quadraticCurveTo(-120, -110, 0, -96); c.closePath(); c.fill(); c.stroke();
+      c.restore();
+    }
+    if (T > 46.4 && T < 47.6) splatter(c, cS.J.h2[0], cS.J.h2[1] - 60, T - 46.4, 30, 3);
+    // Volt's burst from the crater.
+    if (T > 46.4 && T < 47.2) {
+      const d = T - 46.4;
+      for (let i = 0; i < 10; i++) { const a = (i / 10) * TAU + d, r = 80 + d * 500; c.globalAlpha = 1 - d / 0.8; bolt(c, boltPts(460, -40, 460 + Math.cos(a) * r, -40 + Math.sin(a) * r * 0.6, i * 7 + Math.floor(T * 20), 0.45, 4), 3); }
+      c.globalAlpha = 1;
+    }
+    // Power-up: rising blood streams, ground arcs, levitating rocks.
+    if (T > 49.2 && T < 56.3) {
+      const g = seg(T, 49.2, 50.5) * (1 - seg(T, 55.6, 56.3));
+      for (let i = 0; i < 6; i++) {
+        const bx = -90 + (i - 2.5) * 50, h = 260 * g * (0.7 + hash(i) * 0.5);
+        c.strokeStyle = i % 2 ? RED : DRED; c.lineWidth = 7; c.lineCap = 'round'; c.beginPath(); c.moveTo(bx, 0);
+        for (let y = 0; y > -h; y -= 12) c.lineTo(bx + Math.sin(y * 0.03 + T * 4 + i) * 16, y);
+        c.stroke();
+        const ph = (T * 1.5 + i / 6) % 1; c.fillStyle = RED; circ(c, bx + Math.sin(i + T) * 16, -h * ph, 4); c.fill();
+      }
+      const ge = seg(T, 48.9, 50);
+      for (let i = 0; i < 4 * ge; i++) { const s = Math.floor(T * 14) * 9 + i, x = 420 + (hash(s) - 0.5) * 300; bolt(c, boltPts(420, -60, x, 0, s, 0.5, 4), 2, 0.4); }
+    }
+    if (T > 48.9 && T < 63) {
+      for (let i = 0; i < 14; i++) {
+        const x0 = -650 + i * 100 + hash(i) * 40, lift = EASE.o(seg(T, 49 + hash(i) * 2, 51 + hash(i) * 2)) * (80 + hash(i * 3) * 200);
+        let y = -lift + Math.sin(T * 1.5 + i) * 8, x = x0, a = T * (0.5 + hash(i));
+        if (T > 61.5) { const d = T - 61.5; x += Math.sign(x0 - 120) * d * 600; y += -d * 300 + d * d * 900; a += d * 8; }
+        if (y > 10) continue;
+        c.save(); c.translate(x, y); c.rotate(a); c.fillStyle = '#4a4740'; c.strokeStyle = INK; c.lineWidth = 2;
+        const r = 8 + hash(i * 5) * 14; c.beginPath(); for (let q = 0; q < 6; q++) c.lineTo(Math.cos((q / 6) * TAU) * r * (0.7 + hash(i + q) * 0.5), Math.sin((q / 6) * TAU) * r * (0.7 + hash(i * 2 + q) * 0.5)); c.closePath(); c.fill(); c.stroke();
+        c.restore();
+      }
+    }
+    // Beam struggle.
+    if (T > 56.4 && T < 61.55) {
+      const xc = tab(T, BEAM), vy = (vS.J.h1[1] + vS.J.h2[1]) / 2, cy2 = (cS.J.h1[1] + cS.J.h2[1]) / 2, my = (vy + cy2) / 2;
+      const vx = vS.J.h2[0], cx2 = cS.J.h2[0];
+      // Blood torrent from Carmim.
+      c.fillStyle = RED; c.strokeStyle = DRED; c.lineWidth = 4; c.beginPath();
+      for (let x = cx2; x <= xc; x += 12) c.lineTo(x, lerp(cy2, my, (x - cx2) / (xc - cx2 || 1)) - 18 - Math.sin(x * 0.05 - T * 20) * 6 - (x - cx2) * 0.06);
+      for (let x = xc; x >= cx2; x -= 12) c.lineTo(x, lerp(cy2, my, (x - cx2) / (xc - cx2 || 1)) + 18 + Math.sin(x * 0.06 + T * 18) * 6 + (x - cx2) * 0.06);
+      c.closePath(); c.fill(); c.stroke();
+      for (let i = 0; i < 16; i++) { const ph = (T * 2 + hash(i)) % 1; c.fillStyle = RED; circ(c, xc - ph * 60 * (hash(i * 3) + 0.2), my + (hash(i * 7) - 0.5) * 160 * ph + ph * ph * 60, 5 * (1 - ph) + 1); c.fill(); }
+      // Lightning beam from Volt.
+      c.fillStyle = 'rgba(62, 240, 255, 0.25)'; c.beginPath(); c.moveTo(vx, vy - 14); c.lineTo(xc, my - 40); c.lineTo(xc, my + 40); c.lineTo(vx, vy + 14); c.fill();
+      for (let i = 0; i < 4; i++) bolt(c, boltPts(vx, vy, xc, my + (i - 1.5) * 12, Math.floor(T * 28) * 5 + i, 0.25, 5), i === 0 ? 6 : 3);
+      // The contact point.
+      const r = 50 + Math.sin(T * 40) * 8;
+      const g = c.createRadialGradient(xc, my, 0, xc, my, r * 1.6); g.addColorStop(0, '#ffffff'); g.addColorStop(0.4, 'rgba(255, 255, 255, 0.9)'); g.addColorStop(1, 'rgba(255, 255, 255, 0)');
+      c.fillStyle = g; circ(c, xc, my, r * 1.6); c.fill();
+      starburst(c, xc, my, r * 1.4, 9, Math.floor(T * 20), 'rgba(255, 255, 255, 0.85)');
+      for (let i = 0; i < 12; i++) { const ph = (T * 3 + hash(i)) % 1; c.fillStyle = 'rgba(180, 160, 140, 0.6)'; circ(c, xc + (hash(i * 3) - 0.5) * 200 * ph, -ph * 30, 12 * ph + 2); c.fill(); }
+    }
+    // Explosion: smoke clearing afterwards.
+    if (T > 61.5 && T < 67) {
+      const d = T - 61.5, a = clamp(1 - (d - 1) / 4);
+      for (let i = 0; i < 18; i++) {
+        const ang = hash(i) * TAU, r = (80 + hash(i * 3) * 380) * EASE.o(clamp(d / 2.5)), x = 120 + Math.cos(ang) * r * 1.4, y = -110 + Math.sin(ang) * r * 0.45 - d * 10;
+        const pr = 70 + d * 30 + hash(i) * 40, py = Math.min(-20, y), g = c.createRadialGradient(x, py, 0, x, py, pr);
+        g.addColorStop(0, `rgba(160, 160, 168, ${0.6 * a})`); g.addColorStop(1, 'rgba(160, 160, 168, 0)');
+        c.fillStyle = g; circ(c, x, py, pr); c.fill();
+      }
+    }
+    // Final pass: the lightning streak.
+    if (T > 73.35 && T < 73.75) {
+      const a = 1 - seg(T, 73.45, 73.75);
+      c.globalAlpha = a; bolt(c, boltPts(190, -95, -330, -95, Math.floor(T * 40), 0.08, 6), 7); c.globalAlpha = 1;
+    }
+    // Electric veins through Carmim, then he falls.
+    if (T > 76.8 && T < 78.4) {
+      const p = seg(T, 76.8, 77.4), J = cS.J;
+      for (const [a, b] of [['h1', 'e1'], ['e1', 'sh'], ['h2', 'e2'], ['e2', 'sh'], ['sh', 'hip'], ['hip', 'k1'], ['k1', 'f1'], ['hip', 'k2'], ['k2', 'f2']]) {
+        const A = J[a], B = J[b];
+        c.globalAlpha = 1 - seg(T, 77.8, 78.4);
+        bolt(c, boltPts(A[0], A[1], lerp(A[0], B[0], p), lerp(A[1], B[1], p), Math.floor(T * 20) + a.length, 0.3, 3), 1.5, 0.3);
+      }
+      c.globalAlpha = 1;
+    }
+    // Victory crackle.
+    if (T > 82.3 && T < 83.2) { const h = vS.J.h2, a = 1 - seg(T, 82.3, 83.2); c.globalAlpha = a; bolt(c, boltPts(h[0], h[1], h[0] + 20, -900, Math.floor(T * 20), 0.25, 6), 6); c.globalAlpha = 1; }
+    // Impact sparks and shockwave rings.
+    for (const [t0, x, y, p, col] of IMPACTS) {
+      const d = T - t0;
+      if (d < 0 || d > 0.6 || col === 'slash') continue;
+      const cc = COL[col];
+      if (d < 0.18) { starburst(c, x, y, (20 + p * 22) * (1 + d * 3), 7 + p, t0, cc === '#ffffff' ? '#ffffff' : cc, INK); starburst(c, x, y, (10 + p * 10) * (1 + d * 3), 6, t0 + 1, '#ffffff'); }
+      c.strokeStyle = `rgba(255, 255, 255, ${0.8 * (1 - d / 0.6)})`; c.lineWidth = 3 + p;
+      ell(c, x, y, 20 + d * 300 * p, (20 + d * 300 * p) * (y > -10 ? 0.15 : 0.6)); c.stroke();
+      if (y > -10 || p === 3) for (let i = 0; i < 6 * p; i++) {
+        const a = hash(i + t0) * Math.PI + Math.PI, v = 160 + hash(i * 2 + t0) * 260;
+        c.fillStyle = `rgba(160, 150, 130, ${0.7 * (1 - d / 0.6)})`; circ(c, x + Math.cos(a) * v * d, Math.min(0, y + Math.sin(a) * v * d * 0.6 + 500 * d * d), 6 + d * 30); c.fill();
+      }
+    }
+    if (T > 33.3 && T < 35) debris(c, -650, -100, T - 33.3, 10, 1);
+    if (T > 41.6 && T < 43.5) debris(c, 460, 0, T - 41.6, 14, 2);
+    if (T > 25.9 && T < 27) debris(c, 262, 0, T - 25.9, 6, 3);
+  }
+  const qb = (a, b, c2, t) => [(1 - t) * (1 - t) * a[0] + 2 * (1 - t) * t * b[0] + t * t * c2[0], (1 - t) * (1 - t) * a[1] + 2 * (1 - t) * t * b[1] + t * t * c2[1]];
+  function spike(c, x, h, w, i) {
+    if (h <= 0) return;
+    const sway = Math.sin(i * 1.7) * h * 0.12;
+    c.fillStyle = RED; c.strokeStyle = DRED; c.lineWidth = 3;
+    c.beginPath(); c.moveTo(x - w, 2); c.quadraticCurveTo(x - w * 0.3, -h * 0.5, x + sway, -h); c.quadraticCurveTo(x + w * 0.3, -h * 0.5, x + w, 2); c.closePath(); c.fill(); c.stroke();
+    c.strokeStyle = 'rgba(255, 140, 140, 0.6)'; c.lineWidth = 2; c.beginPath(); c.moveTo(x - w * 0.4, -h * 0.15); c.quadraticCurveTo(x - w * 0.15, -h * 0.5, x + sway * 0.9, -h * 0.9); c.stroke();
+  }
+  function splatter(c, x, y, d, n, seed) {
+    for (let i = 0; i < n; i++) {
+      const a = hash(i + seed) * TAU, v = 150 + hash(i * 3 + seed) * 350, py = y + Math.sin(a) * v * d + 700 * d * d;
+      if (py > 4) continue;
+      c.fillStyle = RED; circ(c, x + Math.cos(a) * v * d, py, 4 + hash(i) * 4); c.fill();
+    }
+  }
+  function debris(c, x, y, d, n, seed) {
+    for (let i = 0; i < n; i++) {
+      const a = -Math.PI * (0.1 + hash(i + seed * 9) * 0.8), v = 200 + hash(i * 3 + seed) * 450;
+      const px = x + Math.cos(a) * v * d, py = Math.min(0, y + Math.sin(a) * v * d + 900 * d * d);
+      c.save(); c.translate(px, py); c.rotate(d * (5 + i)); c.fillStyle = '#5a5448'; c.strokeStyle = INK; c.lineWidth = 2;
+      const r = 5 + hash(i * 5 + seed) * 10; c.beginPath(); c.moveTo(-r, -r * 0.6); c.lineTo(r * 0.8, -r); c.lineTo(r, r * 0.5); c.lineTo(-r * 0.6, r); c.closePath(); c.fill(); c.stroke();
+      c.restore();
+    }
+  }
+
+  // ------------------------------------------------------------------ overlays
+  function rain(c, T) {
+    const r = tab(T, RAIN);
+    if (r <= 0) return;
+    c.strokeStyle = `rgba(200, 215, 235, ${0.35 * r})`; c.lineWidth = 1.4; c.beginPath();
+    for (let i = 0; i < 260 * r; i++) {
+      const y = ((hash(i * 7.7) * 900 + T * (1300 + hash(i) * 600)) % 900) - 90, x = hash(i * 3.1) * (VW + 300) - 150 + y * 0.22;
+      c.moveTo(x, y); c.lineTo(x - 8, y - 34);
+    }
+    c.stroke();
+  }
+  function speedLines(c, T, col) {
+    let on = 0;
+    for (const [a, b] of SPEED) if (T >= a && T < b) on = 1;
+    for (const im of IMPACTS) if (im[3] >= 2 && T >= im[0] && T < im[0] + 0.25) on = Math.max(on, 1 - (T - im[0]) / 0.25);
+    if (!on) return;
+    const s = Math.floor(T * 24);
+    c.fillStyle = col;
+    for (let i = 0; i < 40; i++) {
+      const a = hash(s * 3 + i) * TAU, r0 = 330 + hash(s + i * 7) * 200, r1 = 900;
+      c.globalAlpha = 0.5 * on;
+      c.beginPath(); c.moveTo(640 + Math.cos(a) * r0, 360 + Math.sin(a) * r0); c.lineTo(640 + Math.cos(a + 0.012) * r1, 360 + Math.sin(a + 0.012) * r1); c.lineTo(640 + Math.cos(a - 0.012) * r1, 360 + Math.sin(a - 0.012) * r1); c.fill();
+    }
+    c.globalAlpha = 1;
+  }
+  // Impact frames: a couple of high-contrast frames right at the hit.
+  function impactFrame(T) {
+    for (const im of IMPACTS) {
+      const d = T - im[0], p = im[3];
+      if (d < 0) continue;
+      if (im[4] === 'slash' && d < 0.16) return { im, kind: 2 };
+      if (p === 3 && d < 0.1) return { im, kind: d < 0.05 ? 0 : 1 };
+      if (p === 2 && d < 0.04) return { im, kind: 0 };
+    }
+    return null;
+  }
+  function drawImpactFrame(c, T, ft, cam, f) {
+    const { im, kind } = f, bg = kind === 1 ? '#f4efe4' : '#050505', ink = kind === 1 ? '#050505' : '#f4efe4', col = COL[im[4]];
+    c.fillStyle = bg; c.fillRect(0, 0, VW, VH);
+    c.save(); applyCam(c, cam);
+    const [x, y] = [im[1], im[2]];
+    if (kind === 2) {
+      c.restore();
+      c.save(); c.translate(640, 360); c.rotate(-0.18);
+      c.fillStyle = '#ffffff'; c.fillRect(-900, -5, 1800, 10); c.fillStyle = CYAN; c.fillRect(-900, -18, 1800, 4); c.fillStyle = RED; c.fillRect(-900, 14, 1800, 4);
+      c.restore();
+      c.save(); applyCam(c, cam);
+      drawFighter(c, 'V', T, ft, '#f4efe4'); drawFighter(c, 'C', T, ft, '#f4efe4');
+      c.restore(); return;
+    }
+    // Radial speed lines centred on the hit.
+    const s = Math.floor(T * 60);
+    c.fillStyle = ink;
+    for (let i = 0; i < 48; i++) {
+      const a = (i / 48) * TAU + hash(s + i) * 0.1, r0 = 70 + hash(i * 7 + s) * 120;
+      c.beginPath(); c.moveTo(x + Math.cos(a) * r0, y + Math.sin(a) * r0); c.lineTo(x + Math.cos(a + 0.03) * 2000, y + Math.sin(a + 0.03) * 2000); c.lineTo(x + Math.cos(a - 0.03) * 2000, y + Math.sin(a - 0.03) * 2000); c.fill();
+    }
+    drawFighter(c, 'V', T, ft, kind === 1 ? '#050505' : '#f4efe4'); drawFighter(c, 'C', T, ft, kind === 1 ? '#050505' : '#f4efe4');
+    starburst(c, x, y, 46 + im[3] * 16, 10, im[0], col === '#ffffff' ? ink : col, ink);
+    starburst(c, x, y, 20 + im[3] * 7, 8, im[0] + 2, kind === 1 ? '#f4efe4' : '#050505');
+    c.restore();
+  }
+  function banner(c, T, t0, t1, text, sub, col, side) {
+    const a = seg(T, t0, t0 + 0.25) * (1 - seg(T, t1 - 0.3, t1));
+    if (a <= 0) return;
+    const k = EASE.o(seg(T, t0, t0 + 0.35)), x = side < 0 ? lerp(-500, 70, k) : lerp(VW + 500, VW - 70, k);
+    c.save(); c.globalAlpha = a; c.translate(x, 520); c.transform(1, 0, -0.2, 1, 0, 0);
+    c.textAlign = side < 0 ? 'left' : 'right'; c.textBaseline = 'alphabetic';
+    c.fillStyle = col; c.fillRect(side < 0 ? -40 : -400 + 40, 14, 420, 12);
+    c.font = `italic 900 92px ${SANS}`; c.lineWidth = 8; c.strokeStyle = INK; c.strokeText(text, 0, 0); c.fillStyle = '#f4efe4'; c.fillText(text, 0, 0);
+    c.font = `600 18px ${MONO}`; c.fillStyle = col; c.fillText(sub, 0, 54);
+    c.restore();
+  }
+  function overlays(c, T) {
+    // Title card.
+    const ta = seg(T, 1, 1.6) * (1 - seg(T, 5.2, 5.9));
+    if (ta > 0) {
+      c.save(); c.globalAlpha = ta; c.textAlign = 'center'; c.textBaseline = 'middle';
+      const sk = EASE.o(seg(T, 1, 1.8));
+      c.font = `italic 900 104px ${SANS}`; c.lineWidth = 10; c.strokeStyle = INK;
+      c.textAlign = 'right'; c.save(); c.translate(640 - (1 - sk) * 200, 300); c.strokeText('RAIO', -60, 0); c.fillStyle = CYAN; c.fillText('RAIO', -60, 0); c.restore();
+      c.textAlign = 'left'; c.save(); c.translate(640 + (1 - sk) * 200, 300); c.strokeText('SANGUE', 50, 0); c.fillStyle = RED; c.fillText('SANGUE', 50, 0); c.restore();
+      c.textAlign = 'center'; c.font = `900 70px ${SANS}`; c.fillStyle = INK; c.fillText('×', 640, 300);
+      c.font = `600 20px ${MONO}`; c.fillStyle = INK; c.globalAlpha = ta * seg(T, 2, 2.6); c.fillText('a arena espera', 640, 380);
+      c.restore();
+    }
+    banner(c, T, 7.8, 10.6, 'VOLT', 'mestre dos raios', CYAN, -1);
+    banner(c, T, 12.8, 15.7, 'CARMIM', 'dobrador de sangue', RED, 1);
+    // VS card.
+    if (T > 19.25 && T < 20.4) {
+      const k = EASE.o(seg(T, 19.25, 19.5)), a = 1 - seg(T, 20.1, 20.4);
+      c.save(); c.globalAlpha = a;
+      c.fillStyle = '#071a20'; c.beginPath(); c.moveTo(0, 0); c.lineTo(lerp(-200, 700, k), 0); c.lineTo(lerp(-300, 580, k), VH); c.lineTo(0, VH); c.fill();
+      c.fillStyle = '#21040a'; c.beginPath(); c.moveTo(VW, 0); c.lineTo(lerp(VW + 300, 700, k), 0); c.lineTo(lerp(VW + 200, 580, k), VH); c.lineTo(VW, VH); c.fill();
+      c.strokeStyle = '#ffffff'; c.lineWidth = 6; c.beginPath(); c.moveTo(700, 0); c.lineTo(580, VH); c.stroke();
+      c.font = `italic 900 84px ${SANS}`; c.textBaseline = 'middle';
+      c.textAlign = 'left'; c.fillStyle = CYAN; c.fillText('VOLT', lerp(-300, 120, k), 300);
+      c.textAlign = 'right'; c.fillStyle = RED; c.fillText('CARMIM', lerp(VW + 300, VW - 100, k), 430);
+      const vk = EASE.back(seg(T, 19.4, 19.7));
+      c.save(); c.translate(640, 365); c.scale(vk, vk); c.textAlign = 'center'; c.font = `italic 900 150px ${SANS}`; c.lineWidth = 12; c.strokeStyle = INK; c.strokeText('VS', 0, 0); c.fillStyle = '#f4efe4'; c.fillText('VS', 0, 0); c.restore();
+      c.restore();
+    }
+    // Winner.
+    const wa = seg(T, 82.6, 83) * (1 - seg(T, 86.2, 86.6));
+    if (wa > 0) {
+      c.save(); c.globalAlpha = wa; c.textAlign = 'center';
+      c.font = `600 22px ${MONO}`; c.fillStyle = INK; c.fillText('V E N C E D O R', 330, 250);
+      const k = EASE.back(seg(T, 82.6, 83.1));
+      c.translate(330, 360); c.scale(k, k); c.transform(1, 0, -0.18, 1, 0, 0);
+      c.font = `italic 900 140px ${SANS}`; c.lineWidth = 12; c.strokeStyle = INK; c.strokeText('VOLT', 0, 0); c.fillStyle = CYAN; c.fillText('VOLT', 0, 0);
+      c.restore();
+    }
+    if (T > 87) {
+      c.save(); c.globalAlpha = seg(T, 87.2, 87.8); c.textAlign = 'center'; c.textBaseline = 'middle';
+      c.font = `italic 900 110px ${SANS}`; c.fillStyle = '#efe6d2'; c.fillText('FIM', 640, 340);
+      c.font = `500 18px ${MONO}`; c.fillStyle = '#8a8478'; c.globalAlpha = seg(T, 88, 88.6); c.fillText('Carmim vai voltar. O sangue sempre volta.', 640, 420);
+      c.restore();
+    }
+  }
+
+  function render(T) {
+    const ft = fighterTime(T), cam = camera(T, ft), sh = shake(T);
+    cam.sx = (hash(Math.floor(T * 60)) - 0.5) * sh * 2; cam.sy = (hash(Math.floor(T * 60) + 0.5) - 0.5) * sh * 2;
+    const f = impactFrame(T);
+    if (f) drawImpactFrame(ctx, T, ft, cam, f);
+    else {
+      background(ctx, T, cam);
+      ctx.save(); applyCam(ctx, cam);
+      arena(ctx, T);
+      drawFighter(ctx, 'C', T, ft); drawFighter(ctx, 'V', T, ft);
+      effects(ctx, T, ft);
+      ctx.restore();
+      rain(ctx, T);
+      speedLines(ctx, T, tab(T, STORM) > 0.5 ? 'rgba(230, 230, 240, 0.9)' : INK);
+      if (T > 61.5 && T < 62.6) { ctx.fillStyle = `rgba(255, 255, 255, ${1 - seg(T, 61.9, 62.6)})`; ctx.fillRect(0, 0, VW, VH); }
+      if (T > 6.62 && T < 7.0) { ctx.fillStyle = `rgba(230, 250, 255, ${0.8 * (1 - seg(T, 6.62, 7.0))})`; ctx.fillRect(0, 0, VW, VH); }
+      if (!grainPat) grainPat = ctx.createPattern(GRAIN, 'repeat');
+      ctx.fillStyle = grainPat; ctx.fillRect(0, 0, VW, VH);
+      const vg = ctx.createRadialGradient(640, 360, 300, 640, 360, 820); vg.addColorStop(0, 'rgba(0, 0, 0, 0)'); vg.addColorStop(1, `rgba(0, 0, 0, ${0.25 + tab(T, STORM) * 0.35})`);
+      ctx.fillStyle = vg; ctx.fillRect(0, 0, VW, VH);
+    }
+    const fade = Math.max(1 - seg(T, 0, 1), seg(T, 86.5, 87.2));
+    if (fade > 0) { ctx.fillStyle = `rgba(0, 0, 0, ${fade})`; ctx.fillRect(0, 0, VW, VH); }
+    overlays(ctx, T);
+    ctx.fillStyle = '#000'; ctx.fillRect(0, 0, VW, BAR); ctx.fillRect(0, VH - BAR, VW, BAR);
+  }
+
+  // ------------------------------------------------------------------ audio
+  // Synthesised with WebAudio. Events are queued a little ahead of the film clock.
+  let AC = null, master = null, bus = null, NB = null, muted = false;
+  function ensureAudio() {
+    if (AC) return;
+    try {
+      AC = new (window.AudioContext || window.webkitAudioContext)();
+      const comp = AC.createDynamicsCompressor(); comp.threshold.value = -14; comp.ratio.value = 4; comp.connect(AC.destination);
+      master = AC.createGain(); master.gain.value = muted ? 0 : 0.85; master.connect(comp);
+      NB = AC.createBuffer(1, AC.sampleRate * 2, AC.sampleRate);
+      const d = NB.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+    } catch (e) { AC = null; }
+  }
+  function env(g, t, peak, a, dur) { g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(peak, t + a); g.gain.exponentialRampToValueAtTime(0.0001, t + dur); }
+  function tone(t, type, f, dur, peak, o = {}) {
+    const osc = AC.createOscillator(), g = AC.createGain();
+    osc.type = type; osc.frequency.setValueAtTime(f, t);
+    if (o.to) osc.frequency.exponentialRampToValueAtTime(o.to, t + (o.glide || dur));
+    if (o.vib) { const l = AC.createOscillator(), lg = AC.createGain(); l.frequency.value = o.vib; lg.gain.value = o.vibDepth || 6; l.connect(lg); lg.connect(osc.frequency); l.start(t); l.stop(t + dur + 0.1); }
+    let node = osc;
+    if (o.lp) { const f2 = AC.createBiquadFilter(); f2.type = 'lowpass'; f2.frequency.setValueAtTime(o.lp, t); if (o.lpTo) f2.frequency.exponentialRampToValueAtTime(o.lpTo, t + dur); osc.connect(f2); node = f2; }
+    node.connect(g); g.connect(bus); env(g, t, peak, o.a || 0.005, dur);
+    osc.start(t); osc.stop(t + dur + 0.1);
+  }
+  function noise(t, dur, peak, o = {}) {
+    const src = AC.createBufferSource(), f = AC.createBiquadFilter(), g = AC.createGain();
+    src.buffer = NB; src.loop = true; f.type = o.type || 'lowpass'; f.frequency.setValueAtTime(o.f || 1000, t); f.Q.value = o.q || 0.7;
+    if (o.fTo) f.frequency.exponentialRampToValueAtTime(o.fTo, t + (o.glide || dur));
+    src.connect(f); f.connect(g); g.connect(bus); env(g, t, peak, o.a || 0.003, dur);
+    src.start(t, Math.random()); src.stop(t + dur + 0.1);
+  }
+  const SFX = {
+    hit(t, p, col) {
+      tone(t, 'sine', 160, 0.12 + p * 0.08, 0.45 + p * 0.12, { to: 45 });
+      noise(t, 0.05 + p * 0.03, 0.35 + p * 0.1, { type: 'bandpass', f: 1800, q: 1 });
+      if (p >= 2) noise(t, 0.12, 0.45, { type: 'highpass', f: 2500 });
+      if (p >= 3) { tone(t, 'sine', 80, 0.9, 0.8, { to: 25 }); noise(t, 1.1, 0.35, { f: 500, fTo: 80 }); }
+      if (col === 'cyan') SFX.zap(t, 0.12 + p * 0.06, 0.12 + p * 0.04);
+      if (col === 'red') SFX.splash(t, 0.2 + p * 0.08);
+    },
+    whoosh(t, pk = 0.22) { noise(t, 0.2, pk, { type: 'bandpass', f: 350, fTo: 1900, q: 1.3, glide: 0.16, a: 0.06 }); },
+    thud(t) { tone(t, 'sine', 95, 0.22, 0.35, { to: 40 }); noise(t, 0.15, 0.18, { f: 500 }); },
+    zap(t, d = 0.15, pk = 0.12) { tone(t, 'sawtooth', 70 + Math.random() * 60, d, pk, { lp: 3500, vib: 45, vibDepth: 60 }); noise(t, d, pk * 0.9, { type: 'bandpass', f: 4200, q: 3 }); },
+    thunder(t, pk = 0.55) { noise(t, 0.12, pk, { type: 'highpass', f: 1200 }); noise(t + 0.05, 3, pk, { f: 200, fTo: 60, a: 0.08 }); },
+    splash(t, pk = 0.3) { noise(t, 0.35, pk, { f: 1100, fTo: 220 }); tone(t, 'sine', 320, 0.14, pk * 0.5, { to: 110 }); noise(t + 0.05, 0.12, pk * 0.5, { type: 'bandpass', f: 600, fTo: 1400, q: 4 }); },
+    shk(t) { noise(t, 0.12, 0.2, { type: 'bandpass', f: 1600, fTo: 600, q: 2 }); },
+    whip(t) { noise(t, 0.06, 0.6, { type: 'highpass', f: 3000 }); tone(t, 'sine', 1900, 0.06, 0.2, { to: 500 }); },
+    kick(t, pk = 0.55) { tone(t, 'sine', 140, 0.24, pk, { to: 42 }); },
+    snare(t, pk = 0.3) { noise(t, 0.14, pk, { type: 'highpass', f: 1400 }); tone(t, 'triangle', 190, 0.08, pk * 0.6); },
+    hat(t, pk = 0.08) { noise(t, 0.04, pk, { type: 'highpass', f: 7500 }); },
+    bass(t, f, d) { tone(t, 'sawtooth', f, d, 0.13, { lp: 420, a: 0.01 }); },
+    heart(t) { tone(t, 'sine', 62, 0.16, 0.5, { to: 38 }); tone(t + 0.17, 'sine', 55, 0.14, 0.35, { to: 34 }); },
+    shing(t) { tone(t, 'sine', 2400, 1.6, 0.18, { a: 0.002 }); tone(t, 'sine', 3610, 1.2, 0.1, { a: 0.002 }); noise(t, 0.08, 0.5, { type: 'highpass', f: 5000 }); },
+  };
+  // Event list: [film time, duration, fn(audioTime, offsetIntoEvent)]. Long beds can start mid-way after a seek.
+  const EV = [];
+  const ev = (t, fn, d = 0) => EV.push([t, d, fn]);
+  function bed(t0, t1, make, levels) {
+    ev(t0, (time, off) => {
+      const s = t0 + off, { out, stop } = make(time);
+      const g = AC.createGain(); out.connect(g); g.connect(bus);
+      g.gain.setValueAtTime(0.0001, time);
+      for (const [lt, v] of levels) if (lt >= s) g.gain.setTargetAtTime(Math.max(0.0001, v), time + (lt - s), 0.12);
+      g.gain.setTargetAtTime(0.0001, time + (t1 - s), 0.2);
+      stop(time + (t1 - s) + 1.2);
+    }, t1 - t0);
+  }
+  function buildAudio() {
+    const noiseBed = (type, f, q) => (time) => { const src = AC.createBufferSource(), fl = AC.createBiquadFilter(); src.buffer = NB; src.loop = true; fl.type = type; fl.frequency.value = f; fl.Q.value = q; src.connect(fl); src.start(time); return { out: fl, stop: (u) => src.stop(u) }; };
+    bed(0, 90, noiseBed('lowpass', 420, 0.5), [[0, 0.12], [20, 0.06], [46, 0.1], [62, 0.16], [80, 0.08]]);
+    bed(46.5, 81, noiseBed('highpass', 900, 0.3), [[46.5, 0.0001], [48.5, 0.14], [62, 0.2], [68.5, 0.12], [73.5, 0.18], [78, 0.1], [80.5, 0.0001]]);
+    bed(48.9, 56.3, (time) => {
+      const o1 = AC.createOscillator(), o2 = AC.createOscillator(), lp = AC.createBiquadFilter();
+      o1.type = o2.type = 'sawtooth'; o1.frequency.setValueAtTime(55, time); o2.frequency.setValueAtTime(82, time);
+      o1.frequency.linearRampToValueAtTime(110, time + 7.4); o2.frequency.linearRampToValueAtTime(165, time + 7.4);
+      lp.type = 'lowpass'; lp.frequency.setValueAtTime(200, time); lp.frequency.linearRampToValueAtTime(1800, time + 7.4);
+      o1.connect(lp); o2.connect(lp); o1.start(time); o2.start(time);
+      return { out: lp, stop: (u) => { o1.stop(u); o2.stop(u); } };
+    }, [[48.9, 0.04], [54, 0.12], [56.2, 0.0001]]);
+    bed(56.4, 61.5, (time) => {
+      const o1 = AC.createOscillator(), o2 = AC.createOscillator(), src = AC.createBufferSource(), lp = AC.createBiquadFilter(), mixg = AC.createGain();
+      o1.type = 'sawtooth'; o2.type = 'square'; o1.frequency.value = 73; o2.frequency.value = 77.8; src.buffer = NB; src.loop = true;
+      lp.type = 'lowpass'; lp.frequency.value = 1400; o1.connect(lp); o2.connect(lp); src.connect(lp); lp.connect(mixg);
+      o1.start(time); o2.start(time); src.start(time);
+      return { out: mixg, stop: (u) => { o1.stop(u); o2.stop(u); src.stop(u); } };
+    }, [[56.4, 0.16], [61.4, 0.22]]);
+    bed(61.6, 66, (time) => { const o = AC.createOscillator(); o.frequency.value = 3150; o.start(time); return { out: o, stop: (u) => o.stop(u) }; }, [[61.6, 0.035], [63, 0.02], [65.5, 0.0001]]);
+    // Hits, whooshes, landings.
+    for (const im of IMPACTS) {
+      if (im[4] === 'slash') ev(im[0], (t) => SFX.shing(t));
+      else ev(im[0], (t) => SFX.hit(t, im[3], im[4]));
+    }
+    const STRIKES = new Set(['punch', 'punchB', 'kick', 'uppercut', 'flykick', 'axekick', 'lowsweep', 'backkick', 'slashFollow', 'whipDown', 'dash']);
+    for (const tr of [V, C]) for (let i = 1; i < tr.length; i++) {
+      const kf = tr[i], pv = tr[i - 1];
+      if (kf.hide || kf.t < 15) continue;
+      if (STRIKES.has(kf.pose) && kf.pose !== pv.pose) ev(kf.t - 0.12, (t) => SFX.whoosh(t, kf.pose === 'dash' ? 0.3 : 0.2));
+      if (kf.pose === 'land' && pv.pose !== 'land' && kf.t > 7) ev(kf.t, (t) => SFX.thud(t));
+    }
+    ev(6.5, (t) => SFX.thunder(t, 0.8));
+    for (const s of SKYBOLTS) ev(s, (t) => SFX.thunder(t, 0.45));
+    ev(11.0, (t) => SFX.splash(t, 0.25)); ev(11.8, (t) => noise(t, 1.4, 0.18, { f: 500, fTo: 1400, a: 0.4 })); ev(14.65, (t) => SFX.splash(t, 0.2));
+    ev(17.65, (t) => SFX.zap(t, 0.25, 0.12)); ev(18.45, (t) => SFX.splash(t, 0.15)); ev(19.25, (t) => SFX.hit(t, 2, 'white'));
+    ev(29.45, (t) => SFX.splash(t, 0.35)); ev(29.55, (t) => SFX.zap(t, 0.6, 0.25)); ev(30.45, (t) => SFX.splash(t, 0.3));
+    for (const t0 of [30.75, 31.4, 32.05]) { ev(t0, (t) => noise(t, 0.3, 0.3, { type: 'bandpass', f: 2600, fTo: 700, q: 2 })); ev(t0 + 0.72, (t) => SFX.splash(t, 0.25)); }
+    ev(32.3, (t) => SFX.zap(t, 0.12, 0.3)); ev(32.35, (t) => SFX.thunder(t, 0.3));
+    ev(33.7, (t) => SFX.thud(t));
+    for (let i = 0; i < 21; i++) ev(39.5 + i * 0.07, (t) => SFX.shk(t));
+    ev(40.72, (t) => { SFX.shk(t); SFX.splash(t, 0.35); });
+    ev(41.3, (t) => SFX.whip(t));
+    for (const b of [42.6, 43.4, 44.1, 44.7, 45.2, 45.65, 46.0]) ev(b, (t) => SFX.heart(t));
+    ev(45.9, (t) => SFX.zap(t, 0.3, 0.12));
+    ev(44.6, (t) => noise(t, 0.9, 0.2, { f: 400, fTo: 1500, a: 0.5 }));
+    ev(54.3, (t) => { SFX.thunder(t, 0.5); tone(t, 'sawtooth', 55, 1.4, 0.2, { lp: 300, lpTo: 1500, a: 0.05 }); });
+    ev(61.5, (t) => { tone(t, 'sine', 60, 2.4, 0.9, { to: 22 }); noise(t, 3.2, 0.6, { f: 1200, fTo: 60 }); });
+    ev(62.6, (t) => SFX.thud(t));
+    for (let tt = 7; tt < 85; tt += 0.11) {
+      const lvl = tab(tt, ELEC);
+      if (lvl > 0.2 && hash(tt * 7.3) < lvl * 0.5) ev(tt, (t) => SFX.zap(t, 0.04 + lvl * 0.08, 0.02 + lvl * 0.05));
+    }
+    ev(75.3, (t) => tone(t, 'sawtooth', 220, 0.9, 0.08, { to: 50, lp: 1200 }));
+    ev(76.8, (t) => SFX.zap(t, 0.8, 0.18)); ev(77.0, (t) => SFX.splash(t, 0.3)); ev(78.0, (t) => SFX.thud(t));
+    ev(82.3, (t) => { SFX.thunder(t, 0.4); [165, 247, 330, 415, 494].forEach((f, i) => tone(t + i * 0.04, 'triangle', f, 3.6, 0.07, { a: 0.08 })); });
+    ev(87.2, (t) => [110, 165, 220].forEach((f) => tone(t, 'triangle', f, 2.5, 0.06, { a: 0.4 })));
+    // Drums and bass at 150 bpm (16th = 0.1 s).
+    const RIFF = [82.4, 82.4, 98, 82.4, 110, 82.4, 98, 73.4];
+    const section = (t0, t1, lvl) => {
+      for (let s = 0, t = t0; t < t1; s++, t = t0 + s * 0.1) {
+        const st = s % 16;
+        if ([0, 6, 8].includes(st) || (lvl > 1 && st === 11) || (lvl > 2 && st % 4 === 0)) ev(t, (u) => SFX.kick(u));
+        if (st === 4 || st === 12 || (lvl > 1 && st === 15)) ev(t, (u) => SFX.snare(u));
+        if (st % 2 === 0 || lvl > 1) ev(t, (u) => SFX.hat(u, st % 4 === 2 ? 0.1 : 0.06));
+        if (st % 2 === 0) { const f = RIFF[(s / 2) % 8]; ev(t, (u) => SFX.bass(u, f * (lvl > 2 ? 1 : 1), 0.18)); }
+      }
+    };
+    section(20.4, 29.0, 1); section(29.0, 36.0, 2); section(56.4, 61.4, 3); section(68.4, 72.6, 3);
+    for (let s = 0, t = 48.9; t < 55.5; s++, t = 48.9 + s * 0.1) {
+      const st = s % 16, roll = t > 53.5;
+      if (st % 4 === 0) ev(t, (u) => SFX.kick(u, 0.45));
+      if (roll ? s % (t > 54.6 ? 1 : 2) === 0 : st === 8) ev(t, (u) => SFX.snare(u, 0.12 + seg(t, 53.5, 55.5) * 0.25));
+    }
+    EV.sort((a, b) => a[0] - b[0]);
+  }
+  buildAudio();
+  let evPtr = 0;
+  function seekAudio(from) {
+    evPtr = 0;
+    while (evPtr < EV.length && EV[evPtr][0] < from) {
+      const [t, d, fn] = EV[evPtr];
+      if (d > 0 && t + d > from) fn(AC.currentTime + 0.05, from - t);
+      evPtr++;
+    }
+  }
+  function pumpAudio(T) {
+    if (!AC || !bus) return;
+    while (evPtr < EV.length && EV[evPtr][0] < T + 0.6) {
+      const [t, , fn] = EV[evPtr++];
+      fn(base + t, 0);
+    }
+  }
+
+  // ------------------------------------------------------------------ clock & controls
+  // The film clock follows the audio clock when audio is available, so picture and sound stay in sync.
+  const nowSec = () => (AC ? AC.currentTime : performance.now() / 1000);
+  let base = 0, playing = false, pausedAt = 0, started = false;
+  const filmTime = () => (playing ? nowSec() - base : pausedAt);
+  const $ = (id) => document.getElementById(id);
+  const setPlayIcon = () => { $('play').textContent = playing ? '❚❚' : '▶'; };
+  function startAt(from) {
+    ensureAudio();
+    if (AC && AC.state === 'suspended') AC.resume();
+    if (bus) bus.disconnect();
+    if (AC) { bus = AC.createGain(); bus.connect(master); }
+    base = nowSec() + 0.05 - from;
+    if (AC) seekAudio(from);
+    playing = true; $('outro').hidden = true; setPlayIcon();
+  }
+  function pause() { if (!playing) return; pausedAt = filmTime(); playing = false; if (bus) { bus.disconnect(); bus = null; } setPlayIcon(); }
+  $('start').onclick = () => { $('intro').hidden = true; $('hud').hidden = false; started = true; startAt(0); wake(); };
+  $('again').onclick = () => startAt(0);
+  $('restart').onclick = () => startAt(0);
+  $('play').onclick = () => (playing ? pause() : startAt(pausedAt >= END ? 0 : pausedAt));
+  $('mute').onclick = () => { muted = !muted; $('mute').textContent = muted ? '🔇' : '🔊'; if (master) master.gain.value = muted ? 0 : 0.85; };
+  $('bar').onclick = (e) => { const r = $('bar').getBoundingClientRect(); const t = clamp((e.clientX - r.left) / r.width) * END; if (playing) startAt(t); else pausedAt = t; };
+  window.addEventListener('keydown', (e) => {
+    if (!started) return;
+    if (e.key === ' ') { e.preventDefault(); $('play').click(); }
+    else if (e.key === 'r' || e.key === 'R') startAt(0);
+    else if (e.key === 'm' || e.key === 'M') $('mute').click();
+  });
+  let idleTimer = 0;
+  const wake = () => { document.body.classList.remove('idle'); clearTimeout(idleTimer); idleTimer = setTimeout(() => playing && document.body.classList.add('idle'), 2400); };
+  ['pointermove', 'pointerdown', 'keydown'].forEach((evn) => window.addEventListener(evn, wake));
+
+  let W = 0, H = 0, DPR = 1;
+  function resize() { DPR = Math.min(2, window.devicePixelRatio || 1); W = window.innerWidth; H = window.innerHeight; cv.width = Math.round(W * DPR); cv.height = Math.round(H * DPR); }
+  window.addEventListener('resize', resize);
+  resize();
+  const fmt = (t) => `${Math.floor(t / 60)}:${String(Math.floor(t % 60)).padStart(2, '0')}`;
+  // ?t=SECONDS renders a still frame (used for previews and testing).
+  const still = new URLSearchParams(location.search).get('t');
+  if (still !== null) { $('intro').hidden = true; started = true; pausedAt = parseFloat(still) || 0; }
+
+  function frame() {
+    let T = filmTime();
+    if (playing && T >= END) { pause(); pausedAt = END; $('outro').hidden = false; }
+    T = clamp(T, 0, END);
+    if (playing) pumpAudio(T);
+    const s = Math.min(W / VW, H / VH) * DPR;
+    ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.fillStyle = '#000'; ctx.fillRect(0, 0, cv.width, cv.height);
+    ctx.setTransform(s, 0, 0, s, (cv.width - VW * s) / 2, (cv.height - VH * s) / 2);
+    ctx.save(); ctx.beginPath(); ctx.rect(0, 0, VW, VH); ctx.clip();
+    render(started ? T : 24.62);
+    ctx.restore();
+    $('fill').style.width = `${(T / END) * 100}%`;
+    $('time').textContent = `${fmt(T)} / ${fmt(END)}`;
+    requestAnimationFrame(frame);
+  }
+  requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>

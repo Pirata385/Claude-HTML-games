@@ -24,6 +24,7 @@ The menu has a second tab, **Animações**, for animations rather than games. Th
 | --- | --- | --- |
 | Motion Showcase | [`animacoes/motion-showcase/`](animacoes/motion-showcase/) | A motion design demo that cycles through nine art styles (Bauhaus, generative flow, pixel art, sumi-e, synthwave, paper cut-out, metaballs, animation principles, harmonograph). |
 | Operação Vermelho | [`animacoes/bloons-sniper/`](animacoes/bloons-sniper/) | A one-minute Bloons TD6 fan short (in Portuguese): a tense rooftop sniper scene whose one perfect shot ends at a birthday party. |
+| Raio × Sangue | [`animacoes/stickman-duel/`](animacoes/stickman-duel/) | A 90-second stickman fight (in Portuguese) between an electric fighter and a blood bender, with impact frames, hit-stop and synthesised sound effects. |
 
 ## Structure
 

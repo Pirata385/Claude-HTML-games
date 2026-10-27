@@ -14,7 +14,7 @@ const SIM_FILES = [
   'js/core/rng.js', 'js/core/util.js', 'js/data/defs.js',
   'js/sim/world.js', 'js/sim/mapgen.js', 'js/sim/path.js', 'js/sim/spatial.js',
   'js/sim/economy.js', 'js/sim/buildings.js', 'js/sim/combat.js', 'js/sim/units.js',
-  'js/sim/zombies.js', 'js/sim/waves.js', 'js/sim/explore.js', 'js/sim/game.js',
+  'js/sim/zombies.js', 'js/sim/waves.js', 'js/sim/explore.js', 'js/sim/objectives.js', 'js/sim/game.js',
   'tests/bot.js',
 ];
 

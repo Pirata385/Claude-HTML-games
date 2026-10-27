@@ -177,6 +177,7 @@
       case 'dawn': A.play('dawn'); break;
       case 'loot': A.play('loot'); break;
       case 'recruit': A.play('recruit'); break;
+      case 'objective': A.play('recruit'); break;
       case 'radio': A.play('radio', e); break;
       case 'bang': A.play('melee', e); break;
       case 'gameover': A.play('gameover'); break;

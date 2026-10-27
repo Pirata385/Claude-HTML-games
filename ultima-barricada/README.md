@@ -33,7 +33,8 @@ Abra `index.html` (direto do disco ou por um servidor estático). Não há depen
 - **Zumbis**: errante, corredor, inchado (explode), brutamontes (derruba muros), cuspidor (ácido por cima de muros), gritador (atrai e acelera), blindado (resiste a tudo menos rifle) e o Colosso nas Noites de Sangue (a cada 5 noites). Barulho de tiros atrai os que estão por perto; chuva abafa o som e neblina reduz a visão.
 - **Exploração**: névoa de guerra e locais com perigo e recompensas próprias: casas, farmácias, supermercados, armazéns, loja de ferragens (projeto do holofote), posto de combustível (que pode explodir com tiros), delegacia (munição, armas e projetos da metralhadora e do rádio), hospital (remédios e um possível médico), fábrica, fazenda, acampamentos (sobreviventes para resgatar, se houver camas), ruínas e ninhos (que geram zumbis até serem destruídos). O saque vai para a mochila e precisa voltar à base; se alguém morrer, a mochila fica no chão. Ainda há caixas espalhadas, postos de controle militares e lançamentos aéreos.
 - **Dificuldade**: o orçamento da horda é `(8 + 6n + 0,6·n^1,6) × multiplicador`, e os tipos de zumbi são liberados noite a noite. A população errante do mapa também cresce. Há quatro dificuldades (Fácil a Pesadelo).
-- **Pontuação**: noites × 1000 + abates × 10 + buscas × 50 + ninhos × 500 + sobreviventes vivos × 200. Os recordes ficam no navegador.
+- **Objetivos**: uma cadeia de metas opcionais (erguer uma torre, alimentar a base, resgatar sobreviventes, achar o projeto da metralhadora, ligar um gerador, destruir ninhos, sobreviver à Noite de Sangue…) aparece no painel e dá recursos e pontos.
+- **Pontuação**: noites × 1000 + abates × 10 + buscas × 50 + ninhos × 500 + sobreviventes vivos × 200 + objetivos × 300. Os recordes ficam no navegador.
 - **Salvar/carregar**: 3 slots e um automático a cada amanhecer (`localStorage`), com exportação e importação em `.json`. Saves carregados continuam de forma determinística.
 
 ## Mapas procedurais
@@ -55,7 +56,7 @@ index.html, style.css     casca, HUD e menus (DOM)
 js/core/                  rng.js (mulberry32, hash, value noise), util.js (heap, base64)
 js/data/defs.js           todo o conteúdo e o balanceamento
 js/sim/                   world, mapgen, path (A* com orçamento por tick + flow field), spatial (hash espacial),
-                          economy, buildings, combat, units, zombies, waves, explore, game (tick, comandos, save)
+                          economy, buildings, combat, units, zombies, waves, explore, objectives, game (tick, comandos, save)
 js/render/                voxel.js (modelos e baker isométrico), models.js, tiles.js, renderer.js
 js/ui/                    input.js, hud.js, menus.js, audio.js (WebAudio sintetizado)
 js/main.js                App: seleção, modos, laço (sim 20 Hz fixa + render interpolado)
@@ -69,7 +70,7 @@ tests/                    run.js + *.test.js (Node), bot.js (jogador automático
 ## Testes
 
 ```
-node tests/run.js           # 27 testes de simulação (mapa, caminhos, economia, construção, combate, save, 5 dias com bot)
+node tests/run.js           # 28 testes de simulação (mapa, caminhos, economia, construção, combate, save, 5 dias com bot)
 node tests/visual.js        # navegador: menus, mouse, toque, construção, save/reload, FPS com 500+ zumbis
 ```
 

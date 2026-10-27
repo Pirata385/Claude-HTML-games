@@ -511,6 +511,7 @@
       if (document.hidden && App.inGame && App.settings.autopause && !UB.Menus.isOpen()) App.openPause();
     });
     window.addEventListener('pointerdown', () => UB.Audio.init(), { once: true });
+    window.addEventListener('keydown', () => UB.Audio.init(), { once: true });
     // Pre-bake common sprites with a progress bar, then show the menu over a demo city.
     const jobs = [];
     for (const role of Object.keys(UB.DEF.ROLES)) for (const w of ['pistol', 'shotgun', 'bat']) for (let f = 0; f < 4; f++) for (let d = 0; d < 4; d++) jobs.push(() => UB.Render.sprite(`s:${role}:${w}:${f}:${d}:${0}`, () => UB.Models.survivor(role, w, f, 0).rotate(d)));

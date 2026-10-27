@@ -114,3 +114,15 @@ test('shots near an intact gas station can blow it up, hurting the horde', () =>
   assert.ok(gas.exploded, 'the station never exploded');
   assert.ok(zs.filter((z) => z.dead).length >= 4, 'the explosion should kill nearby walkers');
 });
+
+test('objectives complete from play, pay rewards and add score', () => {
+  const S = fresh('objetivos');
+  const s0 = UB.Game.score(S), ammo0 = S.res.ammo;
+  build(S, 'tower');
+  S.res.ammo = ammo0;
+  for (let k = 0; k < 60; k++) UB.Game.tick(S);
+  assert.ok(S.objectives.tower, 'tower objective not completed');
+  assert.strictEqual(S.res.ammo >= ammo0 + 20 - 10, true);
+  assert.ok(UB.Game.score(S) >= s0 + UB.Objectives.BONUS);
+  assert.ok(!UB.Objectives.open(S, 20).some((o) => o.id === 'tower'));
+});

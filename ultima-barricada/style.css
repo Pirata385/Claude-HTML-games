@@ -265,6 +265,8 @@ input[type="text"] { flex: 1; min-height: 40px; padding: 6px 10px; border: 2px s
   #panel { max-height: 36vh; padding: 6px; gap: 5px; }
   #panel .btn { min-height: 38px; padding: 4px 9px; }
   .p-desc { font-size: 0.8em; }
+  .p-desc.hint { display: none; }
+  .objectives .kv { font-size: 0.95em; }
   #banner { top: calc(116px + var(--safe-t)); font-size: 0.85em; padding: 5px 10px; }
   #buildMenu { max-height: 52vh; }
   #bmGrid { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); }

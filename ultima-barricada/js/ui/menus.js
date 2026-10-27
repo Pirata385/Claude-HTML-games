@@ -214,7 +214,7 @@
       <div class="stat-grid">
         <div><b>${S.finalScore}</b>pontos</div><div><b>${S.nights}</b>noites sobrevividas</div><div><b>${st.kills}</b>zumbis abatidos</div>
         <div><b>${st.loots}</b>buscas feitas</div><div><b>${st.built}</b>construções</div><div><b>${st.recruits}</b>resgatados</div>
-        <div><b>${st.nests || 0}</b>ninhos destruídos</div><div><b>${st.deaths}</b>mortes</div>
+        <div><b>${st.nests || 0}</b>ninhos destruídos</div><div><b>${st.deaths}</b>mortes</div><div><b>${UB.Objectives.count(S)}</b>objetivos</div>
       </div>${mem}`;
     M.show('scrOver');
   };

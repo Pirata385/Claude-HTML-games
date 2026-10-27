@@ -41,7 +41,7 @@
       nextId: 1, res, morale: BAL.moraleStart, armory: { shotgun: 0, rifle: 0 }, unlocked: {},
       stats: { kills: 0, loots: 0, nests: 0, deaths: 0, built: 0, recruits: 0, shots: 0, discovered: 0 },
       memorial: [], proj: [], horde: null, drops: {}, pathQ: [], autoRepair: true, over: null,
-      power: { supply: 0, demand: 0, used: 0 }, squads: { 1: [], 2: [], 3: [], 4: [] }, hqId: 0, dropMark: null, msgSeq: 0, tips: {},
+      power: { supply: 0, demand: 0, used: 0 }, squads: { 1: [], 2: [], 3: [], 4: [] }, hqId: 0, dropMark: null, msgSeq: 0, tips: {}, objectives: {},
       fx: [], log: [],
     };
     S.rng = new UB.Rng(UB.hashStr('play|' + seed));
@@ -89,6 +89,7 @@
     UB.Buildings.tick(S, dt);
     UB.Eco.tick(S, dt);
     UB.Explore.tick(S, dt);
+    UB.Objectives.tick(S);
     cleanup(S);
     if (!S.over && !S.units.some((u) => !u.dead)) S.over = 'dead';
     if (S.over) finalize(S);
@@ -112,7 +113,7 @@
   function score(S) {
     const sc = BAL.score;
     const alive = S.units.filter((u) => !u.dead).length;
-    return S.nights * sc.night + S.stats.kills * sc.kill + S.stats.loots * sc.loot + (S.stats.nests || 0) * sc.nest + alive * sc.alive;
+    return S.nights * sc.night + S.stats.kills * sc.kill + S.stats.loots * sc.loot + (S.stats.nests || 0) * sc.nest + alive * sc.alive + UB.Objectives.count(S) * UB.Objectives.BONUS;
   }
 
   // Free tiles around (x, y) for a group move, closest first.

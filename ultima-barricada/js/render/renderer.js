@@ -269,6 +269,7 @@
         case 'bang': part(e.x, e.y, 10, (Math.random() - 0.5), (Math.random() - 0.5), 15, 0.4, '#a89a80', 1); break;
         case 'drop': FX.flares.push({ x: e.x, y: e.y, life: 90 }); break;
         case 'terrain': R.invalidateTerrain(e.x, e.y, e.w, e.h); break;
+        case 'objective': break;
         default: break;
       }
       if (onEvent) onEvent(e);

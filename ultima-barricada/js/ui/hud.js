@@ -507,7 +507,14 @@
         ${btn('goBase', 'Ir à base <small>H</small>')}
         ${S.clock.phase === 'day' ? btn('skipDay', 'Anoitecer agora', { title: 'Pula o resto do dia e chama a horda' }) : ''}
       </div>
-      <div class="p-desc">${UB.App.touch ? 'Toque num sobrevivente para selecionar; toque longo e arraste para selecionar vários; arraste para mover a câmera; pinça para zoom.' : 'Clique para selecionar, arraste para selecionar vários, botão direito para ordens. WASD/setas movem a câmera, roda = zoom, Espaço = pausa.'}</div>`;
+      ${objectivesHTML(S)}
+      <div class="p-desc hint">${UB.App.touch ? 'Toque num sobrevivente para selecionar; toque longo e arraste para selecionar vários; arraste para mover a câmera; pinça para zoom.' : 'Clique para selecionar, arraste para selecionar vários, botão direito para ordens. WASD/setas movem a câmera, roda = zoom, Espaço = pausa.'}</div>`;
+  }
+
+  function objectivesHTML(S) {
+    const list = UB.Objectives.open(S, 3);
+    if (!list.length) return '';
+    return `<div class="p-row small objectives"><b>Objetivos (${UB.Objectives.count(S)}/${UB.Objectives.LIST.length}):</b>${list.map((o) => `<span class="kv">☐ ${esc(o.text)}</span>`).join('')}</div>`;
   }
 
   // ---- build menu -----------------------------------------------------------------------------------------

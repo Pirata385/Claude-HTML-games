@@ -28,7 +28,7 @@
       if (u.dead) continue;
       if (u.inside) {
         const b = W.get(S, u.inside);
-        if (b && b.type === 'tower') stamp(b.tx + 0.5, b.ty + 0.5, BUILDINGS.tower.vision + UB.Buildings.lvl(b).range);
+        if (b && (b.type === 'tower' || b.type === 'hq')) stamp(b.tx + b.w / 2, b.ty + b.h / 2, BUILDINGS[b.type].vision + UB.Buildings.lvl(b).range);
         continue;
       }
       stamp(u.x, u.y, ROLES[u.role].vision);

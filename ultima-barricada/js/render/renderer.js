@@ -495,12 +495,13 @@
       if (b.dead) continue;
       if (b.tx + b.w < tx0 - 4 || b.tx > tx1 + 2 || b.ty + b.h < ty0 - 4 || b.ty > ty1 + 2) continue;
       addBig(b, buildingSprite(S, b), false, b.built < 1 ? 0.85 : 1);
-      if (b.type === 'tower' && b.garrison.length) {
+      if ((b.type === 'tower' || b.type === 'hq') && b.garrison.length) {
+        const hq = b.type === 'hq';
         b.garrison.forEach((id, k) => {
           const u = UB.World.get(S, id);
           if (!u) return;
-          const p = R.w2s(b.tx + 0.3 + k * 0.4, b.ty + 0.7 - k * 0.2, 32);
-          push(b.tx + b.ty + 1.01 + k * 0.001, 5, unitSprite(S, u), p, null, u);
+          const p = hq ? R.w2s(b.tx + 2.6 - (k % 2) * 0.4, b.ty + 1.2 + k * 0.5, 34) : R.w2s(b.tx + 0.3 + k * 0.4, b.ty + 0.7 - k * 0.2, 32);
+          push(b.tx + b.ty + b.w + b.h - 1 + 0.01 + k * 0.001, 5, unitSprite(S, u), p, null, u);
         });
       }
     }
@@ -776,6 +777,7 @@
         let r = 0;
         if (b.type === 'turret') r = L.range;
         else if (b.type === 'tower') r = 6 + L.range;
+        else if (b.type === 'hq' && b.garrison.length) r = 6 + L.range;
         else if (b.type === 'spotlight') r = L.light;
         else if (b.type === 'hq') r = UB.World.territory(S);
         if (r) { const p = R.w2s(b.tx + b.w / 2, b.ty + b.h / 2); ellipse(p.x, p.y, r * 16 * Math.SQRT2, r * 8 * Math.SQRT2, null, b.type === 'hq' ? 'rgba(125,200,255,0.5)' : 'rgba(255,220,120,0.6)', 1); }

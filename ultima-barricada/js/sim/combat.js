@@ -153,7 +153,7 @@
     if (u.dead) return;
     if (u.inside) {
       const b = W.get(S, u.inside);
-      if (b && b.type === 'tower') dmg *= 0.4;
+      if (b && (b.type === 'tower' || b.type === 'hq')) dmg *= 0.4;
     } else if (ranged && UB.Units.inCover(S, u)) dmg *= 0.7;
     u.hp -= dmg;
     u.hitT = S.time;

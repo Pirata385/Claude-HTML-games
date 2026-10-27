@@ -11,7 +11,7 @@
     if (S.fx.length > 4000) S.fx.splice(0, 2000);
   }
   function msg(S, text, kind, x, y) {
-    const m = { text, kind: kind || 'info', x, y, t: S.time, day: S.day, id: (S._msgId = (S._msgId || 0) + 1) };
+    const m = { text, kind: kind || 'info', x, y, t: S.time, day: S.day, id: (S.msgSeq = (S.msgSeq || 0) + 1) };
     S.log.push(m);
     if (S.log.length > 80) S.log.shift();
     fx(S, { t: 'msg', m });
@@ -41,7 +41,7 @@
       nextId: 1, res, morale: BAL.moraleStart, armory: { shotgun: 0, rifle: 0 }, unlocked: {},
       stats: { kills: 0, loots: 0, nests: 0, deaths: 0, built: 0, recruits: 0, shots: 0, discovered: 0 },
       memorial: [], proj: [], horde: null, drops: {}, pathQ: [], autoRepair: true, over: null,
-      power: { supply: 0, demand: 0, used: 0 }, squads: { 1: [], 2: [], 3: [], 4: [] }, hqId: 0, dropMark: null,
+      power: { supply: 0, demand: 0, used: 0 }, squads: { 1: [], 2: [], 3: [], 4: [] }, hqId: 0, dropMark: null, msgSeq: 0, tips: {},
       fx: [], log: [],
     };
     S.rng = new UB.Rng(UB.hashStr('play|' + seed));
@@ -66,8 +66,15 @@
     return S;
   }
 
+  function finalize(S) {
+    if (S.finalScore) return;
+    S.finalScore = score(S);
+    msg(S, S.over === 'hq' ? 'Fim de jogo: o QG foi destruído.' : 'Fim de jogo: não restou ninguém.', 'bad');
+    fx(S, { t: 'gameover' });
+  }
+
   function tick(S) {
-    if (S.over) return;
+    if (S.over) { finalize(S); return; }
     const dt = TIME.TICK;
     S.tick++;
     S.time += dt;
@@ -84,11 +91,7 @@
     UB.Explore.tick(S, dt);
     cleanup(S);
     if (!S.over && !S.units.some((u) => !u.dead)) S.over = 'dead';
-    if (S.over && !S.finalScore) {
-      S.finalScore = score(S);
-      msg(S, S.over === 'hq' ? 'Fim de jogo: o QG foi destruído.' : 'Fim de jogo: não restou ninguém.', 'bad');
-      fx(S, { t: 'gameover' });
-    }
+    if (S.over) finalize(S);
   }
 
   function cleanup(S) {
@@ -251,6 +254,12 @@
         return { ok: true };
       }
       case 'autoRepair': S.autoRepair = !!c.value; return { ok: true };
+      case 'nightShift': {
+        const b = W.get(S, c.id);
+        if (!b || b.kind !== 'bld') return { ok: false };
+        b.nightShift = !b.nightShift;
+        return { ok: true };
+      }
       case 'skipDay': return { ok: UB.Waves.skipToDusk(S) };
       default: return { ok: false, reason: 'Comando desconhecido' };
     }

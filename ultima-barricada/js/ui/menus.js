@@ -161,7 +161,7 @@
   }
 
   // ---- settings -------------------------------------------------------------------------------------------
-  const DEFAULTS = { master: 0.8, sfx: 0.8, amb: 0.5, shake: true, quality: 'high', ui: 1, edgeScroll: false, fps: false, paths: true, autopause: true };
+  const DEFAULTS = { master: 0.8, sfx: 0.8, amb: 0.5, shake: true, quality: 'high', ui: 1, edgeScroll: false, fps: false, paths: true, autopause: true, tips: true };
   M.loadSettings = function () {
     let s = {};
     try { s = JSON.parse(store.get(KEY.settings) || '{}'); } catch (e) { s = {}; }
@@ -176,7 +176,7 @@
     $('setList').innerHTML = range('master', 'Volume geral') + range('sfx', 'Efeitos') + range('amb', 'Ambiente') +
       choice('quality', 'Qualidade', [['low', 'Baixa'], ['high', 'Alta']]) +
       choice('ui', 'Tamanho da interface', [[0.9, '90%'], [1, '100%'], [1.15, '115%'], [1.3, '130%']]) +
-      toggle('shake', 'Tremor de tela') + toggle('paths', 'Mostrar caminhos') + toggle('edgeScroll', 'Rolar pela borda (mouse)') +
+      toggle('tips', 'Dicas para iniciantes') + toggle('shake', 'Tremor de tela') + toggle('paths', 'Mostrar caminhos') + toggle('edgeScroll', 'Rolar pela borda (mouse)') +
       toggle('autopause', 'Pausar ao sair da aba') + toggle('fps', 'Mostrar FPS');
     const list = $('setList');
     list.oninput = (e) => { const k = e.target.dataset.k; if (k) { s[k] = +e.target.value; UB.App.applySettings(); saveSettings(); } };
@@ -203,6 +203,7 @@
     $('recList').innerHTML = list.length ? list.map((r, i) => `<div class="rec"><span>${i + 1}. <b>${r.score}</b> pts · ${r.nights} noites</span><span class="muted small">“${esc(r.seed)}” · ${UB.DEF.DIFFICULTY[r.difficulty] ? UB.DEF.DIFFICULTY[r.difficulty].name : ''}</span></div>`).join('') : '<p class="muted">Nenhuma partida terminada ainda.</p>';
   }
   M.gameOver = function (S) {
+    if (!S.finalScore) S.finalScore = UB.Game.score(S);
     const rank = M.addRecord(S);
     store.del(KEY.slot('auto'));
     M.refreshMain();

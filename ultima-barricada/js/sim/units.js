@@ -216,14 +216,15 @@
       if (inf) return { type: 'patient', id: inf.id };
     }
     if (night && ranged(u)) {
-      const t = nearestBuilding(S, u, (b) => b.built >= 1 && b.type === 'tower' && b.garrison.length + busyOn(S, 'garrison', b.id, u) < UB.Buildings.slots(b));
+      const free = (b) => b.garrison.length + busyOn(S, 'garrison', b.id, u) < UB.Buildings.slots(b);
+      const t = nearestBuilding(S, u, (b) => b.built >= 1 && b.type === 'tower' && free(b)) || nearestBuilding(S, u, (b) => b.type === 'hq' && free(b));
       if (t) return { type: 'garrison', id: t.id, auto: true };
     }
     const bp = nearestBuilding(S, u, (b) => b.built < 1 && busyOn(S, 'build', b.id, u) < (b.w > 1 ? 3 : 2));
     if (bp) return { type: 'build', id: bp.id };
     if (S.autoRepair) {
-      const dmg = nearestBuilding(S, u, (b) => b.built >= 1 && b.hp < b.maxHp * 0.7 && W.inTerritory(S, b.tx, b.ty) && busyOn(S, 'repair', b.id, u) < 1);
-      if (dmg && UB.Eco.can(S, { wood: 1 })) return { type: 'repair', id: dmg.id };
+      const dmg = nearestBuilding(S, u, (b) => b.built >= 1 && b.hp < b.maxHp * (b.type === 'hq' ? 0.95 : 0.7) && W.inTerritory(S, b.tx, b.ty) && busyOn(S, 'repair', b.id, u) < (b.type === 'hq' ? 2 : 1));
+      if (dmg && (dmg.type === 'hq' || UB.Eco.can(S, { wood: 1 }))) return { type: 'repair', id: dmg.id };
     }
     return null;
   }

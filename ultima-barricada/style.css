@@ -108,6 +108,7 @@ button, input, select { font: inherit; color: inherit; }
 }
 .alert.good { border-left-color: var(--good); } .alert.bad { border-left-color: var(--bad); } .alert.warn { border-left-color: var(--warn); } .alert.info { border-left-color: var(--blue); }
 .alert.fade { opacity: 0; }
+.alert.tip { border-left-color: var(--accent); background: rgba(40, 34, 16, 0.94); }
 
 #squads { position: absolute; left: calc(6px + var(--safe-l)); bottom: calc(150px + var(--safe-b)); display: flex; flex-direction: column; gap: 5px; }
 #squads .btn { min-width: 46px; min-height: 40px; padding: 4px 8px; font-size: 0.9em; }
@@ -123,6 +124,7 @@ button, input, select { font: inherit; color: inherit; }
   transform: translate(-50%, -50%) scaleY(0.5) rotate(45deg) scale(1.03);
 }
 
+#panel, #buildMenu, .card, #slotList { touch-action: pan-y; -webkit-overflow-scrolling: touch; }
 #panel {
   position: absolute; left: 50%; transform: translateX(-50%); bottom: calc(6px + var(--safe-b));
   width: min(760px, calc(100vw - 12px)); max-height: 46vh; overflow: auto;

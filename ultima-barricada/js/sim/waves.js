@@ -40,7 +40,7 @@
   function compose(S, night) {
     let b = budget(night, S.difficulty);
     const list = [];
-    if (night % 5 === 0) for (let k = 0; k < night / 5; k++) { list.push('colossus'); b -= ZOMBIES.colossus.cost * 0.5; }
+    if (night % 5 === 0 && night >= ZOMBIES.colossus.from) for (let k = 0; k < Math.floor(night / 10); k++) { list.push('colossus'); b -= ZOMBIES.colossus.cost * 0.5; }
     const pairs = Object.keys(WEIGHTS).filter((t) => ZOMBIES[t].from <= night).map((t) => [t, WEIGHTS[t]]);
     let guard = 0;
     while (b >= 1 && guard++ < 2000) {
@@ -70,6 +70,19 @@
     const sides = [...new Set(chosen.map((c) => c.side))].join(' e ');
     const blood = night % 5 === 0 ? ' NOITE DE SANGUE!' : '';
     UB.Game.msg(S, `Horda de ${queue.length} zumbis se aproximando pelo ${sides}.${blood}`, 'bad', chosen[0] && chosen[0].x, chosen[0] && chosen[0].y);
+    // Workers come out to defend unless their building keeps a night shift; they return at dawn.
+    for (const b of S.buildings) {
+      if (b.dead || b.nightShift || (b.type !== 'garden' && b.type !== 'workshop')) continue;
+      for (const id of b.workers.slice()) {
+        const u = UB.World.get(S, id);
+        if (!u) continue;
+        UB.Units.leaveBuilding(S, u);
+        u.order = null;
+        u.shift = b.id;
+      }
+    }
+    const out = S.units.filter((u) => !u.dead && !u.inside && !UB.World.inTerritory(S, u.x, u.y)).length;
+    if (out) UB.Game.msg(S, `${out} sobrevivente(s) ainda fora da base. Chame-os de volta (Voltar à base) ou deixe-os por conta própria.`, 'warn');
     UB.Game.fx(S, { t: 'alarm' });
     if (hq) UB.Path.updateFlow(S, true);
   }
@@ -101,6 +114,15 @@
     UB.Explore.dawn(S);
     UB.Game.msg(S, `Amanhecer do dia ${S.day}. Noites sobrevividas: ${S.nights}.${lines.length ? ' ' + lines.join(' ') : ''}`, 'good');
     UB.Game.fx(S, { t: 'dawn' });
+    for (const u of S.units) {
+      if (!u.shift) continue;
+      const b = UB.World.get(S, u.shift);
+      u.shift = 0;
+      if (b && !b.dead && !u.dead && !u.order && b.workers.length < UB.Buildings.slots(b)) {
+        if (u.inside) UB.Units.leaveBuilding(S, u);
+        UB.Units.order(S, u, { type: 'work', id: b.id });
+      }
+    }
     S._autosave = true;
   }
 

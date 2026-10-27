@@ -109,7 +109,7 @@
         const b = W.get(S, p.id);
         const at = { x: b.tx + b.w / 2, y: b.ty + b.h / 2 };
         if (b.built < 1) { cmd({ type: 'repair', ids, id: b.id }, at); return; }
-        if (b.type === 'tower') { cmd({ type: 'garrison', ids, id: b.id }, at); return; }
+        if (b.type === 'tower' || (b.type === 'hq' && us.some((u) => !UB.Units.packTotal(u) && !u.carry))) { cmd({ type: 'garrison', ids, id: b.id }, at); return; }
         if (b.type === 'garden' || b.type === 'workshop') { cmd({ type: 'work', ids, id: b.id }, at); return; }
         if (b.type === 'infirmary') { cmd({ type: 'patient', ids, id: b.id }, at); return; }
         if (b.hp < b.maxHp) { cmd({ type: 'repair', ids, id: b.id }, at); return; }
@@ -310,6 +310,7 @@
       }
       case 'craft': if (b) cmd({ type: 'craft', id: b.id, item: arg }); break;
       case 'autoRepair': cmd({ type: 'autoRepair', value: !S.autoRepair }); break;
+      case 'nightShift': if (b) cmd({ type: 'nightShift', id: b.id }); break;
       case 'sendSquad': if (App.sel.poi) { const p = W.get(S, App.sel.poi); cmd({ type: 'loot', ids: S.squads[arg] || [], id: p.id }, { x: p.ex + 0.5, y: p.ey + 0.5 }); } break;
       case 'gatherIdle': {
         const f = App.sel.feat;
@@ -369,7 +370,7 @@
     App.clearSel();
     App.cancelMode();
     UB.Render.resetWorld();
-    UB.HUD.reset();
+    UB.HUD.reset(S);
     $('hud').hidden = false;
     UB.HUD.showBuild(false);
     const hq = W.hq(S);
@@ -409,6 +410,31 @@
     document.documentElement.style.setProperty('--ui', s.ui);
     $('fps').hidden = !s.fps;
   };
+
+  // ---- tips for new players --------------------------------------------------------------------------------
+  const has = (S, type, pred) => S.buildings.some((b) => b.type === type && !b.dead && (!pred || pred(b)));
+  const TIPS = [
+    { id: 'select', when: (S) => S.day === 1 && S.clock.t > 27, text: () => (App.touch ? 'Toque num sobrevivente e depois numa árvore para coletar madeira, ou num carro para sucata.' : 'Clique num sobrevivente e use o botão direito numa árvore (madeira) ou num carro (sucata).') },
+    { id: 'tower', when: (S) => S.day === 1 && S.clock.t > 75 && !has(S, 'tower'), text: () => 'Abra Construir (B) e erga uma Torre de vigia perto do QG: à noite, quem estiver livre sobe nela e atira de lá.' },
+    { id: 'loot', when: (S) => S.day === 1 && S.clock.t > 135, text: () => 'Casas por perto guardam comida e munição. Mande alguém saquear — mas o barulho atrai zumbis.' },
+    { id: 'food', when: (S) => S.day === 1 && S.clock.t > 200 && !has(S, 'garden'), text: () => 'Cada pessoa come 3 por dia. Uma Horta com trabalhador produz comida; a Oficina transforma sucata em munição.' },
+    { id: 'dusk', when: (S) => S.clock.phase === 'dusk', text: () => 'A horda segue até o QG e ataca o que estiver no caminho; barricadas e muros criam gargalos. Quem está livre defende sozinho. Espaço pausa.' },
+    { id: 'ammo', when: (S) => S.res.ammo < 30 && !has(S, 'workshop', (b) => b.workers.length), text: () => 'Munição acabando! Coloque alguém para trabalhar numa Oficina (sucata → munição).' },
+    { id: 'bite', when: (S) => S.units.some((u) => u.infected >= 0), text: () => 'Mordidas viram infecção: leve a vítima a um médico ou à enfermaria, com remédios, antes que o tempo acabe.' },
+    { id: 'beds', when: (S) => S.day >= 2 && UB.Eco.population(S) >= UB.Eco.beds(S) && !has(S, 'shelter'), text: () => 'Sem camas livres ninguém novo entra no grupo. Construa um Abrigo para poder resgatar sobreviventes.' },
+    { id: 'explore', when: (S) => S.day >= 2 && S.clock.t > 40, text: () => 'Locais perigosos (☠☠☠☠) dão as melhores recompensas: projetos, armas e remédios. Vá em grupo e volte antes do anoitecer.' },
+    { id: 'squads', when: (S) => S.day >= 2 && S.clock.t > 120, text: () => 'Defina esquadrões (botões Esq. 1–4 ou Ctrl+número) para mandar grupos rapidamente.' },
+  ];
+  function checkTips(S) {
+    if (!App.settings.tips || S.over) return;
+    S.tips = S.tips || {};
+    for (const t of TIPS) {
+      if (S.tips[t.id] || !t.when(S)) continue;
+      S.tips[t.id] = true;
+      UB.HUD.alert({ text: '💡 ' + t.text(), kind: 'info', tip: true, ttl: 16000 });
+      break;
+    }
+  }
 
   // ---- main loop -------------------------------------------------------------------------------------------
   let last = 0, acc = 0, hudT = 0, sndT = 0, fpsT = 0, frames = 0;
@@ -455,6 +481,7 @@
         }
       }
       if (S._autosave) { S._autosave = false; UB.Menus.autosave(); }
+      if (now - (App.tipT || 0) > 1000) { App.tipT = now; checkTips(S); }
       if (S.over && !App.overAt) App.overAt = now;
       if (App.overAt && now - App.overAt > 2500 && !UB.Menus.isOpen()) { App.overAt = Infinity; UB.Menus.gameOver(S); }
     } else if (App.demo) {

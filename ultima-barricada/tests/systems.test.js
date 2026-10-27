@@ -152,6 +152,7 @@ test('horde budget grows every night and compositions respect unlock nights', ()
   const w12 = UB.Waves.compose(S, 12);
   assert.ok(w12.length > w1.length * 3);
   assert.ok(UB.Waves.compose(S, 10).includes('colossus'));
+  assert.ok(!UB.Waves.compose(S, 5).includes('colossus'));
   assert.ok(UB.Waves.budget(10, 'nightmare') > UB.Waves.budget(10, 'easy'));
 });
 

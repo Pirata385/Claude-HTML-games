@@ -108,6 +108,13 @@
         if (p) { u.x = p.x + 0.5; u.y = p.y + 0.5; u.path = null; }
       }
     }
+    if (!BUILDINGS[b.type].walkable) {
+      for (const z of S.zombies) {
+        if (z.dead || z.x < b.tx || z.x >= b.tx + b.w || z.y < b.ty || z.y >= b.ty + b.h) continue;
+        const p = W.nearestOpen(S, z.x, z.y, true, 4);
+        if (p) { z.x = p.x + 0.5; z.y = p.y + 0.5; z.path = null; }
+      }
+    }
     S.stats.built++;
     UB.Game.fx(S, { t: 'built', id: b.id, x: b.tx + b.w / 2, y: b.ty + b.h / 2 });
     UB.Eco.updatePower(S);
@@ -220,7 +227,7 @@
 
   function slots(b) {
     const L = lvl(b);
-    if (b.type === 'tower') return L.slots;
+    if (b.type === 'tower' || b.type === 'hq') return L.slots;
     if (b.type === 'infirmary') return L.patients;
     return L.workers || 0;
   }

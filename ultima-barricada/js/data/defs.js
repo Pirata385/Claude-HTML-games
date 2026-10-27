@@ -31,8 +31,8 @@
     { key: 'pine', name: 'Pinheiro', block: true, res: 'wood', amt: [22, 34], rate: 0.75 },
     { key: 'deadtree', name: 'Árvore morta', block: true, res: 'wood', amt: [8, 14], rate: 0.9 },
     { key: 'bush', name: 'Arbusto', cost: 1.4 },
-    { key: 'car', name: 'Carro abandonado', block: true, res: 'scrap', amt: [24, 40], rate: 0.55, bonus: ['fuel', 3, 8] },
-    { key: 'debris', name: 'Destroços', cost: 1.3, res: 'scrap', amt: [8, 16], rate: 0.8, bonus: ['wood', 2, 6] },
+    { key: 'car', name: 'Carro abandonado', block: true, res: 'scrap', amt: [30, 50], rate: 0.6, bonus: ['fuel', 3, 8] },
+    { key: 'debris', name: 'Destroços', cost: 1.3, res: 'scrap', amt: [10, 18], rate: 0.8, bonus: ['wood', 2, 6] },
     { key: 'crate', name: 'Caixa de suprimentos', pickup: true },
     { key: 'fence', name: 'Cerca', block: true },
     { key: 'rock', name: 'Rocha', block: true },
@@ -72,16 +72,16 @@
     spitter: { name: 'Cuspidor', hp: 45, speed: 0.9, dmg: 10, cd: 2.6, cost: 4, from: 8, bite: 0.05, sight: 8, struct: 1, range: 5 },
     screamer: { name: 'Gritador', hp: 60, speed: 1.2, dmg: 4, cd: 1.2, cost: 5, from: 10, bite: 0.05, sight: 8, struct: 0.6, scream: { cd: 9, r: 16, buff: 0.35, dur: 5 } },
     armored: { name: 'Blindado', hp: 90, speed: 0.85, dmg: 8, cd: 1.2, cost: 4, from: 12, bite: 0.07, sight: 6, struct: 1.2, armor: 0.5 },
-    colossus: { name: 'Colosso', hp: 1400, speed: 0.6, dmg: 40, cd: 2, cost: 25, from: 5, bite: 0.15, sight: 7, struct: 4, boss: true },
+    colossus: { name: 'Colosso', hp: 1400, speed: 0.6, dmg: 40, cd: 2, cost: 25, from: 10, bite: 0.15, sight: 7, struct: 4, boss: true },
   };
 
   // Player structures. levels[i]: cost to reach that level (level 1 = build cost), hp and effect values.
   const BUILDINGS = {
-    hq: { name: 'QG', size: 3, cat: 'base', desc: 'Coração da base: estoque, camas e território. Se cair, a partida acaba.',
+    hq: { name: 'QG', size: 3, cat: 'base', desc: 'Coração da base: estoque, camas e território, com janelas para atiradores. Se cair, a partida acaba.',
       levels: [
-        { cost: {}, hp: 2500, cap: 150, beds: 4, territory: 12 },
-        { cost: { wood: 80, scrap: 60 }, hp: 3600, cap: 250, beds: 5, territory: 16 },
-        { cost: { wood: 150, scrap: 150, fuel: 20 }, hp: 5000, cap: 400, beds: 6, territory: 20 },
+        { cost: {}, hp: 4000, cap: 150, beds: 4, territory: 12, slots: 2, range: 1 },
+        { cost: { wood: 80, scrap: 60 }, hp: 6000, cap: 250, beds: 5, territory: 16, slots: 3, range: 1 },
+        { cost: { wood: 150, scrap: 150, fuel: 20 }, hp: 8500, cap: 400, beds: 6, territory: 20, slots: 4, range: 2 },
       ], vision: 9, light: 6 },
     barricade: { name: 'Barricada', size: 1, cat: 'defense', key: 'z', desc: 'Barata e rápida. Bloqueia o caminho dos zumbis.',
       levels: [{ cost: { wood: 20 }, hp: 160 }, { cost: { wood: 20 }, hp: 260 }, { cost: { wood: 30, scrap: 10 }, hp: 400 }] },
@@ -143,7 +143,7 @@
     hospital: { name: 'Hospital', size: [6, 5], searches: 5, time: 16, danger: 5, guards: { walker: 1, runner: 0.4, spitter: 0.25 },
       loot: [['meds', 6, 12, 1], ['food', 2, 5, 0.4]], recruit: 0.25, desc: 'Muitos remédios e talvez um médico, mas está infestado.' },
     factory: { name: 'Fábrica', size: [6, 6], searches: 5, time: 15, danger: 3, guards: { walker: 1, brute: 0.12 },
-      loot: [['scrap', 15, 25, 1], ['fuel', 4, 10, 0.6]], desc: 'Sucata em quantidade e combustível.' },
+      loot: [['scrap', 15, 25, 1], ['fuel', 4, 10, 0.6]], special: 'bp_turret', desc: 'Sucata em quantidade, combustível e o projeto da metralhadora.' },
     farmhouse: { name: 'Fazenda', size: [4, 3], searches: 3, time: 10, danger: 1, guards: { walker: 1 },
       loot: [['food', 8, 14, 1], ['wood', 4, 8, 0.6]], desc: 'Comida e madeira, longe de tudo.' },
     camp: { name: 'Acampamento', size: [3, 3], searches: 1, time: 10, danger: 2, guards: { walker: 1, runner: 0.3 },
@@ -178,7 +178,7 @@
     pocketAmmo: 30,
     gardenFoodEvery: 45,     // seconds per food per worker at mult 1
     workshopCycle: 20,       // seconds per ammo batch per worker
-    workshopBatch: { scrap: 2, ammo: 6 },
+    workshopBatch: { scrap: 2, ammo: 8 },
     buildRate: 9,            // build points per second (×role build, ×morale)
     repairRate: 12,          // hp per second
     repairCostFactor: 0.5,   // fraction of build cost to repair from 0 to full

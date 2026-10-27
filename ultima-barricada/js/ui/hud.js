@@ -132,7 +132,7 @@
 
   // ---- per-frame updates ------------------------------------------------------------------------------
   let lastPanelSig = '', lastPanelT = 0, lastMini = 0, lastLogId = 0, dayStart = null, dayNum = 0;
-  H.reset = function () { lastPanelSig = ''; lastLogId = 0; dayStart = null; $('alerts').innerHTML = ''; H.dayDelta = {}; };
+  H.reset = function (S) { lastPanelSig = ''; lastLogId = S ? S.log.reduce((m, l) => Math.max(m, l.id), 0) : 0; dayStart = null; $('alerts').innerHTML = ''; H.dayDelta = {}; };
 
   H.update = function (S, now) {
     const cap = UB.Eco.cap(S);
@@ -217,12 +217,12 @@
   H.alert = function (m) {
     const box = $('alerts');
     const d = document.createElement('div');
-    d.className = 'alert ' + (m.kind || 'info');
+    d.className = 'alert ' + (m.kind || 'info') + (m.tip ? ' tip' : '');
     d.textContent = m.text;
     if (m.x !== undefined && m.x !== null && !Number.isNaN(m.x)) { d.dataset.x = m.x; d.dataset.y = m.y; d.title = 'Ir até lá'; }
     box.prepend(d);
     while (box.children.length > 5) box.lastChild.remove();
-    const ttl = m.kind === 'bad' ? 12000 : 8000;
+    const ttl = m.ttl || (m.kind === 'bad' ? 12000 : 8000);
     setTimeout(() => d.classList.add('fade'), ttl);
     setTimeout(() => d.remove(), ttl + 700);
     if (m.kind === 'bad') UB.Audio.play('bad');
@@ -413,7 +413,7 @@
       if (b.hp < b.maxHp) actions.push(btn('repair', 'Reparar'));
       if (b.type !== 'hq') actions.push(btn('demolish', a_confirm(b.id) ? 'Confirmar demolição' : 'Demolir (50%)', { cls: 'bad' }));
       const slots = UB.Buildings.slots(b);
-      if (b.type === 'tower') {
+      if (b.type === 'tower' || b.type === 'hq') {
         lines.push(`<span class="kv">Guarnição: ${b.garrison.length}/${slots}</span><span class="kv">+${L.range} de alcance</span>`);
         actions.unshift(btn('garrisonSel', 'Guarnecer com selecionados/livres'));
         if (b.garrison.length) actions.push(btn('evict', 'Esvaziar'));
@@ -422,6 +422,7 @@
         lines.push(`<span class="kv">Trabalhadores: ${b.workers.length}/${slots}</span>`);
         if (b.workers.length < slots) actions.unshift(btn('assign', '+ Trabalhador'));
         if (b.workers.length) actions.push(btn('evict', 'Liberar trabalhadores'));
+        actions.push(btn('nightShift', b.nightShift ? 'Turno noturno: sim' : 'Turno noturno: não', { title: 'Sem turno noturno, os trabalhadores saem para defender a base ao anoitecer e voltam ao amanhecer.' }));
         if (b.type === 'garden') lines.push(`<span class="kv">≈ ${Math.round((b.workers.length * L.mult * 360) / BAL.gardenFoodEvery)} comida/dia</span>`);
         if (b.type === 'workshop') {
           lines.push(`<span class="kv">≈ ${Math.round((b.workers.length * 360) / BAL.workshopCycle) * BAL.workshopBatch.ammo} munição/dia (${b.powered ? 'com energia' : 'sem energia: metade'})</span>`);

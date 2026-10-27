@@ -377,8 +377,8 @@
     const isWood = (f) => f === F.TREE || f === F.PINE || f === F.DEADTREE;
     const isScrap = (f) => f === F.CAR || f === F.DEBRIS || f === F.CONTAINER;
     addNear(F.TREE, 16 - countNear(isWood, 14), 7.5, 14);
-    addNear(F.DEBRIS, 3 - countNear((f) => f === F.DEBRIS, 14), 7.5, 13);
-    addNear(F.CAR, 5 - countNear(isScrap, 14), 8, 14);
+    addNear(F.DEBRIS, 4 - countNear((f) => f === F.DEBRIS, 14), 7.5, 13);
+    addNear(F.CAR, 7 - countNear(isScrap, 14), 8, 14);
 
     // 10. Register POIs and derive blocking, then guarantee every goal is reachable.
     W.rebuild(S);

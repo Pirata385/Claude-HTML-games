@@ -1,4 +1,5 @@
-// Resources, storage, power, production, healing and the dawn upkeep (food, hunger, morale).
+// Resources, storage, power, production (garden, workshop, sawmill, lab), healing, training and the
+// dawn upkeep (food, hunger, morale; the canteen stretches food).
 (function (UB) {
   'use strict';
   const { RES, BUILDINGS, BAL } = UB.DEF;
@@ -57,7 +58,7 @@
   function changeMorale(S, d) { S.morale = Math.max(0, Math.min(100, S.morale + d)); }
 
   // Power: generators supply, consumers are served in priority order.
-  const POWER_ORDER = ['turret', 'spotlight', 'infirmary', 'workshop', 'radio'];
+  const POWER_ORDER = ['turret', 'spotlight', 'infirmary', 'lab', 'workshop', 'radio'];
   function updatePower(S) {
     let supply = 0;
     for (const b of S.buildings) {
@@ -123,6 +124,25 @@
           }
           break;
         }
+        case 'sawmill': {
+          const w = b.workers.length;
+          if (!w) break;
+          b.prodT = (b.prodT || 0) + (dt * w * L.mult * mm) / BAL.sawmillWoodEvery;
+          while (b.prodT >= 1) { b.prodT -= 1; add(S, 'wood', 1); }
+          break;
+        }
+        case 'lab': {
+          const w = b.workers.length;
+          if (!w || !b.powered) break;
+          b.prodT = (b.prodT || 0) + (dt * w * mm) / L.cycle;
+          const { meds, ...input } = BAL.labBatch;
+          while (b.prodT >= 1) {
+            if (!spend(S, input)) { b.prodT = 1; break; }
+            b.prodT -= 1;
+            add(S, 'meds', meds);
+          }
+          break;
+        }
         case 'infirmary': {
           for (const id of b.patients) {
             const u = UB.World.get(S, id);
@@ -140,6 +160,11 @@
         default: break;
       }
     }
+    // Training yard: free survivors at the base gain experience.
+    if (S.tick % 20 === 0) {
+      const xp = best(S, 'training', 'xp');
+      if (xp) for (const u of S.units) if (isTrainee(S, u)) { u.xp += xp / 60; UB.Units.checkRank(S, u); }
+    }
     // Rest: survivors inside the territory heal slowly when there is a shelter.
     if (S.tick % 20 === 0) {
       const shelter = S.buildings.some((b) => done(b) && b.type === 'shelter');
@@ -152,14 +177,23 @@
     }
   }
 
+  // Best value of a level field among finished buildings of a type (0 if none).
+  function best(S, type, field) {
+    let v = 0;
+    for (const b of S.buildings) if (b.type === type && done(b)) v = Math.max(v, lvl(b)[field]);
+    return v;
+  }
+  const isTrainee = (S, u) => !u.dead && !u.inside && !u.order && (!u.task || u.task.type === 'idle') && UB.World.inTerritory(S, u.x, u.y);
+
   // Dawn upkeep: everyone eats; shortages starve people, which drains morale and can cost lives.
   function dawn(S) {
     const alive = S.units.filter((u) => !u.dead);
-    const need = alive.length * BAL.eatPerDay;
+    const per = BAL.eatPerDay * (1 - best(S, 'canteen', 'save'));
     const lines = [];
-    let fed = Math.min(alive.length, Math.floor(S.res.food / BAL.eatPerDay));
-    S.res.food -= fed * BAL.eatPerDay;
-    S.stats.eaten = (S.stats.eaten || 0) + Math.min(need, fed * BAL.eatPerDay);
+    let fed = Math.min(alive.length, Math.floor(S.res.food / per + 1e-9));
+    const eaten = Math.min(S.res.food, Math.ceil(fed * per - 1e-9));
+    S.res.food -= eaten;
+    S.stats.eaten = (S.stats.eaten || 0) + eaten;
     const order = alive.slice().sort((a, b) => b.starving - a.starving || a.id - b.id);
     let hungry = 0;
     for (const u of order) {
@@ -178,6 +212,7 @@
         }
       }
     }
+    if (!hungry) changeMorale(S, best(S, 'canteen', 'morale'));
     const pop = population(S), bedCount = beds(S);
     if (pop > bedCount) { changeMorale(S, -3 * (pop - bedCount)); lines.push({ k: 'msg.noBeds', p: { n: pop - bedCount } }); }
     if (!S._diedTonight) changeMorale(S, 5);
@@ -199,5 +234,5 @@
     UB.Game.msg(S, 'msg.deserted', { name: u.name, why: why === 'hunger' ? 'why.hunger' : 'why.morale' }, 'bad');
   }
 
-  UB.Eco = { cap, beds, population, add, can, spend, refund, missing, moraleMul, changeMorale, updatePower, tick, dawn, lvl, done };
+  UB.Eco = { cap, beds, population, add, can, spend, refund, missing, moraleMul, changeMorale, updatePower, tick, dawn, lvl, done, best, isTrainee };
 })(globalThis.UB = globalThis.UB || {});

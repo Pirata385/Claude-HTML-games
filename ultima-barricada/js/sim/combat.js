@@ -24,8 +24,10 @@
     return !!S._light[i];
   }
 
-  function hitChance(S, u, w, tx, ty, moving) {
+  // tz: the zombie aimed at, if any (crawlers are hard to hit from a distance).
+  function hitChance(S, u, w, tx, ty, moving, tz) {
     let p = w.acc + (ROLES[u.role].acc || 0) + RANKS[u.rank].acc;
+    if (tz && !w.melee && tz.kind === 'zom' && ZOMBIES[tz.type].evade) p *= 1 - ZOMBIES[tz.type].evade;
     if (!w.melee && !isLit(S, tx, ty)) p *= 0.75;
     if (moving) p *= 0.8;
     if (S.morale < 30) p *= 0.9;
@@ -73,12 +75,12 @@
         const z = victims[k % victims.length];
         if (z.dead) continue;
         const d = Math.hypot(z.x - u.x, z.y - u.y);
-        const hit = S.rng.chance(hitChance(S, u, wpn, z.x, z.y, moving));
+        const hit = S.rng.chance(hitChance(S, u, wpn, z.x, z.y, moving, z));
         if (k < victims.length) UB.Game.fx(S, { t: 'shot', w: 'shotgun', x0: u.x, y0: u.y, x1: z.x, y1: z.y, hit, z: sz });
         if (hit) hurtZombie(S, z, wpn.dmg * (1 - 0.45 * (d / wpn.range)), u, false);
       }
     } else {
-      const hit = S.rng.chance(hitChance(S, u, wpn, tx, ty, moving));
+      const hit = S.rng.chance(hitChance(S, u, wpn, tx, ty, moving, target));
       UB.Game.fx(S, { t: 'shot', w: u.weapon, x0: u.x, y0: u.y, x1: tx, y1: ty, hit, z: sz });
       if (hit) hurtZombie(S, target, wpn.dmg, u, !!wpn.pierce);
     }
@@ -127,6 +129,10 @@
     UB.Game.fx(S, { t: 'zdie', x: z.x, y: z.y, type: z.type, f: z.facing });
     if (def.explode) explode(S, z.x, z.y, def.explode.r, def.explode.dmg, null);
     if (def.boss) UB.Game.msg(S, 'msg.colossusDown', null, 'good', z.x, z.y);
+    if (def.cloud) {
+      S.clouds.push({ x: z.x, y: z.y, r: def.cloud.r, dps: def.cloud.dps, t: def.cloud.time });
+      UB.Game.fx(S, { t: 'cloud', x: z.x, y: z.y, r: def.cloud.r });
+    }
   }
 
   function hurtPoi(S, p, dmg, src) {
@@ -149,19 +155,20 @@
     }
   }
 
-  function hurtUnit(S, u, dmg, z, ranged) {
+  // cause: optional {k, p} for deaths not caused by a zombie's hit (e.g. poison, which ignores cover).
+  function hurtUnit(S, u, dmg, z, ranged, cause) {
     if (u.dead) return;
     if (u.inside) {
       const b = W.get(S, u.inside);
       if (b && (b.type === 'tower' || b.type === 'hq')) dmg *= 0.4;
-    } else if (ranged && UB.Units.inCover(S, u)) dmg *= 0.7;
+    } else if (ranged && !cause && UB.Units.inCover(S, u)) dmg *= 0.7;
     u.hp -= dmg;
     u.hitT = S.time;
     if (z && !ranged && u.infected < 0 && S.rng.chance(ZOMBIES[z.type].bite)) {
       u.infected = BAL.infectTime;
       UB.Game.msg(S, 'msg.bitten', { name: u.name }, 'bad', u.x, u.y);
     }
-    if (u.hp <= 0) killUnit(S, u, z ? { k: 'cause.zombie', p: { z: z.type } } : { k: 'cause.wounds' });
+    if (u.hp <= 0) killUnit(S, u, cause || (z ? { k: 'cause.zombie', p: { z: z.type } } : { k: 'cause.wounds' }));
   }
 
   // cause: {k, p} translation key of the cause of death.
@@ -197,11 +204,12 @@
     S.drops[i] = contents;
   }
 
-  function explode(S, x, y, r, dmg, src) {
+  // opts.structures === false spares buildings (landmines).
+  function explode(S, x, y, r, dmg, src, opts) {
     UB.Game.fx(S, { t: 'explode', x, y, r });
     S._zgrid.query(x, y, r, (z, d2) => { if (!z.dead) hurtZombie(S, z, dmg * (1 - 0.5 * Math.sqrt(d2) / r), src, true); return false; });
     S._ugrid.query(x, y, r, (u, d2) => { if (!u.dead) hurtUnit(S, u, dmg * 0.6 * (1 - 0.5 * Math.sqrt(d2) / r), null, true); return false; });
-    for (const b of S.buildings) {
+    for (const b of (opts && opts.structures === false ? [] : S.buildings)) {
       if (b.dead) continue;
       const cx = Math.max(b.tx, Math.min(x, b.tx + b.w)), cy = Math.max(b.ty, Math.min(y, b.ty + b.h));
       if (Math.hypot(cx - x, cy - y) <= r) UB.Buildings.damage(S, b, dmg * 1.2);
@@ -233,6 +241,22 @@
       }
     }
     if (S.proj.some((p) => p.done)) S.proj = S.proj.filter((p) => !p.done);
+    tickPoison(S, dt);
+  }
+
+  // Plaguers poison survivors next to them; their death clouds linger and do the same.
+  const POISON = { k: 'cause.poison' };
+  function tickPoison(S, dt) {
+    for (const c of S.clouds) c.t -= dt;
+    if (S.clouds.some((c) => c.t <= 0)) S.clouds = S.clouds.filter((c) => c.t > 0);
+    if (S.tick % 10 !== 0) return;
+    const step = dt * 10;
+    const hurt = (x, y, r, dps) => S._ugrid.query(x, y, r, (u) => { if (!u.dead && !u.inside) hurtUnit(S, u, dps * step, null, true, POISON); return false; });
+    for (const c of S.clouds) hurt(c.x, c.y, c.r, c.dps);
+    for (const z of S.zombies) {
+      const a = !z.dead && ZOMBIES[z.type].aura;
+      if (a) hurt(z.x, z.y, a.r, a.dps);
+    }
   }
 
   UB.Combat = { noise, isLit, hitChance, attack, hurtZombie, killZombie, hurtPoi, hurtUnit, killUnit, explode, spit, tickProjectiles, gasHazard };

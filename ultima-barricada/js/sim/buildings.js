@@ -1,5 +1,6 @@
 // Player structures: placement on the grid, construction, upgrades, repairs, demolition,
-// damage and the behaviour of defensive buildings (turrets, spike traps, radio, lights).
+// damage and the behaviour of defensive buildings (turrets, flamethrowers, spike traps, mines,
+// radio, lights).
 (function (UB) {
   'use strict';
   const { BUILDINGS, BAL, FEATURE, T, CRAFT } = UB.DEF;
@@ -271,10 +272,45 @@
         }
         S.res.ammo -= 1;
         b.cd = L.cd;
-        const hit = S.rng.chance(0.8);
+        const hit = S.rng.chance(0.8 * (1 - (UB.DEF.ZOMBIES[tgt.type].evade || 0)));
         UB.Game.fx(S, { t: 'shot', w: 'turret', x0: c.x, y0: c.y, x1: tgt.x, y1: tgt.y, hit, z: 0.9 });
         if (hit) UB.Combat.hurtZombie(S, tgt, L.dmg, null, false);
         if (S.tick % 10 === 0) UB.Combat.noise(S, c.x, c.y, 9);
+      } else if (b.type === 'flamer') {
+        b.cd -= dt;
+        if (!b.on) continue;
+        const c = center(b);
+        const tgt = S._zgrid.nearest(c.x, c.y, L.range, (z) => !z.dead);
+        if (!tgt) continue;
+        b.dir = UB.Units.facingOf(tgt.x - c.x, tgt.y - c.y);
+        if (b.cd > 0) continue;
+        if (S.res.fuel <= 0) {
+          if (S.tick - (S._flameMsgT || -9999) > 400) { S._flameMsgT = S.tick; UB.Game.msg(S, 'msg.flamerNoFuel', null, 'bad', c.x, c.y); }
+          continue;
+        }
+        b.cd = L.cd;
+        b.shots = (b.shots || 0) + 1;
+        if (b.shots >= L.fuelEvery) { b.shots = 0; S.res.fuel -= 1; }
+        // A cone of fire toward the target: burns through armour, hits up to 8 zombies.
+        const ang = Math.atan2(tgt.y - c.y, tgt.x - c.x);
+        let hits = 0;
+        S._zgrid.query(c.x, c.y, L.range, (z, d2) => {
+          if (z.dead || hits >= 8) return false;
+          let da = Math.atan2(z.y - c.y, z.x - c.x) - ang;
+          while (da > Math.PI) da -= Math.PI * 2;
+          while (da < -Math.PI) da += Math.PI * 2;
+          if (Math.abs(da) < 0.5 || d2 < 0.8) { hits++; UB.Combat.hurtZombie(S, z, L.dmg, null, true); }
+          return false;
+        });
+        UB.Game.fx(S, { t: 'flame', x: c.x, y: c.y, a: ang, r: L.range });
+        if (S.tick % 10 === 0) UB.Combat.noise(S, c.x, c.y, 6);
+      } else if (b.type === 'mine') {
+        // Single use: the first zombie that steps on it sets it off. Spares your structures.
+        const c = center(b);
+        if (S._zgrid.nearest(c.x, c.y, 0.6, (z) => !z.dead)) {
+          remove(S, b);
+          UB.Combat.explode(S, c.x, c.y, L.r, L.dmg, null, { structures: false });
+        }
       } else if (b.type === 'spikes') {
         const c = center(b);
         S._zgrid.query(c.x, c.y, 0.75, (z) => {

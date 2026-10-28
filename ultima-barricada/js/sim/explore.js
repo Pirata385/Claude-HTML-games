@@ -162,7 +162,7 @@
     const target = Math.min(BAL.wanderMax, (BAL.wanderBase + BAL.wanderPerDay * S.day) * diff.wander);
     const roaming = S.zombies.filter((z) => !z.dead && z.state !== 'horde' && z.state !== 'attackS').length;
     const add = Math.min(40, Math.max(0, Math.round(target - roaming)));
-    const types = [['walker', 10], ['runner', S.day >= 3 ? 3 : 0], ['bloater', S.day >= 6 ? 1 : 0], ['armored', S.day >= 10 ? 1 : 0]];
+    const types = [['walker', 10], ['crawler', S.day >= 2 ? 2 : 0], ['runner', S.day >= 3 ? 3 : 0], ['bloater', S.day >= 6 ? 1 : 0], ['armored', S.day >= 10 ? 1 : 0]];
     for (let k = 0; k < add && S.zombies.length < BAL.maxZombies; k++) {
       const p = randomFarTile(S, 30, 999, true);
       if (p) UB.Zombies.spawn(S, S.rng.weighted(types), p.x + 0.5, p.y + 0.5, { state: 'wander' });

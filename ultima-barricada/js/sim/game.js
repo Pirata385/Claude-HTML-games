@@ -41,7 +41,7 @@
       map: W.createMap(BAL.mapSize), units: [], zombies: [], buildings: [], pois: [], spawns: [], base: null,
       nextId: 1, res, morale: BAL.moraleStart, armory: { shotgun: 0, rifle: 0 }, unlocked: {},
       stats: { kills: 0, loots: 0, nests: 0, deaths: 0, built: 0, recruits: 0, shots: 0, discovered: 0 },
-      memorial: [], proj: [], horde: null, drops: {}, pathQ: [], autoRepair: true, over: null,
+      memorial: [], proj: [], clouds: [], horde: null, drops: {}, pathQ: [], autoRepair: true, over: null,
       power: { supply: 0, demand: 0, used: 0 }, squads: { 1: [], 2: [], 3: [], 4: [] }, hqId: 0, dropMark: null, msgSeq: 0, tips: {}, objectives: {},
       fx: [], log: [],
     };
@@ -263,6 +263,7 @@
         return { ok: true };
       }
       case 'skipDay': return { ok: UB.Waves.skipToDusk(S) };
+      case 'tutorial': S.tutorial = !!c.on; return { ok: true };
       default: return { ok: false, reason: 'reason.unknownCommand' };
     }
   }
@@ -297,6 +298,7 @@
     delete S.rngS;
     S.fx = [];
     S.log = o.log || [];
+    S.clouds = S.clouds || [];
     for (const u of S.units) u.working = u.working === 'o' ? u.order : u.working === 't' ? u.task : null;
     W.rebuild(S);
     initTransient(S);

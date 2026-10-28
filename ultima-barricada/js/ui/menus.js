@@ -69,6 +69,11 @@
       r.readAsText(f);
       e.target.value = '';
     };
+    // Fullscreen (hidden where the browser cannot do it, e.g. iPhone Safari).
+    const fsOk = !!(document.fullscreenEnabled || document.webkitFullscreenEnabled);
+    for (const id of ['mFull', 'pFull']) { $(id).hidden = !fsOk; $(id).onclick = () => { UB.Audio.play('click'); M.toggleFullscreen(); }; }
+    document.addEventListener('fullscreenchange', M.refreshFullscreen);
+    document.addEventListener('webkitfullscreenchange', M.refreshFullscreen);
     $('mLang').innerHTML = I.LANGS.map((l) => `<button class="btn" data-lang="${l}" lang="${I.TAG[l]}" title="${I.NAMES[l]}">${l.toUpperCase()}</button>`).join('');
     $('mLang').onclick = (e) => { const b = e.target.closest('[data-lang]'); if (b) { UB.Audio.play('click'); M.setLang(b.dataset.lang); } };
     M.applyLang();
@@ -85,9 +90,28 @@
     $('helpBody').innerHTML = tr('help.html');
     for (const b of document.querySelectorAll('[data-lang]')) b.classList.toggle('sel', b.dataset.lang === I.lang);
     M.refreshMain();
+    M.refreshFullscreen();
+    UB.Tutorial.refresh();
     if ($('scrSettings').classList.contains('show')) renderSettings();
     if ($('scrRecords').classList.contains('show')) renderRecords();
     UB.HUD.refresh();
+  };
+
+  const fsElement = () => document.fullscreenElement || document.webkitFullscreenElement;
+  M.toggleFullscreen = function () {
+    const el = document.documentElement;
+    try {
+      if (fsElement()) (document.exitFullscreen || document.webkitExitFullscreen).call(document);
+      else {
+        const p = (el.requestFullscreen || el.webkitRequestFullscreen).call(el, { navigationUI: 'hide' });
+        if (p && p.catch) p.catch(() => {});
+      }
+    } catch (e) { /* not allowed here */ }
+  };
+  M.refreshFullscreen = function () {
+    const k = fsElement() ? 'menu.exitFullscreen' : 'menu.fullscreen';
+    for (const id of ['mFull', 'pFull']) $(id).textContent = (fsElement() ? '⤡ ' : '⤢ ') + tr(k);
+    setTimeout(() => UB.Render.resize(), 50);
   };
 
   M.refreshMain = function () { $('mContinue').hidden = !store.get(KEY.slot('auto')); };
@@ -179,13 +203,14 @@
 
   // ---- settings -------------------------------------------------------------------------------------------
   // lang: '' until the player picks one; the browser language decides meanwhile.
-  const DEFAULTS = { master: 0.8, sfx: 0.8, amb: 0.5, shake: true, quality: 'high', ui: 1, edgeScroll: false, fps: false, paths: true, autopause: true, tips: true, lang: '' };
+  const DEFAULTS = { master: 0.8, sfx: 0.8, amb: 0.5, shake: true, quality: 'high', ui: 1, edgeScroll: false, fps: false, paths: true, autopause: true, tips: true, lang: '', tutorialDone: false };
   M.loadSettings = function () {
     let s = {};
     try { s = JSON.parse(store.get(KEY.settings) || '{}'); } catch (e) { s = {}; }
     return Object.assign({}, DEFAULTS, s);
   };
   function saveSettings() { store.set(KEY.settings, JSON.stringify(UB.App.settings)); }
+  M.setSetting = function (k, v) { UB.App.settings[k] = v; saveSettings(); };
   function renderSettings() {
     const s = UB.App.settings;
     const range = (k, label) => `<div class="set-row"><span>${label}</span><input type="range" min="0" max="1" step="0.05" data-k="${k}" value="${s[k]}"></div>`;
@@ -196,12 +221,14 @@
       choice('quality', tr('set.quality'), [['low', tr('set.low')], ['high', tr('set.high')]]) +
       choice('ui', tr('set.ui'), [[0.9, '90%'], [1, '100%'], [1.15, '115%'], [1.3, '130%']]) +
       toggle('tips', tr('set.tips')) + toggle('shake', tr('set.shake')) + toggle('paths', tr('set.paths')) + toggle('edgeScroll', tr('set.edge')) +
-      toggle('autopause', tr('set.autopause')) + toggle('fps', tr('set.fps'));
+      toggle('autopause', tr('set.autopause')) + toggle('fps', tr('set.fps')) +
+      `<div class="set-row"><span>${tr('set.tutorial')}</span><button class="btn" data-tut-again ${s.tutorialDone ? '' : 'disabled'}>${tr(s.tutorialDone ? 'set.tutorialAgain' : 'set.tutorialQueued')}</button></div>`;
     const list = $('setList');
     list.oninput = (e) => { const k = e.target.dataset.k; if (k) { s[k] = +e.target.value; UB.App.applySettings(); saveSettings(); } };
     list.onclick = (e) => {
       const t = e.target.closest('[data-t]'), c = e.target.closest('[data-c]');
       if (c && c.dataset.c === 'lang') { M.setLang(c.dataset.v); return; }
+      if (e.target.closest('[data-tut-again]')) { M.setSetting('tutorialDone', false); UB.HUD.toast(tr('toast.tutorialQueued')); renderSettings(); return; }
       if (t) s[t.dataset.t] = !s[t.dataset.t];
       else if (c) s[c.dataset.c] = c.dataset.c === 'ui' ? +c.dataset.v : c.dataset.v;
       else return;

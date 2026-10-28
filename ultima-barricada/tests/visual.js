@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 // Browser check with Playwright (Chromium): loads the game from a local static server, plays
 // through menus on desktop, phone portrait and phone landscape, simulates mouse and touch
-// input, saves and reloads, switches language (PT/EN), measures frame rate with a big horde and
+// input, saves and reloads, switches language (PT/EN), runs and skips the first-run tutorial,
+// checks the build menu's detail card and fullscreen, measures frame rate with a big horde and
 // fails on console errors.
 //   node tests/visual.js [outDir]      screenshots go to outDir (default: tests/screens)
 'use strict';
@@ -44,12 +45,17 @@ async function run() {
     return { ctx, page };
   }
   const shot = (page, n) => page.screenshot({ path: path.join(OUT, n + '.png') });
-  async function startGame(page, seed) {
+  // Starts a game; the first-run tutorial is skipped unless keepTutorial is set.
+  async function startGame(page, seed, keepTutorial) {
     await page.click('#mNew');
     await page.fill('#nSeed', seed);
     await page.click('#nStart');
     await page.waitForFunction(() => window.UB && UB.App.inGame && !document.getElementById('hud').hidden, null, { timeout: 30000 });
+    if (!keepTutorial) await skipTutorial(page);
     await page.waitForTimeout(600);
+  }
+  async function skipTutorial(page) {
+    if (await page.isVisible('#tutorial [data-tut="skip"]')) await page.click('#tutorial [data-tut="skip"]');
   }
   // Fast-forward the simulation (as if time passed) without waiting in real time.
   const advance = (page, ticks) => page.evaluate((n) => { for (let i = 0; i < n; i++) UB.Game.tick(UB.App.S); }, ticks);
@@ -139,6 +145,63 @@ async function run() {
     await ctx.close();
   }
 
+  // ---------- first-run tutorial, build details and fullscreen ----------
+  {
+    const { ctx, page } = await open('tutorial', { viewport: { width: 1280, height: 800 }, locale: 'pt-BR' });
+    results.fullscreenButton = await page.isVisible('#mFull');
+    await page.click('#mFull');
+    await page.waitForTimeout(300);
+    results.fullscreenOn = await page.evaluate(() => !!document.fullscreenElement && /Sair/.test(document.getElementById('mFull').textContent));
+    await page.click('#mFull');
+    await startGame(page, 'tutorial', true);
+    const tut = () => page.evaluate(() => ({ on: UB.Tutorial.active, step: UB.Tutorial.STEPS[UB.Tutorial.step].id, t: UB.App.S.clock.t }));
+    const t0 = await tut();
+    await page.waitForTimeout(1200);
+    const t1 = await tut();
+    results.tutorialHoldsClock = t0.on && t0.step === 'welcome' && t1.t === t0.t;
+    await shot(page, '02d-tutorial');
+    await page.click('#tutorial [data-tut="next"]');
+    await page.click('#tutorial [data-tut="next"]');
+    // select -> gather -> build -> tower, each advancing on its own.
+    await page.evaluate(() => UB.App.selectUnits([UB.App.S.units[0].id]));
+    await page.waitForFunction(() => UB.Tutorial.STEPS[UB.Tutorial.step].id === 'gather');
+    await page.evaluate(() => {
+      const S = UB.App.S, u = S.units[0];
+      const i = UB.Units.findNode(S, Math.floor(u.x), Math.floor(u.y), 'wood', 16);
+      UB.Game.command(S, { type: 'gather', ids: [u.id], x: i % S.map.w, y: (i / S.map.w) | 0 });
+    });
+    await page.waitForFunction(() => UB.Tutorial.STEPS[UB.Tutorial.step].id === 'build');
+    await page.keyboard.press('b');
+    await page.waitForFunction(() => UB.Tutorial.STEPS[UB.Tutorial.step].id === 'tower');
+    // Hovering a card shows its details before building.
+    await page.hover('[data-build="mine"]');
+    results.buildInfo = await page.evaluate(() => {
+      const t = document.getElementById('bmInfo').innerText;
+      return t.includes(UB.I18N.name('bld', 'mine')) && t.includes(UB.I18N.desc('bld', 'mine').slice(0, 20)) ? true : t;
+    });
+    await shot(page, '03b-build-info');
+    await page.evaluate(() => {
+      const S = UB.App.S, hq = UB.World.hq(S);
+      for (let r = 3; r < 8; r++) for (let dx = -r; dx <= r; dx++) for (const dy of [-r, r]) {
+        if (UB.Game.command(S, { type: 'build', build: 'tower', x: hq.tx + 1 + dx, y: hq.ty + 1 + dy }).ok) return;
+      }
+    });
+    await page.waitForFunction(() => UB.Tutorial.STEPS[UB.Tutorial.step].id === 'loot');
+    await page.click('#tutorial [data-tut="next"]');
+    await page.click('#tutorial [data-tut="next"]');
+    await page.click('#tutorial [data-tut="next"]');
+    await page.waitForTimeout(800);
+    const t2 = await tut();
+    results.tutorialDone = !t2.on && t2.t > t1.t && (await page.evaluate(() => UB.App.settings.tutorialDone && !UB.App.S.tutorial));
+    // A second game does not show it again.
+    await page.click('#btnMenu');
+    await page.click('#pQuit');
+    await page.waitForSelector('#scrMain.show');
+    await startGame(page, 'segunda', true);
+    results.tutorialOnce = !(await page.evaluate(() => UB.Tutorial.active));
+    await ctx.close();
+  }
+
   // ---------- language: detection, switch, persistence, in-game text ----------
   {
     const { ctx, page } = await open('language', { viewport: { width: 1280, height: 800 }, locale: 'en-US' });
@@ -185,6 +248,10 @@ async function run() {
     await page.tap('#nStart');
     await page.waitForFunction(() => UB.App.inGame && !document.getElementById('hud').hidden, null, { timeout: 30000 });
     await page.waitForTimeout(500);
+    await shot(page, '07b-tutorial-portrait');
+    results.touchTutorialSkipped = await page.isVisible('#tutorial [data-tut="skip"]');
+    await page.tap('#tutorial [data-tut="skip"]');
+    results.touchTutorialSkipped = results.touchTutorialSkipped && !(await page.isVisible('#tutorial')) && (await page.evaluate(() => !UB.App.S.tutorial && UB.App.settings.tutorialDone));
     await shot(page, '08-day-portrait');
     // Tap a survivor, then tap the ground: a move order.
     const t = await page.evaluate(() => {
@@ -202,7 +269,11 @@ async function run() {
     await page.tap('[data-act="deselect"]');
     await page.tap('[data-act="openBuild"]');
     await page.tap('[data-tab="base"]');
+    // First tap shows the details; the card's button starts placing it.
     await page.tap('[data-build="shelter"]');
+    results.touchBuildInfo = await page.evaluate(() => document.getElementById('bmInfo').innerText.includes(UB.I18N.name('bld', 'shelter')) && !UB.App.mode);
+    await shot(page, '09b-build-info-portrait');
+    await page.tap('[data-build-go="shelter"]');
     const spot = await page.evaluate(() => {
       const S = UB.App.S, hq = UB.World.hq(S);
       const sz = UB.Render.size(), k = sz.scale / sz.dpr;
@@ -226,6 +297,9 @@ async function run() {
     await page.tap('#mNew');
     await page.tap('#nStart');
     await page.waitForFunction(() => UB.App.inGame && !document.getElementById('hud').hidden, null, { timeout: 30000 });
+    await page.waitForTimeout(300);
+    await shot(page, '12a-tutorial-landscape');
+    await page.tap('#tutorial [data-tut="skip"]');
     await page.evaluate(() => { const S = UB.App.S; UB.App.selectUnits(S.units.map((u) => u.id)); });
     await page.waitForTimeout(500);
     await shot(page, '12-landscape');
@@ -262,6 +336,12 @@ async function run() {
   if (!results.detectPt || !results.detectEn) fails.push('browser language not detected');
   if (!results.switchPt || !results.persisted || !results.settingsEn) fails.push('language switch or persistence failed');
   if (results.hudEn !== true) fails.push('HUD not in English: ' + results.hudEn);
+  if (!results.fullscreenButton) fails.push('no fullscreen button');
+  if (!results.tutorialHoldsClock) fails.push('tutorial did not start or hold the clock');
+  if (!results.tutorialDone || !results.tutorialOnce) fails.push('tutorial did not finish properly or showed twice');
+  if (results.buildInfo !== true) fails.push('build menu details missing: ' + results.buildInfo);
+  if (!results.touchTutorialSkipped) fails.push('tutorial could not be skipped on touch');
+  if (!results.touchBuildInfo) fails.push('first tap on a build card did not show its details');
   if (results.midGamePt !== true) fails.push('mid-game language switch did not redraw the HUD: ' + JSON.stringify(results.midGamePt));
   if (fails.length) { console.log('FAIL: ' + fails.join('; ')); process.exit(1); }
   console.log('Browser checks passed. Screenshots in ' + OUT);

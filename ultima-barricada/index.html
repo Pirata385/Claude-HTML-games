@@ -44,6 +44,7 @@
   <div id="buildMenu" hidden>
     <div class="bm-head"><b data-i18n="build.title">Construir</b><span class="muted" id="bmHint" data-i18n="build.hint">Escolha uma estrutura e toque no mapa.</span><button class="icon-btn" id="bmClose" aria-label="Fechar" data-i18n-aria="ui.close">✕</button></div>
     <div id="bmTabs"></div>
+    <div id="bmInfo"></div>
     <div id="bmGrid"></div>
   </div>
   <div id="placeBar" hidden>
@@ -53,6 +54,7 @@
     <button id="placeCancel" class="btn">✕</button>
   </div>
   <section id="panel"></section>
+  <div id="tutorial" hidden></div>
   <div id="tooltip" hidden></div>
   <div id="fps" hidden></div>
 </div>
@@ -78,6 +80,7 @@
         <button class="btn big" id="mHelp" data-i18n="menu.help">Como jogar</button>
         <button class="btn big" id="mRecords" data-i18n="menu.records">Recordes</button>
         <button class="btn big" id="mSettings" data-i18n="menu.settings">Configurações</button>
+        <button class="btn big" id="mFull">Tela cheia</button>
         <a class="btn big ghost" href="../index.html" data-i18n="menu.backGames">← Voltar aos jogos</a>
       </nav>
     </div>
@@ -140,6 +143,7 @@
         <button class="btn big" id="pLoad" data-i18n="menu.load">Carregar</button>
         <button class="btn big" id="pSettings" data-i18n="menu.settings">Configurações</button>
         <button class="btn big" id="pHelp" data-i18n="menu.help">Como jogar</button>
+        <button class="btn big" id="pFull">Tela cheia</button>
         <button class="btn big ghost" id="pQuit" data-i18n="pause.quit">Sair para o menu</button>
       </nav>
     </div>
@@ -185,6 +189,7 @@
 <script src="js/ui/hud.js"></script>
 <script src="js/ui/input.js"></script>
 <script src="js/ui/menus.js"></script>
+<script src="js/ui/tutorial.js"></script>
 <script src="js/main.js"></script>
 </body>
 </html>

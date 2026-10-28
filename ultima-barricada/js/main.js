@@ -111,7 +111,7 @@
         const at = { x: b.tx + b.w / 2, y: b.ty + b.h / 2 };
         if (b.built < 1) { cmd({ type: 'repair', ids, id: b.id }, at); return; }
         if (b.type === 'tower' || (b.type === 'hq' && us.some((u) => !UB.Units.packTotal(u) && !u.carry))) { cmd({ type: 'garrison', ids, id: b.id }, at); return; }
-        if (b.type === 'garden' || b.type === 'workshop') { cmd({ type: 'work', ids, id: b.id }, at); return; }
+        if (BUILDINGS[b.type].levels[0].workers) { cmd({ type: 'work', ids, id: b.id }, at); return; }
         if (b.type === 'infirmary') { cmd({ type: 'patient', ids, id: b.id }, at); return; }
         if (b.hp < b.maxHp) { cmd({ type: 'repair', ids, id: b.id }, at); return; }
         if (b.type === 'hq' || b.type === 'depot') { cmd({ type: 'return', ids }, at); return; }
@@ -385,14 +385,18 @@
       const S = UB.Game.newGame({ seed, difficulty });
       enterGame(S);
       UB.Menus.autosave();
+      if (!App.settings.tutorialDone) UB.Tutorial.start();
     }, 30);
   };
   App.loadState = function (str) {
     const S = UB.Game.deserialize(str);
+    // A save made mid-tutorial must not keep the clock held.
+    if (S.tutorial) UB.Game.command(S, { type: 'tutorial', on: false });
     enterGame(S);
     UB.HUD.toast(tr('toast.loadedDay', { day: S.day }));
   };
   App.quitToMenu = function () {
+    UB.Tutorial.stop(false);
     if (App.S && !App.S.over) UB.Menus.autosave();
     App.inGame = false;
     App.S = null;
@@ -427,7 +431,7 @@
     { id: 'squads', when: (S) => S.day >= 2 && S.clock.t > 120 },
   ];
   function checkTips(S) {
-    if (!App.settings.tips || S.over) return;
+    if (!App.settings.tips || S.over || UB.Tutorial.active) return;
     S.tips = S.tips || {};
     for (const t of TIPS) {
       if (S.tips[t.id] || !t.when(S)) continue;
@@ -483,6 +487,7 @@
       }
       if (S._autosave) { S._autosave = false; UB.Menus.autosave(); }
       if (now - (App.tipT || 0) > 1000) { App.tipT = now; checkTips(S); }
+      if (now - (App.tutT || 0) > 150) { App.tutT = now; UB.Tutorial.update(S); }
       if (S.over && !App.overAt) App.overAt = now;
       if (App.overAt && now - App.overAt > 2500 && !UB.Menus.isOpen()) { App.overAt = Infinity; UB.Menus.gameOver(S); }
     } else if (App.demo) {
@@ -505,6 +510,7 @@
     UB.Render.init($('view'));
     UB.HUD.init();
     UB.Input.init($('view'));
+    UB.Tutorial.init();
     UB.Menus.init();
     if (window.innerWidth <= 720 || window.innerHeight <= 520) $('miniWrap').classList.add('closed');
     App.applySettings();

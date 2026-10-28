@@ -85,11 +85,25 @@
     });
     $('panel').addEventListener('pointerdown', () => { H.panelHold = true; });
     window.addEventListener('pointerup', () => { H.panelHold = false; });
+    // Build menu: hovering (mouse) or a first tap (touch) shows what a structure does; a click,
+    // a second tap or the info card's button starts placing it.
+    let lastPointer = 'mouse';
+    $('bmGrid').addEventListener('pointerdown', (e) => { lastPointer = e.pointerType; });
+    $('bmGrid').addEventListener('pointerover', (e) => {
+      const c = e.pointerType === 'mouse' && e.target.closest('[data-build]');
+      if (c && H.infoType !== c.dataset.build) { H.infoType = c.dataset.build; renderInfo(UB.App.S); }
+    });
     $('bmGrid').addEventListener('click', (e) => {
       const c = e.target.closest('[data-build]');
       if (!c) return;
       UB.Audio.play('click');
-      UB.App.startBuild(c.dataset.build);
+      const type = c.dataset.build;
+      if (lastPointer !== 'mouse' && H.infoType !== type) { H.infoType = type; renderInfo(UB.App.S); markCard(); return; }
+      UB.App.startBuild(type);
+    });
+    $('bmInfo').addEventListener('click', (e) => {
+      const b = e.target.closest('[data-build-go]');
+      if (b && !b.disabled) { UB.Audio.play('click'); UB.App.startBuild(b.dataset.buildGo); }
     });
     $('bmClose').onclick = () => H.showBuild(false);
     $('bmTabs').addEventListener('click', (e) => { const b = e.target.closest('[data-tab]'); if (b) { H.buildTab = b.dataset.tab; H.renderBuild(UB.App.S); } });
@@ -131,14 +145,62 @@
       const d = H.dayDelta && H.dayDelta[key];
       return `<b>${t('res.' + key)}</b>: ${S.res[key]} / ${UB.Eco.cap(S)}<br>${t('resdesc.' + key)}${d ? `<br><span class="${d > 0 ? 'good-t' : 'bad-t'}">${t('ui.today', { d: (d > 0 ? '+' : '') + d })}</span>` : ''}`;
     }
-    if (kind === 'build' && S) {
-      const def = BUILDINGS[key];
-      const L = def.levels[0];
-      const lock = def.requires && !S.unlocked[def.requires] ? `<br><span class="bad-t">${t('ui.locked', { bp: def.requires })}</span>` : '';
-      return `<b>${I.name('bld', key)}</b> (${def.size}×${def.size})<br>${I.desc('bld', key)}<br>${t('ui.hp', { hp: L.hp })}${L.power ? t('ui.power', { p: L.power }) : ''}${lock}`;
-    }
     return '';
   }
+
+  // One line with what a structure does at a given level (build menu and selection panel).
+  function statLine(type, L) {
+    switch (type) {
+      case 'tower': return t('stat.garrison', { n: L.slots, r: L.range });
+      case 'turret': return t('stat.turret', { r: L.range, d: L.dmg });
+      case 'spotlight': return t('stat.light', { n: L.light });
+      case 'spikes': return t('stat.spikes', { n: L.dps });
+      case 'mine': return t('stat.mine', { d: L.dmg, r: L.r });
+      case 'flamer': return t('stat.flamer', { r: L.range, d: L.dmg, n: L.fuelEvery });
+      case 'shelter': return t('stat.beds', { n: L.beds });
+      case 'depot': return t('stat.depot', { n: L.cap });
+      case 'canteen': return t('stat.canteen', { p: Math.round(L.save * 100), m: L.morale });
+      case 'training': return t('stat.training', { n: L.xp });
+      case 'garden': return t('stat.garden', { n: Math.round((L.mult * 360) / BAL.gardenFoodEvery) });
+      case 'workshop': return t('stat.workshop');
+      case 'sawmill': return t('stat.sawmill', { n: Math.round((L.mult * 360) / BAL.sawmillWoodEvery) });
+      case 'generator': return t('stat.generator', { n: L.supply, s: L.burn });
+      case 'infirmary': return t('stat.infirmary', { n: L.patients, h: L.heal });
+      case 'lab': return t('stat.lab', { food: BAL.labBatch.food, scrap: BAL.labBatch.scrap, s: L.cycle });
+      case 'radio': return t('stat.radio', { n: Math.round(L.chance * 100) });
+      default: return '';
+    }
+  }
+  H.statLine = statLine;
+  // Where a blueprint can be found (the sites whose search yields it).
+  function blueprintSites(bp) {
+    const out = Object.keys(POIS).filter((k) => POIS[k].special === bp);
+    if (bp === 'bp_turret' || bp === 'bp_radio') out.push('police');
+    return out;
+  }
+
+  // The build menu's detail card: everything about a structure before building it.
+  function renderInfo(S) {
+    const el = $('bmInfo');
+    const type = H.infoType;
+    if (!S || !type || BUILDINGS[type].cat !== H.buildTab) { el.innerHTML = `<p class="muted small">${t('info.hint')}</p>`; return; }
+    const def = BUILDINGS[type], L = def.levels[0];
+    const locked = def.requires && !S.unlocked[def.requires];
+    const facts = [t('info.size', { n: def.size }), t('info.hp', { n: L.hp })];
+    if (def.walkable) facts.push(t('info.walkable'));
+    if (L.power) facts.push(t('info.power', { n: L.power }));
+    if (L.workers) facts.push(t('info.workers', { n: L.workers }));
+    const stat = statLine(type, L);
+    el.innerHTML = `<div class="bi-head"><canvas></canvas><div class="bi-main">
+        <div><b>${I.name('bld', type)}</b> ${costHTML(S, L.cost)}</div>
+        <div class="p-desc">${I.desc('bld', type)}</div>
+        <div class="p-row small">${facts.map((f) => `<span class="kv">${f}</span>`).join('')}${stat ? `<span class="kv good-t">${stat}</span>` : ''}</div>
+        ${locked ? `<div class="small bad-t">${t('ui.locked', { bp: def.requires })} ${t('info.where', { p: blueprintSites(def.requires) })}</div>` : `<div class="small muted">${t('info.levels', { n: def.levels.length })}</div>`}
+      </div>
+      <button class="btn good" data-build-go="${type}"${locked ? ' disabled' : ''}>${t('place.ok')}</button></div>`;
+    el.querySelector('canvas').replaceWith(spriteCanvas(UB.Render.buildIcon(type), 46));
+  }
+  function markCard() { for (const c of document.querySelectorAll('#bmGrid [data-build]')) c.classList.toggle('sel', c.dataset.build === H.infoType); }
 
   // ---- per-frame updates ------------------------------------------------------------------------------
   let lastPanelSig = '', lastPanelT = 0, lastMini = 0, lastLogId = 0, dayStart = null, dayNum = 0;
@@ -430,7 +492,7 @@
         actions.unshift(btn('garrisonSel', t('act.garrisonSel')));
         if (b.garrison.length) actions.push(btn('evict', t('act.evictAll')));
       }
-      if (b.type === 'garden' || b.type === 'workshop') {
+      if (L.workers) {
         lines.push(kv(t('bld.workers', { n: b.workers.length, m: slots })));
         if (b.workers.length < slots) actions.unshift(btn('assign', t('act.addWorker')));
         if (b.workers.length) actions.push(btn('evict', t('act.freeWorkers')));
@@ -445,6 +507,8 @@
           }
           lines.push(kv(t('bld.armory', { s: S.armory.shotgun, r: S.armory.rifle })));
         }
+        if (b.type === 'sawmill') lines.push(kv(t('bld.woodDay', { n: Math.round((b.workers.length * L.mult * 360) / BAL.sawmillWoodEvery) })));
+        if (b.type === 'lab') lines.push(kv(t('bld.medsDay', { n: Math.round((b.workers.length * 360) / L.cycle), state: t(b.powered ? 'bld.withPower' : 'bld.needPower') })));
       }
       if (b.type === 'infirmary') {
         lines.push(kv(t('bld.patients', { n: b.patients.length, m: slots })) + kv(t(b.powered ? 'bld.powered' : 'bld.slowHeal')));
@@ -458,6 +522,13 @@
         lines.push(kv(t(b.powered ? 'bld.powered' : 'bld.noPower'), b.powered ? 'good-t' : 'bad-t'));
         if (b.type === 'turret' || b.type === 'spotlight' || b.type === 'radio') actions.unshift(btn('toggle', t(b.on ? 'act.turnOff' : 'act.turnOn')));
       }
+      if (b.type === 'flamer') {
+        lines.push(kv(statLine('flamer', L)));
+        if (S.res.fuel <= 0) lines.push(kv(t('gen.noFuel'), 'bad-t'));
+        actions.unshift(btn('toggle', t(b.on ? 'act.turnOff' : 'act.turnOn')));
+      }
+      if (b.type === 'mine' || b.type === 'canteen') lines.push(kv(statLine(b.type, L)));
+      if (b.type === 'training') lines.push(kv(statLine('training', L)) + kv(t('bld.trainees', { n: S.units.filter((u) => UB.Eco.isTrainee(S, u)).length })));
       if (b.type === 'turret') lines.push(kv(t('bld.turretStats', { r: L.range, d: L.dmg })));
       if (b.type === 'hq') {
         lines.push(kv(t('bld.storage', { n: L.cap })) + kv(t('bld.beds', { n: L.beds })) + kv(t('bld.territory', { n: L.territory })) + kv(t(S.autoRepair ? 'bld.autoRepairOn' : 'bld.autoRepairOff')));
@@ -541,6 +612,7 @@
   H.renderBuild = function (S) {
     if (!S) return;
     $('bmTabs').innerHTML = TABS.map((k) => `<button class="btn ${H.buildTab === k ? 'sel' : ''}" data-tab="${k}">${t('tab.' + k)}</button>`).join('');
+    renderInfo(S);
     const grid = $('bmGrid');
     grid.innerHTML = '';
     for (const type of BUILD_ORDER) {
@@ -551,11 +623,11 @@
       const card = document.createElement('button');
       card.className = 'bm-card' + (locked ? ' locked' : '') + (!UB.Eco.can(S, cost) ? ' poor' : '');
       card.dataset.build = type;
-      card.dataset.tip = 'build:' + type;
       card.innerHTML = `<span class="ic"></span><span><span class="nm">${I.name('bld', type)}</span><span class="key">${def.key ? def.key.toUpperCase() : ''}</span><br>${locked ? `<span class="small bad-t">${t('build.needsBp')}</span>` : costHTML(S, cost)}</span>`;
       card.querySelector('.ic').replaceWith(spriteCanvas(UB.Render.buildIcon(type), 46));
       grid.appendChild(card);
     }
+    markCard();
   };
 
   H.place = function (text) {

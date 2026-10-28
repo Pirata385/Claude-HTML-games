@@ -72,6 +72,9 @@
     spitter: { hp: 45, speed: 0.9, dmg: 10, cd: 2.6, cost: 4, from: 8, bite: 0.05, sight: 8, struct: 1, range: 5 },
     screamer: { hp: 60, speed: 1.2, dmg: 4, cd: 1.2, cost: 5, from: 10, bite: 0.05, sight: 8, struct: 0.6, scream: { cd: 9, r: 16, buff: 0.35, dur: 5 } },
     armored: { hp: 90, speed: 0.85, dmg: 8, cd: 1.2, cost: 4, from: 12, bite: 0.07, sight: 6, struct: 1.2, armor: 0.5 },
+    crawler: { hp: 16, speed: 1.25, dmg: 5, cd: 1, cost: 1, from: 2, bite: 0.06, sight: 5, struct: 0.6, evade: 0.35 },
+    leaper: { hp: 40, speed: 1.5, dmg: 7, cd: 1.1, cost: 3, from: 7, bite: 0.05, sight: 8, struct: 0.8, leap: { cd: 7, dist: 2.2 } },
+    toxic: { hp: 50, speed: 0.8, dmg: 6, cd: 1.3, cost: 3, from: 9, bite: 0.05, sight: 6, struct: 0.8, aura: { r: 1.6, dps: 3 }, cloud: { r: 1.8, dps: 5, time: 8 } },
     colossus: { hp: 1400, speed: 0.6, dmg: 40, cd: 2, cost: 25, from: 10, bite: 0.15, sight: 7, struct: 4, boss: true },
   };
 
@@ -97,10 +100,18 @@
       levels: [{ cost: { scrap: 15, wood: 5 }, hp: 120, power: 1, light: 6 }, { cost: { scrap: 15 }, hp: 160, power: 1, light: 8 }, { cost: { scrap: 25 }, hp: 220, power: 1, light: 10 }] },
     spikes: { size: 1, cat: 'defense', key: 'x', walkable: true,
       levels: [{ cost: { wood: 10, scrap: 5 }, hp: 120, dps: 14 }, { cost: { scrap: 10 }, hp: 180, dps: 20 }, { cost: { scrap: 15 }, hp: 260, dps: 28 }] },
+    mine: { size: 1, cat: 'defense', key: 'n', walkable: true,
+      levels: [{ cost: { scrap: 10, fuel: 2 }, hp: 60, dmg: 80, r: 1.6 }, { cost: { scrap: 10, fuel: 2 }, hp: 80, dmg: 110, r: 1.8 }, { cost: { scrap: 15, fuel: 3 }, hp: 100, dmg: 150, r: 2.1 }] },
+    flamer: { size: 1, cat: 'defense', key: 'f', requires: 'bp_flamer',
+      levels: [{ cost: { scrap: 35, fuel: 10 }, hp: 260, range: 3.5, dmg: 7, cd: 0.4, fuelEvery: 10 }, { cost: { scrap: 30, fuel: 5 }, hp: 340, range: 4, dmg: 10, cd: 0.4, fuelEvery: 12 }, { cost: { scrap: 45, fuel: 10 }, hp: 450, range: 4.5, dmg: 13, cd: 0.35, fuelEvery: 14 }], vision: 6 },
     shelter: { size: 2, cat: 'base', key: 'a',
       levels: [{ cost: { wood: 40, scrap: 10 }, hp: 400, beds: 4 }, { cost: { wood: 40, scrap: 20 }, hp: 550, beds: 6 }, { cost: { wood: 50, scrap: 40 }, hp: 700, beds: 8 }] },
     depot: { size: 2, cat: 'base', key: 'd',
       levels: [{ cost: { wood: 50, scrap: 10 }, hp: 500, cap: 150 }, { cost: { wood: 40, scrap: 30 }, hp: 650, cap: 250 }, { cost: { wood: 50, scrap: 60 }, hp: 800, cap: 400 }] },
+    canteen: { size: 2, cat: 'base', key: 'c',
+      levels: [{ cost: { wood: 40, scrap: 15 }, hp: 380, save: 0.2, morale: 3 }, { cost: { wood: 30, scrap: 25 }, hp: 480, save: 0.3, morale: 5 }, { cost: { wood: 40, scrap: 40, fuel: 5 }, hp: 600, save: 0.4, morale: 7 }] },
+    training: { size: 2, cat: 'base', key: 'p',
+      levels: [{ cost: { wood: 35, scrap: 20 }, hp: 300, xp: 2 }, { cost: { wood: 30, scrap: 30 }, hp: 380, xp: 3 }, { cost: { scrap: 50, ammo: 20 }, hp: 460, xp: 4.5 }] },
     workshop: { size: 2, cat: 'prod', key: 'o',
       levels: [{ cost: { wood: 40, scrap: 30 }, hp: 450, workers: 1, power: 1 }, { cost: { wood: 30, scrap: 50 }, hp: 550, workers: 2, power: 1 }, { cost: { scrap: 80, fuel: 10 }, hp: 700, workers: 2, power: 1 }] },
     garden: { size: 2, cat: 'prod', key: 'h',
@@ -109,17 +120,21 @@
       levels: [{ cost: { wood: 20, scrap: 40 }, hp: 350, supply: 6, burn: 60 }, { cost: { scrap: 40 }, hp: 450, supply: 9, burn: 55 }, { cost: { scrap: 60, fuel: 10 }, hp: 550, supply: 12, burn: 50 }] },
     infirmary: { size: 2, cat: 'prod', key: 'i',
       levels: [{ cost: { wood: 40, scrap: 20, meds: 2 }, hp: 350, power: 2, patients: 2, heal: 4 }, { cost: { scrap: 30, meds: 3 }, hp: 450, power: 2, patients: 3, heal: 6 }, { cost: { scrap: 40, meds: 5 }, hp: 550, power: 2, patients: 4, heal: 9 }] },
+    sawmill: { size: 2, cat: 'prod', key: 'v',
+      levels: [{ cost: { wood: 30, scrap: 30 }, hp: 380, workers: 1, mult: 1 }, { cost: { wood: 20, scrap: 40 }, hp: 460, workers: 2, mult: 1.2 }, { cost: { scrap: 60, fuel: 5 }, hp: 560, workers: 2, mult: 1.6 }] },
+    lab: { size: 2, cat: 'prod', key: 'q', requires: 'bp_lab',
+      levels: [{ cost: { scrap: 40, wood: 20, meds: 2 }, hp: 320, workers: 1, power: 2, cycle: 45 }, { cost: { scrap: 40, meds: 3 }, hp: 400, workers: 2, power: 2, cycle: 40 }, { cost: { scrap: 60, fuel: 10 }, hp: 480, workers: 2, power: 3, cycle: 32 }] },
     radio: { size: 2, cat: 'prod', key: 'r', requires: 'bp_radio',
       levels: [{ cost: { scrap: 30, wood: 10, fuel: 5 }, hp: 300, power: 1, chance: 0.45 }, { cost: { scrap: 30 }, hp: 380, power: 1, chance: 0.6 }, { cost: { scrap: 40, fuel: 5 }, hp: 450, power: 1, chance: 0.75 }] },
   };
-  const BUILD_ORDER = ['barricade', 'wall', 'gate', 'tower', 'spikes', 'turret', 'spotlight', 'shelter', 'depot', 'garden', 'workshop', 'generator', 'infirmary', 'radio'];
+  const BUILD_ORDER = ['barricade', 'wall', 'gate', 'tower', 'spikes', 'mine', 'turret', 'flamer', 'spotlight', 'shelter', 'depot', 'canteen', 'training', 'garden', 'workshop', 'sawmill', 'generator', 'infirmary', 'lab', 'radio'];
   // Items crafted at the workshop (go to the armory, then equipped from the survivor panel).
   const CRAFT = {
     shotgun: { cost: { scrap: 20, wood: 6 }, level: 2, time: 20 },
     rifle: { cost: { scrap: 35, wood: 8, fuel: 2 }, level: 3, time: 30 },
   };
   // Blueprint ids (names live in the dictionaries as bp.<id>).
-  const BLUEPRINTS = ['bp_turret', 'bp_spotlight', 'bp_radio'];
+  const BLUEPRINTS = ['bp_turret', 'bp_spotlight', 'bp_radio', 'bp_flamer', 'bp_lab'];
 
   // Points of interest. loot: [res, min, max, chance]; guards: zombie mix spawned at generation.
   const POIS = {
@@ -134,11 +149,11 @@
     hardware: { size: [4, 3], searches: 3, time: 12, danger: 2, guards: { walker: 1 },
       loot: [['scrap', 10, 18, 1], ['wood', 8, 14, 0.9]], special: 'bp_spotlight' },
     gas: { size: [4, 3], searches: 3, time: 12, danger: 3, guards: { walker: 1, runner: 0.4 }, explosive: true,
-      loot: [['fuel', 10, 20, 1], ['food', 2, 5, 0.5]] },
+      loot: [['fuel', 10, 20, 1], ['food', 2, 5, 0.5]], special: 'bp_flamer' },
     police: { size: [5, 4], searches: 4, time: 15, danger: 4, guards: { walker: 1, armored: 0.6 },
       loot: [['ammo', 25, 45, 1], ['scrap', 3, 8, 0.4]], special: 'police' },
     hospital: { size: [6, 5], searches: 5, time: 16, danger: 5, guards: { walker: 1, runner: 0.4, spitter: 0.25 },
-      loot: [['meds', 6, 12, 1], ['food', 2, 5, 0.4]], recruit: 0.25 },
+      loot: [['meds', 6, 12, 1], ['food', 2, 5, 0.4]], recruit: 0.25, special: 'bp_lab' },
     factory: { size: [6, 6], searches: 5, time: 15, danger: 3, guards: { walker: 1, brute: 0.12 },
       loot: [['scrap', 15, 25, 1], ['fuel', 4, 10, 0.6]], special: 'bp_turret' },
     farmhouse: { size: [4, 3], searches: 3, time: 10, danger: 1, guards: { walker: 1 },
@@ -176,6 +191,8 @@
     gardenFoodEvery: 45,     // seconds per food per worker at mult 1
     workshopCycle: 20,       // seconds per ammo batch per worker
     workshopBatch: { scrap: 2, ammo: 8 },
+    sawmillWoodEvery: 15,    // seconds per wood per sawmill worker at mult 1
+    labBatch: { food: 3, scrap: 2, meds: 1 }, // one lab cycle per worker
     buildRate: 9,            // build points per second (×role build, ×morale)
     repairRate: 12,          // hp per second
     repairCostFactor: 0.5,   // fraction of build cost to repair from 0 to full

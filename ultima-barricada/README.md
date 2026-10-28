@@ -6,7 +6,7 @@ Abra `index.html` (direto do disco ou por um servidor estático). Não há depen
 
 **Idiomas:** português e inglês. O jogo começa no idioma do navegador (português se ele for `pt-*`, inglês nos demais casos) e pode ser trocado a qualquer momento pelos botões PT | EN do menu principal ou nas Configurações. A escolha fica salva.
 
-> **English.** *Last Barricade* is a zombie-survival RTS in isometric voxel pixel art for desktop and mobile browsers. Lead a few survivors through a seeded procedural city: gather wood and scrap by day, loot hospitals, police stations and gas stations, build and upgrade walls, towers, turrets and generators on a grid, and hold the HQ against ever larger night hordes. The game is endless and scored. Open `index.html`; it starts in English unless your browser is set to Portuguese, and the PT | EN buttons on the main menu (or Settings) switch language at any time.
+> **English.** *Last Barricade* is a zombie-survival RTS in isometric voxel pixel art for desktop and mobile browsers. Lead a few survivors through a seeded procedural city: gather wood and scrap by day, loot hospitals, police stations and gas stations, build and upgrade walls, towers, turrets and generators on a grid, and hold the HQ against ever larger night hordes. The game is endless and scored. Open `index.html`; it starts in English unless your browser is set to Portuguese, and the PT | EN buttons on the main menu (or Settings) switch language at any time. A skippable tutorial runs on your first game, the build menu explains each structure before you build it, and there is a fullscreen button in the main and pause menus.
 
 ## Como se joga
 
@@ -14,6 +14,8 @@ Abra `index.html` (direto do disco ou por um servidor estático). Não há depen
 - **Ordens contextuais**: com sobreviventes selecionados, o alvo define a ordem: chão = mover, zumbi = atacar, árvore/carro/destroços = coletar, local = saquear, torre = guarnecer, horta/oficina = trabalhar, enfermaria = tratar, obra = construir/reparar.
 - **Comportamento automático**: quem está sem ordem na base constrói obras, repara estruturas, sobe nas torres (e nas janelas do QG) à noite, vai à enfermaria quando ferido e defende a base sozinho. Fora da base, segura a posição e atira no que se aproximar. Trabalhadores da horta e da oficina saem para defender ao anoitecer e voltam ao amanhecer, a menos que o prédio tenha turno noturno.
 - **Esquadrões 1–4** como grupos de controle (botões na tela ou teclado).
+- **Tutorial**: na primeira partida, um tutorial curto (e pulável) guia os primeiros passos — selecionar, coletar, abrir o menu de construção e erguer uma torre. O relógio fica parado enquanto ele dura. Ele pode ser repetido pelas Configurações.
+- **Tela cheia**: botão no menu principal e no menu de pausa (onde o navegador permitir).
 
 ### Controles
 
@@ -23,7 +25,7 @@ Abra `index.html` (direto do disco ou por um servidor estático). Não há depen
 | Ordem contextual | botão direito | toque no alvo com alguém selecionado |
 | Câmera | WASD/setas, borda (opcional), botão do meio, mini-mapa | arrastar, mini-mapa |
 | Zoom | roda do mouse | pinça |
-| Construir | `B`, escolher, clicar (arrastar = linha de muros; Shift mantém o modo) | botão Construir, tocar para posicionar, ✓ (modo Linha para muros) |
+| Construir | `B`; passar o mouse num card mostra os detalhes; clicar e posicionar (arrastar = linha de muros; Shift mantém o modo) | botão Construir; o 1º toque num card mostra os detalhes, ✓ Construir; tocar para posicionar, ✓ (modo Linha para muros) |
 | Pausa / velocidade | `Espaço`, `+`/`−` | botões no topo |
 | Esquadrões | `1`–`4`, `Ctrl`+número define | botões à esquerda |
 | Outros | `A` atacar-mover, `S` segurar, `H` base, `Tab` ocioso, `R` reparar, `U` melhorar, `Del` demolir, `F6`/`F9` salvar/carregar rápido, `Esc` cancelar/menu | painel de seleção |
@@ -31,11 +33,11 @@ Abra `index.html` (direto do disco ou por um servidor estático). Não há depen
 ## Sistemas
 
 - **Recursos**: comida, madeira, sucata, munição, combustível e remédios, com teto de estoque (QG + depósitos). Cada sobrevivente come 3 por dia; a falta causa fome (menos vida e velocidade), queda de moral, deserções e mortes. Sem munição, todos lutam com tacos. Mordidas matam em 5 minutos e transformam a vítima em zumbi, a menos que um médico ou a enfermaria use remédios.
-- **Construções** (grade, dentro do território do QG, níveis 1–3, reparo, demolição com reembolso de 50%): barricada, muro, portão, torre de vigia, metralhadora, holofote, armadilha de espinhos, abrigo, depósito, oficina, horta, gerador, enfermaria e rádio. Energia vem de geradores que queimam combustível; metralhadoras gastam munição do estoque; a oficina transforma sucata em munição e fabrica espingardas e rifles; o rádio atrai refugiados, mas também zumbis.
+- **Construções** (grade, dentro do território do QG, níveis 1–3, reparo, demolição com reembolso de 50%): barricada, muro, portão, torre de vigia, metralhadora, lança-chamas, holofote, armadilha de espinhos, mina terrestre, abrigo, depósito, refeitório, campo de treino, oficina, horta, serraria, gerador, enfermaria, laboratório e rádio. O menu de construção mostra, antes de construir, a descrição, o custo, a vida, a energia e o efeito de cada uma. Energia vem de geradores que queimam combustível; metralhadoras gastam munição do estoque; a oficina transforma sucata em munição e fabrica espingardas e rifles; o rádio atrai refugiados, mas também zumbis. Minas explodem sob os zumbis sem ferir suas estruturas (uso único); o lança-chamas queima um cone de zumbis gastando combustível; o refeitório reduz a comida consumida e dá moral; o campo de treino dá experiência a quem está livre na base; a serraria produz madeira; o laboratório transforma comida e sucata em remédios.
 - **Dicas**: no começo, dicas curtas explicam os primeiros passos (podem ser desligadas nas configurações).
 - **Defesa**: a horda segue um *flow field* até o QG em que cada estrutura custa proporcionalmente à sua vida. Assim, os zumbis contornam muros quando existe uma brecha razoável e, se a base estiver fechada, atacam o ponto mais fraco (portões e barricadas). Isso cria gargalos de verdade. Torres e o QG protegem quem está dentro (−60% de dano) e dão alcance; atrás de muros há cobertura contra ácido.
-- **Zumbis**: errante, corredor, inchado (explode), brutamontes (derruba muros), cuspidor (ácido por cima de muros), gritador (atrai e acelera), blindado (resiste a tudo menos rifle) e o Colosso nas Noites de Sangue (a cada 5 noites). Barulho de tiros atrai os que estão por perto; chuva abafa o som e neblina reduz a visão.
-- **Exploração**: névoa de guerra e locais com perigo e recompensas próprias: casas, farmácias, supermercados, armazéns, loja de ferragens (projeto do holofote), posto de combustível (que pode explodir com tiros), delegacia (munição, armas e projetos da metralhadora e do rádio), hospital (remédios e um possível médico), fábrica, fazenda, acampamentos (sobreviventes para resgatar, se houver camas), ruínas e ninhos (que geram zumbis até serem destruídos). O saque vai para a mochila e precisa voltar à base; se alguém morrer, a mochila fica no chão. Ainda há caixas espalhadas, postos de controle militares e lançamentos aéreos.
+- **Zumbis**: errante, corredor, inchado (explode), brutamontes (derruba muros), cuspidor (ácido por cima de muros), gritador (atrai e acelera), blindado (resiste a tudo menos rifle), rastejante (baixo, difícil de acertar a distância), saltador (pula barricadas, muros e portões), pestilento (envenena quem chega perto e deixa uma nuvem tóxica ao morrer) e o Colosso nas Noites de Sangue (a cada 5 noites). Barulho de tiros atrai os que estão por perto; chuva abafa o som e neblina reduz a visão.
+- **Exploração**: névoa de guerra e locais com perigo e recompensas próprias: casas, farmácias, supermercados, armazéns, loja de ferragens (projeto do holofote), posto de combustível (projeto do lança-chamas; pode explodir com tiros), delegacia (munição, armas e projetos da metralhadora e do rádio), hospital (remédios, projeto do laboratório e um possível médico), fábrica, fazenda, acampamentos (sobreviventes para resgatar, se houver camas), ruínas e ninhos (que geram zumbis até serem destruídos). O saque vai para a mochila e precisa voltar à base; se alguém morrer, a mochila fica no chão. Ainda há caixas espalhadas, postos de controle militares e lançamentos aéreos.
 - **Dificuldade**: o orçamento da horda é `(8 + 6n + 0,6·n^1,6) × multiplicador`, e os tipos de zumbi são liberados noite a noite. A população errante do mapa também cresce. Há quatro dificuldades (Fácil a Pesadelo).
 - **Objetivos**: uma cadeia de metas opcionais (erguer uma torre, alimentar a base, resgatar sobreviventes, achar o projeto da metralhadora, ligar um gerador, destruir ninhos, sobreviver à Noite de Sangue…) aparece no painel e dá recursos e pontos.
 - **Pontuação**: noites × 1000 + abates × 10 + buscas × 50 + ninhos × 500 + sobreviventes vivos × 200 + objetivos × 300. Os recordes ficam no navegador.
@@ -63,7 +65,7 @@ js/data/defs.js           todo o conteúdo e o balanceamento (só ids e números
 js/sim/                   world, mapgen, path (A* com orçamento por tick + flow field), spatial (hash espacial),
                           economy, buildings, combat, units, zombies, waves, explore, objectives, game (tick, comandos, save)
 js/render/                voxel.js (modelos e baker isométrico), models.js, tiles.js, renderer.js
-js/ui/                    input.js, hud.js, menus.js, audio.js (WebAudio sintetizado)
+js/ui/                    input.js, hud.js, menus.js, tutorial.js, audio.js (WebAudio sintetizado)
 js/main.js                App: seleção, modos, laço (sim 20 Hz fixa + render interpolado)
 tests/                    run.js + *.test.js (Node), bot.js (jogador automático), visual.js (Playwright)
 ```
@@ -76,8 +78,8 @@ tests/                    run.js + *.test.js (Node), bot.js (jogador automático
 ## Testes
 
 ```
-node tests/run.js           # 35 testes (mapa, caminhos, economia, construção, combate, save, 5 dias com bot, traduções)
-node tests/visual.js        # navegador: menus, mouse, toque, construção, save/reload, idiomas, FPS com 500+ zumbis
+node tests/run.js           # 48 testes (mapa, caminhos, economia, construção, combate, novas construções e zumbis, save, 5 dias com bot, traduções)
+node tests/visual.js        # navegador: menus, tutorial, detalhes de construção, tela cheia, mouse, toque, save/reload, idiomas, FPS com 500+ zumbis
 ```
 
 `tests/visual.js` usa o Playwright com Chromium e grava capturas em `tests/screens/` (ignorada pelo git).

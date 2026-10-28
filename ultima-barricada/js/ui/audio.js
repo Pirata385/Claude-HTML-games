@@ -91,6 +91,8 @@
       case 'shotgun': if (!throttle('shotgun', 60)) return; noise(t, 0.28, 'lowpass', 2400, 0.8, 0.7, out(gain, pan), 300); tone(t, 0.12, 'sine', 120, 50, 0.3, out(gain, pan)); break;
       case 'rifle': if (!throttle('rifle', 60)) return; noise(t, 0.2, 'highpass', 1400, 0.7, 0.55, out(gain, pan)); tone(t, 0.15, 'sine', 160, 45, 0.35, out(gain, pan)); break;
       case 'turret': if (!throttle('turret', 45)) return; noise(t, 0.07, 'bandpass', 2600, 2, 0.35, out(gain, pan)); break;
+      case 'flame': if (!throttle('flame', 120)) return; noise(t, 0.35, 'lowpass', 900, 0.7, 0.45, out(gain, pan), 200); break;
+      case 'leap': if (!throttle('leap', 150)) return; tone(t, 0.18, 'triangle', 180, 420, 0.12, out(gain, pan)); break;
       case 'melee': if (!throttle('melee', 80)) return; noise(t, 0.08, 'lowpass', 700, 1, 0.5, out(gain, pan)); tone(t, 0.08, 'sine', 140, 70, 0.25, out(gain, pan)); break;
       case 'groan': {
         if (!throttle('groan', 700)) return;
@@ -172,6 +174,9 @@
       case 'built': A.play('built'); break;
       case 'scream': A.play('scream', e); break;
       case 'spit': A.play('spit', e); break;
+      case 'flame': A.play('flame', e); break;
+      case 'leap': A.play('leap', { x: e.x1, y: e.y1 }); break;
+      case 'cloud': A.play('acid', e); break;
       case 'acid': A.play('acid', e); break;
       case 'alarm': A.play('alarm'); break;
       case 'dawn': A.play('dawn'); break;

@@ -453,6 +453,80 @@
     'obj.night10': 'Survive 10 nights',
     'obj.night20': 'Survive 20 nights',
 
+    // ---- new content: buildings, zombies, blueprints ----
+    'bld.mine.name': 'Landmine', 'bld.mine.desc': 'Walkable. Blows up when a zombie steps on it, hurting everything around without damaging your structures. Single use.',
+    'bld.flamer.name': 'Flamethrower', 'bld.flamer.desc': 'Short-range tower that burns every zombie in a cone. Needs no power, but burns fuel.',
+    'bld.canteen.name': 'Canteen', 'bld.canteen.desc': 'Cooking stretches food: each survivor eats less at dawn, and morale rises when nobody goes hungry.',
+    'bld.training.name': 'Training yard', 'bld.training.desc': 'Free survivors at the base train and slowly gain experience, rising in rank (more health and accuracy).',
+    'bld.sawmill.name': 'Sawmill', 'bld.sawmill.desc': 'Workers produce wood without leaving the base. Needs no power.',
+    'bld.lab.name': 'Lab', 'bld.lab.desc': 'Workers turn food and scrap into meds. Needs power.',
+    'zom.crawler.name': 'Crawler', 'zom.crawler.note': 'Low and quick: hard to hit from a distance.',
+    'zom.leaper.name': 'Leaper', 'zom.leaper.note': 'Every so often it jumps over barricades, walls and gates.',
+    'zom.toxic.name': 'Plaguer', 'zom.toxic.note': 'Poisons anyone who gets close and leaves a toxic cloud when it dies.',
+    'bp.bp_flamer': 'Blueprint: Flamethrower', 'bp.bp_lab': 'Blueprint: Lab',
+    'msg.flamerNoFuel': 'Flamethrowers out of fuel!',
+    'cause.poison': 'Poisoning',
+
+    // ---- building details (build menu and panels) ----
+    'info.hint': 'Hover or tap a structure to see what it does.',
+    'info.size': 'Takes {n}×{n}',
+    'info.hp': 'Health {n}',
+    'info.power': 'Power {n}',
+    'info.workers': 'Up to {n} worker(s)',
+    'info.walkable': 'Walkable',
+    'info.where': 'Where to find it: {p|poi}',
+    'info.levels': 'Can be upgraded up to level {n}.',
+    'stat.garrison': '{n} shooters · +{r} range',
+    'stat.turret': 'Range {r} · Damage {d}',
+    'stat.light': 'Lights a radius of {n}',
+    'stat.spikes': '{n} damage/s and slower zombies',
+    'stat.mine': 'Damage {d} in a radius of {r} · single use',
+    'stat.flamer': 'Range {r} · {d} damage per burst · 1 fuel every {n} bursts',
+    'stat.beds': '{n} beds',
+    'stat.depot': '+{n} storage',
+    'stat.canteen': 'Food −{p}% per person · +{m} morale when everyone eats',
+    'stat.training': '+{n} XP/min for free survivors at the base',
+    'stat.garden': '≈ {n} food/day per worker',
+    'stat.workshop': 'Scrap → ammo · crafts weapons',
+    'stat.sawmill': '≈ {n} wood/day per worker',
+    'stat.generator': '+{n} power · 1 fuel every {s}s',
+    'stat.infirmary': '{n} patients · heals {h} health/s',
+    'stat.lab': '{food} food + {scrap} scrap → 1 med every {s}s per worker',
+    'stat.radio': '{n}% chance of a refugee per day',
+    'bld.woodDay': '≈ {n} wood/day',
+    'bld.medsDay': '≈ {n} meds/day ({state})',
+    'bld.needPower': 'no power: stopped',
+    'bld.trainees': 'Training now: {n}',
+
+    // ---- tutorial ----
+    'tut.title': 'Tutorial',
+    'tut.step': '{n}/{m}',
+    'tut.skip': 'Skip tutorial',
+    'tut.next': 'Next',
+    'tut.done': 'Start playing',
+    'tut.waiting': 'Do this to continue.',
+    'tut.paused': 'The clock stays stopped until the tutorial ends.',
+    'tut.welcome': 'Welcome to Last Barricade! You lead a group of survivors. By day, gather resources and build; at nightfall, a horde attacks the HQ. If the HQ falls, the game is over.',
+    'tut.cameraTouch': 'Drag your finger to move the camera and pinch to zoom. The minimap (◇ button) takes you anywhere.',
+    'tut.cameraMouse': 'Move the camera with WASD or the arrow keys (or drag with the middle button). The mouse wheel zooms.',
+    'tut.selectTouch': 'Tap a survivor to select them — or use the “All” button on the left.',
+    'tut.selectMouse': 'Click a survivor to select them (drag to select several; the “All” button grabs the group).',
+    'tut.gatherTouch': 'Now tap a tree to send them to gather wood. Cars and debris give scrap.',
+    'tut.gatherMouse': 'Now right-click a tree to gather wood. Cars and debris give scrap.',
+    'tut.build': 'Open the Build menu (🔨 button in the panel or the B key). Tap or hover a structure to see what it does before you build it.',
+    'tut.tower': 'Pick the Watchtower and place it near the HQ. Free survivors build it on their own, and at night they climb it to shoot.',
+    'tut.loot': 'Houses and shops hold food, ammo and meds. With someone selected, tap (or right-click) a site to loot it — but the noise attracts zombies.',
+    'tut.night': 'The clock at the top shows the time. At dusk, red arrows show where the horde will come from. Free survivors defend on their own. Space pauses; the 1× button changes speed.',
+    'tut.end': 'All set! Follow the objectives in the panel to learn the rest. The clock starts running again now. Good luck!',
+    'set.tutorial': 'Tutorial',
+    'set.tutorialAgain': 'Show it next game',
+    'set.tutorialQueued': 'Next game',
+    'toast.tutorialQueued': 'The tutorial will show in your next game.',
+
+    // ---- fullscreen ----
+    'menu.fullscreen': 'Fullscreen',
+    'menu.exitFullscreen': 'Exit fullscreen',
+
     'help.html': `
     <p>You lead a small group of survivors. By day, gather resources, build and explore. At nightfall a horde arrives — each night bigger than the last. The game never ends: survive as long as you can. It is over if the <b>HQ</b> falls or everyone dies.</p>
     <h3>Day cycle</h3>
@@ -469,6 +543,7 @@
     <li><b>Barricades, walls and gates</b> block the horde. Zombies go around walls when there is a gap and, if the base is sealed, attack the weakest point — use this to create chokepoints. Gates let your survivors through.</li>
     <li><b>Towers</b> and the <b>HQ</b> protect and extend the range of whoever is inside. <b>Turrets</b> and <b>spotlights</b> need power from a <b>generator</b>, which burns fuel.</li>
     <li>The <b>Garden</b> (food) and <b>Workshop</b> (scrap → ammo, weapons) need workers, who leave to defend at nightfall (unless there is a night shift). <b>Shelters</b> provide beds: without beds morale drops and new survivors cannot join.</li>
+    <li><b>Landmines</b> and <b>flamethrowers</b> strengthen the defense; the <b>canteen</b> saves food, the <b>training yard</b> turns out veterans, the <b>sawmill</b> makes wood and the <b>lab</b> makes meds. Tap (or hover) a structure in the build menu to see its details before building.</li>
     <li>Without ammo, survivors fight with bats. Bites need <b>meds</b> (a nearby medic or the infirmary) — otherwise the person turns into a zombie.</li></ul>
     <h3>Exploration</h3>
     <ul><li>Each site has its own danger (☠) and rewards: hospital (meds), police station (ammo, weapons, blueprints), gas station (fuel — careful with gunfire near the pumps), supermarket (food), hardware store, factory, farmhouse, camps (survivors to rescue) and nests (which spawn zombies until destroyed).</li>

@@ -453,6 +453,80 @@
     'obj.night10': 'Sobreviva a 10 noites',
     'obj.night20': 'Sobreviva a 20 noites',
 
+    // ---- new content: buildings, zombies, blueprints ----
+    'bld.mine.name': 'Mina terrestre', 'bld.mine.desc': 'Passável. Explode quando um zumbi pisa nela, ferindo todos ao redor sem danificar suas estruturas. Uso único.',
+    'bld.flamer.name': 'Lança-chamas', 'bld.flamer.desc': 'Torre de curto alcance que queima todos os zumbis num cone. Não precisa de energia, mas gasta combustível.',
+    'bld.canteen.name': 'Refeitório', 'bld.canteen.desc': 'Cozinhar rende mais: cada sobrevivente come menos ao amanhecer, e a moral sobe quando ninguém passa fome.',
+    'bld.training.name': 'Campo de treino', 'bld.training.desc': 'Quem está livre na base treina e ganha experiência aos poucos, subindo de patente (mais vida e precisão).',
+    'bld.sawmill.name': 'Serraria', 'bld.sawmill.desc': 'Trabalhadores produzem madeira sem sair da base. Não precisa de energia.',
+    'bld.lab.name': 'Laboratório', 'bld.lab.desc': 'Trabalhadores transformam comida e sucata em remédios. Requer energia.',
+    'zom.crawler.name': 'Rastejante', 'zom.crawler.note': 'Baixo e rápido: difícil de acertar a distância.',
+    'zom.leaper.name': 'Saltador', 'zom.leaper.note': 'Pula por cima de barricadas, muros e portões de tempos em tempos.',
+    'zom.toxic.name': 'Pestilento', 'zom.toxic.note': 'Envenena quem chega perto e, ao morrer, deixa uma nuvem tóxica.',
+    'bp.bp_flamer': 'Projeto: Lança-chamas', 'bp.bp_lab': 'Projeto: Laboratório',
+    'msg.flamerNoFuel': 'Lança-chamas sem combustível!',
+    'cause.poison': 'Envenenamento',
+
+    // ---- building details (build menu and panels) ----
+    'info.hint': 'Passe o mouse ou toque numa construção para ver o que ela faz.',
+    'info.size': 'Ocupa {n}×{n}',
+    'info.hp': 'Vida {n}',
+    'info.power': 'Energia {n}',
+    'info.workers': 'Até {n} trabalhador(es)',
+    'info.walkable': 'Passável',
+    'info.where': 'Onde achar: {p|poi}',
+    'info.levels': 'Pode ser melhorada até o nível {n}.',
+    'stat.garrison': '{n} atiradores · +{r} de alcance',
+    'stat.turret': 'Alcance {r} · Dano {d}',
+    'stat.light': 'Ilumina num raio de {n}',
+    'stat.spikes': '{n} de dano/s e zumbis mais lentos',
+    'stat.mine': 'Dano {d} num raio de {r} · uso único',
+    'stat.flamer': 'Alcance {r} · {d} de dano por jato · 1 combustível a cada {n} jatos',
+    'stat.beds': '{n} camas',
+    'stat.depot': '+{n} de estoque',
+    'stat.canteen': 'Comida −{p}% por pessoa · +{m} de moral quando todos comem',
+    'stat.training': '+{n} XP/min para quem está livre na base',
+    'stat.garden': '≈ {n} comida/dia por trabalhador',
+    'stat.workshop': 'Sucata → munição · fabrica armas',
+    'stat.sawmill': '≈ {n} madeira/dia por trabalhador',
+    'stat.generator': '+{n} de energia · 1 combustível a cada {s}s',
+    'stat.infirmary': '{n} pacientes · cura {h} de vida/s',
+    'stat.lab': '{food} comida + {scrap} sucata → 1 remédio a cada {s}s por trabalhador',
+    'stat.radio': '{n}% de chance de refugiado por dia',
+    'bld.woodDay': '≈ {n} madeira/dia',
+    'bld.medsDay': '≈ {n} remédios/dia ({state})',
+    'bld.needPower': 'sem energia: parado',
+    'bld.trainees': 'Treinando agora: {n}',
+
+    // ---- tutorial ----
+    'tut.title': 'Tutorial',
+    'tut.step': '{n}/{m}',
+    'tut.skip': 'Pular tutorial',
+    'tut.next': 'Próximo',
+    'tut.done': 'Começar a jogar',
+    'tut.waiting': 'Faça isso para continuar.',
+    'tut.paused': 'O relógio fica parado até o fim do tutorial.',
+    'tut.welcome': 'Bem-vindo(a) à Última Barricada! Você lidera um grupo de sobreviventes. De dia, reúna recursos e construa; ao anoitecer, uma horda ataca o QG. Se o QG cair, a partida acaba.',
+    'tut.cameraTouch': 'Arraste o dedo para mover a câmera e use a pinça para dar zoom. O mini-mapa (botão ◇) leva a qualquer lugar.',
+    'tut.cameraMouse': 'Mova a câmera com WASD ou as setas (ou arrastando com o botão do meio). A roda do mouse dá zoom.',
+    'tut.selectTouch': 'Toque num sobrevivente para selecioná-lo — ou use o botão “Todos” à esquerda.',
+    'tut.selectMouse': 'Clique num sobrevivente para selecioná-lo (arrastar seleciona vários; o botão “Todos” pega o grupo).',
+    'tut.gatherTouch': 'Agora toque numa árvore para mandar coletar madeira. Carros e destroços dão sucata.',
+    'tut.gatherMouse': 'Agora clique com o botão direito numa árvore para coletar madeira. Carros e destroços dão sucata.',
+    'tut.build': 'Abra o menu Construir (botão 🔨 no painel ou tecla B). Toque numa construção ou passe o mouse nela para ver o que ela faz antes de construir.',
+    'tut.tower': 'Escolha a Torre de vigia e coloque-a perto do QG. Quem está livre constrói sozinho, e à noite sobe nela para atirar.',
+    'tut.loot': 'Casas e lojas guardam comida, munição e remédios. Com alguém selecionado, toque (ou clique com o botão direito) num local para saquear — mas o barulho atrai zumbis.',
+    'tut.night': 'O relógio no topo mostra a hora. Ao anoitecer, setas vermelhas mostram de onde a horda virá. Quem está livre defende sozinho. Espaço pausa; o botão 1× muda a velocidade.',
+    'tut.end': 'Pronto! Siga os objetivos no painel para aprender o resto. O relógio volta a correr agora. Boa sorte!',
+    'set.tutorial': 'Tutorial',
+    'set.tutorialAgain': 'Repetir na próxima partida',
+    'set.tutorialQueued': 'Na próxima partida',
+    'toast.tutorialQueued': 'O tutorial aparecerá na próxima partida.',
+
+    // ---- fullscreen ----
+    'menu.fullscreen': 'Tela cheia',
+    'menu.exitFullscreen': 'Sair da tela cheia',
+
     'help.html': `
     <p>Você comanda um pequeno grupo de sobreviventes. De dia, colete recursos, construa e explore. Ao anoitecer chega uma horda — cada noite maior que a anterior. A partida não tem fim: sobreviva o máximo que puder. O jogo acaba se o <b>QG</b> cair ou se todos morrerem.</p>
     <h3>Ciclo do dia</h3>
@@ -469,6 +543,7 @@
     <li><b>Barricadas, muros e portões</b> bloqueiam a horda. Zumbis contornam muros quando existe uma brecha e, se a base estiver fechada, atacam o ponto mais fraco — use isso para criar gargalos. Portões deixam seus sobreviventes passar.</li>
     <li><b>Torres</b> e o <b>QG</b> protegem e ampliam o alcance de quem está neles. <b>Metralhadoras</b> e <b>holofotes</b> precisam de energia de um <b>gerador</b>, que queima combustível.</li>
     <li><b>Horta</b> (comida) e <b>Oficina</b> (sucata → munição, armas) precisam de trabalhadores, que saem para defender ao anoitecer (a menos que haja turno noturno). <b>Abrigos</b> dão camas: sem camas a moral cai e novos sobreviventes não podem entrar.</li>
+    <li><b>Minas</b> e <b>lança-chamas</b> reforçam a defesa; o <b>refeitório</b> economiza comida, o <b>campo de treino</b> forma veteranos, a <b>serraria</b> produz madeira e o <b>laboratório</b> fabrica remédios. Toque (ou passe o mouse) numa construção do menu para ver os detalhes antes de construir.</li>
     <li>Sem munição, sobreviventes lutam com tacos. Mordidas precisam de <b>remédios</b> (médico por perto ou enfermaria) — senão a pessoa vira zumbi.</li></ul>
     <h3>Exploração</h3>
     <ul><li>Cada local tem perigo (☠) e recompensas próprias: hospital (remédios), delegacia (munição, armas, projetos), posto (combustível — cuidado com tiros perto das bombas), supermercado (comida), ferragens, fábrica, fazenda, acampamentos (sobreviventes para resgatar) e ninhos (que geram zumbis até serem destruídos).</li>

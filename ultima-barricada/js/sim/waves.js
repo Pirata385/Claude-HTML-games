@@ -2,7 +2,7 @@
 // a growing budget, and the dawn upkeep that scores the night.
 (function (UB) {
   'use strict';
-  const { TIME, ZOMBIES, DIFFICULTY } = UB.DEF;
+  const { TIME, ZOMBIES, DIFFICULTY, BUILDINGS } = UB.DEF;
 
   function phaseLen(S, phase) {
     if (phase === 'day') return S.day === 1 ? TIME.DAY1 : TIME.DAY;
@@ -36,7 +36,7 @@
     if (night % 5 === 0) b *= 1.25;
     return b;
   }
-  const WEIGHTS = { walker: 10, runner: 4, bloater: 2, brute: 1.2, spitter: 1.5, screamer: 0.8, armored: 2 };
+  const WEIGHTS = { walker: 10, runner: 4, crawler: 3, bloater: 2, brute: 1.2, spitter: 1.5, leaper: 1.3, toxic: 1.2, screamer: 0.8, armored: 2 };
   function compose(S, night) {
     let b = budget(night, S.difficulty);
     const list = [];
@@ -71,7 +71,7 @@
     UB.Game.msg(S, night % 5 === 0 ? 'msg.hordeBlood' : 'msg.horde', { n: queue.length, sides }, 'bad', chosen[0] && chosen[0].x, chosen[0] && chosen[0].y);
     // Workers come out to defend unless their building keeps a night shift; they return at dawn.
     for (const b of S.buildings) {
-      if (b.dead || b.nightShift || (b.type !== 'garden' && b.type !== 'workshop')) continue;
+      if (b.dead || b.nightShift || !BUILDINGS[b.type].levels[0].workers) continue;
       for (const id of b.workers.slice()) {
         const u = UB.World.get(S, id);
         if (!u) continue;
@@ -128,6 +128,7 @@
 
   function tick(S, dt) {
     const c = S.clock;
+    if (S.tutorial && c.phase === 'day') return; // the first-run tutorial holds the day clock
     c.t += dt;
     if (c.phase === 'night') spawnTick(S, dt);
     if (c.t < phaseLen(S, c.phase)) return;

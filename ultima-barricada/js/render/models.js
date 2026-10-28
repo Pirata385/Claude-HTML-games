@@ -140,9 +140,27 @@
     spitter: { size: 9, h: 16, lean: 1, pose: 'down', skin: 0x9ab84a, neck: true },
     screamer: { size: 9, h: 16, lean: 0, pose: 'raise', skin: 0xc8c8b0, bodyW: 3, mouth: true },
     armored: { size: 9, h: 15, lean: 1, pose: 'zombie', armored: true },
+    crawler: { size: 12, h: 7, skin: 0x8a9a6a, shirt: 0x5a4a44 },
+    leaper: { size: 9, h: 16, lean: 2, pose: 'zombie', legH: 5, bodyH: 4, skin: 0x9a8aa8, shirt: 0x3a3048, claws: true },
+    toxic: { size: 11, h: 15, lean: 0, pose: 'zombie', bodyW: 4, bodyD: 3, bodyH: 5, skin: 0x7a9a3a, shirt: 0x4a5a2a, pustules: true },
     colossus: { size: 19, h: 30, lean: 2, pose: 'zombie', legW: 3, legH: 9, bodyW: 7, bodyD: 5, bodyH: 9, head: 5, skin: 0x8a6a6a, bones: true },
   };
+  // Crawler: lies prone, dragging its legs and clawing forward with alternating arms.
+  function crawler(v, frame) {
+    const sp = Z_SPEC.crawler;
+    const m = new Model(12, 9, 7);
+    const cy = 4, pants = [0x3a3a44, 0x4a4036, 0x2e3440][v % 3];
+    m.box(0, cy - 2, 0, 3, cy - 2, 1, pants); m.box(0, cy + 1, 0, 3, cy + 1, 1, pants);
+    m.box(4, cy - 2, 0, 7, cy + 1, 2, (x, y, z) => { const h = UB.hash3(x + v * 7, y, z); return h < 0.15 ? BLOOD : h < 0.25 ? sp.skin : sp.shirt; });
+    const up = frame === 3 ? 2 : 0;
+    m.box(8, cy - 1, 1 + up, 10, cy + 1, 3 + up, sp.skin);
+    m.set(10, cy - 1, 2 + up, 0xd8e070); m.set(10, cy + 1, 2 + up, 0xd8e070); m.set(10, cy, 1 + up, BLOOD2);
+    m.box(7, cy - 3, 0, 9 + (frame === 1 ? 2 : 0), cy - 3, 0, sp.skin);
+    m.box(7, cy + 2, 0, 9 + (frame === 2 ? 2 : 0), cy + 2, 0, sp.skin);
+    return m;
+  }
   function zombie(type, variant, frame) {
+    if (type === 'crawler') return crawler(variant || 0, frame);
     const sp = Z_SPEC[type];
     const v = variant || 0;
     const skin = sp.skin || ZSKIN[v % ZSKIN.length];
@@ -159,6 +177,7 @@
         const h = UB.hash3(x + seed, y * 3, z * 5);
         if (sp.armored) return z === legH + 2 && x === x1 ? 0x4a5a7a : shirt;
         if (type === 'bloater') return h < 0.15 ? 0xc8b040 : h < 0.3 ? 0x8a9a40 : skin;
+        if (sp.pustules) return h < 0.18 ? 0xb8ff4a : h < 0.3 ? skin : shirt;
         if (h < 0.12) return skin;             // torn clothes
         if (h < 0.2) return BLOOD;
         return shirt;
@@ -177,6 +196,11 @@
           m.box(k.hx0, k.hy0 + k.head, top, k.hx0, k.hy0 + k.head, top + 1, 0xe8e0c8);
         }
         if (type === 'bloater') for (let i = 0; i < 4; i++) m.set(k.x1 + 1, k.y0 + i + 1, k.legH + 1 + (i % 2) * 2, 0xd8c048);
+        if (sp.claws) for (const y of [k.ay0, k.ay1]) { m.set(k.ax + 4, y, k.shZ, 0xe8e0c8); m.set(k.ax + 4, y, k.shZ - 1, 0xe8e0c8); }
+        if (sp.pustules) {
+          m.set(k.hx0 + 1, k.hy0, k.hz0 + 2, 0xb8ff4a); m.set(k.hx0, k.hy0 + 2, k.hz0 + 1, 0xb8ff4a);
+          for (let i = 0; i < 3; i++) m.set(k.x0 - 1, k.y0 + i + 1, k.legH + 1 + i, 0x9aff3a);
+        }
         // Blood on the mouth.
         m.set(k.hx0 + k.head - 1, k.hy0 + Math.floor(k.head / 2), k.hz0, BLOOD2);
       },
@@ -389,6 +413,26 @@
         m.box(5, 2, 12, 5, 5, 13, opts.on ? 0xfff6c0 : 0xb8b49a);
         break;
       }
+      case 'mine': {
+        m = new Model(8, 8, 4);
+        m.box(2, 2, 0, 5, 5, 0, 0x5a4a3a);
+        m.box(3, 3, 1, 4, 4, 1, L >= 3 ? 0x4a5a3a : METAL2);
+        if (L >= 2) { m.set(2, 3, 1, METAL); m.set(5, 4, 1, METAL); }
+        m.set(4, 3, 2, 0xd83a2a);
+        break;
+      }
+      case 'flamer': {
+        m = new Model(8, 8, 10);
+        m.box(0, 0, 0, 7, 7, 0, CONC2);
+        m.box(0, 1, 1, 2, 3, 5, (x, y, z) => (z === 3 ? 0x3a2a1a : 0xa02a1a));
+        m.box(0, 4, 1, 2, 6, 5, (x, y, z) => (z === 3 ? 0x3a2a1a : L >= 2 ? 0xc8a020 : 0xa02a1a));
+        m.box(3, 2, 1, 5, 5, 5, METAL);
+        m.box(3, 3, 6, 5, 4, 6, L >= 3 ? 0x4a5a3a : METAL2);
+        m.box(5, 3, 5, 7, 4, 5, 0x2a2e30);
+        m.set(7, 3, 6, 0xff9a2a);
+        const r = opts.dir || 0;
+        return r ? m.rotate(r) : m;
+      }
       case 'spikes': {
         m = new Model(8, 8, 4);
         m.box(0, 0, 0, 7, 7, 0, WOOD2);
@@ -424,6 +468,63 @@
         m.sphere(12.5, 7, 7, 1.5, 0xc89a2a, 0.6, 1.5);
         if (L >= 2) m.box(13, 3, 1, 14, 5, 2, 0x7a5030);
         if (L >= 3) m.box(7, 7, 11, 9, 9, 12, METAL2);
+        break;
+      }
+      case 'canteen': {
+        m = new Model(16, 16, 18);
+        m.box(1, 1, 0, 14, 14, 0, CONC2);
+        const wall = L >= 2 ? 0xd8b888 : 0xc8a878;
+        m.shell(2, 2, 1, 11, 13, 8, (x, y, z) => ((x === 11 && y >= 6 && y <= 8 && z <= 5) ? 0x3a2a1a : (x === 11 && (y === 3 || y === 11) && z >= 4 && z <= 5) ? 0xe8c060 : z % 3 === 0 ? tone(wall, 0.9) : wall));
+        for (let k = 0; k <= 4; k++) m.box(2 + k, 2, 9 + k, 11 - k, 13, 9 + k, (x, y) => (y === 2 || y === 13 ? WOOD2 : L >= 3 ? 0x5a6470 : 0x8a4a2a));
+        m.box(4, 4, 9, 5, 5, 16, 0x6a5a50); m.box(4, 4, 17, 5, 5, 17, 0x2a2a2a);
+        // Tables and benches outside.
+        for (const y of [3, 10]) { m.box(13, y, 2, 14, y + 2, 2, PLANK); m.box(13, y + 1, 0, 14, y + 1, 1, WOOD2); }
+        m.sphere(13.5, 7.5, 2, 1.2, 0x5a5a5a, 1.2, 1.2); m.set(13, 7, 3, 0xd8a040);
+        if (L >= 2) m.box(12, 2, 5, 15, 13, 5, 0xc83a2a);
+        break;
+      }
+      case 'training': {
+        m = new Model(16, 16, 12);
+        m.box(0, 0, 0, 15, 15, 0, (x, y) => ((x + y) % 5 === 0 ? 0x7a6040 : 0x8a7050));
+        for (let i = 0; i < 16; i += 3) { m.box(i, 0, 1, i, 0, 3, WOOD2); m.box(0, i, 1, 0, i, 3, WOOD2); }
+        m.box(0, 0, 3, 15, 0, 3, WOOD); m.box(0, 0, 3, 0, 15, 3, WOOD);
+        // Target dummies.
+        for (const [x, y] of [[4, 4], [4, 10], [10, 4]]) {
+          m.box(x, y, 1, x, y, 4, WOOD2);
+          m.box(x - 1, y - 1, 5, x + 1, y + 1, 8, 0xd8c070);
+          m.set(x + 1, y, 7, 0xd83a2a); m.set(x + 1, y, 6, 0xf0f0e0);
+          m.box(x, y, 9, x, y, 10, 0xd8c070);
+        }
+        sandbags(m, 9, 9, 14, 14, 2);
+        m.box(12, 2, 1, 12, 2, 9, METAL); m.box(14, 2, 1, 14, 2, 9, METAL); m.box(12, 2, 9, 14, 2, 9, METAL2);
+        if (L >= 2) m.box(2, 13, 1, 6, 14, 1, 0x6a6a72);
+        if (L >= 3) m.box(10, 10, 2, 13, 13, 3, 0x5a6b3a);
+        break;
+      }
+      case 'sawmill': {
+        m = new Model(16, 16, 16);
+        m.box(1, 1, 0, 14, 14, 0, 0x6a5038);
+        for (const [x, y] of [[2, 2], [11, 2], [2, 11], [11, 11]]) m.box(x, y, 1, x, y, 9, WOOD2);
+        for (let k = 0; k <= 3; k++) m.box(1, 1 + k * 3, 10 + k, 12, 3 + k * 3, 10 + k, L >= 2 ? 0x5a6470 : 0x7a5030);
+        // Saw table and blade.
+        m.box(5, 5, 1, 8, 8, 3, WOOD);
+        m.box(6, 7, 4, 7, 7, 6, (x, y, z) => (z === 6 ? 0xe8e8e0 : 0xa8a8a8));
+        // Log pile and planks.
+        for (let i = 0; i < 3; i++) m.box(13, 2 + i * 2, 1, 15, 3 + i * 2, 2 + (i % 2), (x) => (x === 15 ? 0xc89a60 : 0x6a4628));
+        m.box(13, 9, 3, 15, 10, 3, 0x6a4628);
+        m.box(3, 12, 1, 9, 14, 2 + (L >= 3 ? 1 : 0), PLANK);
+        break;
+      }
+      case 'lab': {
+        m = new Model(16, 16, 18);
+        m.box(1, 1, 0, 14, 14, 0, 0xb8b8b0);
+        m.shell(2, 2, 1, 11, 12, 9, (x, y, z) => ((x === 11 && y >= 6 && y <= 7 && z <= 5) ? 0x2a3a40 : (x === 11 || y === 12) && z >= 4 && z <= 6 && (x + y) % 3 === 0 ? (opts.on ? 0x9aff7a : 0x4a6a5a) : z === 1 ? 0x6a8a8a : 0xe0e4e0));
+        m.box(2, 2, 10, 11, 12, 10, 0x3a6a8a);
+        m.box(8, 4, 11, 8, 4, 15, METAL); m.box(7, 3, 16, 9, 5, 16, METAL2);
+        // Chemical tanks.
+        for (const y of [3, 9]) { m.sphere(13.5, y + 0.5, 3, 1.4, 0x5a8a7a, 1.4, 3); m.set(13, y, 6, METAL2); }
+        if (L >= 2) m.box(5, 13, 1, 9, 14, 3, 0x6a6a72);
+        if (L >= 3) m.box(3, 3, 11, 5, 5, 12, 0xd8d8d0);
         break;
       }
       case 'garden': {

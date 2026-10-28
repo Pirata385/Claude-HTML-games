@@ -3,8 +3,12 @@
 // per scenario (nights survived, deaths and their causes, kills by zombie type and by source,
 // how much the newer structures and zombies matter).
 //   node tests/balance.js [nights] [seeds] [out.json]
-// Scenarios: "classic" (strong bot, hordes without the newer zombie types), "strong" (strong bot,
+// Full games: "classic" (strong bot, hordes without the newer zombie types), "strong" (strong bot,
 // all zombies) and "modern" (bot that also uses the newer structures), on normal and hard.
+// Sieges isolate the night fights from the economy: a ready walled base with 8 survivors and
+// supplies topped up every dawn faces nights 1..N back to back ("siege-classic" without the newer
+// zombies, "siege" with them, "siege-new" also defended by landmines and flamethrowers).
+//   node tests/balance.js 20 seeds out.json siege     only the sieges
 'use strict';
 const { fork } = require('child_process');
 const fs = require('fs');
@@ -13,13 +17,61 @@ const path = require('path');
 const NIGHTS = process.argv[2] === '--worker' ? 0 : +(process.argv[2] || 20);
 const SEEDS = (process.argv[3] || 'aurora-1,cinza-2,farol-3,brasa-4').split(',');
 const OUT = process.argv[4];
-const SCENARIOS = [
+const ONLY = process.argv[5] || '';
+const ALL = [
   { name: 'classic', bot: 'strong', diff: 'normal', noNewZombies: true },
   { name: 'strong', bot: 'strong', diff: 'normal' },
   { name: 'modern', bot: 'modern', diff: 'normal' },
   { name: 'strong-hard', bot: 'strong', diff: 'hard' },
   { name: 'modern-hard', bot: 'modern', diff: 'hard' },
+  { name: 'siege-classic', siege: true, diff: 'normal', noNewZombies: true },
+  { name: 'siege', siege: true, diff: 'normal' },
+  { name: 'siege-new', siege: true, diff: 'normal', newDefense: true },
 ];
+const SCENARIOS = ALL.filter((s) => s.name.startsWith(ONLY));
+
+// A ready base: HQ level 3, a ring of walls with a gate on each side, four towers, eight survivors.
+const SUPPLY = { food: 200, wood: 200, scrap: 200, ammo: 300, fuel: 60, meds: 10 };
+function fortify(UB, S, job) {
+  const W = UB.World, B = UB.Buildings;
+  for (const z of S.zombies) z.dead = true;
+  const hq = W.hq(S);
+  for (const k in SUPPLY) S.res[k] = 9999;
+  UB.Buildings.upgrade(S, hq); UB.Buildings.upgrade(S, hq);
+  const cx = hq.tx + 1, cy = hq.ty + 1, R = 7;
+  const done = (r) => { if (r && r.b) B.addBuild(S, r.b, 1e6); };
+  for (const [x0, y0, x1, y1] of [[cx - R, cy - R, cx + R, cy - R], [cx + R, cy - R, cx + R, cy + R], [cx + R, cy + R, cx - R, cy + R], [cx - R, cy + R, cx - R, cy - R]]) {
+    for (const [x, y] of B.lineTiles(x0, y0, x1, y1)) {
+      const gate = x === cx || y === cy;
+      if (B.canPlace(S, gate ? 'gate' : 'wall', x, y).ok) done(B.place(S, gate ? 'gate' : 'wall', x, y));
+    }
+  }
+  for (const [x, y] of [[cx - 4, cy - 4], [cx + 4, cy - 4], [cx - 4, cy + 4], [cx + 4, cy + 4]]) {
+    const p = B.canPlace(S, 'tower', x, y).ok ? { x, y } : UB.Bot.spotFor(S, 'tower', 3, 5);
+    if (p) done(B.place(S, 'tower', p.x, p.y));
+  }
+  const roles = ['soldier', 'scout', 'engineer', 'medic'];
+  for (let k = 0; k < 4; k++) { const p = W.nearestOpen(S, cx + 1, cy + 3, false, 4); UB.Units.create(S, roles[k], p.x + 0.5, p.y + 0.5); }
+  for (const b of S.buildings) if (b.type === 'shelter') B.addBuild(S, b, 1e6);
+  for (const t of ['shelter', 'shelter', 'garden', 'workshop', 'depot']) { const p = UB.Bot.spotFor(S, t, 2, 6); if (p) done(B.place(S, t, p.x, p.y)); }
+  if (job.newDefense) {
+    S.unlocked.bp_flamer = true;
+    for (const [x, y] of [[cx, cy - 5], [cx, cy + 5], [cx - 5, cy], [cx + 5, cy]]) if (B.canPlace(S, 'flamer', x, y).ok) done(B.place(S, 'flamer', x, y));
+  }
+  UB.Path.updateFlow(S, true);
+  UB.Eco.updatePower(S);
+  for (const k in SUPPLY) S.res[k] = 0;
+  topUp(UB, S, job);
+}
+// Dawn: supplies back to the reference level; landmines re-laid in front of the gates.
+function topUp(UB, S, job) {
+  for (const k in SUPPLY) S.res[k] = Math.max(S.res[k], Math.min(SUPPLY[k], UB.Eco.cap(S)));
+  if (!job.newDefense) return;
+  const hq = UB.World.hq(S), cx = hq.tx + 1, cy = hq.ty + 1;
+  for (const [x, y] of [[cx, cy - 9], [cx, cy + 9], [cx - 9, cy], [cx + 9, cy], [cx + 1, cy - 9], [cx - 1, cy + 9], [cx - 9, cy + 1], [cx + 9, cy - 1]]) {
+    if (UB.Buildings.canPlace(S, 'mine', x, y).ok) { const r = UB.Buildings.place(S, 'mine', x, y); if (r.ok) UB.Buildings.addBuild(S, r.b, 1e6); }
+  }
+}
 const NEW_ZOMBIES = ['crawler', 'leaper', 'toxic'];
 
 // ---- worker: plays one game -------------------------------------------------------------------
@@ -57,7 +109,10 @@ function play(job) {
     if (cause && cause.k === 'cause.poison') r.poisonDamage += dmg;
     return hu.apply(this, arguments);
   };
-  const bot = UB.Bot[job.bot];
+  if (job.siege) fortify(UB, S, job);
+  const bot = job.siege ? (S2) => {
+    if (S2.clock.phase === 'day') { if (S2.clock.t < UB.Waves.phaseLen(S2, 'day') - 30) S2.clock.t = UB.Waves.phaseLen(S2, 'day') - 30; }
+  } : UB.Bot[job.bot];
   let lastNights = 0, deaths0 = 0, kills0 = 0;
   const t0 = Date.now();
   const maxTicks = (job.nights + 1) * 7600;
@@ -73,13 +128,14 @@ function play(job) {
     S.fx.length = 0;
     if (S.nights !== lastNights) {
       lastNights = S.nights;
+      if (job.siege) topUp(UB, S, job);
       const hq = UB.World.hq(S);
       const count = (t2) => S.buildings.filter((b) => b.type === t2 && b.built >= 1).length;
       r.perNight.push({
         night: S.nights, alive: S.units.length, deaths: S.stats.deaths - deaths0, kills: S.stats.kills - kills0,
         hq: hq ? Math.round((hq.hp / hq.maxHp) * 100) : 0, morale: Math.round(S.morale),
         food: S.res.food, ammo: S.res.ammo, fuel: S.res.fuel, meds: S.res.meds, wood: S.res.wood, scrap: S.res.scrap,
-        walls: count('wall') + count('gate'), mines: count('mine'), flamers: count('flamer'), turrets: count('turret'),
+        walls: count('wall') + count('gate'), wallHp: Math.round(100 * S.buildings.filter((b) => b.type === 'wall' || b.type === 'gate').reduce((a, b) => a + b.hp / b.maxHp, 0) / Math.max(1, count('wall') + count('gate'))), mines: count('mine'), flamers: count('flamer'), turrets: count('turret'),
       });
       deaths0 = S.stats.deaths; kills0 = S.stats.kills;
     }
@@ -130,7 +186,7 @@ async function main() {
     const rs = results.filter((r) => r.scenario === sc.name);
     const sum = (f) => rs.reduce((a, r) => a + f(r), 0);
     const merge = (f) => { const o = {}; for (const r of rs) for (const [k, v] of Object.entries(f(r))) o[k] = (o[k] || 0) + v; return o; };
-    console.log(`\n== ${sc.name} (${sc.bot}, ${sc.diff}${sc.noNewZombies ? ', no new zombies' : ''}) ==`);
+    console.log(`\n== ${sc.name} (${sc.bot || 'siege'}, ${sc.diff}${sc.noNewZombies ? ', no new zombies' : ''}) ==`);
     console.log(`nights: ${rs.map((r) => r.nights + (r.over ? '†' : '')).join(' ')}  avg ${avg(rs.map((r) => r.nights)).toFixed(1)}  score avg ${Math.round(avg(rs.map((r) => r.score)))}`);
     console.log('deaths:', JSON.stringify(merge((r) => r.deaths)));
     console.log('kills by source:', JSON.stringify(merge((r) => r.killsBySource)));
@@ -139,11 +195,11 @@ async function main() {
     console.log('unlocked:', JSON.stringify(merge((r) => Object.fromEntries(r.unlocked.map((k) => [k, 1])))));
     console.log('buildings at end:', JSON.stringify(merge((r) => r.built)));
     // Night-by-night averages for a few checkpoints.
-    for (const n of [5, 10, 15, 20]) {
+    for (const n of sc.siege ? [3, 6, 9, 12, 15, 18, 20] : [5, 10, 15, 20]) {
       const ns = rs.map((r) => r.perNight.find((p) => p.night === n)).filter(Boolean);
       if (!ns.length) continue;
       const a = (k) => Math.round(avg(ns.map((p) => p[k])));
-      console.log(`  night ${n} (${ns.length} games): alive ${a('alive')} deaths ${avg(ns.map((p) => p.deaths)).toFixed(1)} hq ${a('hq')}% morale ${a('morale')} food ${a('food')} ammo ${a('ammo')} fuel ${a('fuel')} meds ${a('meds')} walls ${a('walls')} mines ${a('mines')} flamers ${a('flamers')}`);
+      console.log(`  night ${n} (${ns.length} games): wallHp ${a('wallHp')}% alive ${a('alive')} deaths ${avg(ns.map((p) => p.deaths)).toFixed(1)} hq ${a('hq')}% morale ${a('morale')} food ${a('food')} ammo ${a('ammo')} fuel ${a('fuel')} meds ${a('meds')} walls ${a('walls')} mines ${a('mines')} flamers ${a('flamers')}`);
     }
   }
 }

@@ -134,6 +134,49 @@
     }
   }
 
+  // The strong player plus the newer structures: canteen, sawmill, training yard, lab, a ring of
+  // landmines outside the walls and flamethrowers by the gates.
+  function modern(S) {
+    strong(S);
+    if (S.tick % 40 !== 20 || S.over) return;
+    const hq = W.hq(S);
+    if (!hq) return;
+    const cx = hq.tx + 1, cy = hq.ty + 1;
+    const count = (t) => S.buildings.filter((b) => b.type === t).length;
+    const afford = (t) => UB.Eco.can(S, UB.DEF.BUILDINGS[t].levels[0].cost);
+    const tryBuild = (t, r0, r1) => { if (!afford(t)) return false; const p = spotFor(S, t, r0, r1); return !!(p && UB.Game.command(S, { type: 'build', build: t, x: p.x, y: p.y }).ok); };
+    const walled = count('wall') >= 20;
+    const pop = S.units.length;
+    // Staff the new workplaces with one worker each (two once the group is large).
+    for (const b of S.buildings) {
+      if (b.built < 1 || (b.type !== 'sawmill' && b.type !== 'lab')) continue;
+      if (b.type === 'lab' && (!b.powered || S.res.food < pop * 4)) continue;
+      if (b.workers.length >= Math.min(pop >= 8 ? 2 : 1, UB.Buildings.slots(b))) continue;
+      const u = S.units.find((x) => !x.dead && !x.inside && !x.order && x.role !== 'scout' && x.role !== 'soldier');
+      if (u) UB.Game.command(S, { type: 'work', ids: [u.id], id: b.id });
+    }
+    if (!count('shelter')) return;
+    if (!count('sawmill')) { tryBuild('sawmill', 3, 6); return; }
+    if (!count('canteen') && pop >= 5) { tryBuild('canteen', 3, 6); return; }
+    if (!walled) return;
+    if (S.unlocked.bp_flamer && count('flamer') < 2 && S.res.fuel > 15) {
+      // Just inside a gate.
+      for (const [x, y] of [[cx, cy - 6], [cx, cy + 6], [cx - 6, cy], [cx + 6, cy]]) {
+        if (count('flamer') >= 2 || !afford('flamer')) break;
+        if (UB.Buildings.canPlace(S, 'flamer', x, y).ok) UB.Game.command(S, { type: 'build', build: 'flamer', x, y });
+      }
+    }
+    // Landmines in front of the gates, topped up every day.
+    if (count('mine') < 8 && S.res.fuel > 6) {
+      for (const [x, y] of [[cx, cy - 9], [cx, cy + 9], [cx - 9, cy], [cx + 9, cy], [cx + 1, cy - 9], [cx - 1, cy + 9], [cx - 9, cy + 1], [cx + 9, cy - 1]]) {
+        if (!afford('mine') || count('mine') >= 8) break;
+        if (UB.Buildings.canPlace(S, 'mine', x, y).ok) UB.Game.command(S, { type: 'build', build: 'mine', x, y });
+      }
+    }
+    if (!count('training') && S.day >= 4) { tryBuild('training', 3, 7); return; }
+    if (S.unlocked.bp_lab && count('generator') && !count('lab')) tryBuild('lab', 3, 7);
+  }
+
   // Runs a game for up to `days` days (or until it ends) with the given strategy.
   function run(S, strategy, days, maxTicks) {
     const limit = maxTicks || days * 7600;
@@ -145,5 +188,5 @@
     return S;
   }
 
-  UB.Bot = { active, strong, run, spotFor };
+  UB.Bot = { active, strong, modern, run, spotFor };
 })(globalThis.UB = globalThis.UB || {});

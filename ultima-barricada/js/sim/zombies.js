@@ -191,6 +191,7 @@
           if (z.cd <= 0) { z.cd = def.cd; z.attackT = S.time; UB.Combat.spit(S, z, b.tx + b.w / 2, b.ty + b.h / 2); }
           return;
         }
+        if (def.leap && d <= 1 && b.w === 1 && b.type !== 'hq' && S.time >= (z.leapT || 0) && leap(S, z, b)) return;
         if (d <= (def.boss ? 1.1 : 0.6)) {
           if (z.cd <= 0) {
             z.cd = def.cd; z.attackT = S.time;
@@ -222,6 +223,25 @@
     moveBy(S, z, (dx / d) * sp, (dy / d) * sp);
     z.moving = true;
     z.facing = UB.Units.facingOf(dx, dy);
+  }
+
+  // Leapers vault over a one-tile structure to the open tile beyond it.
+  function leap(S, z, b) {
+    const def = ZOMBIES[z.type];
+    const cx = b.tx + 0.5, cy = b.ty + 0.5;
+    const dx = cx - z.x, dy = cy - z.y, d = Math.hypot(dx, dy) || 1;
+    for (const k of [1, 1.6]) {
+      const x = cx + (dx / d) * k, y = cy + (dy / d) * k;
+      const tx = Math.floor(x), ty = Math.floor(y);
+      if (!W.inb(S, tx, ty) || S._blockZ[W.idx(S, tx, ty)]) continue;
+      UB.Game.fx(S, { t: 'leap', x0: z.x, y0: z.y, x1: x, y1: y });
+      z.x = x; z.y = y;
+      z.leapT = S.time + def.leap.cd;
+      z.state = 'horde'; z.sid = 0; z.path = null; z.steer = null;
+      return true;
+    }
+    z.leapT = S.time + 2;
+    return false;
   }
 
   // Crowds: push overlapping zombies apart (every other tick, alternating halves).

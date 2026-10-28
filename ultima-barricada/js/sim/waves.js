@@ -2,7 +2,7 @@
 // a growing budget, and the dawn upkeep that scores the night.
 (function (UB) {
   'use strict';
-  const { TIME, ZOMBIES, DIFFICULTY } = UB.DEF;
+  const { TIME, ZOMBIES, DIFFICULTY, BUILDINGS } = UB.DEF;
 
   function phaseLen(S, phase) {
     if (phase === 'day') return S.day === 1 ? TIME.DAY1 : TIME.DAY;
@@ -36,9 +36,9 @@
     if (night % 5 === 0) b *= 1.25;
     return b;
   }
-  const WEIGHTS = { walker: 10, runner: 4, bloater: 2, brute: 1.2, spitter: 1.5, screamer: 0.8, armored: 2 };
+  const WEIGHTS = { walker: 10, runner: 4, crawler: 3, bloater: 2, brute: 1.2, spitter: 1.5, leaper: 1.3, toxic: 1.2, screamer: 0.8, armored: 2 };
   function compose(S, night) {
-    let b = budget(night, S.difficulty);
+    let b = UB.Waves.budget(night, S.difficulty);
     const list = [];
     if (night % 5 === 0 && night >= ZOMBIES.colossus.from) for (let k = 0; k < Math.floor(night / 10); k++) { list.push('colossus'); b -= ZOMBIES.colossus.cost * 0.5; }
     const pairs = Object.keys(WEIGHTS).filter((t) => ZOMBIES[t].from <= night).map((t) => [t, WEIGHTS[t]]);
@@ -67,12 +67,11 @@
     while (chosen.length < dirs && pool.length) chosen.push(pool[chosen.length % pool.length]);
     const queue = compose(S, night);
     S.horde = { night, spawns: chosen.map((c) => ({ x: c.x, y: c.y, side: c.side })), queue, timer: 0, total: queue.length };
-    const sides = [...new Set(chosen.map((c) => c.side))].join(' e ');
-    const blood = night % 5 === 0 ? ' NOITE DE SANGUE!' : '';
-    UB.Game.msg(S, `Horda de ${queue.length} zumbis se aproximando pelo ${sides}.${blood}`, 'bad', chosen[0] && chosen[0].x, chosen[0] && chosen[0].y);
+    const sides = [...new Set(chosen.map((c) => c.side))];
+    UB.Game.msg(S, night % 5 === 0 ? 'msg.hordeBlood' : 'msg.horde', { n: queue.length, sides }, 'bad', chosen[0] && chosen[0].x, chosen[0] && chosen[0].y);
     // Workers come out to defend unless their building keeps a night shift; they return at dawn.
     for (const b of S.buildings) {
-      if (b.dead || b.nightShift || (b.type !== 'garden' && b.type !== 'workshop')) continue;
+      if (b.dead || b.nightShift || !BUILDINGS[b.type].levels[0].workers) continue;
       for (const id of b.workers.slice()) {
         const u = UB.World.get(S, id);
         if (!u) continue;
@@ -82,7 +81,7 @@
       }
     }
     const out = S.units.filter((u) => !u.dead && !u.inside && !UB.World.inTerritory(S, u.x, u.y)).length;
-    if (out) UB.Game.msg(S, `${out} sobrevivente(s) ainda fora da base. Chame-os de volta (Voltar à base) ou deixe-os por conta própria.`, 'warn');
+    if (out) UB.Game.msg(S, 'msg.outside', { n: out }, 'warn');
     UB.Game.fx(S, { t: 'alarm' });
     if (hq) UB.Path.updateFlow(S, true);
   }
@@ -102,7 +101,7 @@
       const y = Math.min(S.map.h - 0.5, Math.max(0.5, sp.y + 0.5 + S.rng.range(-1.2, 1.2)));
       const i = UB.World.idx(S, Math.floor(x), Math.floor(y));
       const z = UB.Zombies.spawn(S, type, S._blockZ[i] ? sp.x + 0.5 : x, S._blockZ[i] ? sp.y + 0.5 : y, { state: 'horde' });
-      if (ZOMBIES[type].boss) UB.Game.msg(S, 'Um Colosso está vindo!', 'bad', z.x, z.y);
+      if (ZOMBIES[type].boss) UB.Game.msg(S, 'msg.colossusComing', null, 'bad', z.x, z.y);
     }
   }
 
@@ -112,7 +111,8 @@
     S.horde = null;
     const lines = UB.Eco.dawn(S);
     UB.Explore.dawn(S);
-    UB.Game.msg(S, `Amanhecer do dia ${S.day}. Noites sobrevividas: ${S.nights}.${lines.length ? ' ' + lines.join(' ') : ''}`, 'good');
+    UB.Game.msg(S, 'msg.dawn', { day: S.day, nights: S.nights }, 'good');
+    for (const l of lines) UB.Game.msg(S, l.k, l.p, 'warn');
     UB.Game.fx(S, { t: 'dawn' });
     for (const u of S.units) {
       if (!u.shift) continue;
@@ -128,6 +128,7 @@
 
   function tick(S, dt) {
     const c = S.clock;
+    if (S.tutorial && c.phase === 'day') return; // the first-run tutorial holds the day clock
     c.t += dt;
     if (c.phase === 'night') spawnTick(S, dt);
     if (c.t < phaseLen(S, c.phase)) return;

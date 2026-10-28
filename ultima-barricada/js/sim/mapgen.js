@@ -387,7 +387,8 @@
     for (const p of S.pois) targets.push({ x: p.ex, y: p.ey });
     // Horde spawn points: road exits on the map border plus a few random border tiles.
     const spawns = [];
-    const sideName = (x, y) => (x === 0 ? 'Noroeste' : y === 0 ? 'Nordeste' : x === N - 1 ? 'Sudeste' : 'Sudoeste');
+    // Map edges as compass codes on screen (translated by the interface).
+    const sideName = (x, y) => (x === 0 ? 'NW' : y === 0 ? 'NE' : x === N - 1 ? 'SE' : 'SW');
     const border = [];
     for (let k = 0; k < N; k++) border.push([k, 0], [k, N - 1], [0, k], [N - 1, k]);
     let lastRoad = null;

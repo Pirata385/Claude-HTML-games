@@ -145,8 +145,8 @@
     let extra = '';
     const o = {};
     if (b.type === 'gate') { o.open = !!b.open; extra = o.open ? 'o' : 'c'; }
-    if (b.type === 'turret') { o.dir = b.dir || 0; extra = String(o.dir); }
-    if (b.type === 'spotlight' || b.type === 'radio') { o.on = !!b.powered; extra = o.on ? '1' : '0'; }
+    if (b.type === 'turret' || b.type === 'flamer') { o.dir = b.dir || 0; extra = String(o.dir); }
+    if (b.type === 'spotlight' || b.type === 'radio' || b.type === 'lab') { o.on = !!b.powered; extra = o.on ? '1' : '0'; }
     return sprite(`b:${b.type}:${L}:${dmg}:${extra}`, () => {
       const m = UB.Models.structure(b.type, L, o);
       return dmg ? UB.Models.damaged(m, dmg === 2 ? 0.3 : 0.15, b.type.length) : m;
@@ -264,6 +264,21 @@
           decal(e.x, e.y, 'acid', 0.7);
           break;
         case 'spit': part(e.x, e.y, 22, 0, 0, 10, 0.3, '#9aff4a', 2); break;
+        case 'flame': {
+          for (let i = 0; i < (quality === 'low' ? 5 : 12); i++) {
+            const a = e.a + (Math.random() - 0.5) * 0.9, d = 0.4 + Math.random() * e.r;
+            part(e.x + Math.cos(a) * d * 0.3, e.y + Math.sin(a) * d * 0.3, 8, Math.cos(a) * d * 2.4, Math.sin(a) * d * 2.4, 8, 0.25 + Math.random() * 0.2, Math.random() < 0.5 ? '#ffb040' : Math.random() < 0.5 ? '#ff6a1a' : '#ffe08a', 2);
+          }
+          FX.lights.push({ x: e.x + Math.cos(e.a) * 1.5, y: e.y + Math.sin(e.a) * 1.5, r: 3, life: 0.2, max: 0.2, c: '255,150,50' });
+          break;
+        }
+        case 'leap':
+          for (const [x, y] of [[e.x0, e.y0], [e.x1, e.y1]]) for (let i = 0; i < 6; i++) part(x, y, 2, (Math.random() - 0.5) * 2, (Math.random() - 0.5) * 2, 12, 0.5, '#a89a80', 1);
+          break;
+        case 'cloud':
+          FX.rings.push({ x: e.x, y: e.y, t: 0, color: '#9aff4a', big: true });
+          decal(e.x, e.y, 'acid', e.r * 0.8);
+          break;
         case 'scream': FX.rings.push({ x: e.x, y: e.y, t: 0, color: '#ff5a5a', big: true }); break;
         case 'radio': FX.rings.push({ x: e.x, y: e.y, t: 0, color: '#ffd166', big: true }); break;
         case 'bang': part(e.x, e.y, 10, (Math.random() - 0.5), (Math.random() - 0.5), 15, 0.4, '#a89a80', 1); break;
@@ -381,6 +396,11 @@
   R.frame = function (S, alpha, dt, ui) {
     ui = ui || {};
     updateFx(dt);
+    // Poison: lingering clouds and the haze around plaguers.
+    if (dt > 0) {
+      for (const c of S.clouds || []) if (Math.random() < dt * 14) part(c.x + (Math.random() - 0.5) * c.r * 1.6, c.y + (Math.random() - 0.5) * c.r * 1.6, 2, 0, 0, 5, 1.4, Math.random() < 0.5 ? '#8ad83a' : '#5a9a2a', 3);
+      for (const z of S.zombies) if (z.type === 'toxic' && !z.dead && Math.random() < dt * 4) part(z.x + (Math.random() - 0.5), z.y + (Math.random() - 0.5), 8, 0, 0, 4, 1, '#9aff4a', 2);
+    }
     const N = S.map.w;
     const sh = shakeOn && shake > 0 ? shake : 0;
     offX = Math.round(W / 2 - cam.x + (sh ? (Math.random() - 0.5) * sh : 0));
@@ -776,7 +796,8 @@
         diamond(b.tx, b.ty, b.w, b.h, 'rgba(125,255,154,0.12)', '#7dff9a');
         const L = UB.Buildings.lvl(b);
         let r = 0;
-        if (b.type === 'turret') r = L.range;
+        if (b.type === 'turret' || b.type === 'flamer') r = L.range;
+        else if (b.type === 'mine') r = L.r;
         else if (b.type === 'tower') r = 6 + L.range;
         else if (b.type === 'hq' && b.garrison.length) r = 6 + L.range;
         else if (b.type === 'spotlight') r = L.light;
@@ -960,7 +981,7 @@
   R.ghostSprite = function (type) { return sprite(`b:${type}:1:0:`, () => UB.Models.structure(type, 1, {}), { shadow: true }); };
   // Icon canvas for the build menu.
   R.buildIcon = function (type) {
-    const s = sprite(`b:${type}:1:0:${type === 'gate' ? 'c' : type === 'turret' ? '0' : type === 'spotlight' || type === 'radio' ? '0' : ''}`, () => UB.Models.structure(type, 1, {}), { shadow: true });
+    const s = sprite(`b:${type}:1:0:${type === 'gate' ? 'c' : type === 'turret' || type === 'flamer' ? '0' : type === 'spotlight' || type === 'radio' || type === 'lab' ? '0' : ''}`, () => UB.Models.structure(type, 1, {}), { shadow: true });
     return s;
   };
   R.unitIcon = function (role, weapon) { return sprite(`s:${role}:${weapon}:0:1:0`, () => UB.Models.survivor(role, weapon, 0, 0).rotate(1)); };

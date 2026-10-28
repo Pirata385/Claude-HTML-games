@@ -11,7 +11,7 @@ const assert = require('assert');
 
 const ROOT = path.join(__dirname, '..');
 const SIM_FILES = [
-  'js/core/rng.js', 'js/core/util.js', 'js/data/defs.js',
+  'js/core/rng.js', 'js/core/util.js', 'js/core/i18n.js', 'js/i18n/pt.js', 'js/i18n/en.js', 'js/data/defs.js',
   'js/sim/world.js', 'js/sim/mapgen.js', 'js/sim/path.js', 'js/sim/spatial.js',
   'js/sim/economy.js', 'js/sim/buildings.js', 'js/sim/combat.js', 'js/sim/units.js',
   'js/sim/zombies.js', 'js/sim/waves.js', 'js/sim/explore.js', 'js/sim/objectives.js', 'js/sim/game.js',
@@ -20,7 +20,9 @@ const SIM_FILES = [
 
 function createContext() {
   const tests = [];
-  const ctx = vm.createContext({ console, assert, test: (name, fn) => tests.push({ name, fn }) });
+  // src: read-only access to the game's source files (for checks over the code itself).
+  const src = { read: (f) => fs.readFileSync(path.join(ROOT, f), 'utf8'), list: (dir) => fs.readdirSync(path.join(ROOT, dir)) };
+  const ctx = vm.createContext({ console, assert, src, test: (name, fn) => tests.push({ name, fn }) });
   for (const f of SIM_FILES) {
     vm.runInContext(fs.readFileSync(path.join(ROOT, f), 'utf8'), ctx, { filename: f });
   }

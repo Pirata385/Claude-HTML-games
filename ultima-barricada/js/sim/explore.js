@@ -2,7 +2,7 @@
 // blueprints, nests, supply crates, environmental hazards and the dawn world update.
 (function (UB) {
   'use strict';
-  const { POIS, ROLES, BAL, WEATHER, DIFFICULTY, BUILDINGS, F, T, RES_NAME, BLUEPRINTS } = UB.DEF;
+  const { POIS, ROLES, BAL, WEATHER, DIFFICULTY, BUILDINGS, F, T } = UB.DEF;
   const W = UB.World;
 
   function vision(S) {
@@ -49,14 +49,14 @@
         p.discovered = true;
         S.stats.discovered = (S.stats.discovered || 0) + 1;
         const def = POIS[p.type];
-        if (p.type !== 'house' && p.type !== 'ruin') UB.Game.msg(S, `Descoberto: ${def.name} (perigo ${'☠'.repeat(def.danger)}).`, 'info', p.tx + p.w / 2, p.ty + p.h / 2);
+        if (p.type !== 'house' && p.type !== 'ruin') UB.Game.msg(S, 'msg.discovered', { p: p.type, skulls: '\u2620'.repeat(def.danger) }, 'info', p.tx + p.w / 2, p.ty + p.h / 2);
       }
     }
   }
 
   function recruit(S, role, x, y, why) {
     if (UB.Eco.population(S) >= UB.Eco.beds(S)) {
-      UB.Game.msg(S, `${why}, mas não há camas livres na base. Construa um abrigo.`, 'warn', x, y);
+      UB.Game.msg(S, 'msg.noBedsFor', { why }, 'warn', x, y);
       return null;
     }
     const p = W.nearestOpen(S, x, y, false, 4) || { x: Math.floor(x), y: Math.floor(y) };
@@ -66,7 +66,7 @@
     S.stats.recruits++;
     UB.Eco.changeMorale(S, 4);
     UB.Units.order(S, u, { type: 'return' });
-    UB.Game.msg(S, `${why}: ${u.name} (${ROLES[u.role].name}) se juntou ao grupo!`, 'good', u.x, u.y);
+    UB.Game.msg(S, 'msg.joined', { why, name: u.name, role: u.role }, 'good', u.x, u.y);
     UB.Game.fx(S, { t: 'recruit', x: u.x, y: u.y });
     return u;
   }
@@ -79,9 +79,9 @@
     const got = [];
     if (def.recruitCamp) {
       const free = UB.Eco.beds(S) - UB.Eco.population(S);
-      if (free <= 0) { UB.Game.msg(S, 'Os sobreviventes do acampamento só virão se houver camas livres.', 'warn', p.ex, p.ey); return; }
+      if (free <= 0) { UB.Game.msg(S, 'msg.campNeedsBeds', null, 'warn', p.ex, p.ey); return; }
       const n = Math.min(free, S.rng.int(1, 2));
-      for (let k = 0; k < n; k++) recruit(S, null, p.ex + 0.5, p.ey + 0.5, 'Resgate no acampamento');
+      for (let k = 0; k < n; k++) recruit(S, null, p.ex + 0.5, p.ey + 0.5, { k: 'why.camp' });
     }
     p.searchesLeft--;
     p.looted++;
@@ -91,19 +91,19 @@
       const amt = Math.min(room(), S.rng.int(mn, mx));
       if (amt <= 0) continue;
       u.pack[res] = (u.pack[res] || 0) + amt;
-      got.push(`+${amt} ${RES_NAME[res].toLowerCase()}`);
+      got.push({ res, n: amt });
     }
     if (def.special === 'police') {
-      if (!S.unlocked.bp_turret) { S.unlocked.bp_turret = true; got.push(BLUEPRINTS.bp_turret); }
-      else if (!S.unlocked.bp_radio) { S.unlocked.bp_radio = true; got.push(BLUEPRINTS.bp_radio); }
-      if (S.rng.chance(0.5)) { S.armory.shotgun++; got.push('uma espingarda'); }
-      if (S.rng.chance(0.3)) { S.armory.rifle++; got.push('um rifle'); }
+      if (!S.unlocked.bp_turret) { S.unlocked.bp_turret = true; got.push({ bp: 'bp_turret' }); }
+      else if (!S.unlocked.bp_radio) { S.unlocked.bp_radio = true; got.push({ bp: 'bp_radio' }); }
+      if (S.rng.chance(0.5)) { S.armory.shotgun++; got.push({ weapon: 'shotgun' }); }
+      if (S.rng.chance(0.3)) { S.armory.rifle++; got.push({ weapon: 'rifle' }); }
     } else if (def.special && !S.unlocked[def.special]) {
       S.unlocked[def.special] = true;
-      got.push(BLUEPRINTS[def.special]);
+      got.push({ bp: def.special });
     }
-    if (def.recruit && S.rng.chance(def.recruit)) recruit(S, 'medic', p.ex + 0.5, p.ey + 0.5, 'Sobrevivente encontrado no hospital');
-    UB.Game.msg(S, `${def.name}: ${got.length ? got.join(', ') : 'nada útil desta vez'}.${p.searchesLeft <= 0 ? ' Esgotado.' : ''}`, got.length ? 'good' : 'info', p.ex, p.ey);
+    if (def.recruit && S.rng.chance(def.recruit)) recruit(S, 'medic', p.ex + 0.5, p.ey + 0.5, { k: 'why.hospital' });
+    UB.Game.msg(S, 'msg.loot', { p: p.type, items: got, last: p.searchesLeft <= 0 }, got.length ? 'good' : 'info', p.ex, p.ey);
     UB.Game.fx(S, { t: 'loot', x: p.ex + 0.5, y: p.ey + 0.5 });
     UB.Combat.noise(S, p.ex + 0.5, p.ey + 0.5, 7);
     // Searching can disturb what is still inside.
@@ -114,7 +114,7 @@
         const z = UB.Zombies.spawn(S, S.rng.weighted(pairs), p.ex + 0.5 + S.rng.range(-0.4, 0.4), p.ey + 0.5 + S.rng.range(-0.4, 0.4), { state: 'chase', home: p.id });
         z.target = u.id;
       }
-      UB.Game.msg(S, `Algo se mexe dentro do(a) ${def.name.toLowerCase()}!`, 'bad', p.ex, p.ey);
+      UB.Game.msg(S, 'msg.ambush', { p: p.type }, 'bad', p.ex, p.ey);
     }
   }
 
@@ -134,7 +134,7 @@
     delete S.drops[i];
     const x = i % S.map.w, y = (i / S.map.w) | 0;
     W.setFeature(S, x, y, F.NONE, 0);
-    UB.Game.msg(S, `${u.name} abriu uma caixa: ${Object.entries(items).map(([k, v]) => `+${v} ${RES_NAME[k].toLowerCase()}`).join(', ')}.`, 'good', x, y);
+    UB.Game.msg(S, 'msg.crate', { name: u.name, items: Object.entries(items).map(([res, n]) => ({ res, n })) }, 'good', x, y);
     UB.Game.fx(S, { t: 'loot', x: x + 0.5, y: y + 0.5 });
   }
 
@@ -156,13 +156,13 @@
     // Weather for the new day.
     const old = S.weather;
     S.weather = S.rng.weighted([['clear', 60], ['rain', 25], ['fog', 15]]);
-    if (S.weather !== old) UB.Game.msg(S, `Clima: ${WEATHER[S.weather].name}.${S.weather === 'rain' ? ' A chuva abafa o barulho.' : S.weather === 'fog' ? ' A neblina reduz a visão.' : ''}`, 'info');
+    if (S.weather !== old) UB.Game.msg(S, 'msg.weather.' + S.weather, null, 'info');
     // The dead keep coming: the wandering population recovers and grows.
     const diff = DIFFICULTY[S.difficulty] || DIFFICULTY.normal;
     const target = Math.min(BAL.wanderMax, (BAL.wanderBase + BAL.wanderPerDay * S.day) * diff.wander);
     const roaming = S.zombies.filter((z) => !z.dead && z.state !== 'horde' && z.state !== 'attackS').length;
     const add = Math.min(40, Math.max(0, Math.round(target - roaming)));
-    const types = [['walker', 10], ['runner', S.day >= 3 ? 3 : 0], ['bloater', S.day >= 6 ? 1 : 0], ['armored', S.day >= 10 ? 1 : 0]];
+    const types = [['walker', 10], ['crawler', S.day >= 2 ? 2 : 0], ['runner', S.day >= 3 ? 3 : 0], ['bloater', S.day >= 6 ? 1 : 0], ['armored', S.day >= 10 ? 1 : 0]];
     for (let k = 0; k < add && S.zombies.length < BAL.maxZombies; k++) {
       const p = randomFarTile(S, 30, 999, true);
       if (p) UB.Zombies.spawn(S, S.rng.weighted(types), p.x + 0.5, p.y + 0.5, { state: 'wander' });
@@ -172,14 +172,14 @@
       if (b.dead || b.built < 1 || b.type !== 'radio' || !b.powered) continue;
       if (!S.rng.chance(UB.Buildings.lvl(b).chance)) continue;
       const sp = S.rng.pick(S.spawns);
-      if (sp) recruit(S, null, sp.x + 0.5, sp.y + 0.5, `Um refugiado respondeu ao rádio pelo ${sp.side}`);
+      if (sp) recruit(S, null, sp.x + 0.5, sp.y + 0.5, { k: 'why.radio', p: { side: sp.side } });
     }
     // Supply drop somewhere out there.
     if (S.rng.chance(0.35)) {
       const p = randomFarTile(S, 16, 42, false);
       if (p) {
         W.setFeature(S, p.x, p.y, F.CRATE, 3);
-        UB.Game.msg(S, 'Um avião soltou suprimentos! Veja o sinal no mapa.', 'good', p.x, p.y);
+        UB.Game.msg(S, 'msg.airdrop', null, 'good', p.x, p.y);
         UB.Game.fx(S, { t: 'drop', x: p.x + 0.5, y: p.y + 0.5 });
         S.dropMark = { x: p.x, y: p.y, day: S.day };
       }
@@ -210,7 +210,7 @@
         const hz = (t.hazard || 0) + (f && f.hazard ? f.hazard : 0);
         if (hz) {
           UB.Combat.hurtUnit(S, u, hz * 0.5, null, true);
-          if (S.tick - (u.hazMsgT || -9999) > 200) { u.hazMsgT = S.tick; UB.Game.msg(S, `${u.name} está se ferindo no(a) ${(f && f.hazard ? f.name : t.name).toLowerCase()}!`, 'warn', u.x, u.y); }
+          if (S.tick - (u.hazMsgT || -9999) > 200) { u.hazMsgT = S.tick; UB.Game.msg(S, 'msg.hazard', { name: u.name, h: f && f.hazard ? 'feat.' + f.key : 'ter.' + t.key }, 'warn', u.x, u.y); }
         }
         if (S.map.feature[i] === F.CRATE) pickupCrate(S, u, i);
       }

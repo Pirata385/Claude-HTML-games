@@ -1,8 +1,9 @@
 // Player structures: placement on the grid, construction, upgrades, repairs, demolition,
-// damage and the behaviour of defensive buildings (turrets, spike traps, radio, lights).
+// damage and the behaviour of defensive buildings (turrets, flamethrowers, spike traps, mines,
+// radio, lights).
 (function (UB) {
   'use strict';
-  const { BUILDINGS, BAL, FEATURE, T, CRAFT, BLUEPRINTS } = UB.DEF;
+  const { BUILDINGS, BAL, FEATURE, T, CRAFT } = UB.DEF;
   const W = UB.World;
   const lvl = (b) => BUILDINGS[b.type].levels[b.level - 1];
   const done = (b) => b.built >= 1 && !b.dead;
@@ -30,19 +31,19 @@
   // Returns {ok, reason} for placing a structure with its top-left tile at (tx, ty).
   function canPlace(S, type, tx, ty) {
     const def = BUILDINGS[type];
-    if (!def || type === 'hq') return { ok: false, reason: 'Inválido' };
-    if (def.requires && !S.unlocked[def.requires]) return { ok: false, reason: `Requer ${BLUEPRINTS[def.requires]} (explore)` };
+    if (!def || type === 'hq') return { ok: false, reason: 'reason.invalid' };
+    if (def.requires && !S.unlocked[def.requires]) return { ok: false, reason: 'reason.needsBlueprint', rp: { bp: def.requires } };
     const n = def.size;
     for (let y = ty; y < ty + n; y++) for (let x = tx; x < tx + n; x++) {
-      if (!W.inb(S, x, y)) return { ok: false, reason: 'Fora do mapa' };
+      if (!W.inb(S, x, y)) return { ok: false, reason: 'reason.offMap' };
       const i = W.idx(S, x, y);
-      if (!S.map.explored[i]) return { ok: false, reason: 'Área inexplorada' };
-      if (!W.inTerritory(S, x + 0.5, y + 0.5)) return { ok: false, reason: 'Fora do território (melhore o QG)' };
-      if (S._occ[i]) return { ok: false, reason: 'Espaço ocupado' };
+      if (!S.map.explored[i]) return { ok: false, reason: 'reason.unexplored' };
+      if (!W.inTerritory(S, x + 0.5, y + 0.5)) return { ok: false, reason: 'reason.outsideTerritory' };
+      if (S._occ[i]) return { ok: false, reason: 'reason.occupied' };
       const t = S.map.terrain[i];
-      if (t === T.WATER || t === T.TOXIC) return { ok: false, reason: 'Terreno impróprio' };
+      if (t === T.WATER || t === T.TOXIC) return { ok: false, reason: 'reason.badTerrain' };
       const f = FEATURE[S.map.feature[i]];
-      if (f && (f.block || f.hazard)) return { ok: false, reason: `Remova: ${f.name.toLowerCase()}` };
+      if (f && (f.block || f.hazard)) return { ok: false, reason: 'reason.clearFirst', rp: { f: f.key } };
     }
     return { ok: true };
   }
@@ -51,7 +52,7 @@
     const chk = canPlace(S, type, tx, ty);
     if (!chk.ok) return chk;
     const cost = BUILDINGS[type].levels[0].cost;
-    if (!UB.Eco.spend(S, cost)) return { ok: false, reason: `Falta ${UB.Eco.missing(S, cost)}` };
+    if (!UB.Eco.spend(S, cost)) return { ok: false, reason: 'reason.missing', rp: { items: UB.Eco.missing(S, cost) } };
     const n = BUILDINGS[type].size;
     for (let y = ty; y < ty + n; y++) for (let x = tx; x < tx + n; x++) {
       const i = W.idx(S, x, y);
@@ -77,13 +78,13 @@
     return out;
   }
   function placeLine(S, type, x0, y0, x1, y1) {
-    let placed = 0, reason = '';
+    let placed = 0, reason = '', rp;
     for (const [x, y] of lineTiles(x0, y0, x1, y1)) {
       const r = place(S, type, x, y);
       if (r.ok) placed++;
-      else if (!reason && r.reason !== 'Espaço ocupado') reason = r.reason;
+      else if (!reason && r.reason !== 'reason.occupied') { reason = r.reason; rp = r.rp; }
     }
-    return { ok: placed > 0, placed, reason };
+    return { ok: placed > 0, placed, reason: placed ? '' : reason, rp };
   }
 
   const buildNeed = (b) => Math.max(20, b.maxHp * 0.2);
@@ -118,7 +119,7 @@
     S.stats.built++;
     UB.Game.fx(S, { t: 'built', id: b.id, x: b.tx + b.w / 2, y: b.ty + b.h / 2 });
     UB.Eco.updatePower(S);
-    if (BUILDINGS[b.type].size > 1) UB.Game.msg(S, `${BUILDINGS[b.type].name} concluído(a).`, 'good', b.tx + b.w / 2, b.ty + b.h / 2);
+    if (BUILDINGS[b.type].size > 1) UB.Game.msg(S, 'msg.built', { b: b.type }, 'good', b.tx + b.w / 2, b.ty + b.h / 2);
   }
 
   // Repairs `amount` hit points, paying a share of the build cost. Returns false when broke.
@@ -143,10 +144,10 @@
 
   function upgrade(S, b) {
     const def = BUILDINGS[b.type];
-    if (!done(b)) return { ok: false, reason: 'Ainda em construção' };
-    if (b.level >= def.levels.length) return { ok: false, reason: 'Nível máximo' };
+    if (!done(b)) return { ok: false, reason: 'reason.underConstruction' };
+    if (b.level >= def.levels.length) return { ok: false, reason: 'reason.maxLevel' };
     const next = def.levels[b.level];
-    if (!UB.Eco.spend(S, next.cost)) return { ok: false, reason: `Falta ${UB.Eco.missing(S, next.cost)}` };
+    if (!UB.Eco.spend(S, next.cost)) return { ok: false, reason: 'reason.missing', rp: { items: UB.Eco.missing(S, next.cost) } };
     const old = lvl(b);
     b.level++;
     b.maxHp = next.hp;
@@ -159,7 +160,7 @@
   }
 
   function demolish(S, b) {
-    if (b.type === 'hq') return { ok: false, reason: 'O QG não pode ser demolido' };
+    if (b.type === 'hq') return { ok: false, reason: 'reason.hqNoDemolish' };
     UB.Eco.refund(S, b.invested, b.built >= 1 ? BAL.demolishRefund : 1);
     remove(S, b);
     return { ok: true };
@@ -192,12 +193,12 @@
     b.hitT = S.time;
     if (b.type !== 'hq' && b.hp < b.maxHp * 0.35 && !b.warned) {
       b.warned = true;
-      UB.Game.msg(S, `${BUILDINGS[b.type].name} muito danificado(a)!`, 'warn', b.tx + b.w / 2, b.ty + b.h / 2);
+      UB.Game.msg(S, 'msg.damaged', { b: b.type }, 'warn', b.tx + b.w / 2, b.ty + b.h / 2);
     }
     if (b.hp > b.maxHp * 0.5) b.warned = false;
     if (b.type === 'hq' && b.hp < b.maxHp * 0.5 && S.tick - (S._hqMsgT || -9999) > 300) {
       S._hqMsgT = S.tick;
-      UB.Game.msg(S, 'O QG está sob ataque!', 'bad', b.tx + 1.5, b.ty + 1.5);
+      UB.Game.msg(S, 'msg.hqAttacked', null, 'bad', b.tx + 1.5, b.ty + 1.5);
     }
     if (b.hp <= 0) destroy(S, b);
   }
@@ -207,9 +208,9 @@
     UB.Game.fx(S, { t: 'collapse', x: c.x, y: c.y, w: b.w });
     if (b.type === 'hq') {
       S.over = S.over || 'hq';
-      UB.Game.msg(S, 'O QG caiu. A base foi tomada.', 'bad', c.x, c.y);
+      UB.Game.msg(S, 'msg.hqFell', null, 'bad', c.x, c.y);
     } else if (b.built >= 1) {
-      UB.Game.msg(S, `${BUILDINGS[b.type].name} destruído(a)!`, 'bad', c.x, c.y);
+      UB.Game.msg(S, 'msg.destroyed', { b: b.type }, 'bad', c.x, c.y);
     }
     evict(S, b, 15);
     remove(S, b);
@@ -217,10 +218,10 @@
 
   function craft(S, b, item) {
     const c = CRAFT[item];
-    if (!c || b.type !== 'workshop') return { ok: false, reason: 'Inválido' };
-    if (b.level < c.level) return { ok: false, reason: `Requer Oficina nível ${c.level}` };
-    if (b.craft) return { ok: false, reason: 'A oficina já está fabricando' };
-    if (!UB.Eco.spend(S, c.cost)) return { ok: false, reason: `Falta ${UB.Eco.missing(S, c.cost)}` };
+    if (!c || b.type !== 'workshop') return { ok: false, reason: 'reason.invalid' };
+    if (b.level < c.level) return { ok: false, reason: 'reason.needsWorkshop', rp: { lvl: c.level } };
+    if (b.craft) return { ok: false, reason: 'reason.workshopBusy' };
+    if (!UB.Eco.spend(S, c.cost)) return { ok: false, reason: 'reason.missing', rp: { items: UB.Eco.missing(S, c.cost) } };
     b.craft = { item, t: c.time };
     return { ok: true };
   }
@@ -266,15 +267,55 @@
         b.dir = UB.Units.facingOf(tgt.x - c.x, tgt.y - c.y);
         if (b.cd > 0) continue;
         if (S.res.ammo <= 0) {
-          if (S.tick - (S._ammoMsgT || -9999) > 400) { S._ammoMsgT = S.tick; UB.Game.msg(S, 'Metralhadoras sem munição!', 'bad', c.x, c.y); }
+          if (S.tick - (S._ammoMsgT || -9999) > 400) { S._ammoMsgT = S.tick; UB.Game.msg(S, 'msg.turretsNoAmmo', null, 'bad', c.x, c.y); }
           continue;
         }
         S.res.ammo -= 1;
         b.cd = L.cd;
-        const hit = S.rng.chance(0.8);
+        const hit = S.rng.chance(0.8 * (1 - (UB.DEF.ZOMBIES[tgt.type].evade || 0)));
         UB.Game.fx(S, { t: 'shot', w: 'turret', x0: c.x, y0: c.y, x1: tgt.x, y1: tgt.y, hit, z: 0.9 });
         if (hit) UB.Combat.hurtZombie(S, tgt, L.dmg, null, false);
         if (S.tick % 10 === 0) UB.Combat.noise(S, c.x, c.y, 9);
+      } else if (b.type === 'flamer') {
+        b.cd -= dt;
+        if (!b.on) continue;
+        const c = center(b);
+        const tgt = S._zgrid.nearest(c.x, c.y, L.range, (z) => !z.dead);
+        if (!tgt) continue;
+        b.dir = UB.Units.facingOf(tgt.x - c.x, tgt.y - c.y);
+        if (b.cd > 0) continue;
+        if (S.res.fuel <= 0) {
+          if (S.tick - (S._flameMsgT || -9999) > 400) { S._flameMsgT = S.tick; UB.Game.msg(S, 'msg.flamerNoFuel', null, 'bad', c.x, c.y); }
+          continue;
+        }
+        b.cd = L.cd;
+        b.shots = (b.shots || 0) + 1;
+        if (b.shots >= L.fuelEvery) { b.shots = 0; S.res.fuel -= 1; }
+        // A cone of fire toward the target: burns through armour, hits up to 8 zombies.
+        const ang = Math.atan2(tgt.y - c.y, tgt.x - c.x);
+        let hits = 0;
+        S._zgrid.query(c.x, c.y, L.range, (z, d2) => {
+          if (z.dead || hits >= 8) return false;
+          let da = Math.atan2(z.y - c.y, z.x - c.x) - ang;
+          while (da > Math.PI) da -= Math.PI * 2;
+          while (da < -Math.PI) da += Math.PI * 2;
+          if (Math.abs(da) < 0.5 || d2 < 0.8) { hits++; UB.Combat.hurtZombie(S, z, L.dmg, null, true); }
+          return false;
+        });
+        UB.Game.fx(S, { t: 'flame', x: c.x, y: c.y, a: ang, r: L.range });
+        if (S.tick % 10 === 0) UB.Combat.noise(S, c.x, c.y, 6);
+      } else if (b.type === 'mine') {
+        // Single use, spares your structures. It waits for a crowd: it blows when three zombies
+        // are in its blast, when a big one steps on it, or when one stays on it for two seconds.
+        const c = center(b);
+        const on = S._zgrid.nearest(c.x, c.y, 0.6, (z) => !z.dead);
+        let crowd = 0;
+        S._zgrid.query(c.x, c.y, L.r * 0.7, (z) => { if (!z.dead) crowd++; return false; });
+        b.fuse = on ? b.fuse || S.time + 2 : 0;
+        if (crowd >= 3 || (on && UB.DEF.ZOMBIES[on.type].hp >= 200) || (b.fuse && S.time >= b.fuse)) {
+          remove(S, b);
+          UB.Combat.explode(S, c.x, c.y, L.r, L.dmg, null, { structures: false });
+        }
       } else if (b.type === 'spikes') {
         const c = center(b);
         S._zgrid.query(c.x, c.y, 0.75, (z) => {

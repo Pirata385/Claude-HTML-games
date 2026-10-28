@@ -5,6 +5,7 @@
   'use strict';
   const { TIME, BUILDINGS, POIS } = UB.DEF;
   const W = UB.World;
+  const tr = UB.I18N.t;
   const $ = (id) => document.getElementById(id);
 
   const App = {
@@ -24,7 +25,7 @@
       if (at) UB.Render.ring(at.x, at.y, c.type === 'attack' || c.type === 'amove' ? '#ff6a5a' : '#7dff9a');
       UB.Audio.play('order');
     } else if (r && r.reason) {
-      UB.HUD.toast(r.reason);
+      UB.HUD.toast(UB.I18N.reason(r));
       UB.Audio.play('error');
     }
     return r || { ok: false };
@@ -110,7 +111,7 @@
         const at = { x: b.tx + b.w / 2, y: b.ty + b.h / 2 };
         if (b.built < 1) { cmd({ type: 'repair', ids, id: b.id }, at); return; }
         if (b.type === 'tower' || (b.type === 'hq' && us.some((u) => !UB.Units.packTotal(u) && !u.carry))) { cmd({ type: 'garrison', ids, id: b.id }, at); return; }
-        if (b.type === 'garden' || b.type === 'workshop') { cmd({ type: 'work', ids, id: b.id }, at); return; }
+        if (BUILDINGS[b.type].levels[0].workers) { cmd({ type: 'work', ids, id: b.id }, at); return; }
         if (b.type === 'infirmary') { cmd({ type: 'patient', ids, id: b.id }, at); return; }
         if (b.hp < b.maxHp) { cmd({ type: 'repair', ids, id: b.id }, at); return; }
         if (b.type === 'hq' || b.type === 'depot') { cmd({ type: 'return', ids }, at); return; }
@@ -137,13 +138,13 @@
     if (n === 'idle') { App.action('idle'); return; }
     n = +n;
     if (set) {
-      if (!App.sel.units.length) { UB.HUD.toast('Selecione sobreviventes primeiro.'); return; }
+      if (!App.sel.units.length) { UB.HUD.toast(tr('toast.selectFirst')); return; }
       cmd({ type: 'squad', ids: App.sel.units, n });
-      UB.HUD.toast(`Esquadrão ${n} definido (${App.sel.units.length}).`);
+      UB.HUD.toast(tr('toast.squadSet', { n, count: App.sel.units.length }));
       return;
     }
     const ids = (S.squads[n] || []).filter((id) => W.get(S, id));
-    if (!ids.length) { UB.HUD.toast(`Esquadrão ${n} vazio. Selecione e use Ctrl+${n} ou o botão “Esq. ${n}”.`); return; }
+    if (!ids.length) { UB.HUD.toast(tr('toast.squadEmpty', { n })); return; }
     const now = performance.now();
     App.selectUnits(ids);
     if (lastSquad.n === n && now - lastSquad.t < 400) { const u = W.get(S, ids[0]); App.focus(u.x, u.y); }
@@ -155,7 +156,7 @@
   App.startBuild = function (type) {
     const S = App.S;
     const def = BUILDINGS[type];
-    if (def.requires && !S.unlocked[def.requires]) { UB.HUD.toast(`Requer ${UB.DEF.BLUEPRINTS[def.requires]} — encontre explorando.`); UB.Audio.play('error'); return; }
+    if (def.requires && !S.unlocked[def.requires]) { UB.HUD.toast(tr('ui.locked', { bp: def.requires })); UB.Audio.play('error'); return; }
     App.mode = { kind: 'build', type, size: def.size, line: false, tiles: [], a: null, b: null };
     App.clearSel();
     UB.HUD.showBuild(false);
@@ -171,9 +172,9 @@
     if (!m || m.kind !== 'build') { UB.HUD.place(null); return; }
     const def = BUILDINGS[m.type];
     const n = m.tiles.filter((t) => t.ok).length;
-    let info = `<b>${def.name}</b> ${UB.HUD.costHTML(App.S, def.levels[0].cost)}`;
-    if (m.line) info += ` · ${m.a ? (m.b ? `${n} peças` : 'toque no fim da linha') : 'toque no início da linha'}`;
-    else if (!App.touch) info += def.size === 1 ? ' · arraste para fazer uma linha · botão direito cancela' : ' · Shift mantém o modo · botão direito cancela';
+    let info = `<b>${UB.I18N.name('bld', m.type)}</b> ${UB.HUD.costHTML(App.S, def.levels[0].cost)}`;
+    if (m.line) info += ` · ${m.a ? (m.b ? tr('place.pieces', { n }) : tr('place.lineEnd')) : tr('place.lineStart')}`;
+    else if (!App.touch) info += ' · ' + tr(def.size === 1 ? 'place.dragLine' : 'place.shiftKeep');
     UB.HUD.place(info);
     $('placeOk').hidden = !App.touch;
     $('placeLine').hidden = !App.touch || def.size > 1;
@@ -269,12 +270,12 @@
     const b = App.sel.bld ? W.get(S, App.sel.bld) : null;
     if (act !== 'demolish') App.confirmDemolish = 0;
     switch (act) {
-      case 'amove': if (ids.length) { App.mode = { kind: 'amove' }; UB.HUD.toast(App.touch ? 'Toque no destino.' : 'Clique no destino.'); } break;
+      case 'amove': if (ids.length) { App.mode = { kind: 'amove' }; UB.HUD.toast(tr(App.touch ? 'toast.pickDestTouch' : 'toast.pickDestMouse')); } break;
       case 'hold': cmd({ type: 'hold', ids }); break;
       case 'return': cmd({ type: 'return', ids }); break;
       case 'release': cmd({ type: 'release', ids }); break;
       case 'exit': cmd({ type: 'release', ids }); break;
-      case 'setSquad': cmd({ type: 'squad', ids, n: +arg }); UB.HUD.toast(`Esquadrão ${arg} definido.`); break;
+      case 'setSquad': cmd({ type: 'squad', ids, n: +arg }); UB.HUD.toast(tr('toast.squadSet', { n: arg, count: ids.length })); break;
       case 'deselect': App.clearSel(); break;
       case 'equip': if (ids.length === 1) cmd({ type: 'equip', id: ids[0], weapon: arg }); break;
       case 'pickUnit': App.selectUnits([+arg]); break;
@@ -290,21 +291,21 @@
       case 'assign': {
         if (!b) break;
         const u = freeUnits((x) => x.role !== 'scout')[0] || freeUnits()[0];
-        if (!u) { UB.HUD.toast('Ninguém livre na base.'); break; }
+        if (!u) { UB.HUD.toast(tr('toast.nobodyFree')); break; }
         cmd({ type: 'work', ids: [u.id], id: b.id });
         break;
       }
       case 'garrisonSel': {
         if (!b) break;
         let us = ids.length ? ids : freeUnits((x) => x.ammo > 0 && x.weapon !== 'bat').map((u) => u.id);
-        if (!us.length) { UB.HUD.toast('Ninguém livre com munição.'); break; }
+        if (!us.length) { UB.HUD.toast(tr('toast.nobodyAmmo')); break; }
         cmd({ type: 'garrison', ids: us, id: b.id });
         break;
       }
       case 'patientSel': {
         if (!b) break;
         const us = S.units.filter((u) => !u.dead && !u.inside && (u.infected >= 0 || u.hp < u.maxHp * 0.7)).sort((p, q) => (q.infected >= 0) - (p.infected >= 0) || p.hp - q.hp).map((u) => u.id);
-        if (!us.length) { UB.HUD.toast('Ninguém precisa de tratamento.'); break; }
+        if (!us.length) { UB.HUD.toast(tr('toast.nobodyHurt')); break; }
         cmd({ type: 'patient', ids: us, id: b.id });
         break;
       }
@@ -316,7 +317,7 @@
         const f = App.sel.feat;
         if (!f) break;
         const us = freeUnits().slice(0, 2).map((u) => u.id);
-        if (!us.length) { UB.HUD.toast('Ninguém livre na base.'); break; }
+        if (!us.length) { UB.HUD.toast(tr('toast.nobodyFree')); break; }
         cmd({ type: 'gather', ids: us, x: f.x, y: f.y }, { x: f.x + 0.5, y: f.y + 0.5 });
         break;
       }
@@ -324,7 +325,7 @@
       case 'selectAll': App.squadButton('all'); break;
       case 'idle': {
         const list = S.units.filter((u) => !u.dead && !u.inside && !u.order && (!u.task || u.task.type === 'idle'));
-        if (!list.length) { UB.HUD.toast('Ninguém ocioso.'); break; }
+        if (!list.length) { UB.HUD.toast(tr('toast.nobodyIdle')); break; }
         App.lastIdle = (App.lastIdle + 1) % list.length;
         const u = list[App.lastIdle];
         App.selectUnits([u.id]);
@@ -346,7 +347,7 @@
   };
 
   // ---- time controls & menus ---------------------------------------------------------------------------
-  App.togglePause = function () { App.paused = !App.paused; UB.HUD.toast(App.paused ? 'Pausado — dê ordens com calma.' : 'Continuando.', 1200); };
+  App.togglePause = function () { App.paused = !App.paused; UB.HUD.toast(tr(App.paused ? 'toast.paused' : 'toast.resumed'), 1200); };
   App.setSpeed = function (s) { App.speed = s; };
   App.cycleSpeed = function () { App.speed = App.speed >= 3 ? 1 : App.speed + 1; };
   App.menuOpen = () => UB.Menus.isOpen();
@@ -356,7 +357,7 @@
     App.prevPaused = App.paused;
     App.paused = true;
     const S = App.S;
-    $('pauseInfo').textContent = `Dia ${S.day} · ${S.nights} noites · seed “${S.seed}”`;
+    $('pauseInfo').textContent = tr('pause.info', { day: S.day, nights: S.nights, seed: S.seed });
     UB.Menus.show('scrPause');
   };
   App.resumeFromMenu = function () { App.paused = App.prevPaused; };
@@ -384,14 +385,18 @@
       const S = UB.Game.newGame({ seed, difficulty });
       enterGame(S);
       UB.Menus.autosave();
+      if (!App.settings.tutorialDone) UB.Tutorial.start();
     }, 30);
   };
   App.loadState = function (str) {
     const S = UB.Game.deserialize(str);
+    // A save made mid-tutorial must not keep the clock held.
+    if (S.tutorial) UB.Game.command(S, { type: 'tutorial', on: false });
     enterGame(S);
-    UB.HUD.toast(`Dia ${S.day} carregado.`);
+    UB.HUD.toast(tr('toast.loadedDay', { day: S.day }));
   };
   App.quitToMenu = function () {
+    UB.Tutorial.stop(false);
     if (App.S && !App.S.over) UB.Menus.autosave();
     App.inGame = false;
     App.S = null;
@@ -411,27 +416,27 @@
     $('fps').hidden = !s.fps;
   };
 
-  // ---- tips for new players --------------------------------------------------------------------------------
+  // ---- tips for new players (texts are tip.<id> in the dictionaries) ---------------------------------------
   const has = (S, type, pred) => S.buildings.some((b) => b.type === type && !b.dead && (!pred || pred(b)));
   const TIPS = [
-    { id: 'select', when: (S) => S.day === 1 && S.clock.t > 27, text: () => (App.touch ? 'Toque num sobrevivente e depois numa árvore para coletar madeira, ou num carro para sucata.' : 'Clique num sobrevivente e use o botão direito numa árvore (madeira) ou num carro (sucata).') },
-    { id: 'tower', when: (S) => S.day === 1 && S.clock.t > 75 && !has(S, 'tower'), text: () => 'Abra Construir (B) e erga uma Torre de vigia perto do QG: à noite, quem estiver livre sobe nela e atira de lá.' },
-    { id: 'loot', when: (S) => S.day === 1 && S.clock.t > 135, text: () => 'Casas por perto guardam comida e munição. Mande alguém saquear — mas o barulho atrai zumbis.' },
-    { id: 'food', when: (S) => S.day === 1 && S.clock.t > 200 && !has(S, 'garden'), text: () => 'Cada pessoa come 3 por dia. Uma Horta com trabalhador produz comida; a Oficina transforma sucata em munição.' },
-    { id: 'dusk', when: (S) => S.clock.phase === 'dusk', text: () => 'A horda segue até o QG e ataca o que estiver no caminho; barricadas e muros criam gargalos. Quem está livre defende sozinho. Espaço pausa.' },
-    { id: 'ammo', when: (S) => S.res.ammo < 30 && !has(S, 'workshop', (b) => b.workers.length), text: () => 'Munição acabando! Coloque alguém para trabalhar numa Oficina (sucata → munição).' },
-    { id: 'bite', when: (S) => S.units.some((u) => u.infected >= 0), text: () => 'Mordidas viram infecção: leve a vítima a um médico ou à enfermaria, com remédios, antes que o tempo acabe.' },
-    { id: 'beds', when: (S) => S.day >= 2 && UB.Eco.population(S) >= UB.Eco.beds(S) && !has(S, 'shelter'), text: () => 'Sem camas livres ninguém novo entra no grupo. Construa um Abrigo para poder resgatar sobreviventes.' },
-    { id: 'explore', when: (S) => S.day >= 2 && S.clock.t > 40, text: () => 'Locais perigosos (☠☠☠☠) dão as melhores recompensas: projetos, armas e remédios. Vá em grupo e volte antes do anoitecer.' },
-    { id: 'squads', when: (S) => S.day >= 2 && S.clock.t > 120, text: () => 'Defina esquadrões (botões Esq. 1–4 ou Ctrl+número) para mandar grupos rapidamente.' },
+    { id: 'select', when: (S) => S.day === 1 && S.clock.t > 27, key: () => (App.touch ? 'tip.selectTouch' : 'tip.selectMouse') },
+    { id: 'tower', when: (S) => S.day === 1 && S.clock.t > 75 && !has(S, 'tower') },
+    { id: 'loot', when: (S) => S.day === 1 && S.clock.t > 135 },
+    { id: 'food', when: (S) => S.day === 1 && S.clock.t > 200 && !has(S, 'garden') },
+    { id: 'dusk', when: (S) => S.clock.phase === 'dusk' },
+    { id: 'ammo', when: (S) => S.res.ammo < 30 && !has(S, 'workshop', (b) => b.workers.length) },
+    { id: 'bite', when: (S) => S.units.some((u) => u.infected >= 0) },
+    { id: 'beds', when: (S) => S.day >= 2 && UB.Eco.population(S) >= UB.Eco.beds(S) && !has(S, 'shelter') },
+    { id: 'explore', when: (S) => S.day >= 2 && S.clock.t > 40 },
+    { id: 'squads', when: (S) => S.day >= 2 && S.clock.t > 120 },
   ];
   function checkTips(S) {
-    if (!App.settings.tips || S.over) return;
+    if (!App.settings.tips || S.over || UB.Tutorial.active) return;
     S.tips = S.tips || {};
     for (const t of TIPS) {
       if (S.tips[t.id] || !t.when(S)) continue;
       S.tips[t.id] = true;
-      UB.HUD.alert({ text: '💡 ' + t.text(), kind: 'info', tip: true, ttl: 16000 });
+      UB.HUD.alert({ text: '💡 ' + tr(t.key ? t.key() : 'tip.' + t.id), kind: 'info', tip: true, ttl: 16000 });
       break;
     }
   }
@@ -482,6 +487,7 @@
       }
       if (S._autosave) { S._autosave = false; UB.Menus.autosave(); }
       if (now - (App.tipT || 0) > 1000) { App.tipT = now; checkTips(S); }
+      if (now - (App.tutT || 0) > 150) { App.tutT = now; UB.Tutorial.update(S); }
       if (S.over && !App.overAt) App.overAt = now;
       if (App.overAt && now - App.overAt > 2500 && !UB.Menus.isOpen()) { App.overAt = Infinity; UB.Menus.gameOver(S); }
     } else if (App.demo) {
@@ -493,16 +499,18 @@
       if (now - sndT > 500) { sndT = now; UB.Audio.ambience(null, false); }
     }
     frames++;
-    if (now - fpsT > 1000) { $('fps').textContent = `${frames} fps · ${S ? S.zombies.length : 0} zumbis`; frames = 0; fpsT = now; }
+    if (now - fpsT > 1000) { $('fps').textContent = tr('hud.fps', { f: frames, z: S ? S.zombies.length : 0 }); frames = 0; fpsT = now; }
     requestAnimationFrame(loop);
   }
 
   // ---- boot ----------------------------------------------------------------------------------------------------
   function boot() {
     App.settings = UB.Menus.loadSettings();
+    UB.I18N.set(App.settings.lang || UB.I18N.detect(navigator.languages && navigator.languages.length ? navigator.languages : [navigator.language]));
     UB.Render.init($('view'));
     UB.HUD.init();
     UB.Input.init($('view'));
+    UB.Tutorial.init();
     UB.Menus.init();
     if (window.innerWidth <= 720 || window.innerHeight <= 520) $('miniWrap').classList.add('closed');
     App.applySettings();

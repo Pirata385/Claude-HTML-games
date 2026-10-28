@@ -11,48 +11,50 @@
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
-<canvas id="view" aria-label="Mapa do jogo"></canvas>
+<canvas id="view" aria-label="Mapa do jogo" data-i18n-aria="hud.canvas"></canvas>
 
 <!-- ============================== HUD ============================== -->
 <div id="hud" hidden>
   <header id="top">
     <div id="res" class="res-bar"></div>
-    <div id="clock" class="chip" title="Hora do dia. A horda chega ao anoitecer.">
+    <div id="clock" class="chip" title="Hora do dia. A horda chega ao anoitecer." data-i18n-title="hud.clockTitle">
       <canvas id="clockIcon" width="9" height="9"></canvas>
       <div class="clock-text"><b id="clockDay">Dia 1</b><span id="clockTime">06:00</span><span id="clockWx"></span></div>
       <div class="clock-bar"><div id="clockFill"></div></div>
     </div>
     <div id="stats" class="chips">
-      <span class="chip" id="stPop" title="Sobreviventes / camas"></span>
-      <span class="chip" id="stMorale" title="Moral: abaixo de 30 o trabalho rende menos; abaixo de 15 há deserções."></span>
-      <span class="chip" id="stPower" title="Energia usada / gerada"></span>
-      <span class="chip" id="stScore" title="Pontuação"></span>
+      <span class="chip" id="stPop" title="Sobreviventes / camas" data-i18n-title="hud.popTitle"></span>
+      <span class="chip" id="stMorale" title="Moral: abaixo de 30 o trabalho rende menos; abaixo de 15 há deserções." data-i18n-title="hud.moraleTitle"></span>
+      <span class="chip" id="stPower" title="Energia usada / gerada" data-i18n-title="hud.powerTitle"></span>
+      <span class="chip" id="stScore" title="Pontuação" data-i18n-title="hud.scoreTitle"></span>
     </div>
     <div id="ctrl" class="chips">
-      <button id="btnPause" class="icon-btn" title="Pausar (Espaço)" aria-label="Pausar">❚❚</button>
-      <button id="btnSpeed" class="icon-btn" title="Velocidade (+/−)" aria-label="Velocidade">1×</button>
-      <button id="btnMenu" class="icon-btn" title="Menu (Esc)" aria-label="Menu">☰</button>
+      <button id="btnPause" class="icon-btn" title="Pausar (Espaço)" aria-label="Pausar" data-i18n-title="hud.pause" data-i18n-aria="hud.pauseAria">❚❚</button>
+      <button id="btnSpeed" class="icon-btn" title="Velocidade (+/−)" aria-label="Velocidade" data-i18n-title="hud.speed" data-i18n-aria="hud.speedAria">1×</button>
+      <button id="btnMenu" class="icon-btn" title="Menu (Esc)" aria-label="Menu" data-i18n-title="hud.menu">☰</button>
     </div>
   </header>
   <div id="banner" hidden></div>
   <div id="alerts" aria-live="polite"></div>
   <div id="squads"></div>
   <div id="miniWrap">
-    <button id="miniToggle" class="icon-btn" title="Mapa" aria-label="Mostrar mapa">◇</button>
+    <button id="miniToggle" class="icon-btn" title="Mapa" aria-label="Mostrar mapa" data-i18n-title="hud.map" data-i18n-aria="hud.mapAria">◇</button>
     <div id="miniBox"><canvas id="minimap" width="128" height="128"></canvas></div>
   </div>
   <div id="buildMenu" hidden>
-    <div class="bm-head"><b>Construir</b><span class="muted" id="bmHint">Escolha uma estrutura e toque no mapa.</span><button class="icon-btn" id="bmClose" aria-label="Fechar">✕</button></div>
+    <div class="bm-head"><b data-i18n="build.title">Construir</b><span class="muted" id="bmHint" data-i18n="build.hint">Escolha uma estrutura e toque no mapa.</span><button class="icon-btn" id="bmClose" aria-label="Fechar" data-i18n-aria="ui.close">✕</button></div>
     <div id="bmTabs"></div>
+    <div id="bmInfo"></div>
     <div id="bmGrid"></div>
   </div>
   <div id="placeBar" hidden>
     <span id="placeInfo"></span>
-    <button id="placeLine" class="btn">Linha</button>
-    <button id="placeOk" class="btn good">✓ Construir</button>
+    <button id="placeLine" class="btn" data-i18n="place.line">Linha</button>
+    <button id="placeOk" class="btn good" data-i18n="place.ok">✓ Construir</button>
     <button id="placeCancel" class="btn">✕</button>
   </div>
   <section id="panel"></section>
+  <div id="tutorial" hidden></div>
   <div id="tooltip" hidden></div>
   <div id="fps" hidden></div>
 </div>
@@ -61,40 +63,42 @@
 <div id="screens">
   <div id="loading" class="screen show">
     <div class="card center">
-      <h1 class="title">ÚLTIMA<br>BARRICADA</h1>
-      <p class="muted">Preparando o fim do mundo…</p>
+      <h1 class="title" data-i18n-html="menu.title">ÚLTIMA<br>BARRICADA</h1>
+      <p class="muted" data-i18n="menu.loading">Preparando o fim do mundo…</p>
       <div class="progress"><div id="loadFill"></div></div>
     </div>
   </div>
   <div id="scrMain" class="screen">
     <div class="card menu">
-      <h1 class="title">ÚLTIMA<br>BARRICADA</h1>
-      <p class="subtitle">RTS de sobrevivência zumbi</p>
+      <h1 class="title" data-i18n-html="menu.title">ÚLTIMA<br>BARRICADA</h1>
+      <p class="subtitle" data-i18n="menu.subtitle">RTS de sobrevivência zumbi</p>
+      <div class="lang-toggle" id="mLang" role="group" aria-label="Idioma" data-i18n-aria="menu.language"></div>
       <nav class="menu-list">
-        <button class="btn big" id="mContinue" hidden>Continuar</button>
-        <button class="btn big good" id="mNew">Novo jogo</button>
-        <button class="btn big" id="mLoad">Carregar</button>
-        <button class="btn big" id="mHelp">Como jogar</button>
-        <button class="btn big" id="mRecords">Recordes</button>
-        <button class="btn big" id="mSettings">Configurações</button>
-        <a class="btn big ghost" href="../index.html">← Voltar aos jogos</a>
+        <button class="btn big" id="mContinue" hidden data-i18n="menu.continue">Continuar</button>
+        <button class="btn big good" id="mNew" data-i18n="menu.new">Novo jogo</button>
+        <button class="btn big" id="mLoad" data-i18n="menu.load">Carregar</button>
+        <button class="btn big" id="mHelp" data-i18n="menu.help">Como jogar</button>
+        <button class="btn big" id="mRecords" data-i18n="menu.records">Recordes</button>
+        <button class="btn big" id="mSettings" data-i18n="menu.settings">Configurações</button>
+        <button class="btn big" id="mFull">Tela cheia</button>
+        <a class="btn big ghost" href="../index.html" data-i18n="menu.backGames">← Voltar aos jogos</a>
       </nav>
     </div>
   </div>
   <div id="scrNew" class="screen">
     <div class="card">
-      <h2>Novo jogo</h2>
-      <label class="field">Seed do mapa
-        <span class="row"><input id="nSeed" type="text" maxlength="24" autocomplete="off" spellcheck="false"><button class="btn" id="nRandom" title="Seed aleatória">🎲</button></span>
+      <h2 data-i18n="new.title">Novo jogo</h2>
+      <label class="field"><span data-i18n="new.seed">Seed do mapa</span>
+        <span class="row"><input id="nSeed" type="text" maxlength="24" autocomplete="off" spellcheck="false"><button class="btn" id="nRandom" title="Seed aleatória" data-i18n-title="new.randomSeed">🎲</button></span>
       </label>
-      <p class="muted small">A mesma seed sempre gera o mesmo mapa.</p>
-      <div class="field">Dificuldade
+      <p class="muted small" data-i18n="new.seedHint">A mesma seed sempre gera o mesmo mapa.</p>
+      <div class="field"><span data-i18n="new.difficulty">Dificuldade</span>
         <div class="seg" id="nDiff"></div>
       </div>
       <p class="muted small" id="nDiffDesc"></p>
       <div class="row end">
-        <button class="btn" data-back>Voltar</button>
-        <button class="btn good" id="nStart">Começar</button>
+        <button class="btn" data-back data-i18n="ui.back">Voltar</button>
+        <button class="btn good" id="nStart" data-i18n="new.start">Começar</button>
       </div>
     </div>
   </div>
@@ -103,54 +107,55 @@
       <h2 id="slotTitle">Carregar</h2>
       <div id="slotList"></div>
       <div class="row end">
-        <label class="btn" title="Importar um arquivo de save">Importar<input type="file" id="importFile" accept=".json,application/json" hidden></label>
-        <button class="btn" data-back>Voltar</button>
+        <label class="btn" title="Importar um arquivo de save" data-i18n-title="slots.importTitle"><span data-i18n="slots.import">Importar</span><input type="file" id="importFile" accept=".json,application/json" hidden></label>
+        <button class="btn" data-back data-i18n="ui.back">Voltar</button>
       </div>
     </div>
   </div>
   <div id="scrSettings" class="screen">
     <div class="card">
-      <h2>Configurações</h2>
+      <h2 data-i18n="set.title">Configurações</h2>
       <div id="setList"></div>
-      <div class="row end"><button class="btn" data-back>Voltar</button></div>
+      <div class="row end"><button class="btn" data-back data-i18n="ui.back">Voltar</button></div>
     </div>
   </div>
   <div id="scrHelp" class="screen">
     <div class="card wide scroll">
-      <h2>Como jogar</h2>
+      <h2 data-i18n="menu.help">Como jogar</h2>
       <div id="helpBody"></div>
-      <div class="row end"><button class="btn" data-back>Voltar</button></div>
+      <div class="row end"><button class="btn" data-back data-i18n="ui.back">Voltar</button></div>
     </div>
   </div>
   <div id="scrRecords" class="screen">
     <div class="card">
-      <h2>Recordes</h2>
+      <h2 data-i18n="rec.title">Recordes</h2>
       <div id="recList"></div>
-      <div class="row end"><button class="btn" data-back>Voltar</button></div>
+      <div class="row end"><button class="btn" data-back data-i18n="ui.back">Voltar</button></div>
     </div>
   </div>
   <div id="scrPause" class="screen">
     <div class="card menu">
-      <h2>Pausado</h2>
+      <h2 data-i18n="pause.title">Pausado</h2>
       <p class="muted small" id="pauseInfo"></p>
       <nav class="menu-list">
-        <button class="btn big good" id="pResume">Continuar</button>
-        <button class="btn big" id="pSave">Salvar</button>
-        <button class="btn big" id="pLoad">Carregar</button>
-        <button class="btn big" id="pSettings">Configurações</button>
-        <button class="btn big" id="pHelp">Como jogar</button>
-        <button class="btn big ghost" id="pQuit">Sair para o menu</button>
+        <button class="btn big good" id="pResume" data-i18n="pause.resume">Continuar</button>
+        <button class="btn big" id="pSave" data-i18n="pause.save">Salvar</button>
+        <button class="btn big" id="pLoad" data-i18n="menu.load">Carregar</button>
+        <button class="btn big" id="pSettings" data-i18n="menu.settings">Configurações</button>
+        <button class="btn big" id="pHelp" data-i18n="menu.help">Como jogar</button>
+        <button class="btn big" id="pFull">Tela cheia</button>
+        <button class="btn big ghost" id="pQuit" data-i18n="pause.quit">Sair para o menu</button>
       </nav>
     </div>
   </div>
   <div id="scrOver" class="screen">
     <div class="card wide scroll">
-      <h2 id="overTitle">Fim de jogo</h2>
+      <h2 id="overTitle" data-i18n="over.title">Fim de jogo</h2>
       <div id="overBody"></div>
       <div class="row end">
-        <button class="btn" id="oMenu">Menu</button>
-        <button class="btn" id="oSame">Mesma seed</button>
-        <button class="btn good" id="oNew">Nova partida</button>
+        <button class="btn" id="oMenu" data-i18n="over.menu">Menu</button>
+        <button class="btn" id="oSame" data-i18n="over.same">Mesma seed</button>
+        <button class="btn good" id="oNew" data-i18n="over.new">Nova partida</button>
       </div>
     </div>
   </div>
@@ -159,6 +164,9 @@
 
 <script src="js/core/rng.js"></script>
 <script src="js/core/util.js"></script>
+<script src="js/core/i18n.js"></script>
+<script src="js/i18n/pt.js"></script>
+<script src="js/i18n/en.js"></script>
 <script src="js/data/defs.js"></script>
 <script src="js/sim/world.js"></script>
 <script src="js/sim/mapgen.js"></script>
@@ -181,6 +189,7 @@
 <script src="js/ui/hud.js"></script>
 <script src="js/ui/input.js"></script>
 <script src="js/ui/menus.js"></script>
+<script src="js/ui/tutorial.js"></script>
 <script src="js/main.js"></script>
 </body>
 </html>

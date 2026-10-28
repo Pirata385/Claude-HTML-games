@@ -79,6 +79,8 @@
   /* Battle HUD */
   #hud { position: fixed; left: 0; right: 0; top: 0; display: flex; gap: 8px; align-items: center; padding: max(10px, env(safe-area-inset-top)) 10px 0; pointer-events: none; }
   #hud > * { pointer-events: auto; }
+  #rotCtl { display: flex; gap: 6px; }
+  #rotCtl .btn { padding: 4px 5px; }
   #hudInfo { flex: 1; text-align: center; font-family: 'Silkscreen', monospace; font-size: clamp(10px, 2.8vw, 15px); color: var(--bone); text-shadow: 2px 2px 0 var(--ink); pointer-events: none;
     white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
   #panel { position: fixed; left: 50%; bottom: max(10px, env(safe-area-inset-bottom)); transform: translateX(-50%); width: min(620px, calc(100% - 24px));
@@ -128,6 +130,8 @@
 <div id="hud" class="hidden">
   <button class="btn small" id="menuBtn">Menu</button>
   <div id="hudInfo"></div>
+  <span id="rotCtl"><button class="btn small" id="rotL" aria-label="Girar tabuleiro" title="Girar (Q)"></button>
+    <button class="btn small" id="rotR" aria-label="Girar tabuleiro" title="Girar (E)"></button></span>
   <button class="btn small" id="viewBtn"></button>
   <span class="pill" id="hudGold"></span>
 </div>
@@ -157,7 +161,7 @@ const store = {
   set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) { /* storage unavailable */ } },
   del(k) { try { localStorage.removeItem(k); } catch (e) { /* storage unavailable */ } },
 };
-const prefs = Object.assign({ muted: false, view: 'iso', marks: true }, store.get(PREF_KEY) || {});
+const prefs = Object.assign({ muted: false, view: 'iso', rot: 1 }, store.get(PREF_KEY) || {});
 const savePrefs = () => store.set(PREF_KEY, prefs);
 
 const ACTS = {
@@ -236,20 +240,34 @@ const SPRITES = {
     '.kk.........', '.kbkkkkkkk..', '.kbkaaaaaak.', '.kbkaaakaak.', '.kbkaakaaak.', '.kbkaaaaaak.',
     '.kbkkkkkkkk.', '.kbk........', '.kbk........', '.kbk........', '.kbk........', '.kkk........'] },
 };
+SPRITES.rotl = { pal: { a: '#cdc4b4' }, rows: [
+  '..k.........', '.kak........', 'kaaakkkkk...', '.kaaaaaaakk.', '..kakkkkkaak', '...k....kkak',
+  '.........kak', '.........kak', '...kk...kaak', '...kakkkaak.', '....kaaaak..', '.....kkkk...'] };
+SPRITES.rotr = { from: 'rotl', mirror: true };
 SPRITES.boss = SPRITES.crown;
-// Top-view piece markers (7x7).
-const GLYPHS = {
-  P: ['.......', '..kkk..', '.kaaak.', '..kak..', '.kaaak.', 'kaaaaak', 'kkkkkkk'],
-  R: ['kakakak', 'kaaaaak', '.kaaak.', '.kaaak.', '.kaaak.', 'kaaaaak', 'kkkkkkk'],
-  B: ['...k...', '..kak..', '.kakak.', '.kaaak.', '..kak..', '.kaaak.', 'kkkkkkk'],
-  N: ['..kk...', '.kaakk.', 'kaaaaak', '.kkaaak', '..kaak.', '.kaaak.', 'kkkkkkk'],
-  Q: ['k.k.k.k', 'kakakak', '.kaaak.', '..kak..', '.kaaak.', 'kaaaaak', 'kkkkkkk'],
-  K: ['...k...', '..kak..', '...k...', '.kaaak.', '..kak..', '.kaaak.', 'kkkkkkk'],
+// Top-view piece tokens: 14x14 silhouettes in the style of the classic chess symbols.
+const TOKEN_GLYPHS = {
+  P: ['..............', '..............', '.....kkkk.....', '....kaaaak....', '....kaaaak....', '.....kaak.....', '....kkaakk....',
+      '.....kaak.....', '.....kaak.....', '....kaaaak....', '...kaaaaaak...', '..kaaaaaaaak..', '..kkkkkkkkkk..', '..............'],
+  R: ['..............', '..kkk.kk.kkk..', '..kakkaakkak..', '..kaaaaaaaak..', '...kaaaaaak...', '...kkkkkkkk...', '...kaaaaaak...',
+      '...kaaaaaak...', '...kaaaaaak...', '...kaaaaaak...', '..kaaaaaaaak..', '.kaaaaaaaaaak.', '.kkkkkkkkkkkk.', '..............'],
+  B: ['......kk......', '.....kaak.....', '......kk......', '.....kaak.....', '....kaakak....', '....kakaak....', '....kaaaak....',
+      '.....kaak.....', '.....kaak.....', '....kaaaak....', '...kaaaaaak...', '..kaaaaaaaak..', '..kkkkkkkkkk..', '..............'],
+  N: ['..............', '.....kk.k.....', '....kaakak....', '...kaaaaaak...', '..kaakaaaaak..', '.kaaaaaaaaak..', '.kaakkaaaaak..',
+      '..kk.kaaaaak..', '....kaaaaak...', '...kaaaaaak...', '...kaaaaaak...', '..kaaaaaaaak..', '..kkkkkkkkkk..', '..............'],
+  Q: ['..k...kk...k..', '.kak.kaak.kak.', '..k...kk...k..', '.kak..kk..kak.', '.kaakkaakkaak.', '..kaaaaaaaak..', '...kaaaaaak...',
+      '....kaaaak....', '....kaaaak....', '...kaaaaaak...', '..kaaaaaaaak..', '.kaaaaaaaaaak.', '.kkkkkkkkkkkk.', '..............'],
+  K: ['......kk......', '.....kaak.....', '....kkaakk....', '....kaaaak....', '....kkaakk....', '..kkk.kk.kkk..', '.kaaakaakaaak.',
+      '.kaaaaaaaaaak.', '..kaaaaaaaak..', '...kaaaaaak...', '...kaaaaaak...', '..kaaaaaaaak..', '..kkkkkkkkkk..', '..............'],
 };
 function spriteCanvas(id) {
   let def = SPRITES[id];
   let rows = def.rows;
-  if (def.from) { rows = SPRITES[def.from].rows.slice(); if (def.flip) rows.reverse(); }
+  if (def.from) {
+    rows = SPRITES[def.from].rows.slice();
+    if (def.flip) rows.reverse();
+    if (def.mirror) rows = rows.map((r) => r.padEnd(12, '.').split('').reverse().join(''));
+  }
   const pal = Object.assign({ k: '#0b090d' }, def.from ? SPRITES[def.from].pal : {}, def.pal);
   const c = document.createElement('canvas'); c.width = 12; c.height = 12;
   const g = c.getContext('2d');
@@ -428,39 +446,57 @@ function mat(kind) {
   else if (kind.startsWith('mut:')) m = new THREE.MeshLambertMaterial({ color: MUT_COLOR[kind.slice(4)] || '#888', emissive: MUT_COLOR[kind.slice(4)] || '#888', emissiveIntensity: 0.25 });
   return (MATS[kind] = m);
 }
-const glyphTex = {};
-function markerTexture(type, side) {
-  const k = type + side;
-  if (glyphTex[k]) return glyphTex[k];
-  const c = document.createElement('canvas'); c.width = 11; c.height = 11;
+// Round pixel token that stands in for a piece in the top view.
+const tokenTex = {};
+function tokenTexture(p) {
+  const key = [p.type, p.side, p.muts.join(','), p.shield ? 1 : 0].join('|');
+  if (tokenTex[key]) return tokenTex[key];
+  const N = 22, c = document.createElement('canvas'); c.width = c.height = N;
   const g = c.getContext('2d');
-  g.fillStyle = '#0b090d'; g.fillRect(0, 0, 11, 11);
-  g.fillStyle = side === 'w' ? '#2c3a39' : '#3e1c20'; g.fillRect(1, 1, 9, 9);
-  GLYPHS[type].forEach((r, y) => { for (let x = 0; x < 7; x++) { if (r[x] === '.') continue; g.fillStyle = r[x] === 'k' ? '#0b090d' : side === 'w' ? '#d8cfbd' : '#c26a5e'; g.fillRect(x + 2, y + 2, 1, 1); } });
-  const t = new THREE.CanvasTexture(c); t.magFilter = t.minFilter = THREE.NearestFilter; t.generateMipmaps = false; t.colorSpace = THREE.SRGBColorSpace;
-  return (glyphTex[k] = t);
+  const w = p.side === 'w';
+  const fill = w ? '#cdc4b4' : '#2b2730', rim = p.shield ? '#9cb4c2' : w ? '#8f8676' : '#7e3838';
+  for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) {
+    const d = Math.hypot(x + 0.5 - N / 2, y + 0.5 - N / 2);
+    if (d > N / 2) continue;
+    g.fillStyle = d > N / 2 - 1 ? '#0b090d' : d > N / 2 - (p.shield ? 3 : 2) ? rim : fill;
+    g.fillRect(x, y, 1, 1);
+  }
+  const ink = w ? '#1d1a20' : '#0b090d', body = w ? '#1d1a20' : '#c26a5e';
+  TOKEN_GLYPHS[p.type].forEach((r, y) => {
+    for (let x = 0; x < 14; x++) { if (r[x] === 'k' || r[x] === 'a') { g.fillStyle = r[x] === 'k' ? ink : body; g.fillRect(x + 4, y + 4, 1, 1); } }
+  });
+  const muts = p.muts.filter((m) => m !== 'shield');
+  muts.forEach((m, i) => {
+    const x = Math.round(N / 2 - muts.length * 2 + i * 4), y = N - 5;
+    g.fillStyle = '#0b090d'; g.fillRect(x, y, 4, 4);
+    g.fillStyle = MUT_COLOR[m] || '#888'; g.fillRect(x + 1, y + 1, 2, 2);
+  });
+  const t = new THREE.CanvasTexture(c);
+  t.magFilter = t.minFilter = THREE.NearestFilter; t.generateMipmaps = false; t.colorSpace = THREE.SRGBColorSpace;
+  return (tokenTex[key] = t);
 }
-function buildPiece(p, withMarker = true) {
+const tokenGeo = new THREE.PlaneGeometry(0.9, 0.9).rotateX(-Math.PI / 2);
+function buildPiece(p, withToken = true) {
   const g = new THREE.Group();
+  const model = new THREE.Group(); model.name = 'model'; g.add(model);
   const body = mat(p.side);
   for (const part of pieceParts(p.type)) {
     const m = new THREE.Mesh(part.geo, part.dark ? mat('dark') : body);
-    if (part.turn) m.rotation.y = p.side === 'w' ? Math.PI / 2 : -Math.PI / 2;
+    if (part.turn || (p.type === 'N' && part.dark)) m.rotation.y = p.side === 'w' ? Math.PI / 2 : -Math.PI / 2;
     m.castShadow = true; m.receiveShadow = true;
-    g.add(m);
+    model.add(m);
   }
-  if (p.type === 'N') g.children.forEach((m) => { if (m.material === mat('dark')) m.rotation.y = p.side === 'w' ? Math.PI / 2 : -Math.PI / 2; });
   p.muts.filter((m) => m !== 'shield').forEach((m, i) => {
     const band = new THREE.Mesh(new THREE.CylinderGeometry(0.345, 0.345, 0.03, 14, 1, true), mat('mut:' + m));
-    band.position.y = 0.025 + i * 0.04; g.add(band);
+    band.position.y = 0.025 + i * 0.04; model.add(band);
   });
   if (p.shield) {
     const s = new THREE.Mesh(new THREE.IcosahedronGeometry(0.5, 1), mat('shield'));
-    s.scale.set(1, 1.15, 1); s.position.y = 0.48; s.name = 'shield'; g.add(s);
+    s.scale.set(1, 1.15, 1); s.position.y = 0.48; s.name = 'shield'; model.add(s);
   }
-  if (withMarker) {
-    const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: markerTexture(p.type, p.side), depthTest: false, transparent: true }));
-    sp.scale.set(0.42, 0.42, 1); sp.position.y = 1.25; sp.renderOrder = 5; sp.name = 'marker'; g.add(sp);
+  if (withToken) {
+    const t = new THREE.Mesh(tokenGeo, new THREE.MeshBasicMaterial({ map: tokenTexture(p), alphaTest: 0.5 }));
+    t.position.y = 0.06; t.name = 'token'; t.visible = false; g.add(t);
   }
   return g;
 }
@@ -672,15 +708,20 @@ function updateParticles(now, dt) {
 // ================= Camera =================
 const ISO_EL = 0.64, TOP_EL = 1.555, R = 22;
 let viewBlend = prefs.view === 'top' ? 1 : 0, shake = 0, flash = 0;
+let camAz = prefs.view === 'top' ? 0 : (prefs.rot % 8) * Math.PI / 4;
 const tmpV = new THREE.Vector3();
 function frameCamera(now, dt) {
   const target = prefs.view === 'top' && !bt.demo ? 1 : 0;
   viewBlend += (target - viewBlend) * Math.min(1, dt * 8);
   if (Math.abs(target - viewBlend) < 0.002) viewBlend = target;
   const b = viewBlend;
-  let az = (Math.PI / 4) * (1 - b);
+  // Iso view: one of 8 compass angles (prefs.rot * 45 deg); top view always has the player at the bottom.
+  const targetAz = target === 1 ? 0 : (prefs.rot % 8) * Math.PI / 4;
+  let d = targetAz - camAz;
+  d = ((d + Math.PI) % (Math.PI * 2) + Math.PI * 2) % (Math.PI * 2) - Math.PI;
+  camAz = Math.abs(d) < 0.001 ? targetAz : camAz + d * Math.min(1, dt * 9);
+  const az = bt.demo ? Math.PI / 4 + Math.sin(now / 6000) * 0.55 : camAz;
   const el = ISO_EL + (TOP_EL - ISO_EL) * b;
-  if (bt.demo) az += Math.sin(now / 6000) * 0.55;
   camera.position.set(Math.sin(az) * Math.cos(el) * R, Math.sin(el) * R, Math.cos(az) * Math.cos(el) * R);
   camera.up.set(0, 1, 0); camera.lookAt(0, 0, 0); camera.updateMatrixWorld(true);
   const hw = bt.st.w / 2 + 0.35, hh = bt.st.h / 2 + 0.35;
@@ -707,7 +748,14 @@ function toScreen(x, y, h = 0) {
   tmpV.set(wx(x), h, wz(y)).project(camera);
   return [(tmpV.x + 1) / 2 * W, (1 - tmpV.y) / 2 * H];
 }
-function updateViewBtn() { $('#viewBtn').textContent = prefs.view === 'top' ? 'Vista: cima' : 'Vista: iso'; }
+function updateViewBtn() {
+  $('#viewBtn').textContent = prefs.view === 'top' ? 'Vista: cima' : 'Vista: iso';
+  $('#rotCtl').classList.toggle('hidden', prefs.view === 'top');
+}
+function rotate(dir) {
+  if (!bt || bt.demo || prefs.view === 'top') return;
+  prefs.rot = ((prefs.rot + dir) % 8 + 8) % 8; savePrefs(); sfx('click');
+}
 function toggleView() { prefs.view = prefs.view === 'top' ? 'iso' : 'top'; savePrefs(); updateViewBtn(); sfx('click'); }
 
 // ================= Views & animation =================
@@ -754,7 +802,7 @@ function stepViews(now) {
   }
 }
 function syncPieceObjects(now) {
-  const showMarks = prefs.marks && viewBlend > 0.6;
+  const flat = viewBlend > 0.5;
   for (const id in views) {
     const v = views[id], p = v.p;
     const k = [p.type, p.side, p.muts.join(','), p.shield ? 1 : 0].join('|');
@@ -766,10 +814,18 @@ function syncPieceObjects(now) {
     const lifted = !v.anim && (bt.sel === p.id || (bt.selArmy != null && p.armyId === bt.selArmy));
     if (lifted) z += 0.14 + 0.03 * Math.sin(now / 160);
     if (v.land) { const t = (now - v.land) / 220; if (t < 1) { const d = Math.sin(t * Math.PI) * (1 - t); sy = 1 - 0.14 * d; sxz = 1 + 0.08 * d; } }
-    v.group.position.set(wx(v.x), z, wz(v.y));
-    v.group.scale.set(sxz, sy, sxz);
+    const model = v.group.getObjectByName('model'), token = v.group.getObjectByName('token');
+    model.visible = !flat; token.visible = flat;
+    if (flat) {
+      // Seen from above a hop reads as the token growing for a moment.
+      const k = 1 + Math.max(0, v.z) * 0.5 + (lifted ? 0.1 : 0);
+      v.group.position.set(wx(v.x), Math.min(0, v.z), wz(v.y));
+      v.group.scale.set(k, 1, k);
+    } else {
+      v.group.position.set(wx(v.x), z, wz(v.y));
+      v.group.scale.set(sxz, sy, sxz);
+    }
     const sh = v.group.getObjectByName('shield'); if (sh) sh.rotation.y = now / 1400;
-    const mk = v.group.getObjectByName('marker'); if (mk) mk.visible = showMarks;
   }
   dying = dying.filter((d) => {
     const t = (now - d.t0) / 420;
@@ -789,7 +845,6 @@ function killView(id, fromView) {
   let dx = 0, dz = 1;
   if (fromView) { dx = Math.sign(v.x - fromView.x); dz = Math.sign(v.y - fromView.y); if (!dx && !dz) dz = 1; }
   if (v.group) {
-    v.group.getObjectByName('marker') && (v.group.getObjectByName('marker').visible = false);
     dying.push({ group: v.group, t0: performance.now(), dx, dz, cols: v.p.side === 'w' ? ['#c9bea6', '#8f8676', '#5e584e'] : ['#3b3741', '#24212a', '#5a2a2a'] });
   }
   delete views[id];
@@ -973,7 +1028,8 @@ function showHelp() {
       <li><b>Morte permanente:</b> peças capturadas deixam o exército para sempre. Peões promovidos continuam promovidos.</li>
       <li><b>Mutações</b> aparecem como anéis coloridos na base das peças. <b>Amuletos</b> mudam as regras a seu favor.</li>
       <li><b>Controles:</b> toque numa peça para ver os lances e toque no destino. Toque numa peça inimiga para ver o alcance dela. Antes da luta, reposicione as tropas nas fileiras marcadas.</li>
-      <li><b>Vista:</b> o botão "Vista" (ou a tecla V) alterna entre a câmera isométrica e a vista de cima. Na vista de cima, marcadores mostram o tipo de cada peça.</li>
+      <li><b>Vista:</b> o botão "Vista" (ou a tecla V) alterna entre a câmera isométrica e a vista de cima. Na vista de cima cada peça vira uma ficha com o seu desenho.</li>
+      <li><b>Girar:</b> na vista isométrica, os botões de seta (ou Q e E, ou arrastar o dedo para o lado) giram o tabuleiro em 8 ângulos: de frente, de trás, dos lados e das diagonais.</li>
     </ul>
     <button class="btn main" data-act="closeModal">Entendi</button>`);
   wire(modal);
@@ -1426,7 +1482,6 @@ function showMenu() {
     ${run ? '<button class="btn" data-act="armyView">Exército</button>' : ''}
     <button class="btn" data-act="help">Como jogar</button>
     <button class="btn" data-act="view">${prefs.view === 'top' ? 'Vista: de cima' : 'Vista: isométrica'}</button>
-    <button class="btn" data-act="marks">${prefs.marks ? 'Marcadores (vista de cima): ligados' : 'Marcadores (vista de cima): desligados'}</button>
     <button class="btn" data-act="mute">${prefs.muted ? 'Som: desligado' : 'Som: ligado'}</button>
     <button class="btn danger" data-act="abandon">Abandonar jornada</button>
     <a class="btn" href="../index.html">Menu de jogos</a>`);
@@ -1442,7 +1497,6 @@ const ACTIONS = {
   closeModal: () => closeModal(),
   mute: (arg, el) => { prefs.muted = !prefs.muted; savePrefs(); el.textContent = prefs.muted ? 'Som: desligado' : 'Som: ligado'; },
   view: (arg, el) => { toggleView(); el.textContent = prefs.view === 'top' ? 'Vista: de cima' : 'Vista: isométrica'; },
-  marks: (arg, el) => { prefs.marks = !prefs.marks; savePrefs(); el.textContent = prefs.marks ? 'Marcadores (vista de cima): ligados' : 'Marcadores (vista de cima): desligados'; },
   pickKing: (i) => newRun(+i),
   enter: (id) => enterNode(id),
   menu: () => showMenu(),
@@ -1504,15 +1558,19 @@ const ACTIONS = {
 };
 $('#menuBtn').onclick = () => { sfx('click'); showMenu(); };
 $('#viewBtn').onclick = () => toggleView();
+$('#rotL').innerHTML = icon('rotl', 2); $('#rotR').innerHTML = icon('rotr', 2);
+$('#rotL').onclick = () => rotate(1);
+$('#rotR').onclick = () => rotate(-1);
 
 // ================= Input =================
 let pointer = null;
 cv.addEventListener('pointerdown', (e) => { pointer = { x: e.clientX, y: e.clientY }; });
 cv.addEventListener('pointerup', (e) => {
   if (!pointer) return;
-  const moved = Math.hypot(e.clientX - pointer.x, e.clientY - pointer.y);
+  const dx = e.clientX - pointer.x, dy = e.clientY - pointer.y;
   pointer = null;
-  if (moved < 14) onBoardTap(e.clientX, e.clientY);
+  if (Math.hypot(dx, dy) < 14) onBoardTap(e.clientX, e.clientY);
+  else if (Math.abs(dx) > 50 && Math.abs(dx) > Math.abs(dy) * 1.5) rotate(dx > 0 ? -1 : 1);
 });
 cv.addEventListener('pointermove', (e) => {
   if (!bt || bt.demo || e.pointerType !== 'mouse') return;
@@ -1521,11 +1579,14 @@ cv.addEventListener('pointermove', (e) => {
 window.addEventListener('keydown', (e) => {
   if (e.key === 'Escape' && !modal.classList.contains('hidden')) closeModal();
   if ((e.key === 'v' || e.key === 'V') && bt && !bt.demo) toggleView();
+  if (e.key === 'q' || e.key === 'Q') rotate(1);
+  if (e.key === 'e' || e.key === 'E') rotate(-1);
 });
 
 // Debug hook for automated checks.
 window.__pp = {
-  get run() { return run; }, get bt() { return bt; }, ACTIONS, onBoardTap, toggleView,
+  get run() { return run; }, get bt() { return bt; }, ACTIONS, onBoardTap, toggleView, rotate,
+  get views() { return views; }, get camAz() { return camAz; },
   toScreen: (x, y) => toScreen(x, y),
 };
 window.__ppReady = true;

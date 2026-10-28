@@ -95,7 +95,7 @@
 
   const BOSSES = {
     1: { name: 'Torre Viva', rule: 'summon', desc: 'Invoca um peão a cada 3 turnos.' },
-    2: { name: 'Rei Fantasma', rule: 'ghost', desc: 'O Rei anda como a Rainha, salta como o Cavalo e tem escudo.' },
+    2: { name: 'Rei Fantasma', rule: 'ghost', desc: 'O Rei também salta como o Cavalo e começa com escudo.' },
     3: { name: 'Rainha Vermelha', rule: 'twin', desc: 'Joga DUAS vezes por turno.' },
   };
 
@@ -436,7 +436,7 @@
     let boss = null;
     if (kind === 'boss') {
       boss = BOSSES[act];
-      if (boss.rule === 'ghost') army[0].muts.push('royal', 'leap', 'shield');
+      if (boss.rule === 'ghost') army[0].muts.push('leap', 'shield');
       if (boss.rule === 'summon') army.push({ type: 'R', muts: ['shield'] });
     }
     // Placement: king on the back row centre, pawns in front, the rest on the back row then overflow.

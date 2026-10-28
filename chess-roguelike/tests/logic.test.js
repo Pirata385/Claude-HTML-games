@@ -167,3 +167,18 @@ test('catalogue texts and icons contain no emoji', () => {
   for (const m of Object.values(C.MUTATIONS)) assert.match(m.icon, /^[a-z]+$/);
   for (const a of Object.values(C.AMULETS)) assert.match(a.icon, /^[a-z]+$/);
 });
+
+test('Act II boss king jumps like a knight but no longer slides like a queen', () => {
+  for (let seed = 1; seed < 20; seed++) {
+    const e = C.makeEncounter(seed, 2, 'boss', 'boss', 7);
+    const k = e.enemy.find((u) => u.type === 'K');
+    assert.deepStrictEqual(k.muts.slice().sort(), ['leap', 'shield']);
+    const st = C.makeBattle(e.w, e.h, e.tiles, e.enemy.map((u, i) => C.makePiece('b' + i, 'b', u.type, u.x, u.y, u.muts)));
+    st.turn = 'b';
+    const kp = st.pieces.find((p) => p.type === 'K');
+    for (const m of C.pieceMoves(st, kp)) {
+      const dx = Math.abs(m.x - kp.x), dy = Math.abs(m.y - kp.y);
+      assert.ok(Math.max(dx, dy) === 1 || (dx === 1 && dy === 2) || (dx === 2 && dy === 1), `${dx},${dy}`);
+    }
+  }
+});

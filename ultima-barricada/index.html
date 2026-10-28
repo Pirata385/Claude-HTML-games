@@ -1,0 +1,186 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#0d0f14">
+<title>Última Barricada</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Pixelify+Sans:wght@400;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<canvas id="view" aria-label="Mapa do jogo"></canvas>
+
+<!-- ============================== HUD ============================== -->
+<div id="hud" hidden>
+  <header id="top">
+    <div id="res" class="res-bar"></div>
+    <div id="clock" class="chip" title="Hora do dia. A horda chega ao anoitecer.">
+      <canvas id="clockIcon" width="9" height="9"></canvas>
+      <div class="clock-text"><b id="clockDay">Dia 1</b><span id="clockTime">06:00</span><span id="clockWx"></span></div>
+      <div class="clock-bar"><div id="clockFill"></div></div>
+    </div>
+    <div id="stats" class="chips">
+      <span class="chip" id="stPop" title="Sobreviventes / camas"></span>
+      <span class="chip" id="stMorale" title="Moral: abaixo de 30 o trabalho rende menos; abaixo de 15 há deserções."></span>
+      <span class="chip" id="stPower" title="Energia usada / gerada"></span>
+      <span class="chip" id="stScore" title="Pontuação"></span>
+    </div>
+    <div id="ctrl" class="chips">
+      <button id="btnPause" class="icon-btn" title="Pausar (Espaço)" aria-label="Pausar">❚❚</button>
+      <button id="btnSpeed" class="icon-btn" title="Velocidade (+/−)" aria-label="Velocidade">1×</button>
+      <button id="btnMenu" class="icon-btn" title="Menu (Esc)" aria-label="Menu">☰</button>
+    </div>
+  </header>
+  <div id="banner" hidden></div>
+  <div id="alerts" aria-live="polite"></div>
+  <div id="squads"></div>
+  <div id="miniWrap">
+    <button id="miniToggle" class="icon-btn" title="Mapa" aria-label="Mostrar mapa">◇</button>
+    <div id="miniBox"><canvas id="minimap" width="128" height="128"></canvas></div>
+  </div>
+  <div id="buildMenu" hidden>
+    <div class="bm-head"><b>Construir</b><span class="muted" id="bmHint">Escolha uma estrutura e toque no mapa.</span><button class="icon-btn" id="bmClose" aria-label="Fechar">✕</button></div>
+    <div id="bmTabs"></div>
+    <div id="bmGrid"></div>
+  </div>
+  <div id="placeBar" hidden>
+    <span id="placeInfo"></span>
+    <button id="placeLine" class="btn">Linha</button>
+    <button id="placeOk" class="btn good">✓ Construir</button>
+    <button id="placeCancel" class="btn">✕</button>
+  </div>
+  <section id="panel"></section>
+  <div id="tooltip" hidden></div>
+  <div id="fps" hidden></div>
+</div>
+
+<!-- ============================== MENUS ============================== -->
+<div id="screens">
+  <div id="loading" class="screen show">
+    <div class="card center">
+      <h1 class="title">ÚLTIMA<br>BARRICADA</h1>
+      <p class="muted">Preparando o fim do mundo…</p>
+      <div class="progress"><div id="loadFill"></div></div>
+    </div>
+  </div>
+  <div id="scrMain" class="screen">
+    <div class="card menu">
+      <h1 class="title">ÚLTIMA<br>BARRICADA</h1>
+      <p class="subtitle">RTS de sobrevivência zumbi</p>
+      <nav class="menu-list">
+        <button class="btn big" id="mContinue" hidden>Continuar</button>
+        <button class="btn big good" id="mNew">Novo jogo</button>
+        <button class="btn big" id="mLoad">Carregar</button>
+        <button class="btn big" id="mHelp">Como jogar</button>
+        <button class="btn big" id="mRecords">Recordes</button>
+        <button class="btn big" id="mSettings">Configurações</button>
+        <a class="btn big ghost" href="../index.html">← Voltar aos jogos</a>
+      </nav>
+    </div>
+  </div>
+  <div id="scrNew" class="screen">
+    <div class="card">
+      <h2>Novo jogo</h2>
+      <label class="field">Seed do mapa
+        <span class="row"><input id="nSeed" type="text" maxlength="24" autocomplete="off" spellcheck="false"><button class="btn" id="nRandom" title="Seed aleatória">🎲</button></span>
+      </label>
+      <p class="muted small">A mesma seed sempre gera o mesmo mapa.</p>
+      <div class="field">Dificuldade
+        <div class="seg" id="nDiff"></div>
+      </div>
+      <p class="muted small" id="nDiffDesc"></p>
+      <div class="row end">
+        <button class="btn" data-back>Voltar</button>
+        <button class="btn good" id="nStart">Começar</button>
+      </div>
+    </div>
+  </div>
+  <div id="scrSlots" class="screen">
+    <div class="card wide">
+      <h2 id="slotTitle">Carregar</h2>
+      <div id="slotList"></div>
+      <div class="row end">
+        <label class="btn" title="Importar um arquivo de save">Importar<input type="file" id="importFile" accept=".json,application/json" hidden></label>
+        <button class="btn" data-back>Voltar</button>
+      </div>
+    </div>
+  </div>
+  <div id="scrSettings" class="screen">
+    <div class="card">
+      <h2>Configurações</h2>
+      <div id="setList"></div>
+      <div class="row end"><button class="btn" data-back>Voltar</button></div>
+    </div>
+  </div>
+  <div id="scrHelp" class="screen">
+    <div class="card wide scroll">
+      <h2>Como jogar</h2>
+      <div id="helpBody"></div>
+      <div class="row end"><button class="btn" data-back>Voltar</button></div>
+    </div>
+  </div>
+  <div id="scrRecords" class="screen">
+    <div class="card">
+      <h2>Recordes</h2>
+      <div id="recList"></div>
+      <div class="row end"><button class="btn" data-back>Voltar</button></div>
+    </div>
+  </div>
+  <div id="scrPause" class="screen">
+    <div class="card menu">
+      <h2>Pausado</h2>
+      <p class="muted small" id="pauseInfo"></p>
+      <nav class="menu-list">
+        <button class="btn big good" id="pResume">Continuar</button>
+        <button class="btn big" id="pSave">Salvar</button>
+        <button class="btn big" id="pLoad">Carregar</button>
+        <button class="btn big" id="pSettings">Configurações</button>
+        <button class="btn big" id="pHelp">Como jogar</button>
+        <button class="btn big ghost" id="pQuit">Sair para o menu</button>
+      </nav>
+    </div>
+  </div>
+  <div id="scrOver" class="screen">
+    <div class="card wide scroll">
+      <h2 id="overTitle">Fim de jogo</h2>
+      <div id="overBody"></div>
+      <div class="row end">
+        <button class="btn" id="oMenu">Menu</button>
+        <button class="btn" id="oSame">Mesma seed</button>
+        <button class="btn good" id="oNew">Nova partida</button>
+      </div>
+    </div>
+  </div>
+  <div id="toast" hidden></div>
+</div>
+
+<script src="js/core/rng.js"></script>
+<script src="js/core/util.js"></script>
+<script src="js/data/defs.js"></script>
+<script src="js/sim/world.js"></script>
+<script src="js/sim/mapgen.js"></script>
+<script src="js/sim/path.js"></script>
+<script src="js/sim/spatial.js"></script>
+<script src="js/sim/economy.js"></script>
+<script src="js/sim/buildings.js"></script>
+<script src="js/sim/combat.js"></script>
+<script src="js/sim/units.js"></script>
+<script src="js/sim/zombies.js"></script>
+<script src="js/sim/waves.js"></script>
+<script src="js/sim/explore.js"></script>
+<script src="js/sim/objectives.js"></script>
+<script src="js/sim/game.js"></script>
+<script src="js/render/voxel.js"></script>
+<script src="js/render/models.js"></script>
+<script src="js/render/tiles.js"></script>
+<script src="js/render/renderer.js"></script>
+<script src="js/ui/audio.js"></script>
+<script src="js/ui/hud.js"></script>
+<script src="js/ui/input.js"></script>
+<script src="js/ui/menus.js"></script>
+<script src="js/main.js"></script>
+</body>
+</html>

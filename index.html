@@ -42,6 +42,13 @@ header p { margin: 10px auto 0; max-width: 560px; color: var(--muted); font-weig
 .body p { margin: 0; color: #cfc6b0; font-weight: 500; flex: 1; }
 .tags { display: flex; flex-wrap: wrap; gap: 6px; }
 .tags span { font-size: 0.75em; padding: 2px 7px; border: 2px solid #000; border-radius: 5px; background: var(--panel2); color: var(--muted); }
+.tabs { display: flex; justify-content: center; gap: 10px; margin: 0 0 24px; }
+.tab {
+  font: inherit; cursor: pointer; padding: 9px 18px; border: 3px solid #000; border-radius: 9px;
+  background: var(--panel); color: var(--muted); box-shadow: inset 0 0 0 2px var(--hi), 0 4px 0 #000;
+}
+.tab[aria-selected="true"] { background: #4a3a14; color: var(--accent); box-shadow: inset 0 0 0 2px rgba(255, 209, 102, 0.45), 0 4px 0 #000; }
+[hidden] { display: none !important; }
 .play { align-self: flex-start; margin-top: 4px; padding: 8px 14px; border: 2px solid #000; border-radius: 7px; background: #4a3a14; color: var(--accent); box-shadow: inset 0 0 0 2px rgba(255, 209, 102, 0.45), 0 3px 0 #000; }
 footer { text-align: center; color: var(--muted); font-weight: 500; font-size: 0.85em; margin-top: 30px; }
 </style>
@@ -53,8 +60,13 @@ footer { text-align: center; color: var(--muted); font-weight: 500; font-size: 0
     <h1>Claude HTML Games</h1>
     <p>A collection of self-contained browser games. Pick one to start playing — every game runs locally, with no install.</p>
   </header>
-  <nav class="grid" id="games"></nav>
-  <footer>Each game lives in its own folder with its code and assets.</footer>
+  <div class="tabs" role="tablist">
+    <button class="tab" role="tab" id="tab-jogos" aria-controls="games" aria-selected="true">Jogos</button>
+    <button class="tab" role="tab" id="tab-animacoes" aria-controls="animations" aria-selected="false">Animações</button>
+  </div>
+  <nav class="grid" id="games" role="tabpanel" aria-labelledby="tab-jogos"></nav>
+  <nav class="grid" id="animations" role="tabpanel" aria-labelledby="tab-animacoes" hidden></nav>
+  <footer>Each game and animation lives in its own folder with its code and assets.</footer>
 </main>
 <!-- ============================== JS ============================== -->
 <script>
@@ -118,19 +130,76 @@ footer { text-align: center; color: var(--muted); font-weight: 500; font-size: 0
       palette: ['#0f0d12', '#3a3f45', '#6b7062', '#cdc4b4', '#7e3838'],
       scene: 'chess',
     },
+    {
+      path: 'ultima-barricada/index.html',
+      title: 'Última Barricada',
+      desc: 'A zombie-survival RTS in isometric voxel pixel art: lead a squad of survivors through procedural, seeded cities, scavenge hospitals, police stations and gas stations, build walls, towers and generators, and hold the base against ever larger night hordes. Endless with a score, playable with mouse or touch, in Portuguese.',
+      tags: ['RTS', 'isometric', 'voxels', 'zombies', 'mobile'],
+      palette: ['#0b0e18', '#3a5530', '#8a6038', '#e8503a', '#ffd166'],
+      scene: 'zombie',
+    },
   ];
-  const nav = document.getElementById('games');
+  // Animation registry: entries for the "Animações" tab (folders under animacoes/).
+  const ANIMATIONS = [
+    {
+      path: 'animacoes/motion-showcase/index.html',
+      title: 'Motion Showcase',
+      desc: 'A motion design demo that cycles through nine art styles (Bauhaus, generative flow, 8-bit pixel art, sumi-e ink, synthwave, paper cut-out, metaballs, classic animation principles and a harmonograph) with animated transitions.',
+      tags: ['motion design', 'canvas', 'generative', 'loop'],
+      palette: ['#efe6d2', '#d6402b', '#1f4e9c', '#f2b51d', '#141414'],
+      scene: 'motion',
+    },
+    {
+      path: 'animacoes/bloons-sniper/index.html',
+      title: 'Operação Vermelho',
+      desc: 'A one-minute Bloons TD6 fan short: a sniper on a rainy rooftop takes orders from a secret agent for one perfect shot, until the tone flips and it all ends at a birthday party. In Portuguese, with synthesised sound.',
+      tags: ['short film', 'Bloons TD6', 'comedy', 'sound'],
+      palette: ['#05070d', '#1c2541', '#e3242b', '#ffd166', '#4b5b2a'],
+      scene: 'bloons',
+    },
+    {
+      path: 'animacoes/stickman-duel/index.html',
+      title: 'Raio × Sangue',
+      desc: 'A 90-second stickman fight: Volt, master of lightning, against Carmim, who bends his own blood. Hand-to-hand combat, spikes and whips, a storm, a beam struggle and one final strike, with impact frames, hit-stop and synthesised sound effects.',
+      tags: ['short film', 'stickman', 'action', 'sound'],
+      palette: ['#efe6d2', '#121212', '#3ef0ff', '#e01b3c', '#c8372d'],
+      scene: 'duel',
+    },
+    {
+      path: 'animacoes/rato-geladeira/index.html',
+      title: 'Tico e a Geladeira',
+      desc: 'A comic and tragic cartoon short: a rat sees a fridge full of food and tries to open it in ever more ingenious ways (a tower of junk, a catapult, a lasso, dynamite), failing every time. When it finally opens, a slice of cheesecake proves too distracting. In Portuguese, with cartoon sound effects.',
+      tags: ['short film', 'cartoon', 'comedy', 'sound'],
+      palette: ['#f6e3b4', '#9fd6c2', '#a39a92', '#c95b4a', '#ffd166'],
+      scene: 'fridge',
+    },
+  ];
   const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
-  for (const g of GAMES) {
-    const a = document.createElement('a');
-    a.className = 'card';
-    a.href = g.path;
-    a.innerHTML = `<div class="art"><canvas width="96" height="40" aria-hidden="true"></canvas></div>
-      <div class="body"><h2>${esc(g.title)}</h2><p>${esc(g.desc)}</p>
-      <div class="tags">${g.tags.map((t) => `<span>${esc(t)}</span>`).join('')}</div><span class="play">▶ Play</span></div>`;
-    nav.appendChild(a);
-    drawArt(a.querySelector('canvas'), g);
+  function addCards(nav, list, label) {
+    for (const g of list) {
+      const a = document.createElement('a');
+      a.className = 'card';
+      a.href = g.path;
+      a.innerHTML = `<div class="art"><canvas width="96" height="40" aria-hidden="true"></canvas></div>
+        <div class="body"><h2>${esc(g.title)}</h2><p>${esc(g.desc)}</p>
+        <div class="tags">${g.tags.map((t) => `<span>${esc(t)}</span>`).join('')}</div><span class="play">${label}</span></div>`;
+      nav.appendChild(a);
+      drawArt(a.querySelector('canvas'), g);
+    }
   }
+  addCards(document.getElementById('games'), GAMES, '▶ Play');
+  addCards(document.getElementById('animations'), ANIMATIONS, '▶ Assistir');
+  // Tabs: "Jogos" and "Animações". The hash (#animacoes) keeps the tab when coming back from a page.
+  const tabs = { jogos: document.getElementById('tab-jogos'), animacoes: document.getElementById('tab-animacoes') };
+  function showTab(name) {
+    for (const [key, btn] of Object.entries(tabs)) {
+      btn.setAttribute('aria-selected', String(key === name));
+      document.getElementById(btn.getAttribute('aria-controls')).hidden = key !== name;
+    }
+  }
+  tabs.jogos.onclick = () => { showTab('jogos'); history.replaceState(null, '', location.pathname); };
+  tabs.animacoes.onclick = () => { showTab('animacoes'); history.replaceState(null, '', '#animacoes'); };
+  showTab(location.hash === '#animacoes' ? 'animacoes' : 'jogos');
   // Tiny procedural pixel-art banner for each card.
   function drawArt(cv, g) {
     const ctx = cv.getContext('2d'), W = cv.width, H = cv.height, P = g.palette;
@@ -233,6 +302,78 @@ footer { text-align: center; color: var(--muted); font-weight: 500; font-size: 0
       ctx.fillStyle = '#5a5560'; ctx.fillRect(59, 5, 1, 4); ctx.fillRect(58, 6, 3, 1);
       ctx.fillStyle = P[4]; ctx.fillRect(58, 12, 1, 1); ctx.fillRect(60, 12, 1, 1);
       ctx.fillStyle = '#c89a5a'; ctx.fillRect(75, 11, 2, 2);
+    } else if (g.scene === 'zombie') {
+      for (let y = 0; y < H; y++) { ctx.fillStyle = y < 12 ? P[0] : y < 22 ? '#121a2a' : '#16202e'; ctx.fillRect(0, y, W, 1); }
+      for (let i = 0; i < 24; i++) { ctx.fillStyle = '#8a94b0'; ctx.fillRect(Math.floor(rnd() * W), Math.floor(rnd() * 14), 1, 1); }
+      ctx.fillStyle = '#d8dde6'; ctx.fillRect(8, 4, 5, 5); ctx.fillStyle = P[0]; ctx.fillRect(10, 4, 3, 2);
+      // Ruined skyline.
+      for (const [x, w, h] of [[0, 9, 14], [10, 7, 9], [18, 10, 17], [70, 8, 12], [79, 11, 18], [91, 5, 10]]) {
+        ctx.fillStyle = '#0a0d14'; ctx.fillRect(x, 30 - h, w, h);
+        for (let k = 0; k < 3; k++) if (rnd() < 0.5) { ctx.fillStyle = '#3a3420'; ctx.fillRect(x + 2 + k * 2, 32 - h + k * 3, 1, 1); }
+      }
+      ctx.fillStyle = '#1e2a1c'; ctx.fillRect(0, 30, W, 10);
+      ctx.fillStyle = P[1]; ctx.fillRect(0, 30, W, 1);
+      // Lantern glow around the defender.
+      ctx.fillStyle = 'rgba(255,190,90,0.18)'; ctx.fillRect(30, 20, 28, 14);
+      ctx.fillStyle = 'rgba(255,190,90,0.18)'; ctx.fillRect(34, 22, 20, 10);
+      // Barricade.
+      ctx.fillStyle = P[2]; ctx.fillRect(48, 25, 2, 7); ctx.fillRect(53, 25, 2, 7); ctx.fillRect(46, 26, 11, 2); ctx.fillRect(46, 29, 11, 2);
+      // Survivor with a rifle and a muzzle flash.
+      ctx.fillStyle = '#2a201a'; ctx.fillRect(40, 30, 1, 2); ctx.fillRect(42, 30, 1, 2);
+      ctx.fillStyle = '#5a6b3a'; ctx.fillRect(39, 24, 5, 6); ctx.fillStyle = '#55603a'; ctx.fillRect(39, 20, 5, 1);
+      ctx.fillStyle = '#e0b08a'; ctx.fillRect(40, 21, 4, 3);
+      ctx.fillStyle = '#2a2e30'; ctx.fillRect(43, 25, 6, 1);
+      ctx.fillStyle = P[4]; ctx.fillRect(56, 24, 2, 3); ctx.fillRect(58, 25, 2, 1);
+      ctx.fillStyle = 'rgba(255,240,180,0.8)'; ctx.fillRect(60, 25, 5, 1);
+      // The horde.
+      for (const [x, y] of [[66, 23], [74, 22], [82, 24], [89, 23]]) {
+        ctx.fillStyle = '#3a3a44'; ctx.fillRect(x + 1, y + 6, 1, 3); ctx.fillRect(x + 3, y + 6, 1, 3);
+        ctx.fillStyle = rnd() < 0.5 ? '#6a4a4a' : '#4a5a6a'; ctx.fillRect(x, y + 2, 5, 5);
+        ctx.fillStyle = '#86a06c'; ctx.fillRect(x - 2, y + 3, 2, 1); ctx.fillRect(x + 1, y - 1, 3, 3);
+        ctx.fillStyle = P[3]; ctx.fillRect(x + 1, y, 1, 1);
+      }
+    } else if (g.scene === 'motion') {
+      ctx.fillStyle = P[0]; ctx.fillRect(0, 0, W, H);
+      ctx.fillStyle = 'rgba(20, 20, 20, 0.12)'; for (let x = 8; x < W; x += 8) ctx.fillRect(x, 0, 1, H);
+      for (let i = 4; i >= 1; i--) { ctx.fillStyle = `rgba(214, 64, 43, ${0.12 * (5 - i)})`; ctx.beginPath(); ctx.arc(26 - i * 4, 18, 9, 0, Math.PI * 2); ctx.fill(); }
+      ctx.fillStyle = P[1]; ctx.beginPath(); ctx.arc(26, 18, 9, 0, Math.PI * 2); ctx.fill();
+      ctx.save(); ctx.translate(50, 20); ctx.rotate(0.5); ctx.fillStyle = P[2]; ctx.fillRect(-7, -7, 14, 14); ctx.restore();
+      ctx.fillStyle = P[3]; ctx.beginPath(); ctx.moveTo(74, 8); ctx.lineTo(84, 27); ctx.lineTo(64, 27); ctx.closePath(); ctx.fill();
+      ctx.fillStyle = P[4]; ctx.fillRect(10, 33, 76, 3);
+      ctx.fillStyle = 'rgba(242, 181, 29, 0.5)'; ctx.fillRect(74, 2, 1, 4); ctx.fillRect(70, 3, 1, 2); ctx.fillRect(78, 3, 1, 2);
+    } else if (g.scene === 'bloons') {
+      for (let y = 0; y < H; y++) { ctx.fillStyle = y < 14 ? P[0] : y < 26 ? '#0d1424' : P[1]; ctx.fillRect(0, y, W, 1); }
+      for (let x = 0; x < W; x += 9) { const bh = 8 + Math.floor(rnd() * 14); ctx.fillStyle = '#0a0f1c'; ctx.fillRect(x, H - bh, 8, bh); if (rnd() < 0.6) { ctx.fillStyle = P[3]; ctx.fillRect(x + 2, H - bh + 3, 1, 1); } }
+      ctx.fillStyle = '#d8dde6'; ctx.fillRect(84, 4, 4, 4);
+      ctx.fillStyle = '#05070c'; ctx.fillRect(0, 30, 30, 10); ctx.fillStyle = P[4]; ctx.fillRect(4, 27, 12, 3); ctx.fillStyle = '#1d2023'; ctx.fillRect(16, 27, 14, 1);
+      ctx.fillStyle = P[2]; ctx.fillRect(60, 10, 7, 9); ctx.fillRect(61, 9, 5, 11); ctx.fillStyle = '#ff9a9a'; ctx.fillRect(61, 11, 2, 2); ctx.fillStyle = '#8a1218'; ctx.fillRect(63, 20, 1, 1);
+      ctx.fillStyle = '#7dffb0'; ctx.fillRect(56, 14, 15, 1); ctx.fillRect(63, 7, 1, 15);
+      ctx.fillStyle = 'rgba(190, 210, 235, 0.35)'; for (let i = 0; i < 30; i++) ctx.fillRect(Math.floor(rnd() * W), Math.floor(rnd() * H), 1, 2);
+    } else if (g.scene === 'duel') {
+      ctx.fillStyle = P[0]; ctx.fillRect(0, 0, W, H);
+      ctx.fillStyle = P[4]; ctx.beginPath(); ctx.arc(76, 11, 7, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = '#b5aa94'; ctx.fillRect(0, 31, W, 2); ctx.fillStyle = '#8c8270'; ctx.fillRect(0, 33, W, 7);
+      const stick = (x, f, col) => {
+        ctx.fillStyle = P[1]; ctx.fillRect(x, 13, 3, 3); ctx.fillRect(x + 1, 16, 1, 8); ctx.fillRect(x - f, 24, 1, 7); ctx.fillRect(x + 2 + f, 24, 1, 7);
+        ctx.fillRect(x + 1 + f, 18, 1, 1); ctx.fillRect(x + 1 + f * 2, 18, 1, 1); ctx.fillRect(x + 1 + f * 3, 17, 1, 1);
+        ctx.fillStyle = col; ctx.fillRect(x + (f > 0 ? 2 : 0), 14, 1, 1);
+      };
+      stick(34, 1, P[2]); stick(58, -1, P[3]);
+      ctx.fillStyle = P[2]; ctx.fillRect(40, 17, 2, 1); ctx.fillRect(42, 16, 1, 1); ctx.fillRect(43, 17, 2, 1); ctx.fillRect(45, 15, 1, 2);
+      ctx.fillStyle = P[3]; ctx.fillRect(51, 17, 2, 1); ctx.fillRect(49, 18, 2, 1); ctx.fillRect(56, 19, 1, 3); ctx.fillRect(55, 20, 1, 1);
+      ctx.fillStyle = '#fff'; ctx.fillRect(47, 15, 1, 4); ctx.fillRect(46, 16, 3, 2);
+    } else if (g.scene === 'fridge') {
+      ctx.fillStyle = P[0]; ctx.fillRect(0, 0, W, H);
+      ctx.fillStyle = '#efd59c'; for (let x = 0; x < W; x += 6) ctx.fillRect(x, 0, 2, 32);
+      ctx.fillStyle = '#8a5a3b'; ctx.fillRect(0, 29, W, 3);
+      for (let x = 0; x < W; x += 6) { ctx.fillStyle = (x / 6) % 2 ? P[3] : '#f3e6cf'; ctx.fillRect(x, 32, 6, 8); }
+      ctx.fillStyle = '#140b07'; ctx.fillRect(6, 23, 6, 6); ctx.fillRect(7, 22, 4, 1);
+      ctx.fillStyle = '#2b1a10'; ctx.fillRect(59, 3, 26, 29); ctx.fillStyle = P[1]; ctx.fillRect(60, 4, 24, 27);
+      ctx.fillStyle = '#eaf4f7'; ctx.fillRect(60, 4, 6, 27); ctx.fillStyle = '#fff0b8'; ctx.fillRect(61, 16, 4, 2); ctx.fillStyle = '#d62e4a'; ctx.fillRect(61, 15, 4, 1);
+      ctx.fillStyle = '#dfe3e8'; ctx.fillRect(67, 12, 1, 6);
+      ctx.fillStyle = P[2]; ctx.fillRect(44, 25, 7, 5); ctx.fillRect(49, 22, 4, 4); ctx.fillStyle = '#f4a3b0'; ctx.fillRect(47, 21, 2, 2); ctx.fillRect(52, 24, 2, 1); ctx.fillRect(38, 27, 6, 1); ctx.fillRect(43, 30, 2, 1); ctx.fillRect(49, 30, 2, 1);
+      ctx.fillStyle = '#111'; ctx.fillRect(51, 23, 1, 1);
+      ctx.fillStyle = P[4]; ctx.fillRect(50, 15, 3, 3); ctx.fillStyle = '#fff'; ctx.fillRect(49, 14, 1, 1); ctx.fillRect(53, 14, 1, 1); ctx.fillRect(51, 13, 1, 1);
     } else {
       ctx.fillStyle = '#5ea8c9'; ctx.fillRect(0, 0, W, H);
       ctx.fillStyle = '#f7e3a1'; ctx.fillRect(74, 5, 6, 6);

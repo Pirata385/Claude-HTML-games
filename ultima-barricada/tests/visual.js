@@ -1,0 +1,227 @@
+#!/usr/bin/env node
+// Browser check with Playwright (Chromium): loads the game from a local static server, plays
+// through menus on desktop, phone portrait and phone landscape, simulates mouse and touch
+// input, saves and reloads, measures frame rate with a big horde and fails on console errors.
+//   node tests/visual.js [outDir]      screenshots go to outDir (default: tests/screens)
+'use strict';
+const http = require('http');
+const fs = require('fs');
+const path = require('path');
+const { chromium } = require('playwright');
+
+const ROOT = path.join(__dirname, '..', '..');
+const OUT = path.resolve(process.argv[2] || path.join(__dirname, 'screens'));
+const TYPES = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.json': 'application/json', '.png': 'image/png' };
+
+function serve() {
+  const server = http.createServer((req, res) => {
+    const url = decodeURIComponent(req.url.split('?')[0]);
+    const file = path.join(ROOT, url.endsWith('/') ? url + 'index.html' : url);
+    if (!file.startsWith(ROOT) || !fs.existsSync(file)) { res.writeHead(404); res.end(); return; }
+    res.writeHead(200, { 'Content-Type': TYPES[path.extname(file)] || 'application/octet-stream' });
+    fs.createReadStream(file).pipe(res);
+  });
+  return new Promise((ok) => server.listen(0, () => ok(server)));
+}
+
+async function run() {
+  fs.mkdirSync(OUT, { recursive: true });
+  const server = await serve();
+  const base = `http://localhost:${server.address().port}/ultima-barricada/index.html`;
+  const browser = await chromium.launch();
+  const errors = [];
+  const results = {};
+
+  async function open(name, opts) {
+    const ctx = await browser.newContext(opts);
+    const page = await ctx.newPage();
+    page.on('console', (m) => { if (m.type() === 'error' && !/fonts\.g/.test(m.text() + ((m.location() || {}).url || ''))) errors.push(`[${name}] ${m.text()}`); });
+    page.on('pageerror', (e) => errors.push(`[${name}] ${e.message}`));
+    await page.route(/fonts\.(googleapis|gstatic)\.com/, (r) => r.abort());
+    await page.goto(base);
+    await page.waitForSelector('#scrMain.show', { timeout: 30000 });
+    return { ctx, page };
+  }
+  const shot = (page, n) => page.screenshot({ path: path.join(OUT, n + '.png') });
+  async function startGame(page, seed) {
+    await page.click('#mNew');
+    await page.fill('#nSeed', seed);
+    await page.click('#nStart');
+    await page.waitForFunction(() => window.UB && UB.App.inGame && !document.getElementById('hud').hidden, null, { timeout: 30000 });
+    await page.waitForTimeout(600);
+  }
+  // Fast-forward the simulation (as if time passed) without waiting in real time.
+  const advance = (page, ticks) => page.evaluate((n) => { for (let i = 0; i < n; i++) UB.Game.tick(UB.App.S); }, ticks);
+
+  // ---------- desktop ----------
+  {
+    const { ctx, page } = await open('desktop', { viewport: { width: 1280, height: 800 } });
+    await shot(page, '01-menu-desktop');
+    await startGame(page, 'visual');
+    await shot(page, '02-day-desktop');
+    // Select a survivor by clicking on it, then right-click a tree to gather.
+    const target = await page.evaluate(() => {
+      const S = UB.App.S;
+      const u = S.units[0];
+      const p = UB.Render.w2s(u.x, u.y);
+      const sz = UB.Render.size();
+      const k = sz.scale / sz.dpr;
+      const i = UB.Units.findNode(S, Math.floor(u.x), Math.floor(u.y), 'wood', 14);
+      const tx = i % S.map.w, ty = (i / S.map.w) | 0;
+      const q = UB.Render.w2s(tx + 0.5, ty + 0.5);
+      return { ux: p.x * k, uy: (p.y - 10) * k, tx: q.x * k, ty: (q.y - 6) * k, id: u.id };
+    });
+    await page.mouse.click(target.ux, target.uy);
+    results.selectedByClick = await page.evaluate(() => UB.App.sel.units.length);
+    await page.mouse.click(target.tx, target.ty, { button: 'right' });
+    results.orderAfterRightClick = await page.evaluate((id) => { const u = UB.World.get(UB.App.S, id); return u.order && u.order.type; }, target.id);
+    // Build a wall line with the mouse (drag) through the build menu.
+    await page.keyboard.press('b');
+    await page.waitForSelector('#buildMenu:not([hidden])');
+    await shot(page, '03-buildmenu-desktop');
+    await page.click('[data-build="barricade"]');
+    const line = await page.evaluate(() => {
+      const S = UB.App.S, hq = UB.World.hq(S);
+      const sz = UB.Render.size(), k = sz.scale / sz.dpr;
+      const a = UB.Render.w2s(hq.tx - 3 + 0.5, hq.ty + 6 + 0.5), b = UB.Render.w2s(hq.tx + 4 + 0.5, hq.ty + 6 + 0.5);
+      return { ax: a.x * k, ay: a.y * k, bx: b.x * k, by: b.y * k };
+    });
+    const before = await page.evaluate(() => UB.App.S.buildings.length);
+    await page.mouse.move(line.ax, line.ay);
+    await page.mouse.down();
+    await page.mouse.move(line.bx, line.by, { steps: 8 });
+    await page.mouse.up();
+    results.barricadesPlaced = (await page.evaluate(() => UB.App.S.buildings.length)) - before;
+    await page.mouse.click(line.bx, line.by, { button: 'right' });
+    await advance(page, 400);
+    await page.waitForTimeout(300);
+    await shot(page, '04-building-desktop');
+    // Night: skip the day and let the horde arrive.
+    await page.evaluate(() => UB.Game.command(UB.App.S, { type: 'skipDay' }));
+    await advance(page, 20 * 30 + 20 * 70);
+    await page.waitForTimeout(400);
+    await shot(page, '05-night-desktop');
+    results.nightZombies = await page.evaluate(() => UB.App.S.zombies.length);
+    // Save, reload the page, continue from the autosave/slot.
+    await page.click('#btnMenu');
+    await page.waitForSelector('#scrPause.show');
+    await page.click('#pSave');
+    await page.click('[data-s="save"][data-slot="2"]');
+    const saved = await page.evaluate(() => ({ day: UB.App.S.day, tick: UB.App.S.tick, units: UB.App.S.units.length }));
+    await page.reload();
+    await page.waitForSelector('#scrMain.show', { timeout: 30000 });
+    await page.click('#mLoad');
+    await page.click('[data-s="load"][data-slot="2"]');
+    await page.waitForFunction(() => UB.App.inGame);
+    const loaded = await page.evaluate(() => ({ day: UB.App.S.day, tick: UB.App.S.tick, units: UB.App.S.units.length }));
+    results.reloadMatches = loaded.day === saved.day && loaded.tick >= saved.tick && loaded.tick - saved.tick < 400 && loaded.units === saved.units;
+    // Stress: hundreds of zombies on screen, measure frame rate.
+    await page.evaluate(() => {
+      const S = UB.App.S, hq = UB.World.hq(S);
+      for (let i = 0; i < 350; i++) {
+        const a = Math.random() * Math.PI * 2, r = 9 + Math.random() * 10;
+        const x = hq.tx + 1.5 + Math.cos(a) * r, y = hq.ty + 1.5 + Math.sin(a) * r;
+        const ix = UB.World.idx(S, Math.floor(x), Math.floor(y));
+        if (!S._blockZ[ix]) UB.Zombies.spawn(S, i % 5 ? 'walker' : 'runner', x, y, { state: 'horde' });
+      }
+      S.map.explored.fill(1);
+      UB.App.speed = 1;
+    });
+    results.fps = await page.evaluate(() => new Promise((ok) => {
+      let n = 0; const t0 = performance.now();
+      const f = () => { n++; if (performance.now() - t0 < 3000) requestAnimationFrame(f); else ok(Math.round(n / ((performance.now() - t0) / 1000))); };
+      requestAnimationFrame(f);
+    }));
+    results.stressZombies = await page.evaluate(() => UB.App.S.zombies.length);
+    await shot(page, '06-horde-desktop');
+    await ctx.close();
+  }
+
+  // ---------- phone portrait (touch) ----------
+  {
+    const { ctx, page } = await open('portrait', { viewport: { width: 390, height: 844 }, deviceScaleFactor: 3, hasTouch: true, isMobile: true });
+    await shot(page, '07-menu-portrait');
+    await page.tap('#mNew');
+    await page.fill('#nSeed', 'toque');
+    await page.tap('#nStart');
+    await page.waitForFunction(() => UB.App.inGame && !document.getElementById('hud').hidden, null, { timeout: 30000 });
+    await page.waitForTimeout(500);
+    await shot(page, '08-day-portrait');
+    // Tap a survivor, then tap the ground: a move order.
+    const t = await page.evaluate(() => {
+      const S = UB.App.S, u = S.units[1];
+      const sz = UB.Render.size(), k = sz.scale / sz.dpr;
+      const p = UB.Render.w2s(u.x, u.y), q = UB.Render.w2s(u.x + 2, u.y + 2);
+      return { ux: p.x * k, uy: (p.y - 10) * k, gx: q.x * k, gy: q.y * k, id: u.id };
+    });
+    await page.touchscreen.tap(t.ux, t.uy);
+    results.touchSelected = await page.evaluate(() => UB.App.sel.units.length);
+    await shot(page, '09-selected-portrait');
+    await page.touchscreen.tap(t.gx, t.gy);
+    results.touchOrder = await page.evaluate((id) => { const u = UB.World.get(UB.App.S, id); return u.order && u.order.type; }, t.id);
+    // Build via the panel, tap to place the ghost, confirm with ✓.
+    await page.tap('[data-act="deselect"]');
+    await page.tap('[data-act="openBuild"]');
+    await page.tap('[data-tab="base"]');
+    await page.tap('[data-build="shelter"]');
+    const spot = await page.evaluate(() => {
+      const S = UB.App.S, hq = UB.World.hq(S);
+      const sz = UB.Render.size(), k = sz.scale / sz.dpr;
+      for (let r = 4; r < 9; r++) for (let dx = -r; dx <= r; dx++) for (const dy of [-r, r]) {
+        if (UB.Buildings.canPlace(S, 'shelter', hq.tx + 1 + dx, hq.ty + 1 + dy).ok) { const q = UB.Render.w2s(hq.tx + 1 + dx + 0.5, hq.ty + 1 + dy + 0.5); return { x: q.x * k, y: q.y * k }; }
+      }
+      return null;
+    });
+    const nb = await page.evaluate(() => UB.App.S.buildings.length);
+    if (spot) { await page.touchscreen.tap(spot.x, spot.y); await shot(page, '10-place-portrait'); await page.tap('#placeOk'); }
+    results.touchBuilt = (await page.evaluate(() => UB.App.S.buildings.length)) - nb;
+    await advance(page, 300);
+    await page.waitForTimeout(300);
+    await shot(page, '11-after-portrait');
+    await ctx.close();
+  }
+
+  // ---------- phone landscape ----------
+  {
+    const { ctx, page } = await open('landscape', { viewport: { width: 844, height: 390 }, deviceScaleFactor: 3, hasTouch: true, isMobile: true });
+    await page.tap('#mNew');
+    await page.tap('#nStart');
+    await page.waitForFunction(() => UB.App.inGame && !document.getElementById('hud').hidden, null, { timeout: 30000 });
+    await page.evaluate(() => { const S = UB.App.S; UB.App.selectUnits(S.units.map((u) => u.id)); });
+    await page.waitForTimeout(500);
+    await shot(page, '12-landscape');
+    await page.evaluate(() => UB.Game.command(UB.App.S, { type: 'skipDay' }));
+    await advance(page, 20 * 40);
+    await page.waitForTimeout(400);
+    await shot(page, '13-dusk-landscape');
+    await ctx.close();
+  }
+
+  // ---------- root menu card ----------
+  {
+    const ctx = await browser.newContext({ viewport: { width: 1100, height: 900 } });
+    const page = await ctx.newPage();
+    page.on('pageerror', (e) => errors.push(`[root] ${e.message}`));
+    await page.goto(`http://localhost:${server.address().port}/index.html`);
+    await page.waitForTimeout(300);
+    await page.screenshot({ path: path.join(OUT, '14-root-menu.png'), fullPage: true });
+    await ctx.close();
+  }
+
+  await browser.close();
+  server.close();
+  console.log(JSON.stringify(results, null, 2));
+  if (errors.length) { console.log('Console errors:\n' + errors.join('\n')); process.exit(1); }
+  const fails = [];
+  if (results.selectedByClick !== 1) fails.push('click did not select a survivor');
+  if (results.orderAfterRightClick !== 'gather') fails.push('right-click on a tree did not order gathering');
+  if (!(results.barricadesPlaced > 2)) fails.push('drag did not place a barricade line');
+  if (!results.reloadMatches) fails.push('save/reload mismatch');
+  if (results.touchSelected !== 1) fails.push('tap did not select');
+  if (results.touchOrder !== 'move') fails.push('tap did not order a move');
+  if (results.touchBuilt !== 1) fails.push('touch placement failed');
+  if (fails.length) { console.log('FAIL: ' + fails.join('; ')); process.exit(1); }
+  console.log('Browser checks passed. Screenshots in ' + OUT);
+}
+
+run().catch((e) => { console.error(e); process.exit(1); });

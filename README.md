@@ -15,17 +15,34 @@ A collection of self-contained browser games. Open **`index.html`** at the repos
 | Procedurality-3D | [`procedurality-3d/`](procedurality-3d/) | An open-universe 3D observatory: drift through a seeded galaxy of stars, planets and ecosystems, and civilizations that rise, trade and war on their own. |
 | Intergalactic Life | [`intergalactic-life/`](intergalactic-life/) | A 2.5D procedural space exploration, combat, trading and colonization game in a living galaxy of factions and aliens. |
 | Peões & Perdição | [`chess-roguelike/`](chess-roguelike/) | A dark chess roguelike with 3D pieces drawn as fine pixel art, playable in isometric or top-down view (in Portuguese): a permadeath army, branching maps, piece mutations, amulets and three bosses. |
+| Última Barricada | [`ultima-barricada/`](ultima-barricada/) | A zombie-survival RTS in isometric voxel pixel art (in Portuguese): scavenge seeded procedural cities, build and upgrade a base on a grid, manage food, ammo and fuel, and hold off ever larger night hordes. Endless with a score; mouse, keyboard and touch. |
+
+## Animações
+
+The menu has a second tab, **Animações**, for animations rather than games. They live under [`animacoes/`](animacoes/), one folder each.
+
+| Animation | Folder | Description |
+| --- | --- | --- |
+| Motion Showcase | [`animacoes/motion-showcase/`](animacoes/motion-showcase/) | A motion design demo that cycles through nine art styles (Bauhaus, generative flow, pixel art, sumi-e, synthwave, paper cut-out, metaballs, animation principles, harmonograph). |
+| Operação Vermelho | [`animacoes/bloons-sniper/`](animacoes/bloons-sniper/) | A one-minute Bloons TD6 fan short (in Portuguese): a tense rooftop sniper scene whose one perfect shot ends at a birthday party. |
+| Raio × Sangue | [`animacoes/stickman-duel/`](animacoes/stickman-duel/) | A 90-second stickman fight (in Portuguese) between an electric fighter and a blood bender, with impact frames, hit-stop and synthesised sound effects. |
+| Tico e a Geladeira | [`animacoes/rato-geladeira/`](animacoes/rato-geladeira/) | A comic and tragic cartoon short (in Portuguese): a rat fails to open a fridge in ever more ingenious ways, gets in at last, and is shut inside with a slice of cheesecake. |
 
 ## Structure
 
 ```
-index.html                      game menu (add new games to its GAMES registry)
+index.html                      menu with Jogos and Animações tabs (GAMES and ANIMATIONS registries)
 README.md                       this file
 CLAUDE.md                       instructions for AI assistants working in this repo
 <game-folder>/
   index.html                    the game (self-contained: HTML, CSS and JS)
   README.md                     the game's own documentation
   tests/                        optional automated tests for the game's logic
+animacoes/
+  README.md                     list of animations
+  <animation-folder>/
+    index.html                  the animation (self-contained)
+    README.md                   its documentation
 ```
 
 Each game lives in its own dedicated folder, together with its code, assets and documentation.
@@ -39,3 +56,5 @@ Open `index.html` directly in a modern browser, or serve the repository root wit
 1. Create a new folder named after the game, with an `index.html` entry point and a `README.md`.
 2. Add an entry to the `GAMES` array in the root `index.html` so it appears on the menu.
 3. Add a row to the **Games** table above.
+
+To add an animation, follow the same steps inside `animacoes/`, register it in the `ANIMATIONS` array instead of `GAMES`, and add it to the **Animações** tables (here and in `animacoes/README.md`).

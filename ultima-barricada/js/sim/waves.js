@@ -67,9 +67,8 @@
     while (chosen.length < dirs && pool.length) chosen.push(pool[chosen.length % pool.length]);
     const queue = compose(S, night);
     S.horde = { night, spawns: chosen.map((c) => ({ x: c.x, y: c.y, side: c.side })), queue, timer: 0, total: queue.length };
-    const sides = [...new Set(chosen.map((c) => c.side))].join(' e ');
-    const blood = night % 5 === 0 ? ' NOITE DE SANGUE!' : '';
-    UB.Game.msg(S, `Horda de ${queue.length} zumbis se aproximando pelo ${sides}.${blood}`, 'bad', chosen[0] && chosen[0].x, chosen[0] && chosen[0].y);
+    const sides = [...new Set(chosen.map((c) => c.side))];
+    UB.Game.msg(S, night % 5 === 0 ? 'msg.hordeBlood' : 'msg.horde', { n: queue.length, sides }, 'bad', chosen[0] && chosen[0].x, chosen[0] && chosen[0].y);
     // Workers come out to defend unless their building keeps a night shift; they return at dawn.
     for (const b of S.buildings) {
       if (b.dead || b.nightShift || (b.type !== 'garden' && b.type !== 'workshop')) continue;
@@ -82,7 +81,7 @@
       }
     }
     const out = S.units.filter((u) => !u.dead && !u.inside && !UB.World.inTerritory(S, u.x, u.y)).length;
-    if (out) UB.Game.msg(S, `${out} sobrevivente(s) ainda fora da base. Chame-os de volta (Voltar à base) ou deixe-os por conta própria.`, 'warn');
+    if (out) UB.Game.msg(S, 'msg.outside', { n: out }, 'warn');
     UB.Game.fx(S, { t: 'alarm' });
     if (hq) UB.Path.updateFlow(S, true);
   }
@@ -102,7 +101,7 @@
       const y = Math.min(S.map.h - 0.5, Math.max(0.5, sp.y + 0.5 + S.rng.range(-1.2, 1.2)));
       const i = UB.World.idx(S, Math.floor(x), Math.floor(y));
       const z = UB.Zombies.spawn(S, type, S._blockZ[i] ? sp.x + 0.5 : x, S._blockZ[i] ? sp.y + 0.5 : y, { state: 'horde' });
-      if (ZOMBIES[type].boss) UB.Game.msg(S, 'Um Colosso está vindo!', 'bad', z.x, z.y);
+      if (ZOMBIES[type].boss) UB.Game.msg(S, 'msg.colossusComing', null, 'bad', z.x, z.y);
     }
   }
 
@@ -112,7 +111,8 @@
     S.horde = null;
     const lines = UB.Eco.dawn(S);
     UB.Explore.dawn(S);
-    UB.Game.msg(S, `Amanhecer do dia ${S.day}. Noites sobrevividas: ${S.nights}.${lines.length ? ' ' + lines.join(' ') : ''}`, 'good');
+    UB.Game.msg(S, 'msg.dawn', { day: S.day, nights: S.nights }, 'good');
+    for (const l of lines) UB.Game.msg(S, l.k, l.p, 'warn');
     UB.Game.fx(S, { t: 'dawn' });
     for (const u of S.units) {
       if (!u.shift) continue;

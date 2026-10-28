@@ -10,8 +10,9 @@
     S.fx.push(e);
     if (S.fx.length > 4000) S.fx.splice(0, 2000);
   }
-  function msg(S, text, kind, x, y) {
-    const m = { text, kind: kind || 'info', x, y, t: S.time, day: S.day, id: (S.msgSeq = (S.msgSeq || 0) + 1) };
+  // Messages are stored as a translation key plus parameters; the interface formats them.
+  function msg(S, k, p, kind, x, y) {
+    const m = { k, p: p || undefined, kind: kind || 'info', x, y, t: S.time, day: S.day, id: (S.msgSeq = (S.msgSeq || 0) + 1) };
     S.log.push(m);
     if (S.log.length > 80) S.log.shift();
     fx(S, { t: 'msg', m });
@@ -62,14 +63,14 @@
     UB.Eco.updatePower(S);
     UB.Path.updateFlow(S, true);
     UB.Explore.vision(S);
-    msg(S, 'Dia 1. Reúna recursos, construa defesas e prepare-se: a primeira horda chega ao anoitecer.', 'info');
+    msg(S, 'msg.welcome', null, 'info');
     return S;
   }
 
   function finalize(S) {
     if (S.finalScore) return;
     S.finalScore = score(S);
-    msg(S, S.over === 'hq' ? 'Fim de jogo: o QG foi destruído.' : 'Fim de jogo: não restou ninguém.', 'bad');
+    msg(S, S.over === 'hq' ? 'msg.gameOverHq' : 'msg.gameOverDead', null, 'bad');
     fx(S, { t: 'gameover' });
   }
 
@@ -140,13 +141,13 @@
 
   // Every player action goes through here. Returns {ok, reason?}.
   function command(S, c) {
-    if (S.over) return { ok: false, reason: 'Fim de jogo' };
+    if (S.over) return { ok: false, reason: 'reason.gameOver' };
     const us = unitsOf(S, c.ids);
     switch (c.type) {
       case 'move': case 'amove': {
         if (!us.length) return { ok: false };
         const slots = formation(S, c.x, c.y, us.length);
-        if (!slots.length) return { ok: false, reason: 'Local inacessível' };
+        if (!slots.length) return { ok: false, reason: 'reason.unreachable' };
         const left = us.slice();
         for (const s of slots) {
           let bi = 0, bd = Infinity;
@@ -166,7 +167,7 @@
       case 'gather': {
         const i = W.idx(S, c.x, c.y);
         const f = FEATURE[S.map.feature[i]];
-        if (!f || (!f.res && !f.pickup)) return { ok: false, reason: 'Nada para coletar' };
+        if (!f || (!f.res && !f.pickup)) return { ok: false, reason: 'reason.nothingToGather' };
         for (const u of us) UB.Units.order(S, u, { type: 'gather', x: c.x, y: c.y, res: f.res, phase: 'go' });
         return { ok: true };
       }
@@ -174,17 +175,17 @@
         const p = W.get(S, c.id);
         if (!p || p.dead) return { ok: false };
         if (POIS[p.type].nest) return command(S, { type: 'attack', ids: c.ids, id: p.id });
-        if (p.searchesLeft <= 0) return { ok: false, reason: 'Já foi esgotado' };
+        if (p.searchesLeft <= 0) return { ok: false, reason: 'reason.exhausted' };
         for (const u of us) UB.Units.order(S, u, { type: 'loot', id: p.id });
         return { ok: true };
       }
       case 'garrison': case 'work': case 'patient': {
         const b = W.get(S, c.id);
-        if (!b || b.dead || b.built < 1) return { ok: false, reason: 'Construção indisponível' };
+        if (!b || b.dead || b.built < 1) return { ok: false, reason: 'reason.buildingUnavailable' };
         const role = c.type;
         const list = role === 'garrison' ? b.garrison : role === 'patient' ? b.patients : b.workers;
         let free = UB.Buildings.slots(b) - list.length;
-        if (free <= 0) return { ok: false, reason: 'Sem vagas' };
+        if (free <= 0) return { ok: false, reason: 'reason.noSlots' };
         for (const u of us) {
           if (free <= 0) break;
           if (u.inside === b.id) continue;
@@ -217,7 +218,7 @@
           workers = S.units.filter((u) => !u.dead && !u.inside && !u.order && W.inTerritory(S, u.x, u.y))
             .sort((a, z) => UB.U.dist2(a.x, a.y, b.tx, b.ty) - UB.U.dist2(z.x, z.y, b.tx, b.ty)).slice(0, 2);
         }
-        if (!workers.length) return { ok: false, reason: 'Ninguém disponível na base' };
+        if (!workers.length) return { ok: false, reason: 'reason.nobodyFree' };
         for (const u of workers) UB.Units.order(S, u, { type: b.built < 1 ? 'build' : 'repair', id: b.id });
         return { ok: true };
       }
@@ -262,7 +263,7 @@
         return { ok: true };
       }
       case 'skipDay': return { ok: UB.Waves.skipToDusk(S) };
-      default: return { ok: false, reason: 'Comando desconhecido' };
+      default: return { ok: false, reason: 'reason.unknownCommand' };
     }
   }
 
@@ -286,7 +287,7 @@
   }
   function deserialize(str) {
     const o = typeof str === 'string' ? JSON.parse(str) : str;
-    if (!o || o.version !== VERSION) throw new Error('Save incompatível com esta versão.');
+    if (!o || o.version !== VERSION) throw new Error('Incompatible save version.');
     const S = o;
     const m = o.map;
     S.map = { w: m.w, h: m.h };

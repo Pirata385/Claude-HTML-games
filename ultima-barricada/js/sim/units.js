@@ -65,7 +65,7 @@
       u.rank++;
       const gain = RANKS[u.rank].hp - RANKS[u.rank - 1].hp;
       u.maxHp += gain; u.hp += gain;
-      UB.Game.msg(S, `${u.name} agora é ${RANKS[u.rank].name}.`, 'good', u.x, u.y);
+      UB.Game.msg(S, 'msg.promoted', { name: u.name, r: u.rank }, 'good', u.x, u.y);
     }
   }
 
@@ -256,7 +256,7 @@
         }
         goTo(S, u, { x: o.x, y: o.y });
         if (u.pathFail || (pathDone(u) && !u.pathQueued && u.path)) {
-          if (u.pathFail && UB.U.dist(u.x, u.y, o.x, o.y) > 1.5) UB.Game.msg(S, `${u.name}: não consigo chegar lá.`, 'warn', u.x, u.y);
+          if (u.pathFail && UB.U.dist(u.x, u.y, o.x, o.y) > 1.5) UB.Game.msg(S, 'msg.cantReach', { name: u.name }, 'warn', u.x, u.y);
           u.order = { type: 'hold', x: u.x, y: u.y };
           stop(u);
         }
@@ -353,7 +353,7 @@
     u.target = 0;
     if (distToRect(u.x, u.y, rectOf(b)) <= 1.6) { stop(u); u.working = o; return true; }
     goTo(S, u, { rect: rectOf(b) });
-    if (u.pathFail) { if (!isTask) { UB.Game.msg(S, `${u.name}: sem acesso à obra.`, 'warn', u.x, u.y); u.order = null; } return false; }
+    if (u.pathFail) { if (!isTask) { UB.Game.msg(S, 'msg.noAccessSite', { name: u.name }, 'warn', u.x, u.y); u.order = null; } return false; }
     return true;
   }
 
@@ -369,7 +369,7 @@
         else u.order = null;
         return true;
       }
-      if (!isTask) { UB.Game.msg(S, `${BUILDINGS[b.type].name}: sem vagas.`, 'warn', u.x, u.y); u.order = { type: 'hold', x: u.x, y: u.y }; }
+      if (!isTask) { UB.Game.msg(S, 'msg.noSlots', { b: b.type }, 'warn', u.x, u.y); u.order = { type: 'hold', x: u.x, y: u.y }; }
       return false;
     }
     goTo(S, u, { rect: rectOf(b) });
@@ -412,7 +412,7 @@
     const rect = { x0: o.x, y0: o.y, x1: o.x, y1: o.y };
     if (distToRect(u.x, u.y, rect) <= 1.5) { stop(u); u.working = o; return; }
     goTo(S, u, { rect });
-    if (u.pathFail) { u.order = null; UB.Game.msg(S, `${u.name}: não alcanço esse recurso.`, 'warn', u.x, u.y); }
+    if (u.pathFail) { u.order = null; UB.Game.msg(S, 'msg.cantReachRes', { name: u.name }, 'warn', u.x, u.y); }
   }
   function findNode(S, x, y, res, r) {
     const N = S.map.w;
@@ -441,7 +441,7 @@
     if (UB.U.dist(u.x, u.y, p.ex + 0.5, p.ey + 0.5) <= 1.3) { stop(u); u.searching = true; u.working = o; return; }
     u.searching = false;
     goTo(S, u, { x: p.ex + 0.5, y: p.ey + 0.5, range: 1 });
-    if (u.pathFail) { u.order = null; UB.Game.msg(S, `${u.name}: não acho a entrada.`, 'warn', u.x, u.y); }
+    if (u.pathFail) { u.order = null; UB.Game.msg(S, 'msg.noEntrance', { name: u.name }, 'warn', u.x, u.y); }
   }
 
   function medic(S, u) {
@@ -456,7 +456,7 @@
         else if (u.pack.meds >= 1) u.pack.meds -= 1;
         else return false;
         a.infected = -1;
-        UB.Game.msg(S, `${u.name} tratou a mordida de ${a === u ? 'si mesmo(a)' : a.name}.`, 'good', a.x, a.y);
+        UB.Game.msg(S, a === u ? 'msg.treatedSelf' : 'msg.treatedOther', { name: u.name, other: a.name }, 'good', a.x, a.y);
       }
       return false;
     });
@@ -477,7 +477,7 @@
         u.workT = S.time;
         u.facing = facingOf(b.tx + b.w / 2 - u.x, b.ty + b.h / 2 - u.y);
         if (!UB.Buildings.repair(S, b, BAL.repairRate * R.build * mm * dt)) {
-          if (S.tick - (S._repMsgT || -9999) > 300) { S._repMsgT = S.tick; UB.Game.msg(S, 'Recursos insuficientes para reparar.', 'warn', b.tx, b.ty); }
+          if (S.tick - (S._repMsgT || -9999) > 300) { S._repMsgT = S.tick; UB.Game.msg(S, 'msg.noRepairRes', null, 'warn', b.tx, b.ty); }
           if (u.order === o) u.order = null;
           if (u.task === o) u.task = null;
         }
@@ -512,7 +512,7 @@
       if (u.busyT >= POIS[p.type].time) {
         u.busyT = 0; u.lootP = 0;
         UB.Explore.searchComplete(S, p, u);
-        if (packTotal(u) >= BAL.backpackCap) { u.order = { type: 'return' }; u.searching = false; UB.Game.msg(S, `${u.name}: mochila cheia, voltando à base.`, 'info', u.x, u.y); }
+        if (packTotal(u) >= BAL.backpackCap) { u.order = { type: 'return' }; u.searching = false; UB.Game.msg(S, 'msg.packFull', { name: u.name }, 'info', u.x, u.y); }
       }
     }
   }
@@ -548,7 +548,7 @@
       u.cd -= dt;
       if (u.infected >= 0) {
         u.infected -= dt;
-        if (u.infected <= 0) { u.infected = 0; UB.Combat.killUnit(S, u, 'Infecção'); continue; }
+        if (u.infected <= 0) { u.infected = 0; UB.Combat.killUnit(S, u, { k: 'cause.infection' }); continue; }
       }
       if (u.starving && u.hp > u.maxHp * 0.75) u.hp = u.maxHp * 0.75;
       if (u.inside) { tickInside(S, u, dt); continue; }
@@ -563,8 +563,8 @@
   }
 
   function equip(S, u, weapon) {
-    if (u.weapon === weapon) return { ok: false, reason: 'Já equipado' };
-    if (weapon !== 'pistol' && weapon !== 'bat' && !(S.armory[weapon] > 0)) return { ok: false, reason: 'Arma indisponível no arsenal' };
+    if (u.weapon === weapon) return { ok: false, reason: 'reason.alreadyEquipped' };
+    if (weapon !== 'pistol' && weapon !== 'bat' && !(S.armory[weapon] > 0)) return { ok: false, reason: 'reason.noWeapon' };
     if (weapon !== 'pistol' && weapon !== 'bat') S.armory[weapon]--;
     if (u.weapon === 'shotgun' || u.weapon === 'rifle') S.armory[u.weapon] = (S.armory[u.weapon] || 0) + 1;
     u.weapon = weapon;

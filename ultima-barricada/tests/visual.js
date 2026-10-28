@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 // Browser check with Playwright (Chromium): loads the game from a local static server, plays
 // through menus on desktop, phone portrait and phone landscape, simulates mouse and touch
-// input, saves and reloads, measures frame rate with a big horde and fails on console errors.
+// input, saves and reloads, switches language (PT/EN), measures frame rate with a big horde and
+// fails on console errors.
 //   node tests/visual.js [outDir]      screenshots go to outDir (default: tests/screens)
 'use strict';
 const http = require('http');
@@ -55,7 +56,8 @@ async function run() {
 
   // ---------- desktop ----------
   {
-    const { ctx, page } = await open('desktop', { viewport: { width: 1280, height: 800 } });
+    const { ctx, page } = await open('desktop', { viewport: { width: 1280, height: 800 }, locale: 'pt-BR' });
+    results.detectPt = (await page.textContent('#mNew')) === 'Novo jogo';
     await shot(page, '01-menu-desktop');
     await startGame(page, 'visual');
     await shot(page, '02-day-desktop');
@@ -137,9 +139,46 @@ async function run() {
     await ctx.close();
   }
 
-  // ---------- phone portrait (touch) ----------
+  // ---------- language: detection, switch, persistence, in-game text ----------
   {
-    const { ctx, page } = await open('portrait', { viewport: { width: 390, height: 844 }, deviceScaleFactor: 3, hasTouch: true, isMobile: true });
+    const { ctx, page } = await open('language', { viewport: { width: 1280, height: 800 }, locale: 'en-US' });
+    results.detectEn = await page.evaluate(() => document.getElementById('mNew').textContent === 'New game' && document.title === 'Last Barricade' &&
+      document.querySelector('#scrMain .title').innerText.replace(/\s+/g, ' ') === 'LAST BARRICADE');
+    await shot(page, '01b-menu-english');
+    await page.click('#mLang [data-lang="pt"]');
+    results.switchPt = await page.evaluate(() => document.getElementById('mNew').textContent === 'Novo jogo' && document.documentElement.lang === 'pt-BR');
+    await page.reload();
+    await page.waitForSelector('#scrMain.show', { timeout: 30000 });
+    results.persisted = (await page.textContent('#mNew')) === 'Novo jogo';
+    await page.click('#mSettings');
+    await page.click('[data-c="lang"][data-v="en"]');
+    results.settingsEn = (await page.textContent('#scrSettings h2')) === 'Settings';
+    await page.click('#scrSettings [data-back]');
+    await startGame(page, 'english');
+    await page.keyboard.press('b');
+    await page.waitForSelector('#buildMenu:not([hidden])');
+    await shot(page, '02b-build-english');
+    await page.click('#bmClose');
+    await page.evaluate(() => UB.App.selectUnits([UB.App.S.units[0].id]));
+    await page.waitForTimeout(800);
+    await shot(page, '02c-unit-english');
+    results.hudEn = await page.evaluate(() => {
+      const txt = document.getElementById('hud').innerText;
+      return document.getElementById('clockDay').textContent === 'Day 1' && txt.includes('Return to base') &&
+        !/Construir|sobreviventes|Voltar|Segurar|Esquadr|Todos|Ocioso|Dia \d/.test(txt) ? true : txt.slice(0, 400);
+    });
+    // Switching language mid-game redraws the HUD at once.
+    await page.click('#btnMenu');
+    await page.click('#pSettings');
+    await page.click('[data-c="lang"][data-v="pt"]');
+    results.midGamePt = await page.evaluate(() => ({ clock: document.getElementById('clockDay').textContent, all: document.querySelector('[data-sq="all"]').textContent }));
+    results.midGamePt = results.midGamePt.clock === 'Dia 1' && results.midGamePt.all === 'Todos' ? true : results.midGamePt;
+    await ctx.close();
+  }
+
+  // ---------- phone portrait (touch, English) ----------
+  {
+    const { ctx, page } = await open('portrait', { viewport: { width: 390, height: 844 }, deviceScaleFactor: 3, hasTouch: true, isMobile: true, locale: 'en-US' });
     await shot(page, '07-menu-portrait');
     await page.tap('#mNew');
     await page.fill('#nSeed', 'toque');
@@ -183,7 +222,7 @@ async function run() {
 
   // ---------- phone landscape ----------
   {
-    const { ctx, page } = await open('landscape', { viewport: { width: 844, height: 390 }, deviceScaleFactor: 3, hasTouch: true, isMobile: true });
+    const { ctx, page } = await open('landscape', { viewport: { width: 844, height: 390 }, deviceScaleFactor: 3, hasTouch: true, isMobile: true, locale: 'pt-BR' });
     await page.tap('#mNew');
     await page.tap('#nStart');
     await page.waitForFunction(() => UB.App.inGame && !document.getElementById('hud').hidden, null, { timeout: 30000 });
@@ -220,6 +259,10 @@ async function run() {
   if (results.touchSelected !== 1) fails.push('tap did not select');
   if (results.touchOrder !== 'move') fails.push('tap did not order a move');
   if (results.touchBuilt !== 1) fails.push('touch placement failed');
+  if (!results.detectPt || !results.detectEn) fails.push('browser language not detected');
+  if (!results.switchPt || !results.persisted || !results.settingsEn) fails.push('language switch or persistence failed');
+  if (results.hudEn !== true) fails.push('HUD not in English: ' + results.hudEn);
+  if (results.midGamePt !== true) fails.push('mid-game language switch did not redraw the HUD: ' + JSON.stringify(results.midGamePt));
   if (fails.length) { console.log('FAIL: ' + fails.join('; ')); process.exit(1); }
   console.log('Browser checks passed. Screenshots in ' + OUT);
 }

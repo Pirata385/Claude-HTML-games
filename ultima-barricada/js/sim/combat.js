@@ -52,7 +52,7 @@
     }
     u.ammo -= 1;
     S.stats.shots = (S.stats.shots || 0) + 1;
-    const ox = u.inside ? 0 : 0, sz = u.inside ? 1.6 : 0.55;
+    const ox = 0, sz = u.inside ? 1.6 : 0.55;
     if (target.kind === 'poi') {
       const hit = S.rng.chance(0.9);
       UB.Game.fx(S, { t: 'shot', w: u.weapon, x0: u.x + ox, y0: u.y, x1: tx, y1: ty, hit, z: sz });
@@ -84,7 +84,7 @@
     }
     if (S.time - (u.noiseT || -99) > 0.5) { u.noiseT = S.time; noise(S, u.x, u.y, wpn.noise); }
     gasHazard(S, tx, ty);
-    if (u.ammo === 0 && !u.inside) UB.Game.msg(S, `${u.name} ficou sem munição e passou para o taco.`, 'warn', u.x, u.y);
+    if (u.ammo === 0 && !u.inside) UB.Game.msg(S, 'msg.outOfAmmo', { name: u.name }, 'warn', u.x, u.y);
     return true;
   }
 
@@ -97,7 +97,7 @@
       if (!S.rng.chance(0.035)) continue;
       p.exploded = true;
       p.searchesLeft = Math.min(p.searchesLeft, 1);
-      UB.Game.msg(S, 'O posto de combustível explodiu!', 'bad', cx, cy);
+      UB.Game.msg(S, 'msg.gasExploded', null, 'bad', cx, cy);
       explode(S, cx, cy, 4.5, 140, null);
     }
   }
@@ -126,7 +126,7 @@
     }
     UB.Game.fx(S, { t: 'zdie', x: z.x, y: z.y, type: z.type, f: z.facing });
     if (def.explode) explode(S, z.x, z.y, def.explode.r, def.explode.dmg, null);
-    if (def.boss) UB.Game.msg(S, 'O Colosso caiu!', 'good', z.x, z.y);
+    if (def.boss) UB.Game.msg(S, 'msg.colossusDown', null, 'good', z.x, z.y);
   }
 
   function hurtPoi(S, p, dmg, src) {
@@ -144,7 +144,7 @@
       W.refreshArea(S, p.tx, p.ty, p.w, p.h);
       UB.Game.fx(S, { t: 'terrain', x: p.tx, y: p.ty, w: p.w, h: p.h });
       UB.Game.fx(S, { t: 'explode', x: p.tx + 1, y: p.ty + 1, r: 2, gore: true });
-      UB.Game.msg(S, 'Ninho destruído! (+500 pontos)', 'good', p.tx + 1, p.ty + 1);
+      UB.Game.msg(S, 'msg.nestDestroyed', { pts: BAL.score.nest }, 'good', p.tx + 1, p.ty + 1);
       if (src && src.kind === 'unit') { src.xp += 10; UB.Units.checkRank(S, src); }
     }
   }
@@ -159,25 +159,27 @@
     u.hitT = S.time;
     if (z && !ranged && u.infected < 0 && S.rng.chance(ZOMBIES[z.type].bite)) {
       u.infected = BAL.infectTime;
-      UB.Game.msg(S, `${u.name} foi mordido(a)! Trate com remédios (médico ou enfermaria) em até 5 min.`, 'bad', u.x, u.y);
+      UB.Game.msg(S, 'msg.bitten', { name: u.name }, 'bad', u.x, u.y);
     }
-    if (u.hp <= 0) killUnit(S, u, z ? `Morto(a) por um ${ZOMBIES[z.type].name.toLowerCase()}` : 'Ferimentos');
+    if (u.hp <= 0) killUnit(S, u, z ? { k: 'cause.zombie', p: { z: z.type } } : { k: 'cause.wounds' });
   }
 
+  // cause: {k, p} translation key of the cause of death.
   function killUnit(S, u, cause) {
+    cause = cause || { k: 'cause.unknown' };
     if (u.dead) return;
     u.dead = true;
     UB.Units.leaveBuilding(S, u);
     S.stats.deaths++;
     S._diedTonight = true;
     UB.Eco.changeMorale(S, -10);
-    S.memorial.push({ name: u.name, role: u.role, day: S.day, cause: cause || 'Desconhecida', kills: u.kills });
+    S.memorial.push({ name: u.name, role: u.role, day: S.day, cause, kills: u.kills });
     UB.Game.fx(S, { t: 'udie', x: u.x, y: u.y, role: u.role, f: u.facing });
-    UB.Game.msg(S, `${u.name} morreu (${(cause || '').toLowerCase()}).`, 'bad', u.x, u.y);
+    UB.Game.msg(S, 'msg.died', { name: u.name, cause }, 'bad', u.x, u.y);
     dropPack(S, u);
     if (u.infected >= 0) {
       UB.Zombies.spawn(S, 'walker', u.x, u.y, { state: 'wander', turned: u.name });
-      UB.Game.msg(S, `${u.name} se transformou!`, 'bad', u.x, u.y);
+      UB.Game.msg(S, 'msg.turned', { name: u.name }, 'bad', u.x, u.y);
     }
   }
 

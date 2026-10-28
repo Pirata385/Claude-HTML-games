@@ -1,7 +1,7 @@
 // Resources, storage, power, production, healing and the dawn upkeep (food, hunger, morale).
 (function (UB) {
   'use strict';
-  const { RES, RES_NAME, BUILDINGS, BAL, CRAFT } = UB.DEF;
+  const { RES, BUILDINGS, BAL } = UB.DEF;
 
   const lvl = (b) => BUILDINGS[b.type].levels[b.level - 1];
   const done = (b) => b.built >= 1 && !b.dead;
@@ -29,7 +29,7 @@
     S.res[res] += got;
     if (got < n && S.tick - (S._fullMsgT || -9999) > 200) {
       S._fullMsgT = S.tick;
-      UB.Game.msg(S, `Estoque de ${RES_NAME[res].toLowerCase()} cheio: construa ou melhore depósitos.`, 'warn');
+      UB.Game.msg(S, 'msg.storageFull', { r: res }, 'warn');
     }
     return got;
   }
@@ -45,10 +45,11 @@
   function refund(S, cost, frac) {
     for (const k in cost) add(S, k, Math.floor(cost[k] * frac));
   }
+  // What is lacking to pay `cost`, as [{res, n}] (formatted by the interface).
   function missing(S, cost) {
     const out = [];
-    for (const k in cost) if ((S.res[k] || 0) < cost[k]) out.push(`${cost[k] - S.res[k]} ${RES_NAME[k].toLowerCase()}`);
-    return out.join(', ');
+    for (const k in cost) if ((S.res[k] || 0) < cost[k]) out.push({ res: k, n: cost[k] - (S.res[k] || 0) });
+    return out;
   }
 
   // Morale multiplier on work speed and a small accuracy effect.
@@ -88,7 +89,7 @@
             b.burnT = (b.burnT || 0) - dt;
             if (b.burnT <= 0) {
               if (S.res.fuel > 0) { S.res.fuel -= 1; b.burnT += L.burn; }
-              else { b.burnT = 0; if (S.tick - (S._fuelMsgT || -9999) > 600) { S._fuelMsgT = S.tick; UB.Game.msg(S, 'Gerador sem combustível: holofotes e metralhadoras desligados.', 'bad', b.tx + 1, b.ty + 1); } }
+              else { b.burnT = 0; if (S.tick - (S._fuelMsgT || -9999) > 600) { S._fuelMsgT = S.tick; UB.Game.msg(S, 'msg.noFuel', null, 'bad', b.tx + 1, b.ty + 1); } }
             }
           }
           break;
@@ -107,7 +108,7 @@
             b.craft.t -= rate * w;
             if (b.craft.t <= 0) {
               S.armory[b.craft.item] = (S.armory[b.craft.item] || 0) + 1;
-              UB.Game.msg(S, `${CRAFT[b.craft.item].name} fabricada. Equipe um sobrevivente no painel dele.`, 'good', b.tx + 1, b.ty + 1);
+              UB.Game.msg(S, 'msg.crafted', { w: b.craft.item }, 'good', b.tx + 1, b.ty + 1);
               b.craft = null;
             }
             break;
@@ -131,7 +132,7 @@
             if (u.infected >= 0 && S.res.meds >= 1) {
               S.res.meds -= 1;
               u.infected = -1;
-              UB.Game.msg(S, `${u.name} foi tratado(a) na enfermaria.`, 'good');
+              UB.Game.msg(S, 'msg.treated', { name: u.name }, 'good');
             }
           }
           break;
@@ -168,23 +169,23 @@
     }
     if (hungry) {
       changeMorale(S, -8 * hungry);
-      lines.push(`${hungry} sobrevivente(s) passaram fome.`);
+      lines.push({ k: 'msg.hungry', p: { n: hungry } });
       for (const u of alive) {
         if (u.starving >= 3 && S.rng.chance(0.5)) {
-          UB.Combat.killUnit(S, u, 'fome');
+          UB.Combat.killUnit(S, u, { k: 'cause.hunger' });
         } else if (u.starving >= 2 && S.rng.chance(0.35)) {
-          desert(S, u, 'fome');
+          desert(S, u, 'hunger');
         }
       }
     }
     const pop = population(S), bedCount = beds(S);
-    if (pop > bedCount) { changeMorale(S, -3 * (pop - bedCount)); lines.push(`Faltam ${pop - bedCount} cama(s).`); }
+    if (pop > bedCount) { changeMorale(S, -3 * (pop - bedCount)); lines.push({ k: 'msg.noBeds', p: { n: pop - bedCount } }); }
     if (!S._diedTonight) changeMorale(S, 5);
     if (S.morale >= 60) changeMorale(S, 1);
     S._diedTonight = false;
     if (S.morale < 15) {
       const living = S.units.filter((u) => !u.dead);
-      if (living.length > 1 && S.rng.chance(0.3)) desert(S, S.rng.pick(living), 'moral');
+      if (living.length > 1 && S.rng.chance(0.3)) desert(S, S.rng.pick(living), 'morale');
     }
     return lines;
   }
@@ -194,8 +195,8 @@
     u.deserted = true;
     UB.Units.leaveBuilding(S, u);
     S.stats.deserted = (S.stats.deserted || 0) + 1;
-    S.memorial.push({ name: u.name, role: u.role, day: S.day, cause: why === 'fome' ? 'Partiu em busca de comida' : 'Abandonou o grupo' });
-    UB.Game.msg(S, `${u.name} abandonou a base (${why === 'fome' ? 'fome' : 'moral baixa'}).`, 'bad');
+    S.memorial.push({ name: u.name, role: u.role, day: S.day, cause: { k: why === 'hunger' ? 'cause.leftFood' : 'cause.leftMorale' } });
+    UB.Game.msg(S, 'msg.deserted', { name: u.name, why: why === 'hunger' ? 'why.hunger' : 'why.morale' }, 'bad');
   }
 
   UB.Eco = { cap, beds, population, add, can, spend, refund, missing, moraleMul, changeMorale, updatePower, tick, dawn, lvl, done };

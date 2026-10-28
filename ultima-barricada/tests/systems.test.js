@@ -135,7 +135,7 @@ test('untreated bites kill the survivor, who rises as a zombie', () => {
   assert.ok(!S.units.includes(u));
   // The body rises (and may be shot down at once by the others).
   assert.ok(S.zombies.length > z0 || S.stats.kills > 0);
-  assert.ok(S.log.some((m) => m.text.includes('se transformou')));
+  assert.ok(S.log.some((m) => m.k === 'msg.turned' && m.p.name === u.name));
   assert.ok(S.memorial.some((m) => m.name === u.name));
 });
 

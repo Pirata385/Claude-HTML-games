@@ -1,8 +1,12 @@
-# Última Barricada
+# Última Barricada (Last Barricade)
 
 RTS de sobrevivência zumbi em pixel art isométrica de voxels, jogado no navegador (computador ou celular). Você comanda um pequeno grupo de sobreviventes numa cidade procedural tomada pelos mortos: de dia, coleta recursos, constrói e explora; à noite, segura a base contra hordas cada vez maiores. A partida é **infinita, com pontuação**, e termina quando o QG cai ou não resta ninguém.
 
 Abra `index.html` (direto do disco ou por um servidor estático). Não há dependências nem etapa de build.
+
+**Idiomas:** português e inglês. O jogo começa no idioma do navegador (português se ele for `pt-*`, inglês nos demais casos) e pode ser trocado a qualquer momento pelos botões PT | EN do menu principal ou nas Configurações. A escolha fica salva.
+
+> **English.** *Last Barricade* is a zombie-survival RTS in isometric voxel pixel art for desktop and mobile browsers. Lead a few survivors through a seeded procedural city: gather wood and scrap by day, loot hospitals, police stations and gas stations, build and upgrade walls, towers, turrets and generators on a grid, and hold the HQ against ever larger night hordes. The game is endless and scored. Open `index.html`; it starts in English unless your browser is set to Portuguese, and the PT | EN buttons on the main menu (or Settings) switch language at any time.
 
 ## Como se joga
 
@@ -53,8 +57,9 @@ Scripts clássicos (funcionam via `file://`) num namespace `UB`. A simulação �
 
 ```
 index.html, style.css     casca, HUD e menus (DOM)
-js/core/                  rng.js (mulberry32, hash, value noise), util.js (heap, base64)
-js/data/defs.js           todo o conteúdo e o balanceamento
+js/core/                  rng.js (mulberry32, hash, value noise), util.js (heap, base64), i18n.js (traduções)
+js/i18n/                  pt.js e en.js: todos os textos do jogo, com as mesmas chaves
+js/data/defs.js           todo o conteúdo e o balanceamento (só ids e números)
 js/sim/                   world, mapgen, path (A* com orçamento por tick + flow field), spatial (hash espacial),
                           economy, buildings, combat, units, zombies, waves, explore, objectives, game (tick, comandos, save)
 js/render/                voxel.js (modelos e baker isométrico), models.js, tiles.js, renderer.js
@@ -64,14 +69,15 @@ tests/                    run.js + *.test.js (Node), bot.js (jogador automático
 ```
 
 - `sim/*` não toca no DOM e só usa o RNG semeado do estado. A interface altera o jogo exclusivamente por `UB.Game.command()`, a mesma API usada pelo mouse, pelo toque, pelo bot e pelos testes. Assim, as regras são idênticas em todos os dispositivos.
+- **Traduções**: a simulação não guarda texto, só chaves e parâmetros (`{k: 'msg.built', p: {b: 'wall'}}`); a interface formata na hora com `UB.I18N.t()`, então trocar de idioma no meio da partida atualiza tudo, inclusive o histórico. Marcadores como `{b|bld}` traduzem ids (prédios, locais, zumbis, recursos…). Para adicionar um idioma, copie `js/i18n/en.js`, traduza os valores, inclua o `<script>` em `index.html` e registre o código em `LANGS`, `TAG` e `NAMES` no início de `js/core/i18n.js`; os seletores do menu e das configurações são gerados a partir dessa lista. `tests/i18n.test.js` confere se os dicionários têm as mesmas chaves e se toda chave usada no código existe.
 - **Escala**: hash espacial para vizinhança e alvos; a IA "pensa" em intervalos escalonados (mais vezes perto do jogador) enquanto o movimento roda todo tick; pedidos de A\* entram numa fila com orçamento de nós por tick; o flow field da horda só é recalculado quando as estruturas mudam (no máximo 1×/s).
 - **Visual**: cada modelo de voxel é assado uma vez num sprite com sombreamento por face, contorno escuro e sombra projetada. O terreno fica em blocos de 16×16 tiles em cache. Os objetos são ordenados por profundidade, e prédios grandes são fatiados em colunas de meio tile. Por cima vêm névoa suave, iluminação noturna com fontes de luz, clima, partículas e decalques. O canvas trabalha em baixa resolução com ampliação inteira.
 
 ## Testes
 
 ```
-node tests/run.js           # 28 testes de simulação (mapa, caminhos, economia, construção, combate, save, 5 dias com bot)
-node tests/visual.js        # navegador: menus, mouse, toque, construção, save/reload, FPS com 500+ zumbis
+node tests/run.js           # 35 testes (mapa, caminhos, economia, construção, combate, save, 5 dias com bot, traduções)
+node tests/visual.js        # navegador: menus, mouse, toque, construção, save/reload, idiomas, FPS com 500+ zumbis
 ```
 
 `tests/visual.js` usa o Playwright com Chromium e grava capturas em `tests/screens/` (ignorada pelo git).

@@ -2,7 +2,8 @@
 // selection panel and the build menu. Pure DOM over the canvas; every action goes to UB.App.
 (function (UB) {
   'use strict';
-  const { RES, RES_NAME, BUILDINGS, BUILD_ORDER, POIS, ZOMBIES, ROLES, WEAPONS, RANKS, CRAFT, BLUEPRINTS, FEATURE, BAL, WEATHER } = UB.DEF;
+  const { RES, BUILDINGS, BUILD_ORDER, POIS, WEAPONS, CRAFT, FEATURE, BAL } = UB.DEF;
+  const I = UB.I18N, t = I.t;
   const H = {};
   const $ = (id) => document.getElementById(id);
   const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
@@ -38,7 +39,7 @@
   function costHTML(S, cost) {
     const parts = [];
     for (const k in cost) parts.push(`<span class="${S && S.res[k] < cost[k] ? 'lack' : ''}">${ico(k)}${cost[k]}</span>`);
-    return `<span class="cost">${parts.join('') || '<span>grátis</span>'}</span>`;
+    return `<span class="cost">${parts.join('') || `<span>${t('ui.free')}</span>`}</span>`;
   }
   H.costHTML = costHTML;
 
@@ -56,11 +57,14 @@
   H.spriteCanvas = spriteCanvas;
 
   // ---- static DOM ------------------------------------------------------------------------------------
+  function renderSquads() {
+    $('squads').innerHTML = [1, 2, 3, 4].map((n) => `<button class="btn" data-sq="${n}" title="${esc(t('sq.title', { n }))}">${n}<span class="n"></span></button>`).join('') +
+      `<button class="btn" data-sq="all" title="${esc(t('sq.allTitle'))}">${t('sq.all')}</button><button class="btn" data-sq="idle" title="${esc(t('sq.idleTitle'))}">${t('sq.idle')}</button>`;
+  }
   H.init = function () {
     const res = $('res');
     res.innerHTML = RES.map((k) => `<div class="res" data-res="${k}" data-tip="res:${k}">${ico(k)}<b>0</b><span class="cap"></span><span class="delta"></span></div>`).join('');
-    $('squads').innerHTML = [1, 2, 3, 4].map((n) => `<button class="btn" data-sq="${n}" title="Esquadrão ${n} (tecla ${n}; Ctrl+${n} define)">${n}<span class="n"></span></button>`).join('') +
-      '<button class="btn" data-sq="all" title="Selecionar todos fora de construções">Todos</button><button class="btn" data-sq="idle" title="Próximo ocioso (Tab)">Ocioso</button>';
+    renderSquads();
     $('squads').addEventListener('click', (e) => {
       const b = e.target.closest('[data-sq]');
       if (!b) return;
@@ -112,20 +116,26 @@
     document.addEventListener('pointerout', (e) => { if (e.target.closest && e.target.closest('[data-tip]')) $('tooltip').hidden = true; });
     H.buildTab = 'defense';
   };
+  // After a language change: redraw everything that holds text.
+  H.refresh = function () {
+    renderSquads();
+    lastPanelSig = '';
+    if (!$('buildMenu').hidden) H.renderBuild(UB.App.S);
+    if (UB.App.inGame && UB.App.S) H.update(UB.App.S, performance.now());
+  };
 
   function tipHTML(tip) {
     const S = UB.App.S;
     const [kind, key] = tip.split(':');
     if (kind === 'res' && S) {
-      const desc = { food: 'Cada sobrevivente come 3 por dia ao amanhecer. Sem comida, passam fome.', wood: 'Construções e barricadas. Corte árvores.', scrap: 'Muros, máquinas e munição (na oficina). Desmonte carros e destroços.', ammo: 'Gasta a cada tiro. Sem munição, os sobreviventes lutam com tacos.', fuel: 'Alimenta geradores (energia para holofotes e metralhadoras).', meds: 'Trata mordidas (evita que virem zumbis) e cura na enfermaria.' }[key];
       const d = H.dayDelta && H.dayDelta[key];
-      return `<b>${RES_NAME[key]}</b>: ${S.res[key]} / ${UB.Eco.cap(S)}<br>${desc}${d ? `<br><span class="${d > 0 ? 'good-t' : 'bad-t'}">${d > 0 ? '+' : ''}${d} hoje</span>` : ''}`;
+      return `<b>${t('res.' + key)}</b>: ${S.res[key]} / ${UB.Eco.cap(S)}<br>${t('resdesc.' + key)}${d ? `<br><span class="${d > 0 ? 'good-t' : 'bad-t'}">${t('ui.today', { d: (d > 0 ? '+' : '') + d })}</span>` : ''}`;
     }
     if (kind === 'build' && S) {
       const def = BUILDINGS[key];
       const L = def.levels[0];
-      const lock = def.requires && !S.unlocked[def.requires] ? `<br><span class="bad-t">Requer ${BLUEPRINTS[def.requires]} — encontre-o explorando.</span>` : '';
-      return `<b>${def.name}</b> (${def.size}×${def.size})<br>${def.desc}<br>Vida: ${L.hp}${L.power ? ` · Energia: ${L.power}` : ''}${lock}`;
+      const lock = def.requires && !S.unlocked[def.requires] ? `<br><span class="bad-t">${t('ui.locked', { bp: def.requires })}</span>` : '';
+      return `<b>${I.name('bld', key)}</b> (${def.size}×${def.size})<br>${I.desc('bld', key)}<br>${t('ui.hp', { hp: L.hp })}${L.power ? t('ui.power', { p: L.power }) : ''}${lock}`;
     }
     return '';
   }
@@ -155,9 +165,9 @@
     // Clock.
     const hrs = UB.Waves.clockHours(S);
     const hh = Math.floor(hrs), mm = Math.floor((hrs - hh) * 60);
-    $('clockDay').textContent = `Dia ${S.day}`;
+    $('clockDay').textContent = t('hud.day', { n: S.day });
     $('clockTime').textContent = `${String(hh).padStart(2, '0')}:${String(mm).padStart(2, '0')}`;
-    $('clockWx').textContent = `· ${WEATHER[S.weather].name}`;
+    $('clockWx').textContent = `· ${t('weather.' + S.weather)}`;
     const L = UB.Waves.phaseLen(S, S.clock.phase);
     $('clockFill').style.width = `${Math.round((S.clock.t / L) * 100)}%`;
     $('clock').classList.toggle('night', S.clock.phase !== 'day');
@@ -183,11 +193,11 @@
     if (S.over) ban.hidden = true;
     else if (S.clock.phase === 'dusk' && S.horde) {
       ban.hidden = false;
-      ban.textContent = `⚠ HORDA SE APROXIMANDO · ${[...new Set(S.horde.spawns.map((s) => s.side))].join(' e ')} · ${Math.ceil(L - S.clock.t)}s`;
+      ban.textContent = t('banner.dusk', { sides: [...new Set(S.horde.spawns.map((s) => s.side))], s: Math.ceil(L - S.clock.t) });
     } else if (S.clock.phase === 'night' && S.horde) {
       const alive = S.zombies.filter((z) => !z.dead && (z.state === 'horde' || z.state === 'attackS' || z.wasHorde)).length + S.horde.queue.length;
       ban.hidden = alive === 0;
-      ban.textContent = `NOITE ${S.horde.night}${S.horde.night % 5 === 0 ? ' · NOITE DE SANGUE' : ''} · ${alive} na horda`;
+      ban.textContent = t(S.horde.night % 5 === 0 ? 'banner.blood' : 'banner.night', { n: S.horde.night, alive });
     } else ban.hidden = true;
     // Alerts.
     for (const m of S.log) {
@@ -218,8 +228,8 @@
     const box = $('alerts');
     const d = document.createElement('div');
     d.className = 'alert ' + (m.kind || 'info') + (m.tip ? ' tip' : '');
-    d.textContent = m.text;
-    if (m.x !== undefined && m.x !== null && !Number.isNaN(m.x)) { d.dataset.x = m.x; d.dataset.y = m.y; d.title = 'Ir até lá'; }
+    d.textContent = I.msg(m);
+    if (m.x !== undefined && m.x !== null && !Number.isNaN(m.x)) { d.dataset.x = m.x; d.dataset.y = m.y; d.title = t('hud.goThere'); }
     box.prepend(d);
     while (box.children.length > 5) box.lastChild.remove();
     const ttl = m.ttl || (m.kind === 'bad' ? 12000 : 8000);
@@ -308,15 +318,16 @@
   function orderName(u, S) {
     if (u.inside) {
       const b = UB.World.get(S, u.inside);
-      const n = b ? BUILDINGS[b.type].name : '';
-      return u.insideRole === 'garrison' ? `Guarnecendo: ${n}` : u.insideRole === 'patient' ? `Em tratamento: ${n}` : `Trabalhando: ${n}`;
+      const k = u.insideRole === 'garrison' ? 'ord.garrisonIn' : u.insideRole === 'patient' ? 'ord.patientIn' : 'ord.workIn';
+      return t(k, { b: b ? b.type : undefined });
     }
     const o = u.order;
     if (!o) {
-      if (u.task) return { build: 'Construindo (automático)', repair: 'Reparando (automático)', garrison: 'Indo para a torre', patient: 'Indo à enfermaria', idle: 'Na base' }[u.task.type] || 'Automático';
-      return u.target ? 'Defendendo a base' : 'Automático (na base)';
+      if (u.task) return t(I.has('task.' + u.task.type) ? 'task.' + u.task.type : 'ord.auto');
+      return t(u.target ? 'ord.defending' : 'ord.autoBase');
     }
-    return { move: 'Movendo', amove: 'Avançando e atacando', hold: 'Segurando posição', attack: 'Atacando', gather: 'Coletando', loot: u.searching ? 'Saqueando…' : 'Indo saquear', garrison: 'Indo guarnecer', work: 'Indo trabalhar', patient: 'Indo se tratar', build: 'Construindo', repair: 'Reparando', return: 'Voltando à base' }[o.type] || o.type;
+    const k = o.type === 'loot' && u.searching ? 'ord.looting' : 'ord.' + o.type;
+    return I.has(k) ? t(k) : o.type;
   }
 
   function renderPanel(S) {
@@ -352,46 +363,46 @@
   }
 
   function unitPanel(S, u) {
-    const R = ROLES[u.role];
-    const w = WEAPONS[u.ammo > 0 || u.weapon === 'bat' ? u.weapon : 'bat'];
+    const wk = u.ammo > 0 || u.weapon === 'bat' ? u.weapon : 'bat';
+    const w = WEAPONS[wk];
     const pack = Object.entries(u.pack).filter(([, v]) => v > 0).map(([k, v]) => `<span class="kv">${ico(k)}${v}</span>`).join('') + (u.carry ? `<span class="kv">${ico(u.carry.res)}${u.carry.amt}</span>` : '');
     const status = [];
-    if (u.infected >= 0) status.push(`<span class="kv bad-t">Mordido(a): ${Math.ceil(u.infected)}s</span>`);
-    if (u.starving) status.push(`<span class="kv warn-t">Faminto(a) (${u.starving}d)</span>`);
+    if (u.infected >= 0) status.push(`<span class="kv bad-t">${t('unit.bitten', { s: Math.ceil(u.infected) })}</span>`);
+    if (u.starving) status.push(`<span class="kv warn-t">${t('unit.starving', { d: u.starving })}</span>`);
     const weapons = ['pistol', 'shotgun', 'rifle', 'bat'].map((k) => {
       const have = k === 'pistol' || k === 'bat' || S.armory[k] > 0 || u.weapon === k;
       const n = k === 'shotgun' || k === 'rifle' ? ` (${S.armory[k] || 0})` : '';
-      return btn('equip', WEAPONS[k].name + (k === u.weapon ? ' ✓' : n), { arg: k, disabled: !have || k === u.weapon, cls: k === u.weapon ? 'sel' : '', title: k === 'shotgun' || k === 'rifle' ? 'Do arsenal (encontre na delegacia ou fabrique na oficina)' : '' });
+      return btn('equip', t('weapon.' + k) + (k === u.weapon ? ' ✓' : n), { arg: k, disabled: !have || k === u.weapon, cls: k === u.weapon ? 'sel' : '', title: k === 'shotgun' || k === 'rifle' ? t('unit.fromArmory') : '' });
     }).join('');
     return `<div class="p-head"><canvas data-portrait="unit"></canvas><div style="flex:1;min-width:0">
-      <div class="p-title">${esc(u.name)} <span class="p-sub">${R.name} · ${RANKS[u.rank].name}${u.squad ? ` · Esq. ${u.squad}` : ''}</span></div>
+      <div class="p-title">${esc(u.name)} <span class="p-sub">${I.name('role', u.role)} · ${t('rank.' + u.rank)}${u.squad ? ` · ${t('ui.sqShort', { n: u.squad })}` : ''}</span></div>
       <div class="p-row">${hpBar(u.hp / u.maxHp)}<span class="small">${Math.ceil(u.hp)}/${u.maxHp}</span></div>
-      <div class="p-row small"><span class="kv">${w.name}${w.melee ? '' : ` · ${u.ammo} balas`}</span><span class="kv">${u.kills} abates</span><span class="kv">${orderName(u, S)}</span>${status.join('')}</div>
-      ${pack ? `<div class="p-row small">Mochila: ${pack}</div>` : ''}
+      <div class="p-row small"><span class="kv">${t('weapon.' + wk)}${w.melee ? '' : ` · ${t('unit.ammo', { n: u.ammo })}`}</span><span class="kv">${t('unit.kills', { n: u.kills })}</span><span class="kv">${orderName(u, S)}</span>${status.join('')}</div>
+      ${pack ? `<div class="p-row small">${t('unit.pack')} ${pack}</div>` : ''}
     </div></div>
-    <div class="p-desc">${R.desc} ${a11yHint()}</div>
+    <div class="p-desc">${I.desc('role', u.role)} ${a11yHint()}</div>
     <div class="p-actions">${commonUnitActions(S, [u])}</div>
     <div class="p-actions small">${weapons}</div>`;
   }
   function a11yHint() {
-    return UB.App.touch ? 'Toque no mapa para dar ordens: chão = mover, zumbi = atacar, árvore/carro = coletar, local = saquear, torre = guarnecer.' : 'Botão direito dá ordens: chão = mover, zumbi = atacar, árvore/carro = coletar, local = saquear, torre/oficina = entrar.';
+    return t(UB.App.touch ? 'hint.touch' : 'hint.mouse');
   }
   function commonUnitActions(S, us) {
     const anyInside = us.some((u) => u.inside);
     const amove = UB.App.mode && UB.App.mode.kind === 'amove';
     return [
-      btn('amove', amove ? 'Atacar-mover: escolha o destino' : 'Atacar-mover <small>A</small>', { cls: amove ? 'accent' : '' }),
-      btn('hold', 'Segurar <small>S</small>'),
-      btn('return', 'Voltar à base <small>H</small>'),
-      btn('release', 'Automático'),
-      anyInside ? btn('exit', 'Sair do prédio') : '',
-      ...[1, 2, 3, 4].map((n) => btn('setSquad', `Esq. ${n}`, { arg: n, title: `Definir como esquadrão ${n} (Ctrl+${n})` })),
+      btn('amove', amove ? t('act.amovePick') : `${t('act.amove')} <small>A</small>`, { cls: amove ? 'accent' : '' }),
+      btn('hold', `${t('act.hold')} <small>S</small>`),
+      btn('return', `${t('act.return')} <small>H</small>`),
+      btn('release', t('act.release')),
+      anyInside ? btn('exit', t('act.exit')) : '',
+      ...[1, 2, 3, 4].map((n) => btn('setSquad', t('ui.sqShort', { n }), { arg: n, title: t('act.setSquadTitle', { n }) })),
       btn('deselect', '✕'),
     ].join('');
   }
   function groupPanel(S, us) {
     const minis = us.slice(0, 24).map((u) => `<div class="unit-mini" data-act="pickUnit" data-arg="${u.id}"><canvas data-mini="${u.id}" width="28" height="28"></canvas>${hpBar(u.hp / u.maxHp)}<span>${esc(u.name.split(' ')[0])}</span></div>`).join('');
-    return `<div class="p-row"><span class="p-title">${us.length} sobreviventes</span><span class="p-sub">${a11yHint()}</span></div>
+    return `<div class="p-row"><span class="p-title">${t('group.title', { n: us.length })}</span><span class="p-sub">${a11yHint()}</span></div>
       <div class="unit-list">${minis}</div>
       <div class="p-actions">${commonUnitActions(S, us)}</div>`;
   }
@@ -401,124 +412,126 @@
     const L = def.levels[b.level - 1];
     const lines = [];
     const actions = [];
+    const kv = (s, cls) => `<span class="kv${cls ? ' ' + cls : ''}">${s}</span>`;
     if (b.built < 1) {
-      lines.push(`<span class="kv">Em construção: ${Math.round(b.built * 100)}%</span>`);
-      actions.push(btn('repair', 'Enviar construtores'));
-      actions.push(btn('demolish', 'Cancelar obra (reembolso total)', { cls: 'bad' }));
+      lines.push(kv(t('bld.underConstruction', { p: Math.round(b.built * 100) })));
+      actions.push(btn('repair', t('act.sendBuilders')));
+      actions.push(btn('demolish', t('act.cancelBuild'), { cls: 'bad' }));
     } else {
       if (def.levels.length > b.level) {
         const next = def.levels[b.level];
-        actions.push(btn('upgrade', `Melhorar para nível ${b.level + 1} ${costHTML(S, next.cost)}`, { disabled: !UB.Eco.can(S, next.cost), cls: 'good' }));
+        actions.push(btn('upgrade', `${t('act.upgrade', { n: b.level + 1 })} ${costHTML(S, next.cost)}`, { disabled: !UB.Eco.can(S, next.cost), cls: 'good' }));
       }
-      if (b.hp < b.maxHp) actions.push(btn('repair', 'Reparar'));
-      if (b.type !== 'hq') actions.push(btn('demolish', a_confirm(b.id) ? 'Confirmar demolição' : 'Demolir (50%)', { cls: 'bad' }));
+      if (b.hp < b.maxHp) actions.push(btn('repair', t('act.repair')));
+      if (b.type !== 'hq') actions.push(btn('demolish', t(a_confirm(b.id) ? 'act.demolishConfirm' : 'act.demolish'), { cls: 'bad' }));
       const slots = UB.Buildings.slots(b);
       if (b.type === 'tower' || b.type === 'hq') {
-        lines.push(`<span class="kv">Guarnição: ${b.garrison.length}/${slots}</span><span class="kv">+${L.range} de alcance</span>`);
-        actions.unshift(btn('garrisonSel', 'Guarnecer com selecionados/livres'));
-        if (b.garrison.length) actions.push(btn('evict', 'Esvaziar'));
+        lines.push(kv(t('bld.garrison', { n: b.garrison.length, m: slots })) + kv(t('bld.rangeBonus', { n: L.range })));
+        actions.unshift(btn('garrisonSel', t('act.garrisonSel')));
+        if (b.garrison.length) actions.push(btn('evict', t('act.evictAll')));
       }
       if (b.type === 'garden' || b.type === 'workshop') {
-        lines.push(`<span class="kv">Trabalhadores: ${b.workers.length}/${slots}</span>`);
-        if (b.workers.length < slots) actions.unshift(btn('assign', '+ Trabalhador'));
-        if (b.workers.length) actions.push(btn('evict', 'Liberar trabalhadores'));
-        actions.push(btn('nightShift', b.nightShift ? 'Turno noturno: sim' : 'Turno noturno: não', { title: 'Sem turno noturno, os trabalhadores saem para defender a base ao anoitecer e voltam ao amanhecer.' }));
-        if (b.type === 'garden') lines.push(`<span class="kv">≈ ${Math.round((b.workers.length * L.mult * 360) / BAL.gardenFoodEvery)} comida/dia</span>`);
+        lines.push(kv(t('bld.workers', { n: b.workers.length, m: slots })));
+        if (b.workers.length < slots) actions.unshift(btn('assign', t('act.addWorker')));
+        if (b.workers.length) actions.push(btn('evict', t('act.freeWorkers')));
+        actions.push(btn('nightShift', t(b.nightShift ? 'act.nightShiftOn' : 'act.nightShiftOff'), { title: t('act.nightShiftTitle') }));
+        if (b.type === 'garden') lines.push(kv(t('bld.foodDay', { n: Math.round((b.workers.length * L.mult * 360) / BAL.gardenFoodEvery) })));
         if (b.type === 'workshop') {
-          lines.push(`<span class="kv">≈ ${Math.round((b.workers.length * 360) / BAL.workshopCycle) * BAL.workshopBatch.ammo} munição/dia (${b.powered ? 'com energia' : 'sem energia: metade'})</span>`);
-          if (b.craft) lines.push(`<span class="kv">Fabricando ${CRAFT[b.craft.item].name}: ${Math.ceil(b.craft.t)}s</span>`);
+          lines.push(kv(t('bld.ammoDay', { n: Math.round((b.workers.length * 360) / BAL.workshopCycle) * BAL.workshopBatch.ammo, state: t(b.powered ? 'bld.withPower' : 'bld.halfSpeed') })));
+          if (b.craft) lines.push(kv(t('bld.crafting', { w: b.craft.item, s: Math.ceil(b.craft.t) })));
           else for (const k of Object.keys(CRAFT)) {
             const c = CRAFT[k];
-            actions.push(btn('craft', `Fabricar ${c.name} ${costHTML(S, c.cost)}`, { arg: k, disabled: b.level < c.level || !UB.Eco.can(S, c.cost) || !b.workers.length, title: b.level < c.level ? `Requer oficina nível ${c.level}` : !b.workers.length ? 'Precisa de um trabalhador' : '' }));
+            actions.push(btn('craft', `${t('act.craft', { w: k })} ${costHTML(S, c.cost)}`, { arg: k, disabled: b.level < c.level || !UB.Eco.can(S, c.cost) || !b.workers.length, title: b.level < c.level ? t('reason.needsWorkshop', { lvl: c.level }) : !b.workers.length ? t('bld.needWorker') : '' }));
           }
-          lines.push(`<span class="kv">Arsenal: ${S.armory.shotgun} espingarda(s), ${S.armory.rifle} rifle(s)</span>`);
+          lines.push(kv(t('bld.armory', { s: S.armory.shotgun, r: S.armory.rifle })));
         }
       }
       if (b.type === 'infirmary') {
-        lines.push(`<span class="kv">Pacientes: ${b.patients.length}/${slots}</span><span class="kv">${b.powered ? 'Com energia' : 'Sem energia (cura lenta)'}</span>`);
-        actions.unshift(btn('patientSel', 'Internar selecionados/feridos'));
+        lines.push(kv(t('bld.patients', { n: b.patients.length, m: slots })) + kv(t(b.powered ? 'bld.powered' : 'bld.slowHeal')));
+        actions.unshift(btn('patientSel', t('act.patientSel')));
       }
       if (b.type === 'generator') {
-        lines.push(`<span class="kv">${b.on ? (b.running ? `Ligado: +${L.supply} energia` : 'Sem combustível') : 'Desligado'}</span><span class="kv">1 combustível / ${L.burn}s</span><span class="kv">Energia: ${S.power.used}/${S.power.supply} (pedido ${S.power.demand})</span>`);
-        actions.unshift(btn('toggle', b.on ? 'Desligar' : 'Ligar'));
+        lines.push(kv(b.on ? (b.running ? t('gen.on', { n: L.supply }) : t('gen.noFuel')) : t('gen.off')) + kv(t('gen.burn', { s: L.burn })) + kv(t('gen.power', { u: S.power.used, s: S.power.supply, d: S.power.demand })));
+        actions.unshift(btn('toggle', t(b.on ? 'act.turnOff' : 'act.turnOn')));
       }
       if (L.power && b.type !== 'generator') {
-        lines.push(`<span class="kv ${b.powered ? 'good-t' : 'bad-t'}">${b.powered ? 'Com energia' : 'Sem energia'}</span>`);
-        if (b.type === 'turret' || b.type === 'spotlight' || b.type === 'radio') actions.unshift(btn('toggle', b.on ? 'Desligar' : 'Ligar'));
+        lines.push(kv(t(b.powered ? 'bld.powered' : 'bld.noPower'), b.powered ? 'good-t' : 'bad-t'));
+        if (b.type === 'turret' || b.type === 'spotlight' || b.type === 'radio') actions.unshift(btn('toggle', t(b.on ? 'act.turnOff' : 'act.turnOn')));
       }
-      if (b.type === 'turret') lines.push(`<span class="kv">Alcance ${L.range} · Dano ${L.dmg}</span>`);
-      if (b.type === 'hq') lines.push(`<span class="kv">Estoque ${L.cap}</span><span class="kv">Camas ${L.beds}</span><span class="kv">Território ${L.territory}</span><span class="kv">Reparo automático: ${S.autoRepair ? 'ligado' : 'desligado'}</span>`), actions.push(btn('autoRepair', S.autoRepair ? 'Desligar reparo automático' : 'Ligar reparo automático'));
-      if (b.type === 'shelter') lines.push(`<span class="kv">Camas ${L.beds}</span>`);
-      if (b.type === 'depot') lines.push(`<span class="kv">+${L.cap} de estoque</span>`);
-      if (b.type === 'spikes') lines.push(`<span class="kv">${L.dps} dano/s</span>`);
-      if (b.type === 'radio') lines.push(`<span class="kv">${Math.round(L.chance * 100)}% de chance de refugiado por dia</span>`);
+      if (b.type === 'turret') lines.push(kv(t('bld.turretStats', { r: L.range, d: L.dmg })));
+      if (b.type === 'hq') {
+        lines.push(kv(t('bld.storage', { n: L.cap })) + kv(t('bld.beds', { n: L.beds })) + kv(t('bld.territory', { n: L.territory })) + kv(t(S.autoRepair ? 'bld.autoRepairOn' : 'bld.autoRepairOff')));
+        actions.push(btn('autoRepair', t(S.autoRepair ? 'act.autoRepairOff' : 'act.autoRepairOn')));
+      }
+      if (b.type === 'shelter') lines.push(kv(t('bld.beds', { n: L.beds })));
+      if (b.type === 'depot') lines.push(kv(t('bld.depotCap', { n: L.cap })));
+      if (b.type === 'spikes') lines.push(kv(t('bld.spikesDps', { n: L.dps })));
+      if (b.type === 'radio') lines.push(kv(t('bld.radioChance', { n: Math.round(L.chance * 100) })));
     }
     actions.push(btn('deselect', '✕'));
     return `<div class="p-head"><canvas data-portrait="bld"></canvas><div style="flex:1;min-width:0">
-      <div class="p-title">${def.name} <span class="p-sub">nível ${b.level}</span></div>
+      <div class="p-title">${I.name('bld', b.type)} <span class="p-sub">${t('bld.level', { n: b.level })}</span></div>
       <div class="p-row">${hpBar(b.hp / b.maxHp)}<span class="small">${Math.ceil(b.hp)}/${b.maxHp}</span></div>
       <div class="p-row small">${lines.join('')}</div></div></div>
-      <div class="p-desc">${def.desc}</div>
+      <div class="p-desc">${I.desc('bld', b.type)}</div>
       <div class="p-actions">${actions.join('')}</div>`;
   }
   function a_confirm(id) { return UB.App.confirmDemolish === id; }
 
   function poiPanel(S, p) {
     const def = POIS[p.type];
-    if (!p.discovered) return `<div class="p-row"><span class="p-title">Local desconhecido</span></div><div class="p-desc">Envie alguém para explorar.</div><div class="p-actions">${btn('deselect', '✕')}</div>`;
+    if (!p.discovered) return `<div class="p-row"><span class="p-title">${t('poi.unknown')}</span></div><div class="p-desc">${t('poi.unknownDesc')}</div><div class="p-actions">${btn('deselect', '✕')}</div>`;
     const loot = def.loot.map(([k]) => ico(k)).join('');
     const extras = [];
-    if (def.special === 'police') extras.push('armas e projetos');
-    if (def.special && def.special !== 'police') extras.push(BLUEPRINTS[def.special]);
-    if (def.recruit || def.recruitCamp) extras.push('sobreviventes');
-    const squads = [1, 2, 3, 4].filter((n) => (S.squads[n] || []).length).map((n) => btn('sendSquad', `Enviar esq. ${n}`, { arg: n })).join('');
-    const status = def.nest ? `<div class="p-row">${hpBar(p.hp / p.maxHp)}<span class="small">${Math.ceil(p.hp)}/${p.maxHp}</span></div>` : `<span class="kv">${p.searchesLeft > 0 ? `Buscas restantes: ${p.searchesLeft}/${def.searches}` : 'Esgotado'}</span>${p.exploded ? '<span class="kv bad-t">Explodiu</span>' : ''}`;
+    if (def.special === 'police') extras.push(t('poi.extraWeapons'));
+    if (def.special && def.special !== 'police') extras.push(t('bp.' + def.special));
+    if (def.recruit || def.recruitCamp) extras.push(t('poi.extraSurvivors'));
+    const squads = [1, 2, 3, 4].filter((n) => (S.squads[n] || []).length).map((n) => btn('sendSquad', t('act.sendSquad', { n }), { arg: n })).join('');
+    const status = def.nest ? `<div class="p-row">${hpBar(p.hp / p.maxHp)}<span class="small">${Math.ceil(p.hp)}/${p.maxHp}</span></div>` : `<span class="kv">${p.searchesLeft > 0 ? t('poi.searchesLeft', { n: p.searchesLeft, m: def.searches }) : t('poi.exhausted')}</span>${p.exploded ? `<span class="kv bad-t">${t('poi.exploded')}</span>` : ''}`;
     return `<div class="p-head"><canvas data-portrait="poi"></canvas><div style="flex:1;min-width:0">
-      <div class="p-title">${def.name} <span class="p-sub" style="color:#ff6a5a">${'☠'.repeat(def.danger)}</span></div>
-      <div class="p-row small">${status}<span class="kv">Recompensas: ${def.nest ? `+${UB.DEF.BAL.score.nest} pontos e menos zumbis por perto` : loot + (extras.length ? ' + ' + extras.join(', ') : '')}</span></div></div></div>
-      <div class="p-desc">${def.desc} ${def.nest ? 'Selecione sobreviventes e ataque-o.' : 'Selecione sobreviventes e toque/clique aqui para saquear. Saquear faz barulho.'}</div>
+      <div class="p-title">${I.name('poi', p.type)} <span class="p-sub" style="color:#ff6a5a">${'☠'.repeat(def.danger)}</span></div>
+      <div class="p-row small">${status}<span class="kv">${t('poi.rewards')} ${def.nest ? t('poi.nestReward', { n: UB.DEF.BAL.score.nest }) : loot + (extras.length ? ' + ' + extras.join(', ') : '')}</span></div></div></div>
+      <div class="p-desc">${I.desc('poi', p.type)} ${t(def.nest ? 'poi.nestHint' : 'poi.lootHint')}</div>
       <div class="p-actions">${squads}${btn('deselect', '✕')}</div>`;
   }
   function zombiePanel(S, z) {
-    const def = ZOMBIES[z.type];
-    const notes = { walker: 'Lento, mas vem em bando.', runner: 'Rápido: chega antes do resto.', bloater: 'Explode ao morrer, danificando estruturas.', brute: 'Muito resistente; derruba muros.', spitter: 'Cospe ácido por cima dos muros.', screamer: 'Grita: atrai e acelera zumbis próximos.', armored: 'Blindado: metade do dano, exceto de rifles.', colossus: 'Chefe da Noite de Sangue.' };
     return `<div class="p-head"><canvas data-portrait="zom"></canvas><div style="flex:1;min-width:0">
-      <div class="p-title">${def.name}${z.turned ? ` <span class="p-sub">(era ${esc(z.turned)})</span>` : ''}</div>
+      <div class="p-title">${I.name('zom', z.type)}${z.turned ? ` <span class="p-sub">${t('zom.was', { name: esc(z.turned) })}</span>` : ''}</div>
       <div class="p-row">${hpBar(z.hp / z.maxHp)}<span class="small">${Math.ceil(z.hp)}/${z.maxHp}</span></div></div></div>
-      <div class="p-desc">${notes[z.type] || ''}</div><div class="p-actions">${btn('deselect', '✕')}</div>`;
+      <div class="p-desc">${t(`zom.${z.type}.note`)}</div><div class="p-actions">${btn('deselect', '✕')}</div>`;
   }
   function featPanel(S, f) {
     const i = f.y * S.map.w + f.x;
     const def = FEATURE[S.map.feature[i]];
     if (!def) return idlePanel(S);
-    const amt = def.res ? `<span class="kv">${ico(def.res)} ${S.map.famt[i]} restantes</span>` : '';
-    return `<div class="p-row"><span class="p-title">${def.name}</span>${amt}</div>
-      <div class="p-desc">${def.pickup ? 'Suprimentos: mande alguém abrir.' : `Selecione sobreviventes e mande coletar (${UB.DEF.RES_NAME[def.res]}).`}</div>
-      <div class="p-actions">${btn('gatherIdle', 'Mandar 2 livres coletarem')}${btn('deselect', '✕')}</div>`;
+    const amt = def.res ? `<span class="kv">${ico(def.res)} ${t('feat.left', { n: S.map.famt[i] })}</span>` : '';
+    return `<div class="p-row"><span class="p-title">${t('feat.' + def.key)}</span>${amt}</div>
+      <div class="p-desc">${def.pickup ? t('feat.crateHint') : t('feat.gatherHint', { r: def.res })}</div>
+      <div class="p-actions">${btn('gatherIdle', t('act.gatherIdle'))}${btn('deselect', '✕')}</div>`;
   }
   function idlePanel(S) {
     const free = S.units.filter((u) => !u.order && !u.inside);
     const busy = S.units.length - free.length;
-    return `<div class="p-row"><span class="p-title">Dia ${S.day}</span><span class="p-sub">${S.units.length} sobreviventes · ${free.length} em modo automático · ${busy} com ordens/trabalhando · noites sobrevividas: ${S.nights}</span></div>
+    return `<div class="p-row"><span class="p-title">${t('hud.day', { n: S.day })}</span><span class="p-sub">${t('idle.summary', { n: S.units.length, free: free.length, busy, nights: S.nights })}</span></div>
       <div class="p-actions">
-        ${btn('openBuild', '🔨 Construir <small>B</small>', { cls: 'good' })}
-        ${btn('selectAll', 'Selecionar todos')}
-        ${btn('idle', 'Próximo ocioso <small>Tab</small>')}
-        ${btn('goBase', 'Ir à base <small>H</small>')}
-        ${S.clock.phase === 'day' ? btn('skipDay', 'Anoitecer agora', { title: 'Pula o resto do dia e chama a horda' }) : ''}
+        ${btn('openBuild', `${t('act.build')} <small>B</small>`, { cls: 'good' })}
+        ${btn('selectAll', t('act.selectAll'))}
+        ${btn('idle', `${t('act.nextIdle')} <small>Tab</small>`)}
+        ${btn('goBase', `${t('act.goBase')} <small>H</small>`)}
+        ${S.clock.phase === 'day' ? btn('skipDay', t('act.skipDay'), { title: t('act.skipDayTitle') }) : ''}
       </div>
       ${objectivesHTML(S)}
-      <div class="p-desc hint">${UB.App.touch ? 'Toque num sobrevivente para selecionar; toque longo e arraste para selecionar vários; arraste para mover a câmera; pinça para zoom.' : 'Clique para selecionar, arraste para selecionar vários, botão direito para ordens. WASD/setas movem a câmera, roda = zoom, Espaço = pausa.'}</div>`;
+      <div class="p-desc hint">${t(UB.App.touch ? 'idle.hintTouch' : 'idle.hintMouse')}</div>`;
   }
 
   function objectivesHTML(S) {
     const list = UB.Objectives.open(S, 3);
     if (!list.length) return '';
-    return `<div class="p-row small objectives"><b>Objetivos (${UB.Objectives.count(S)}/${UB.Objectives.LIST.length}):</b>${list.map((o) => `<span class="kv">☐ ${esc(o.text)}</span>`).join('')}</div>`;
+    return `<div class="p-row small objectives"><b>${t('obj.header', { n: UB.Objectives.count(S), m: UB.Objectives.LIST.length })}</b>${list.map((o) => `<span class="kv">☐ ${esc(t('obj.' + o.id))}</span>`).join('')}</div>`;
   }
 
   // ---- build menu -----------------------------------------------------------------------------------------
-  const TABS = { defense: 'Defesa', base: 'Base', prod: 'Produção' };
+  const TABS = ['defense', 'base', 'prod'];
   H.showBuild = function (on) {
     $('buildMenu').hidden = !on;
     $('panel').hidden = on || !!(UB.App.mode && UB.App.mode.kind === 'build');
@@ -527,7 +540,7 @@
   };
   H.renderBuild = function (S) {
     if (!S) return;
-    $('bmTabs').innerHTML = Object.entries(TABS).map(([k, n]) => `<button class="btn ${H.buildTab === k ? 'sel' : ''}" data-tab="${k}">${n}</button>`).join('');
+    $('bmTabs').innerHTML = TABS.map((k) => `<button class="btn ${H.buildTab === k ? 'sel' : ''}" data-tab="${k}">${t('tab.' + k)}</button>`).join('');
     const grid = $('bmGrid');
     grid.innerHTML = '';
     for (const type of BUILD_ORDER) {
@@ -539,7 +552,7 @@
       card.className = 'bm-card' + (locked ? ' locked' : '') + (!UB.Eco.can(S, cost) ? ' poor' : '');
       card.dataset.build = type;
       card.dataset.tip = 'build:' + type;
-      card.innerHTML = `<span class="ic"></span><span><span class="nm">${def.name}</span><span class="key">${def.key ? def.key.toUpperCase() : ''}</span><br>${locked ? '<span class="small bad-t">🔒 Requer projeto</span>' : costHTML(S, cost)}</span>`;
+      card.innerHTML = `<span class="ic"></span><span><span class="nm">${I.name('bld', type)}</span><span class="key">${def.key ? def.key.toUpperCase() : ''}</span><br>${locked ? `<span class="small bad-t">${t('build.needsBp')}</span>` : costHTML(S, cost)}</span>`;
       card.querySelector('.ic').replaceWith(spriteCanvas(UB.Render.buildIcon(type), 46));
       grid.appendChild(card);
     }

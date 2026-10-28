@@ -80,6 +80,9 @@ tests/                    run.js + *.test.js (Node), bot.js (jogador automático
 ```
 node tests/run.js           # 48 testes (mapa, caminhos, economia, construção, combate, novas construções e zumbis, save, 5 dias com bot, traduções)
 node tests/visual.js        # navegador: menus, tutorial, detalhes de construção, tela cheia, mouse, toque, save/reload, idiomas, FPS com 500+ zumbis
+node tests/balance.js 20     # balanceamento: robôs jogando até 20 noites em várias seeds (partidas completas e cercos)
 ```
+
+`tests/balance.js` roda cada cenário num processo separado e resume noites sobrevividas, mortes por causa, abates por tipo de zumbi e por fonte (sobreviventes, lança-chamas, minas…). Os cercos isolam o combate da economia: uma base pronta, com suprimentos repostos a cada amanhecer, enfrenta as noites em sequência.
 
 `tests/visual.js` usa o Playwright com Chromium e grava capturas em `tests/screens/` (ignorada pelo git).

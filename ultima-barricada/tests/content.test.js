@@ -42,7 +42,7 @@ test('a landmine blows up under a zombie and spares nearby walls', () => {
   if (wall.ok) UB.Buildings.addBuild(S, wall.b, 1e6);
   const z = UB.Zombies.spawn(S, 'brute', mine.tx + 0.5, mine.ty + 0.5, { state: 'idle' });
   const hp0 = z.hp;
-  run(S, 3);
+  run(S, 25);
   assert.ok(mine.dead, 'mine did not go off');
   assert.ok(z.dead || z.hp < hp0 - 60, 'mine did not hurt the zombie');
   if (wall.ok) assert.strictEqual(wall.b.hp, wall.b.maxHp, 'mine damaged a wall');

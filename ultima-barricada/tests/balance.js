@@ -24,11 +24,31 @@ const ALL = [
   { name: 'modern', bot: 'modern', diff: 'normal' },
   { name: 'strong-hard', bot: 'strong', diff: 'hard' },
   { name: 'modern-hard', bot: 'modern', diff: 'hard' },
+  { name: 'econ-modern', bot: 'modern', diff: 'normal', tweak: 'econ' },
+  { name: 'brute8-strong', bot: 'strong', diff: 'normal', tweak: 'brute8' },
+  { name: 'brute8-modern', bot: 'modern', diff: 'normal', tweak: 'brute8' },
+  { name: 'soft-strong', bot: 'strong', diff: 'normal', tweak: 'soft' },
+  { name: 'soft-modern', bot: 'modern', diff: 'normal', tweak: 'soft' },
   { name: 'siege-classic', siege: true, diff: 'normal', noNewZombies: true },
   { name: 'siege', siege: true, diff: 'normal' },
   { name: 'siege-new', siege: true, diff: 'normal', newDefense: true },
 ];
 const SCENARIOS = ALL.filter((s) => s.name.startsWith(ONLY));
+
+// Experimental tweaks applied before a game (to try balance changes without editing defs).
+const TWEAKS = {
+  // Softer early hordes: the per-night growth term 6n becomes 4.5n.
+  soft: (UB) => {
+    const W = UB.Waves, base = W.budget;
+    W.budget = (night, d) => base(night, d) - 1.5 * night * (UB.DEF.DIFFICULTY[d] || UB.DEF.DIFFICULTY.normal).horde * (night % 5 === 0 ? 1.25 : 1);
+  },
+  brute8: (UB) => { UB.DEF.ZOMBIES.brute.from = 8; },
+  econ: (UB) => {
+    const D = UB.DEF;
+    D.BAL.workshopBatch.ammo = 10;
+    for (const f of D.FEATURE) if (f && f.res === 'scrap') { f.amt = f.amt.map((v) => Math.round(v * 1.3)); f.rate *= 1.3; }
+  },
+};
 
 // A ready base: HQ level 3, a ring of walls with a gate on each side, four towers, eight survivors.
 const SUPPLY = { food: 200, wood: 200, scrap: 200, ammo: 300, fuel: 60, meds: 10 };
@@ -80,6 +100,7 @@ function play(job) {
   const { ctx } = createContext();
   const UB = ctx.UB;
   if (job.noNewZombies) for (const t of NEW_ZOMBIES) UB.DEF.ZOMBIES[t].from = 999;
+  if (job.tweak) TWEAKS[job.tweak](UB);
   const S = UB.Game.newGame({ seed: job.seed, difficulty: job.diff });
   if (job.noNewZombies) for (const z of S.zombies) if (NEW_ZOMBIES.includes(z.type)) z.type = 'walker';
   const r = {
@@ -203,4 +224,5 @@ async function main() {
     }
   }
 }
-main();
+if (require.main === module) main();
+module.exports = { fortify, topUp, play };

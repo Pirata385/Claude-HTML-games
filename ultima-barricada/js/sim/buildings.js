@@ -305,9 +305,14 @@
         UB.Game.fx(S, { t: 'flame', x: c.x, y: c.y, a: ang, r: L.range });
         if (S.tick % 10 === 0) UB.Combat.noise(S, c.x, c.y, 6);
       } else if (b.type === 'mine') {
-        // Single use: the first zombie that steps on it sets it off. Spares your structures.
+        // Single use, spares your structures. It waits for a crowd: it blows when three zombies
+        // are in its blast, when a big one steps on it, or when one stays on it for two seconds.
         const c = center(b);
-        if (S._zgrid.nearest(c.x, c.y, 0.6, (z) => !z.dead)) {
+        const on = S._zgrid.nearest(c.x, c.y, 0.6, (z) => !z.dead);
+        let crowd = 0;
+        S._zgrid.query(c.x, c.y, L.r * 0.7, (z) => { if (!z.dead) crowd++; return false; });
+        b.fuse = on ? b.fuse || S.time + 2 : 0;
+        if (crowd >= 3 || (on && UB.DEF.ZOMBIES[on.type].hp >= 200) || (b.fuse && S.time >= b.fuse)) {
           remove(S, b);
           UB.Combat.explode(S, c.x, c.y, L.r, L.dmg, null, { structures: false });
         }

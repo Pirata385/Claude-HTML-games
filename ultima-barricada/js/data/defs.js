@@ -72,9 +72,9 @@
     spitter: { hp: 45, speed: 0.9, dmg: 10, cd: 2.6, cost: 4, from: 8, bite: 0.05, sight: 8, struct: 1, range: 5 },
     screamer: { hp: 60, speed: 1.2, dmg: 4, cd: 1.2, cost: 5, from: 10, bite: 0.05, sight: 8, struct: 0.6, scream: { cd: 9, r: 16, buff: 0.35, dur: 5 } },
     armored: { hp: 90, speed: 0.85, dmg: 8, cd: 1.2, cost: 4, from: 12, bite: 0.07, sight: 6, struct: 1.2, armor: 0.5 },
-    crawler: { hp: 16, speed: 1.25, dmg: 5, cd: 1, cost: 1, from: 2, bite: 0.06, sight: 5, struct: 0.6, evade: 0.35 },
-    leaper: { hp: 40, speed: 1.5, dmg: 7, cd: 1.1, cost: 3, from: 7, bite: 0.05, sight: 8, struct: 0.8, leap: { cd: 7, dist: 2.2 } },
-    toxic: { hp: 50, speed: 0.8, dmg: 6, cd: 1.3, cost: 3, from: 9, bite: 0.05, sight: 6, struct: 0.8, aura: { r: 1.6, dps: 3 }, cloud: { r: 1.8, dps: 5, time: 8 } },
+    crawler: { hp: 20, speed: 1.25, dmg: 5, cd: 1, cost: 1, from: 2, bite: 0.06, sight: 5, struct: 0.6, evade: 0.35 },
+    leaper: { hp: 75, speed: 1.35, dmg: 7, cd: 1.1, cost: 3.5, from: 7, bite: 0.05, sight: 8, struct: 0.8, leap: { cd: 7, dist: 2.2 } },
+    toxic: { hp: 70, speed: 0.8, dmg: 6, cd: 1.3, cost: 3, from: 9, bite: 0.05, sight: 6, struct: 0.8, aura: { r: 1.6, dps: 3 }, cloud: { r: 1.8, dps: 5, time: 8 } },
     colossus: { hp: 1400, speed: 0.6, dmg: 40, cd: 2, cost: 25, from: 10, bite: 0.15, sight: 7, struct: 4, boss: true },
   };
 
@@ -101,9 +101,9 @@
     spikes: { size: 1, cat: 'defense', key: 'x', walkable: true,
       levels: [{ cost: { wood: 10, scrap: 5 }, hp: 120, dps: 14 }, { cost: { scrap: 10 }, hp: 180, dps: 20 }, { cost: { scrap: 15 }, hp: 260, dps: 28 }] },
     mine: { size: 1, cat: 'defense', key: 'n', walkable: true,
-      levels: [{ cost: { scrap: 10, fuel: 2 }, hp: 60, dmg: 80, r: 1.6 }, { cost: { scrap: 10, fuel: 2 }, hp: 80, dmg: 110, r: 1.8 }, { cost: { scrap: 15, fuel: 3 }, hp: 100, dmg: 150, r: 2.1 }] },
+      levels: [{ cost: { scrap: 10, fuel: 1 }, hp: 60, dmg: 100, r: 2 }, { cost: { scrap: 10, fuel: 1 }, hp: 80, dmg: 130, r: 2.2 }, { cost: { scrap: 15, fuel: 2 }, hp: 100, dmg: 170, r: 2.5 }] },
     flamer: { size: 1, cat: 'defense', key: 'f', requires: 'bp_flamer',
-      levels: [{ cost: { scrap: 35, fuel: 10 }, hp: 260, range: 3.5, dmg: 7, cd: 0.4, fuelEvery: 10 }, { cost: { scrap: 30, fuel: 5 }, hp: 340, range: 4, dmg: 10, cd: 0.4, fuelEvery: 12 }, { cost: { scrap: 45, fuel: 10 }, hp: 450, range: 4.5, dmg: 13, cd: 0.35, fuelEvery: 14 }], vision: 6 },
+      levels: [{ cost: { scrap: 35, fuel: 10 }, hp: 260, range: 3.5, dmg: 6, cd: 0.4, fuelEvery: 5 }, { cost: { scrap: 30, fuel: 5 }, hp: 340, range: 4, dmg: 9, cd: 0.4, fuelEvery: 6 }, { cost: { scrap: 45, fuel: 10 }, hp: 450, range: 4.5, dmg: 12, cd: 0.35, fuelEvery: 7 }], vision: 6 },
     shelter: { size: 2, cat: 'base', key: 'a',
       levels: [{ cost: { wood: 40, scrap: 10 }, hp: 400, beds: 4 }, { cost: { wood: 40, scrap: 20 }, hp: 550, beds: 6 }, { cost: { wood: 50, scrap: 40 }, hp: 700, beds: 8 }] },
     depot: { size: 2, cat: 'base', key: 'd',
@@ -191,7 +191,7 @@
     gardenFoodEvery: 45,     // seconds per food per worker at mult 1
     workshopCycle: 20,       // seconds per ammo batch per worker
     workshopBatch: { scrap: 2, ammo: 8 },
-    sawmillWoodEvery: 15,    // seconds per wood per sawmill worker at mult 1
+    sawmillWoodEvery: 4,     // seconds per wood per sawmill worker at mult 1 (≈ half of what gathering trees yields, but safe)
     labBatch: { food: 3, scrap: 2, meds: 1 }, // one lab cycle per worker
     buildRate: 9,            // build points per second (×role build, ×morale)
     repairRate: 12,          // hp per second

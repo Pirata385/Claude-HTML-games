@@ -454,7 +454,7 @@
     'obj.night20': 'Sobreviva a 20 noites',
 
     // ---- new content: buildings, zombies, blueprints ----
-    'bld.mine.name': 'Mina terrestre', 'bld.mine.desc': 'Passável. Explode quando um zumbi pisa nela, ferindo todos ao redor sem danificar suas estruturas. Uso único.',
+    'bld.mine.name': 'Mina terrestre', 'bld.mine.desc': 'Passável. Espera o grupo: explode quando três zumbis estão por perto, quando um grandão pisa nela ou quando alguém fica parado em cima. Fere todos ao redor sem danificar suas estruturas. Uso único.',
     'bld.flamer.name': 'Lança-chamas', 'bld.flamer.desc': 'Torre de curto alcance que queima todos os zumbis num cone. Não precisa de energia, mas gasta combustível.',
     'bld.canteen.name': 'Refeitório', 'bld.canteen.desc': 'Cozinhar rende mais: cada sobrevivente come menos ao amanhecer, e a moral sobe quando ninguém passa fome.',
     'bld.training.name': 'Campo de treino', 'bld.training.desc': 'Quem está livre na base treina e ganha experiência aos poucos, subindo de patente (mais vida e precisão).',

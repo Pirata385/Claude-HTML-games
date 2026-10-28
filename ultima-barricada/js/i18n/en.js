@@ -454,7 +454,7 @@
     'obj.night20': 'Survive 20 nights',
 
     // ---- new content: buildings, zombies, blueprints ----
-    'bld.mine.name': 'Landmine', 'bld.mine.desc': 'Walkable. Blows up when a zombie steps on it, hurting everything around without damaging your structures. Single use.',
+    'bld.mine.name': 'Landmine', 'bld.mine.desc': 'Walkable. Waits for a crowd: blows up when three zombies are close, when a big one steps on it or when one lingers on it. Hurts everything around without damaging your structures. Single use.',
     'bld.flamer.name': 'Flamethrower', 'bld.flamer.desc': 'Short-range tower that burns every zombie in a cone. Needs no power, but burns fuel.',
     'bld.canteen.name': 'Canteen', 'bld.canteen.desc': 'Cooking stretches food: each survivor eats less at dawn, and morale rises when nobody goes hungry.',
     'bld.training.name': 'Training yard', 'bld.training.desc': 'Free survivors at the base train and slowly gain experience, rising in rank (more health and accuracy).',

@@ -38,7 +38,7 @@
   }
   const WEIGHTS = { walker: 10, runner: 4, crawler: 3, bloater: 2, brute: 1.2, spitter: 1.5, leaper: 1.3, toxic: 1.2, screamer: 0.8, armored: 2 };
   function compose(S, night) {
-    let b = budget(night, S.difficulty);
+    let b = UB.Waves.budget(night, S.difficulty);
     const list = [];
     if (night % 5 === 0 && night >= ZOMBIES.colossus.from) for (let k = 0; k < Math.floor(night / 10); k++) { list.push('colossus'); b -= ZOMBIES.colossus.cost * 0.5; }
     const pairs = Object.keys(WEIGHTS).filter((t) => ZOMBIES[t].from <= night).map((t) => [t, WEIGHTS[t]]);

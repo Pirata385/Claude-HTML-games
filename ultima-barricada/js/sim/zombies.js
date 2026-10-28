@@ -191,7 +191,7 @@
           if (z.cd <= 0) { z.cd = def.cd; z.attackT = S.time; UB.Combat.spit(S, z, b.tx + b.w / 2, b.ty + b.h / 2); }
           return;
         }
-        if (def.leap && d <= 0.7 && b.w === 1 && b.type !== 'hq' && S.time >= (z.leapT || 0) && leap(S, z, b)) return;
+        if (def.leap && d <= 1 && b.w === 1 && b.type !== 'hq' && S.time >= (z.leapT || 0) && leap(S, z, b)) return;
         if (d <= (def.boss ? 1.1 : 0.6)) {
           if (z.cd <= 0) {
             z.cd = def.cd; z.attackT = S.time;

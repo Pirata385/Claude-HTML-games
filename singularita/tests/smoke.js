@@ -568,6 +568,68 @@ try {
       const f = await sim(page, `g.godMode = false; g.combat.hurt(g.player, 1e9, null, { type: 'hazard' }); step(30 * 2); const dead = !g.player.alive; g.respawn(); step(3); g.godMode = true; g.ui.closeDialog && g.ui.closeDialog(); document.querySelector('.death')?.setAttribute('hidden', ''); return { dead, zone: g.zone.id, run: g.profile.run };`);
       check(f.dead && f.zone === 'island' && !f.run, `${dim}: dying ends the run`);
     }
+    // Each dimension's own rule.
+    const rules = await sim(page, `
+      const out = {}, p = g.player;
+      const enter = async (dim) => { g.useConsumable(dim.replace('dim_', 'emblem_')); step(3); g.interaction.enterPortal(); await new Promise((r) => setTimeout(r, 1200)); step(3); };
+      const leave = async () => { g.interaction.leaveRun('leave'); await new Promise((r) => setTimeout(r, 1200)); step(3); };
+      // Twins: kill one of a pair alone and it comes back; kill both together and they stay down.
+      await enter('dim_twins');
+      g.enemies.clear(); g.spawner.boss = null; g.spawner.popT = 1e9;
+      const a = g.enemies.spawn('twin_slime', p.x + 4, p.z, { level: 115, noIntro: true });
+      const b = a && g.dimRules.twinOf(a);
+      out.paired = !!b && g.dimRules.twinOf(b) === a;
+      g.combat.applyRaw(a, a.maxHp * 2, 'dmg'); step(30 * 4);
+      out.revived = g.enemies.list.filter((e) => e.alive && e.def.id === 'twin_slime').length === 2;
+      const [c1, c2] = g.enemies.list.filter((e) => e.alive && e.def.id === 'twin_slime');
+      g.combat.applyRaw(c1, c1.maxHp * 2, 'dmg'); g.combat.applyRaw(c2, c2.maxHp * 2, 'dmg'); step(30 * 4);
+      out.stayDown = g.enemies.list.filter((e) => e.alive && e.def.id === 'twin_slime').length === 0;
+      await leave();
+      // King: corrupted ground fills the meter; a brazier cleanses it.
+      await enter('dim_king');
+      const gr = g.grid;
+      const ck = gr.flags.findIndex((f, k) => (f & 32768) && gr.walkable(k % gr.w, Math.floor(k / gr.w)));
+      goNear((ck % gr.w) + 0.5, Math.floor(ck / gr.w) + 0.5); step(30 * 4);
+      out.corrupted = p.corruption > 30;
+      const br = g.zone.braziers[0]; goNear(br.x + 1.5, br.z); step(30 * 3);
+      out.cleansed = p.corruption < 5;
+      await leave();
+      // Mirrored: the reflection follows your mirrored steps; both on the plates open the gate.
+      await enter('dim_mirror');
+      const z = g.zone, N = gr.w, pl = z.plates[0];
+      out.reflection = !!g.dimRules.reflection;
+      goNear(pl.left.x, pl.left.z); step(30 * 4);
+      const rf = g.dimRules.reflection;
+      out.mirrored = rf && Math.abs(rf.x - (g.grid.w - p.x)) < 1.2 && Math.abs(rf.z - p.z) < 1.2;
+      out.gate = z.gates.find((x) => x.id === pl.gate).open;
+      await leave();
+      // Roost: the breath burns the open plateau, but not behind a rock.
+      await enter('dim_dragons');
+      g.enemies.clear(); g.spawner.boss = null; g.spawner.popT = 1e9; g.dimRules.breathT = 1e9;
+      g.godMode = false;
+      const rock = g.zone.rocks[0];
+      p.hp = g.stats.maxHp; goNear(rock.x - 2.5, rock.z); g.dimRules.breathAt(rock.x + 12, rock.z); step(30 * 3);
+      out.sheltered = p.hp === g.stats.maxHp;
+      p.hp = g.stats.maxHp; goNear(rock.x - 2.5, rock.z); g.dimRules.breathAt(rock.x - 2.5, rock.z + 12); step(30 * 3);
+      out.burned = p.alive && p.hp < g.stats.maxHp;
+      g.godMode = true; p.hp = g.stats.maxHp;
+      await leave();
+      // The five Fracture Shards open the Heart Seal into the Singular Heart.
+      for (const s of ['shard_gaol', 'shard_twins', 'shard_crown', 'shard_mirror', 'shard_dragon']) g.profile.inv.stacks[s] = 1;
+      g.profile.flags.gateOpen = true; g.profile.level = 220;
+      g.enterZone('cave_8'); step(3);
+      g.interaction.readHeart();
+      document.querySelector('#dialog .btn.primary').click();
+      await new Promise((r) => setTimeout(r, 1200)); step(30 * 2);
+      out.heart = g.zone.id === 'cave_9' && g.zone.exit.type === 'core' && g.zone.nodes.some((n) => n.node === 'ore_singularita');
+      return out;`);
+    check(rules.paired && rules.revived && rules.stayDown, `twins: a lone kill revives, a pair kill stays down (${JSON.stringify(rules)})`);
+    check(rules.corrupted && rules.cleansed, 'king: corruption builds on adamite and a brazier cleanses it');
+    check(rules.reflection && rules.mirrored && rules.gate, 'mirrored: the reflection mirrors you, and both plates open the gate');
+    check(rules.sheltered && rules.burned, 'roost: dragon breath burns the open, not behind a rock');
+    check(rules.heart, 'the five shards open the Heart Seal into the Singular Heart, where Singularita grows');
+    await settle();
+    await page.screenshot({ path: path.join(SHOTS, 'cave_9.png') });
     check(!errors.length, `dimensions: no errors ${errors.slice(0, 3).join(' | ')}`);
     await ctx.close();
   }

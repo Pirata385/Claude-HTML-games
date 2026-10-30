@@ -76,7 +76,7 @@ export class Minimap {
       for (const u of z.updrafts) out.push({ x: u.x, z: u.z, icon: '↑', color: '#cfefff', label: 'Updraft' });
     } else {
       out.push({ x: z.entry.x, z: z.entry.z, icon: '▲', color: '#9ff0e0', label: 'Stairs up' });
-      const ex = { gate: ['⛩', '#c48cff', 'Sealed Core Gate'], heart: ['♥', '#ffe9a8', 'The Heart Seal'], shaft: ['▼', '#f2ece0', 'Way down'] }[z.exit.type];
+      const ex = { gate: ['⛩', '#c48cff', 'Sealed Core Gate'], heart: ['♥', '#ffe9a8', 'The Heart Seal'], core: ['✦', '#f4e8ff', 'The Singular Heart'], shaft: ['▼', '#f2ece0', 'Way down'] }[z.exit.type];
       out.push({ x: z.exit.x, z: z.exit.z, icon: ex[0], color: ex[1], label: ex[2] });
     }
     for (const p of z.pois) if (p.type === 'lore') out.push({ x: p.x, z: p.z, icon: '◆', color: g.profile.lore.includes(p.id) ? '#8a8494' : '#c48cff', label: 'Echo Stone' });

@@ -41,6 +41,7 @@ export class UI {
     el.lvl = h('div', { class: 'lvl' });
     el.name = h('div', { class: 'pf-name' });
     el.statuses = h('div', { class: 'statuses' });
+    el.corrupt = bar('corrupt'); el.corrupt.b.hidden = true;
     el.points = h('button', { class: 'points', hidden: true, onclick: () => this.openMenu('character') });
     el.zone = h('div', { class: 'zone-name' });
     el.zoneSub = h('div', { class: 'zone-sub' });
@@ -66,7 +67,7 @@ export class UI {
     el.lockMark = h('div', { class: 'lock-mark', hidden: true });
     el.saved = h('div', { class: 'saved' }, 'Saved');
     this.root.append(
-      h('div', { class: 'hud-tl' }, h('div', { class: 'pf' }, el.lvl, h('div', { class: 'pf-bars' }, el.name, el.hp.b, el.res.b, el.xp.b)), el.statuses, el.points),
+      h('div', { class: 'hud-tl' }, h('div', { class: 'pf' }, el.lvl, h('div', { class: 'pf-bars' }, el.name, el.hp.b, el.res.b, el.xp.b)), el.statuses, el.corrupt.b, el.points),
       h('div', { class: 'hud-tc' }, el.zone, el.zoneSub, h('div', { class: 'tc-row' }, el.clock), el.bossbar),
       h('div', { class: 'hud-tr' }, el.mm,
         h('div', { class: 'hud-buttons' },
@@ -304,6 +305,10 @@ export class UI {
       const tide = g.phenomena?.tidePhase ? ` · Tide ${g.phenomena.tidePhase}` : '';
       el.clock.textContent = `✦ ${g.zoneDef.subtitle} · Lv ${g.zoneDef.band.join('–')}${tide}`;
     } else el.clock.textContent = `⛏ Layer ${g.zone.layer} · Lv ${ZONES[g.zone.id].band.join('–')}`;
+    // Corruption, in the Corrupted King's dimension.
+    const corr = g.zone.type === 'dimension' && g.zoneDef.rule === 'corruption';
+    el.corrupt.b.hidden = !corr;
+    if (corr) { const c = g.player.corruption || 0; el.corrupt.i.style.width = `${c}%`; el.corrupt.s.textContent = c >= 100 ? 'Corrupted!' : `Corruption ${Math.round(c)}%`; }
     const t = count(g.profile.inv, 'healing_tonic') + count(g.profile.inv, 'greater_healing_tonic') + count(g.profile.inv, 'pearl_elixir');
     this.tonicSlot.querySelector('.count').textContent = t;
     this.tonicSlot.classList.toggle('locked', !t);

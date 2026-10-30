@@ -1,7 +1,7 @@
 // World interaction: gathering resource nodes, camp stations, cave stairs and shafts,
 // Echo Stones, the Wayshrine and the isles, the Sealed Core Gate and the recall channel.
 import { NODES } from '../data/nodes.js';
-import { MATERIALS } from '../data/materials.js';
+import { MATERIALS, SHARDS } from '../data/materials.js';
 import { ZONES } from '../data/zones.js';
 import { LORE, LUME_LINES } from '../data/lore.js';
 import { canGather, gatherDamage, rollYield } from '../systems/gathering.js';
@@ -79,7 +79,7 @@ export class Interaction {
       } else if (z.exit.type === 'gate') {
         add({ id: 'gate', x: z.exit.x, z: z.exit.z, r: 4.5, label: () => (g.profile.flags?.gateOpen ? 'Enter the Core' : 'The Sealed Core Gate'), act: () => this.readGate() });
       } else {
-        add({ id: 'heart', x: z.exit.x, z: z.exit.z, r: 4.5, label: 'The Heart Seal', act: () => this.readHeart() });
+        add({ id: 'heart', x: z.exit.x, z: z.exit.z, r: 4.5, label: z.exit.type === 'core' ? 'The Singular Heart' : 'The Heart Seal', act: () => this.readHeart() });
       }
     }
     for (const p of z.pois) if (p.type === 'lore') add({ id: `lore:${p.id}`, x: p.x, z: p.z, label: () => (g.profile.lore.includes(p.id) ? 'Echo Stone (read)' : 'Read the Echo Stone'), act: () => this.readLore(p.id) });
@@ -288,8 +288,20 @@ export class Interaction {
   }
 
   readHeart() {
-    const g = this.g;
-    g.ui.dialog({ title: 'The Heart Seal', portrait: 'echo', text: 'A second seal, older than the gate and woven of both lights at once. Dawnstone and duskstone meet here and refuse each other. It does not answer yet: whatever sleeps beyond it is not ready to wake, and neither are you.' });
+    const g = this.g, p = g.profile;
+    // In the Singular Heart itself, the heart is the end of the road.
+    if (g.zone.exit.type === 'core') {
+      this.learn('lore_choice', false);
+      g.ui.dialog({ title: 'The Singular Heart', portrait: 'echo', text: 'Singularita grows here like coral, in every colour at once, humming the shape of every possible thing. It does not want anything from you. If you mine it and bring it to the Forge, it will become whatever you ask, and remember two other shapes besides.' });
+      return;
+    }
+    const have = SHARDS.filter((s) => (p.inv.stacks[s] || 0) > 0);
+    if (have.length === SHARDS.length) {
+      g.ui.dialog({ title: 'The Heart Seal', portrait: 'echo', text: 'The five shards hum against each other and against the seal. The seal remembers being one piece, and opens.',
+        buttons: [{ label: 'Enter the Singular Heart', primary: true, action: () => this.travel('cave_9') }, { label: 'Not yet' }] });
+      return;
+    }
+    g.ui.dialog({ title: 'The Heart Seal', portrait: 'echo', text: `A second seal, older than the gate and woven of both lights at once, with five keyholes that are not quite holes. Its keys are the Fracture Shards held by the rulers of the five dimensions; Emblems crafted at the Forge open the way to them.${have.length ? `\n\nYou carry ${have.length} of the five shards.` : ''}` });
   }
 
   // Nearest interactable or resource node in reach.

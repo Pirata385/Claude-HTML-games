@@ -12,7 +12,9 @@
 .bar.hp i { background: linear-gradient(180deg, #ff6a7a, #c42c42); }
 .bar.hp .shield { position: absolute; left: 0; top: 0; height: 4px; width: 100%; transform-origin: left; background: #9fc8ff; }
 .bar.res { height: 10px; } .bar.res span { font-size: 9px; line-height: 9px; }
-.bar.xp { height: 5px; } .bar.xp i { background: linear-gradient(90deg, #6fb6ff, #b8e4ff); }
+.bar.xp { height: 5px; } .bar.corrupt i { background: linear-gradient(90deg, #6a2ab0, #c46aff); }
+.bar.corrupt { margin-top: 6px; width: 180px; }
+.bar.xp i { background: linear-gradient(90deg, #6fb6ff, #b8e4ff); }
 .statuses { display: flex; gap: 6px; flex-wrap: wrap; max-width: 280px; }
 .statuses .st { font-size: 16px; position: relative; background: rgba(10,12,24,0.6); border-radius: 6px; padding: 1px 4px; }
 .statuses .st small { font-size: 9px; color: #ddd; margin-left: 2px; }

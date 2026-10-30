@@ -5,6 +5,7 @@ import { Combat } from './combat/combat.js';
 import { Enemies } from './ai/enemies.js';
 import { Spawner } from './ai/spawner.js';
 import { Phenomena } from './world/phenomena.js';
+import { DimensionRules } from './world/dimrules.js';
 import { Astral } from './entities/astral.js';
 import { makeKit } from './combat/kits/index.js';
 import { addXp, applyDeathPenalty, xpToNext } from './systems/progression.js';
@@ -22,6 +23,7 @@ export function installGameplay(game) {
   game.enemies = new Enemies(game);
   game.spawner = new Spawner(game);
   game.phenomena = new Phenomena(game);
+  game.dimRules = new DimensionRules(game);
   game.lockTarget = null;
   game.stopT = 0;
   game.consumableCd = 0;
@@ -141,9 +143,10 @@ export function installGameplay(game) {
       g.astral?.manifest(false);
       g.spawner.onZoneExit();
       g.phenomena.onZoneExit();
+      g.dimRules.onZoneExit();
       g.portal = null; g.portalOut = null;
     },
-    onZoneEnter(g) { g.spawner.onZoneEnter(); g.phenomena.onZoneEnter(); },
+    onZoneEnter(g) { g.dimRules.onZoneEnter(); g.spawner.onZoneEnter(); g.phenomena.onZoneEnter(); },
     update(dt, g) {
       const p = g.player, inp = g.input;
       g.consumableCd = Math.max(0, g.consumableCd - dt);
@@ -175,10 +178,12 @@ export function installGameplay(game) {
       g.combat.update(dt);
       g.spawner.update(dt);
       g.phenomena.update(dt);
+      g.dimRules.update(dt);
       g.fx.update(dt);
     },
     render(dt, g) {
       g.enemies.render(dt);
+      g.dimRules.render(dt);
       g.overlay.draw(dt);
     },
   });

@@ -124,6 +124,17 @@ export function buildStructures(zone, opts = {}) {
         glow.material = glow.material.clone(); glow.material.opacity = 0.25; geos.push({ dispose: () => glow.material.dispose() });
         animated.push((t) => { glow.material.opacity = 0.2 + Math.sin(t * 1.5) * 0.06; });
       }
+    } else if (x.type === 'core') {
+      // The Singular Heart: Singularita growing like coral, every colour at once.
+      const cols = ['#f4e8ff', '#ff7ad8', '#9fe0ff', '#ffe9a8', '#8ad06a', '#ff6a2a'];
+      const spikes = [];
+      for (let k = 0; k < 14; k++) {
+        const a = (k / 14) * Math.PI * 2, r = 1.2 + (k % 3) * 0.9, h = 1.5 + ((k * 7) % 5) * 0.6;
+        spikes.push(B(Math.cos(a) * r, h / 2, Math.sin(a) * r, 0.5, h, 0.5, cols[k % cols.length]));
+      }
+      add(spikes, x.x, x.z, { y: x.h, mat: unlitMaterial(), cast: false });
+      const heart = add([B(0, 0, 0, 1.2, 1.2, 1.2, '#ffffff'), B(0, 0, 0, 1.6, 0.4, 0.4, '#ff7ad8'), B(0, 0, 0, 0.4, 1.6, 0.4, '#9fe0ff'), B(0, 0, 0, 0.4, 0.4, 1.6, '#ffe9a8')], x.x, x.z, { y: x.h + 3.2, mat: unlitMaterial(), cast: false });
+      animated.push((t) => { heart.rotation.y = t * 0.7; heart.rotation.x = t * 0.4; heart.scale.setScalar(1 + Math.sin(t * 2) * 0.08); });
     } else {
       // The Heart Seal: dawnstone and duskstone woven around a heart that does not beat yet.
       add([B(0, 0.25, 0, 7, 0.5, 7, '#2a2630'), B(-2.6, 2.2, 0, 1.2, 4.4, 1.2, '#8a7a5a'), B(2.6, 2.2, 0, 1.2, 4.4, 1.2, '#3a2a5a'), B(0, 4.6, 0, 6.4, 0.8, 1.4, '#4a4058')], x.x, x.z, { y: x.h });

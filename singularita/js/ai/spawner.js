@@ -89,7 +89,7 @@ export class Spawner {
     const g = this.g;
     if (!g.player.alive) return;
     if (g.zone.type === 'island') this.updateIsland(dt);
-    else if (g.zone.type === 'isle' || g.zone.type === 'dimension') this.updateIsle(dt);
+    else if (g.zone.type === 'isle') this.updateIsle(dt);
     else this.updateCave(dt);
   }
 
@@ -146,7 +146,7 @@ export class Spawner {
       this.popT = WAVES.cave.respawnDelay;
       if (g.enemies.count() < this.population()) this.spawnCave();
     }
-    const def = g.zoneDef, layer = g.zone.layer;
+    const def = g.zoneDef, layer = g.zone.layer || 0;
     // Tremors from the fourth layer down.
     if (layer >= WAVES.cave.tremor.fromLayer) {
       this.tremorT -= dt;
@@ -161,7 +161,7 @@ export class Spawner {
     }
     const p = g.player, grid = g.grid;
     // Falling stalactites inside marked areas.
-    if (def.hazards.includes('stalactite') && grid.has(Math.floor(p.x), Math.floor(p.z), F.HAZARD)) {
+    if ((def.hazards.includes('stalactite') || g.zone.modifier === 'traps') && grid.has(Math.floor(p.x), Math.floor(p.z), F.HAZARD)) {
       this.stalT -= dt;
       if (this.stalT <= 0) {
         this.stalT = g.rng.range(2.5, 5);

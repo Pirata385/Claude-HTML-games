@@ -92,7 +92,9 @@ export function buildTerrain(zone, material) {
   const isleTop = isle ? isleColors(pal) : null;
   // Split layers: the first half uses the HOT surface, the second the COLD one (dawn and dusk in the Core).
   const sideFloors = pal.sides || ['#5a3428', '#33465e'], sideWalls = pal.sideWalls || ['#5a3a34', '#3a4a60'];
-  const floorCol = (s) => (s === SURF.HOT ? sideFloors[0] : s === SURF.COLD ? sideFloors[1] : pal.floor);
+  // The dimensions' grounds: adamite, carpet, gardens and bridges among their stone and glass.
+  const DIM_FLOORS = { [SURF.ADAMITE]: '#7a3ab8', [SURF.CARPET]: '#7a2a3a', [SURF.GRASS]: '#4a6a3a', [SURF.BRIDGE]: '#d8a0c8', [SURF.PATH]: _hex(pal.floor, 0.85) };
+  const floorCol = (s) => (s === SURF.HOT ? sideFloors[0] : s === SURF.COLD ? sideFloors[1] : zone.type === 'dimension' && DIM_FLOORS[s] ? DIM_FLOORS[s] : pal.floor);
   const topColor = (i, j) => {
     const k = g.idx(i, j), s = g.surf[k];
     if (cave) return g.flags[k] & F.WALL ? _hex(pal.wall, 0.55) : floorCol(s);

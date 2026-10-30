@@ -1,0 +1,27 @@
+// Status effects. Runtime behaviour lives in js/combat/statusRuntime.js.
+// `harmful` statuses are reduced by status resistance; `icon`/`color` drive the HUD.
+export const STATUS = {
+  burn: { name: 'Burning', icon: '♨', color: '#ff7a3d', harmful: true, duration: 4, dotFrac: 0.1, desc: 'Takes fire damage over time.' },
+  chill: { name: 'Chilled', icon: '❄', color: '#9fd8ff', harmful: true, duration: 3, slow: 0.3, maxStacks: 2, desc: 'Slowed. Two stacks freeze.' },
+  freeze: { name: 'Frozen', icon: '✱', color: '#d8f4ff', harmful: true, duration: 1.6, stun: true, desc: 'Cannot act.' },
+  shock: { name: 'Shocked', icon: 'ϟ', color: '#ffe066', harmful: true, duration: 4, vuln: 0.15, desc: 'Takes 15% more damage.' },
+  poison: { name: 'Poisoned', icon: '☠', color: '#9be15d', harmful: true, duration: 5, dotFrac: 0.06, maxStacks: 5, desc: 'Takes damage over time; stacks.' },
+  bleed: { name: 'Bleeding', icon: '✚', color: '#e0314f', harmful: true, duration: 4, dotFrac: 0.08, desc: 'Takes damage over time, more while moving.' },
+  stun: { name: 'Stunned', icon: '✶', color: '#fff2a8', harmful: true, duration: 1.2, stun: true, desc: 'Cannot act.' },
+  slow: { name: 'Slowed', icon: '⤓', color: '#a0a8ff', harmful: true, duration: 2, slow: 0.35, desc: 'Moves slower.' },
+  root: { name: 'Rooted', icon: '⇥', color: '#c8a26b', harmful: true, duration: 2.5, root: true, desc: 'Cannot move.' },
+  marked: { name: 'Marked', icon: '⌖', color: '#ff6b8b', harmful: true, duration: 8, vuln: 0.3, desc: 'Takes 30% more damage from the Assassin who marked it.' },
+  sunder: { name: 'Sundered', icon: '⚒', color: '#ffb347', harmful: true, duration: 6, defDown: 0.5, desc: 'Defence halved.' },
+  blind: { name: 'Blinded', icon: '◌', color: '#d6d6d6', harmful: true, duration: 3, miss: 0.5, desc: 'Attacks miss half the time.' },
+  taunt: { name: 'Taunted', icon: '!', color: '#ff5a5a', harmful: true, duration: 6, desc: 'Must attack the one who taunted it.' },
+  linked: { name: 'Linked', icon: '⁂', color: '#c48cff', harmful: true, duration: 8, desc: 'Shares half the damage it takes with the other linked foes.' },
+  shield: { name: 'Barrier', icon: '◈', color: '#7fb3ff', harmful: false, duration: 8, desc: 'Absorbs damage.' },
+  guarded: { name: 'Steeled', icon: '⛨', color: '#f2c14e', harmful: false, duration: 6, dr: 0.3, desc: 'Takes 30% less damage.' },
+  haste: { name: 'Hasted', icon: '»', color: '#ffe17a', harmful: false, duration: 5, speed: 0.3, desc: 'Moves and attacks faster.' },
+  regen: { name: 'Regenerating', icon: '✚', color: '#6fd67a', harmful: false, duration: 5, desc: 'Recovers health over time.' },
+  invisible: { name: 'Veiled', icon: '☁', color: '#9a9ab0', harmful: false, duration: 3, desc: 'Foes cannot see you.' },
+  empower: { name: 'Poised', icon: '★', color: '#ffd166', harmful: false, duration: 6, desc: 'Next hit is a critical.' },
+  venom: { name: 'Venom Edge', icon: '☠', color: '#9be15d', harmful: false, duration: 8, desc: 'Strikes poison.' },
+  hawkeye: { name: 'Hawk Eye', icon: '◉', color: '#ffe066', harmful: false, duration: 8, desc: '+25% crit chance, +50% crit damage, piercing arrows.' },
+  antidote: { name: 'Antidote', icon: '⚕', color: '#8ef0c8', harmful: false, duration: 30, desc: 'Immune to poison.' },
+};

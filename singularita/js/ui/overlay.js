@@ -13,8 +13,10 @@ export class Overlay {
     this.bars = [];
     this.dpr = 1;
     this.resize();
-    window.addEventListener('resize', () => this.resize());
+    this.onResize = () => this.resize();
+    window.addEventListener('resize', this.onResize);
   }
+  dispose() { window.removeEventListener('resize', this.onResize); }
   resize() {
     this.dpr = Math.min(2, window.devicePixelRatio || 1);
     this.w = this.cv.clientWidth || window.innerWidth; this.h = this.cv.clientHeight || window.innerHeight;

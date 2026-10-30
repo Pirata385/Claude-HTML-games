@@ -122,7 +122,7 @@ export class Phenomena {
     if (force || Math.abs(level - (z.tideLevel ?? -99)) > 0.04) {
       applyTide(z, level);
       g.view?.setWaterLevel?.(level + 0.12);
-      g.enemies?.flow?.invalidate?.();
+      if (g.enemies?.flow) g.enemies.flow.valid = false; // creatures re-path around the new water
     }
     if (phase !== this.tidePhase) {
       if (this.tidePhase) g.ui?.toast(TIDE_LINES[phase], phase === 'rising' ? 'warn' : 'info', 5);

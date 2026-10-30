@@ -53,3 +53,44 @@ test('the chain ends gracefully', () => {
   assert.equal(t.current, null);
   assert.equal(t.handle({ type: 'kill' }), null);
 });
+
+test('reaching any elemental isle completes the isle objective, also when it was reached before', () => {
+  const p = fresh();
+  p.objectives.index = OBJECTIVES.findIndex((o) => o.id === 'o_isle');
+  const t = new ObjectiveTracker(p);
+  assert.equal(t.handle({ type: 'zone', id: 'cave_3' }), null);
+  assert.equal(t.handle({ type: 'zone', id: 'isle_water' }).id, 'o_isle');
+  const q = fresh();
+  q.objectives.index = OBJECTIVES.findIndex((o) => o.id === 'o_isle');
+  q.zones.isle_fire = { nodes: {} };
+  assert.equal(new ObjectiveTracker(q).checkImmediate()[0].id, 'o_isle');
+});
+
+test('sigil objectives count the sigils you carry', () => {
+  const p = fresh();
+  p.objectives.index = OBJECTIVES.findIndex((o) => o.id === 'o_sigil');
+  const t = new ObjectiveTracker(p);
+  p.inv.stacks.sigil_wind = 1;
+  assert.equal(t.handle({ type: 'sigil', id: 'sigil_wind' }).id, 'o_sigil');
+  assert.equal(t.current.id, 'o_sigils');
+  p.inv.stacks.sigil_tide = 1; p.inv.stacks.sigil_flame = 1;
+  assert.equal(t.handle({ type: 'sigil', id: 'sigil_flame' }), null);
+  p.inv.stacks.sigil_stone = 1;
+  assert.equal(t.handle({ type: 'sigil', id: 'sigil_stone' }).id, 'o_sigils');
+  // Sigils won before the objective came up count at once.
+  const q = fresh();
+  q.objectives.index = OBJECTIVES.findIndex((o) => o.id === 'o_sigils');
+  for (const s of ['sigil_wind', 'sigil_tide', 'sigil_flame', 'sigil_stone']) q.inv.stacks[s] = 1;
+  assert.equal(new ObjectiveTracker(q).checkImmediate()[0].id, 'o_sigils');
+});
+
+test('the gate objective completes when the gate opens', () => {
+  const p = fresh();
+  p.objectives.index = OBJECTIVES.findIndex((o) => o.id === 'o_open');
+  const t = new ObjectiveTracker(p);
+  assert.equal(t.handle({ type: 'gate' }).id, 'o_open');
+  const q = fresh();
+  q.objectives.index = OBJECTIVES.findIndex((o) => o.id === 'o_open');
+  q.flags = { gateOpen: true };
+  assert.equal(new ObjectiveTracker(q).checkImmediate()[0].id, 'o_open');
+});

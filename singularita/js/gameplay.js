@@ -85,9 +85,13 @@ export function installGameplay(game) {
   };
   game.bestTonic = () => {
     const inv = game.profile.inv, p = game.player;
+    // Save the strongest draughts for when they matter; the Pearl Elixir also cures poison, burns and bleeding.
+    const hurting = p.statuses.has('poison') || p.statuses.has('burn') || p.statuses.has('bleed');
+    if ((p.hp < game.stats.maxHp * 0.3 || hurting) && count(inv, 'pearl_elixir')) return 'pearl_elixir';
     if (p.hp < game.stats.maxHp * 0.4 && count(inv, 'greater_healing_tonic')) return 'greater_healing_tonic';
     if (count(inv, 'healing_tonic')) return 'healing_tonic';
     if (count(inv, 'greater_healing_tonic')) return 'greater_healing_tonic';
+    if (count(inv, 'pearl_elixir')) return 'pearl_elixir';
     return null;
   };
 

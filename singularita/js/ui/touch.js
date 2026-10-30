@@ -24,8 +24,11 @@ export class TouchControls {
       window.addEventListener('touchstart', () => { const c = current; if (!c || c.g.disposed) return; c.g.input.lastDevice = 'touch'; if (c.root.hidden) { c.root.hidden = false; c.applyLayout(); } }, { passive: true, capture: true });
     }
     this.applyLayout();
-    addEventListener('resize', () => { if (current === this) this.applyLayout(); });
+    this.onResize = () => { if (current === this) this.applyLayout(); };
+    addEventListener('resize', this.onResize);
   }
+
+  dispose() { removeEventListener('resize', this.onResize); }
 
   applyLayout() {
     const t = this.g.settings.touch;

@@ -39,9 +39,11 @@ export class AlleleGolem extends Boss {
     if (has('moss')) this.sprout();
   }
 
+  // Up to three seedlings at a time: cutting them is always worth it.
   sprout() {
     const g = this.g;
-    for (let k = 0; k < 3; k++) {
+    const alive = g.enemies.list.filter((e) => e.golem === this && e.alive).length;
+    for (let k = alive; k < 3; k++) {
       const a = Math.random() * Math.PI * 2, r = 4 + Math.random() * (this.arena.r - 6);
       const x = this.arena.x + Math.cos(a) * r, z = this.arena.z + Math.sin(a) * r;
       if (!g.grid.walkable(Math.floor(x), Math.floor(z))) continue;

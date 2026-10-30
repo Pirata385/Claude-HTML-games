@@ -32,6 +32,8 @@ export function installSession(game, { audio }) {
   bus.on('zoneEnter', ({ id }) => { const layer = game.zone.layer || 0; p.stats.maxLayer = Math.max(p.stats.maxLayer, layer); progress({ type: 'zone', id }); });
   bus.on('bossDefeated', () => progress({ type: 'boss' }));
   bus.on('lore', ({ id }) => progress({ type: 'lore', id }));
+  bus.on('sigil', ({ id }) => progress({ type: 'sigil', id }));
+  bus.on('gateOpened', () => progress({ type: 'gate' }));
 
   // ---------------------------------------------------------------- callbacks used by menus
   game.onGearChanged = (def) => {
@@ -148,6 +150,7 @@ ${game.input.isTouch ? 'Move with the left side of the screen, look by dragging 
     document.removeEventListener('visibilitychange', onHide);
     window.removeEventListener('beforeunload', onUnload);
     game.ui.closeMenu?.();
+    game.overlay.dispose?.(); game.ui.touch.dispose?.();
     game.enemies.clear(); game.combat.clear(); game.combat.dispose(); game.fx.dispose(); game.overlay.clear(); game.overlay.draw(0);
     game.astral?.dispose();
     game.view?.dispose(); game.view = null;

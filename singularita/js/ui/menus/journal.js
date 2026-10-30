@@ -3,6 +3,7 @@ import { h } from '../dom.js';
 import { OBJECTIVES } from '../../data/objectives.js';
 import { LORE } from '../../data/lore.js';
 import { BOSSES } from '../../data/bosses.js';
+import { MATERIALS } from '../../data/materials.js';
 import { ZONES } from '../../data/zones.js';
 import { buildUnlocks } from '../../data/unlocks.js';
 
@@ -28,8 +29,12 @@ export function journalTab(g, root, opts, rerender) {
   } else {
     for (const b of Object.values(BOSSES)) {
       const n = p.stats.bosses[b.id] || 0;
+      const sigil = b.rewards.find((r) => r.once)?.material;
+      const where = b.zone && b.zone !== 'island'
+        ? `Guards ${ZONES[b.zone].name} (${ZONES[b.zone].subtitle}) from level ${b.minLevel}, and returns 10 minutes after each defeat. ${(p.inv.stacks[sigil] || 0) ? `✦ You carry the ${MATERIALS[sigil].name}.` : `Keeps the ${MATERIALS[sigil].name}.`}`
+        : `Roams Dawnreach ${b.period === 'day' ? 'by day' : 'by night'}, in the ${b.arena === 'glade' ? 'Sunlit Glade' : 'Bone Ridge Crater'}, from level ${b.minLevel}.`;
       body.append(h('div', { class: 'boss-entry' }, h('h4', {}, b.name, h('small', {}, ` · ${b.title}`)),
-        h('p', { class: 'muted small' }, `${b.period === 'day' ? 'Appears by day' : 'Appears by night'} in the ${b.arena === 'glade' ? 'Sunlit Glade' : 'Bone Ridge Crater'} from level ${b.minLevel}. Defeated ${n} time${n === 1 ? '' : 's'}.`),
+        h('p', { class: 'muted small' }, `${where} Defeated ${n} time${n === 1 ? '' : 's'}.`),
         n ? h('p', {}, b.lore) : h('p', { class: 'muted' }, '???'),
         h('ul', { class: 'phases' }, b.phases.map((ph) => h('li', {}, h('b', {}, ph.name), ` — ${n ? ph.desc : '???'}`)))));
     }

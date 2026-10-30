@@ -299,7 +299,7 @@ export class UI {
       const tide = g.phenomena?.tidePhase ? ` · Tide ${g.phenomena.tidePhase}` : '';
       el.clock.textContent = `✦ ${g.zoneDef.subtitle} · Lv ${g.zoneDef.band.join('–')}${tide}`;
     } else el.clock.textContent = `⛏ Layer ${g.zone.layer} · Lv ${ZONES[g.zone.id].band.join('–')}`;
-    const t = count(g.profile.inv, 'healing_tonic') + count(g.profile.inv, 'greater_healing_tonic');
+    const t = count(g.profile.inv, 'healing_tonic') + count(g.profile.inv, 'greater_healing_tonic') + count(g.profile.inv, 'pearl_elixir');
     this.tonicSlot.querySelector('.count').textContent = t;
     this.tonicSlot.classList.toggle('locked', !t);
     const o = g.objectives.current;

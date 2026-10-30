@@ -1,5 +1,8 @@
 // The objectives chain: event-driven progress, plus state checks for goals already met.
 import { OBJECTIVES } from '../data/objectives.js';
+import { SIGILS } from '../data/materials.js';
+
+const sigilsHeld = (p) => SIGILS.filter((s) => (p.inv.stacks[s] || 0) > 0).length;
 
 const matches = (target, value) => target === 'any' || target.split('|').includes(value);
 
@@ -18,7 +21,10 @@ export class ObjectiveTracker {
       case 'equip': if (ev.type === 'equipped' && ev.slot === o.target && ev.tier >= (o.minTier || 0)) inc = o.count; break;
       case 'kill': if (ev.type === 'kill') inc = 1; break;
       case 'allocate': if (ev.type === 'allocate') inc = 1; break;
-      case 'reach': if (ev.type === 'zone' && ev.id === o.target) inc = 1; break;
+      case 'reach': if (ev.type === 'zone' && matches(o.target, ev.id)) inc = 1; break;
+      // Progress follows the sigils actually carried.
+      case 'sigil': if (ev.type === 'sigil') inc = Math.max(0, sigilsHeld(this.p) - this.p.objectives.progress); break;
+      case 'gate': if (ev.type === 'gate') inc = 1; break;
       case 'boss': if (ev.type === 'boss') inc = 1; break;
       case 'lore': if (ev.type === 'lore' && matches(o.target, ev.id)) inc = 1; break;
       default: break;
@@ -44,7 +50,9 @@ export class ObjectiveTracker {
       if (!o) break;
       const p = this.p;
       let ok = false;
-      if (o.type === 'reach') ok = !!p.zones[o.target];
+      if (o.type === 'reach') ok = o.target.split('|').some((id) => !!p.zones[id]);
+      else if (o.type === 'sigil') ok = sigilsHeld(p) >= o.count;
+      else if (o.type === 'gate') ok = !!p.flags?.gateOpen;
       else if (o.type === 'lore') ok = p.lore.includes(o.target);
       else if (o.type === 'boss') ok = Object.keys(p.stats.bosses).length > 0;
       else if (o.type === 'allocate') ok = Object.values(p.attrs).some((v) => v > 0);

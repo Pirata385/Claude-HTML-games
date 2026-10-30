@@ -1,6 +1,6 @@
 # Singularita — design
 
-This document records the design of the full game and what Milestone 1 implements. The original brief (in Portuguese) asked for a 3D web RPG in the progression-and-crafting genre. Hades, Genshin Impact and Minecraft were to inform the art direction only, never the mechanics.
+This document records the design of the full game and what Milestones 1 and 2 implement. The original brief (in Portuguese) asked for a 3D web RPG in the progression-and-crafting genre. Hades, Genshin Impact and Minecraft were to inform the art direction only, never the mechanics.
 
 ## Pillars
 
@@ -28,7 +28,8 @@ What the player meets on Dawnreach comes from that story:
 | --- | --- | --- |
 | Dawnreach (starter isle) | 1 | Base camp, the endless day/night horde, two boss arenas, ruins with Echo Stones, the cave mouth |
 | The Hollow Deep, layers 1–7 | 1 | Main material chain from stone to diamond; cave hazards from layer 4; ends at the Sealed Core Gate |
-| Isles of Air, Water, Fire, Earth | 2 | Exclusive materials and sigils. Bosses: Ronin of the East Wind, Allele of the Divine Golem, the Magma Vector, Tears of Poseidon |
+| Isles of Air, Water, Fire, Earth | 2 | Exclusive materials and sigils, each with its own phenomena. Guardians: Ronin of the East Wind, Tears of Poseidon, the Magma Vector, Allele of the Divine Golem |
+| The Dawn and Dusk Hollows (layer 8) | 2 | Beyond the Sealed Core Gate: tier 8 Dawndosite and Escuresite; ends at the Heart Seal |
 | Dimensions: Endless Dungeon, King Corrupted by Purple Adamite, Mirrored, Twin Slimes, Dragons | 3 | Dungeons with their own rules and the last materials. Bosses: Iron-Hand Jailer, the Adamite King, "You?", the Siamese, Ragnarok the Dragon God |
 | The Sealed Core | 3 | Singularita, the final tier |
 
@@ -56,6 +57,25 @@ What the player meets on Dawnreach comes from that story:
   - Each zone is fully disposed on exit; the smoke test checks the geometry count.
   - Dynamic resolution, and Low/Medium/High presets.
 - **Saves.** Versioned, checksummed JSON in localStorage with a backup per slot, migrations that fill new fields, export/import codes and autosave.
+
+## Systems (Milestone 2)
+
+- **Travel.** The Wayshrine in camp is placed on the generated island at load time, so the island's snapshot does not change. `systems/travel.js` holds the rules: isles open by level; layer 8 needs the four sigils set into the gate (`flags.gateOpen`). Sigils are key items and stay in the bag.
+- **Isle generators** (`js/world/gen/isles.js`). They return the same shape as the island and the caves; `validateIsle` checks reachability, counting updrafts as links.
+  - **Spires:** plateaus over a void, joined by a spanning tree of bridges, or updraft pairs where a bridge would be too steep.
+  - **Atoll:** radial bands; three sandbars to the temple; tidal cells between SEA−2 and SEA+1.
+  - **Volcano:** a cone, a caldera ringed by basalt with two gaps, and lava rivers that run downhill; paths cross lava on basalt.
+  - **Mesas:** terraces three blocks tall, with the Worldroot ridge and ramps.
+  - Node placement only uses cells reachable from the landing.
+- **Phenomena** (`js/world/phenomena.js`):
+  - **Updrafts:** a scripted arc from `world/updraft.js`; the player is "carried", so physics pauses.
+  - **Gales:** they push you, but never off a spire, because the void blocks movement.
+  - **The tide:** `world/tide.js`, a 98 s cycle that reflags the tidal cells and moves the water plane.
+  - **Lava:** burns on contact.
+  - **Eruptions and quakes:** telegraphed circles around the player.
+- **Populations.** Isles and caves keep a living population at their zone's fixed band; elites have a constant chance. Guardians are resident: one spawns on entry unless it fell less than 600 s of play time ago (`world.guardians`).
+- **Rewards.** `systems/rewards.js` rolls boss loot; `once` rewards (the sigils) are skipped when already carried.
+- **Objectives.** `reach` accepts alternatives (`a|b`). New types: `sigil` (progress follows the sigils carried) and `gate`.
 
 ## Extending (next milestones)
 

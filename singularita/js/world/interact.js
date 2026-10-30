@@ -22,6 +22,7 @@ export class Interaction {
     this.focus = null;
     this.recall = null;
     game.bus.on('playerHurt', () => { if (this.recall) { this.recall = null; game.ui?.toast('Recall interrupted.', 'warn'); } });
+    game.bus.on('playerDeath', () => { this.recall = null; });
   }
 
   get zstate() { return this.g.profile.zones[this.g.zone.id]; }

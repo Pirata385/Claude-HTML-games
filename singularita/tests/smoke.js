@@ -405,6 +405,17 @@ try {
     await page.screenshot({ path: path.join(SHOTS, 'cave_8.png') });
     check(core.open && core.zone === 'cave_8' && core.exit === 'heart', `the sigils open the gate to the Core (${core.zone})`);
     check(core.enemies > 0, `the Core is populated (${core.enemies})`);
+    const menus = await page.evaluate(() => {
+      const g = window.__SG, out = {};
+      g.ui.openMenu('map'); out.map = document.getElementById('menu').innerText;
+      g.ui.openMenu('journal'); [...document.querySelectorAll('#menu .stab')].find((b) => b.textContent === 'Bosses').click(); out.journal = document.getElementById('menu').innerText;
+      g.ui.openMenu('inventory'); [...document.querySelectorAll('#menu .stab')].find((b) => b.textContent === 'Materials').click(); out.inv = document.getElementById('menu').innerText;
+      g.ui.closeMenu();
+      return out;
+    });
+    check(/Galeforge Spires/.test(menus.map) && /Ronin of the East Wind keeps/.test(menus.map) && /Dawn and Dusk Hollows/.test(menus.map), 'the map lists the isles, their guardians and the Core');
+    check(/Guards The Galeforge Spires/.test(menus.journal), 'the journal knows where the guardians wait');
+    check(/Key items/.test(menus.inv) && /Sigil of Wind/.test(menus.inv), 'sigils show as key items');
     const horizon = await sim(page, `g.enterZone('island'); step(3); return !!g.view.horizon;`);
     await settle();
     await page.screenshot({ path: path.join(SHOTS, 'horizon.png') });

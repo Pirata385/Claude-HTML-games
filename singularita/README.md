@@ -2,7 +2,7 @@
 
 A third-person 3D voxel RPG of exploration, combat and crafting for the browser, on desktop and mobile. Hold the starter isle of **Dawnreach** against slimes by day and the Echoes of dead miners by night, mine down through the seven layers of **the Hollow Deep** from wood to diamond, craft gear for five very different classes, and face the **Slime Prince** and the **Silverback Zombie Emperor**.
 
-> **Status — Milestone 1 of the full design.** This milestone covers the starter island, the Hollow Deep, all five classes, crafting, levels (cap 300), saving, mobile support and the first two bosses. The four elemental isles (Air, Water, Fire, Earth), the five dimensions, the remaining nine bosses and the last material tiers (Dawndosite and Escuresite, Chromantite, Singularita) come in later milestones. The world already points to them: the cave ends at the Sealed Core Gate, which needs a sigil from each elemental isle. Nothing in this build is a placeholder. Every recipe can be crafted and every area can be reached.
+> **Status — Milestones 1 and 2 of the full design.** Milestone 1 is the starter island, the Hollow Deep, all five classes, crafting, levels (cap 300), saving, mobile support and the first two bosses. Milestone 2 adds the four elemental isles (Air, Water, Fire, Earth) with their phenomena, creatures and guardians, the four sigils that open the Sealed Core Gate, and the eighth layer beyond it with the tier 8 materials, Dawndosite and Escuresite. The five dimensions, the remaining five bosses and the last tiers (Chromantite, Singularita) come in Milestone 3; the Core layer ends at the Heart Seal, which points to them. Nothing in this build is a placeholder. Every recipe can be crafted and every area can be reached.
 
 ## Running
 
@@ -27,6 +27,7 @@ Open the root `index.html` menu and pick **Singularita**. Progress is saved in t
 | Lock on | Q | Lock button, or a quick tap on the view |
 | Healing tonic | R | ❤ button |
 | Return to camp | B (6 s channel) | — |
+| Free the mouse (to click the HUD buttons) | Alt | — |
 | Menus | Tab/I inventory · C crafting · K character · L skills · M map · J journal · Esc | ☰ ⌖ ⚒ buttons |
 
 All key bindings can be changed in Settings.
@@ -40,6 +41,17 @@ All key bindings can be changed in Settings.
 - **Bosses.** Bosses roam Dawnreach at random, 8 to 14 minutes apart: the Slime Prince holds court in the Sunlit Glade by day, the Silverback Emperor waits in Bone Ridge Crater by night. A banner tells you when one appears. You can also summon them with a crafted Royal Jelly Bait or Echo Horn.
   - **The Slime Prince** lands in shockwave rings you must jump or dodge. He slams his crown down and absorbs his golden guards to heal unless you kill them first, then splits in two.
   - **The Silverback Emperor** leaps, throws boulders and roars up Echoes. His charge stuns him for a few seconds if you bait him into a pillar.
+- **The elemental isles** (from level 66 and 80). The **Wayshrine** in camp carries you to each isle's landing; a return stone there brings you back. Each isle has its own creatures at fixed levels, exclusive materials, two Echo Stones and a guardian who keeps a sigil.
+  - **The Galeforge Spires (Air, Lv 66).** Plateaus over a cloud sea, linked by plank bridges and updraft vents that carry you from spire to spire; gales push everything across the summits. Harpies dive and knock you back, Kite Serpents shoot lightning, Cloud Sprites shield their kin, Storm Wisps burst. Skyglass spires and Cloud Pines.
+  - **Tidecrown Atoll (Water, Lv 66).** A ring of land around a lagoon and a temple islet. The tide runs on a cycle: at low water sandbars lead to the temple and pearl beds can be gathered; at high water they flood, and the current drags you ashore. Reef Crabs, Sirens, Drowned Sailors and Glass Jellies.
+  - **Cinderspine (Fire, Lv 80).** A volcano with lava rivers (paths cross them on basalt) and eruptions that rain burning rock. Lava Hounds, Obsidian Golems, Fire Imps and Ash Shamans, all fireproof. Obsidian grows by the lava.
+  - **The Rootdeep Mesas (Earth, Lv 80).** Terraced mesas crossed by the Worldroot, whose flanks grow Living Amber; quakes raise stone spikes. Mossback Tortoises, Root Lashers that whip from the ground, Burrowing Moles and Stone Wisps.
+- **The guardians** wait in their arenas and return 10 minutes after a defeat. Each gives its sigil once.
+  - **Ronin of the East Wind:** iai dashes along a line he shows first, wind crescents, a blue counter stance (do not strike it), then Gale Steps and tornadoes.
+  - **Tears of Poseidon:** three spirits; while all three live the temple floods (stand on the raised stones), then whirlpools and sweeping waves.
+  - **The Magma Vector:** dashes along shown vectors and leaves lava; its core cools after each dash, which is the time to strike. Later its vectors reflect off the rim and cross.
+  - **Allele of the Divine Golem:** expresses alleles: Granite (armoured in front), Quartz (fast combos), Moss (seedlings that heal it until cut); later two at once, then mutating fast.
+- **The Sealed Core Gate and the Dawn and Dusk Hollows (Lv 100).** Bring the four sigils to the gate at the bottom of the Diamond Throat. Beyond it, the eighth layer is split into a dawn half (Dawndosite, radiance crystals that blind) and a dusk half (Escuresite, umbral pools that slow and drain), and ends at the Heart Seal.
 - **Lore.** Echo Stones on the island and in every layer tell the story of the Dawnforgers, Singularita and the Fracture. Lume, item descriptions and the bosses fill in the rest. The Journal collects everything you have found.
 
 ## Classes
@@ -79,10 +91,11 @@ A Reset Crystal refunds all your spent points.
 | 5 | Emerald | Layers 4–5 | Lead/Titanium pickaxe | Lv 38 | Verdant: life steal and regeneration |
 | 6 | Ruby · Sapphire | Layers 5–6 | Emerald pickaxe | Lv 50 | Ember (burn) · Rime (chill, resource regen) |
 | 7 | Diamond | Layers 6–7 | Ruby/Sapphire pickaxe | Lv 64 | Prismatic: crits split arrows or send shockwaves |
+| 8 | Dawndosite · Escuresite | Layer 8 (dawn · dusk) | Diamond pickaxe | Lv 100 | Radiant (blinding hits, healing on kills) · Umbral (crit damage, life steal on crits) |
 
 - **Gear.** Every class has a weapon, an armour and an accessory in every material, plus pickaxes, axes and boss uniques.
 - **Level.** Level gates recipes and areas, never equipping.
-- **Recipes.** They also need creature drops (Slime Gel, Echo Sinew, Bat Leather, Crawler Chitin, Ember Cores, Rime Shards, Prism Dust) and, from tier 3 accessories up, boss materials.
+- **Recipes.** They also need creature drops (Slime Gel, Echo Sinew, Bat Leather, Crawler Chitin, Ember Cores, Rime Shards, Prism Dust) and, from tier 3 accessories up, boss materials. Tier 8 gear needs materials from several isles: Skyglass, Abyssal Pearls, Obsidian and Living Amber, the isle creatures' drops and the guardians' materials. The isles also have their own accessories, and the Pearl Elixir cures poison, burns and bleeding.
 - **Crafting menu.** It filters by class, item type, material and availability. It shows what you have against what you need, and **where to find** every missing material.
 
 ## Code layout

@@ -35,9 +35,15 @@ export const NODES = {
   node_skyglass: ore('skyglass', 7, { id: 'node_skyglass', name: 'Skyglass Spire', yield: [1, 3] }),
   pearl_bed: ore('abyssal_pearl', 7, { id: 'pearl_bed', name: 'Pearl Bed', yield: [1, 2], model: 'pearl', tide: 'low' }),
   ore_obsidian: ore('obsidian', 7, { name: 'Obsidian Flow', yield: [1, 3] }),
+  // Dimensions and the Singular Heart.
+  ore_chromantite: ore('chromantite', 9, { name: 'Chromantite Vein', yield: [1, 2] }),
+  ore_singularita: ore('singularita', 10, { name: 'Singularita Growth', yield: [1, 1], respawn: 600, xp: 120 }),
+  gaol_vein: ore('gaol_iron', 9, { id: 'gaol_vein', name: 'Gaol Iron Bars', yield: [1, 3] }),
+  adamite_cluster: ore('purple_adamite', 9, { id: 'adamite_cluster', name: 'Purple Adamite Cluster', yield: [1, 3] }),
+  mirror_shard: ore('specular_glass', 9, { id: 'mirror_shard', name: 'Mirror Shard', yield: [1, 3] }),
   amber_root: { id: 'amber_root', name: 'Amber Root', material: 'living_amber', tier: 0, tool: 'axe', hp: 30, yield: [1, 2], respawn: 200, xp: 20, model: 'amber' },
 };
 
 // Power of tools by tier; hands are 1.
-export const TOOL_POWER = [2, 3, 4.5, 6.5, 9, 12.5, 17, 23, 31];
+export const TOOL_POWER = [2, 3, 4.5, 6.5, 9, 12.5, 17, 23, 31, 41, 54];
 export const HAND_POWER = 1;

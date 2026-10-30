@@ -511,6 +511,66 @@ try {
     check(!errors.length, `creatures and guardians: no errors ${errors.slice(0, 3).join(' | ')}`);
     await ctx.close();
   }
+
+  // 10. Milestone 3: emblems, portals and dimension runs.
+  {
+    const { ctx, page, errors } = await open(`${BASE}/singularita/index.html?quickstart=swordsman&debug`);
+    await waitGame(page);
+    const settle = () => page.evaluate(() => { const g = window.__SG; clearTimeout(g.ui.combatDialog); g.ui.closeDialog && g.ui.closeDialog(); g.cam.snapBehind(g.player.yaw); for (let i = 0; i < 90; i++) g.render(1 / 30); });
+    const r = await sim(page, `
+      g.ui.closeDialog && g.ui.closeDialog(); g.godMode = true;
+      g.profile.level = 200; g.recomputeStats();
+      const out = {}, p = g.player;
+      // An emblem opens a portal in front of you; stepping through starts a run.
+      for (const id of ['emblem_dungeon', 'emblem_twins', 'emblem_king', 'emblem_mirror', 'emblem_dragons']) g.profile.inv.stacks[id] = 2;
+      const home = { x: p.x, z: p.z };
+      g.useConsumable('emblem_dungeon'); step(3);
+      out.portal = !!g.portal && g.portal.dim === 'dim_dungeon';
+      out.emblemUsed = g.profile.inv.stacks.emblem_dungeon === 1;
+      g.interaction.enterPortal(); await new Promise((r) => setTimeout(r, 1200)); step(3);
+      out.inDungeon = g.zone.id === 'dim_dungeon' && !!g.profile.run && g.profile.run.floor === 1;
+      out.stairLocked = g.zone.exit.locked === true;
+      out.warden = g.enemies.list.some((e) => e.alive && e.def.keyCarrier);
+      // The Warden carries the key; with it, the stair leads down.
+      const w = g.enemies.list.find((e) => e.alive && e.def.keyCarrier);
+      if (w) g.combat.applyRaw(w, w.maxHp * 2, 'dmg');
+      step(10);
+      out.unlocked = g.zone.exit.locked === false;
+      g.interaction.descend(); await new Promise((r) => setTimeout(r, 1200)); step(3);
+      out.floor2 = g.profile.run?.floor === 2 && g.zone.floor === 2;
+      // Leaving by the stair banks the run and brings you home.
+      g.zone.exit.locked = false;
+      g.interaction.leaveRun('leave'); await new Promise((r) => setTimeout(r, 1200)); step(3);
+      out.home = g.zone.id === 'island' && Math.hypot(p.x - home.x, p.z - home.z) < 6 && !g.profile.run;
+      out.best = g.profile.dims.dim_dungeon.bestFloor;
+      return out;`);
+    check(r.portal && r.emblemUsed, 'an emblem opens a portal and is used up');
+    check(r.inDungeon && r.stairLocked && r.warden, 'the portal starts a run in the Endless Dungeon, stair locked, Warden waiting');
+    check(r.unlocked && r.floor2, 'the Warden\'s key opens the stair to floor 2');
+    check(r.home && r.best === 2, `leaving brings you home and keeps the best floor (${r.best})`);
+    for (const dim of ['dim_twins', 'dim_king', 'dim_mirror', 'dim_dragons']) {
+      const d = await sim(page, `
+        const out = {};
+        g.useConsumable('${dim.replace('dim_', 'emblem_')}'); step(3);
+        g.interaction.enterPortal(); await new Promise((r) => setTimeout(r, 1200)); step(30 * 3);
+        out.zone = g.zone.id; out.enemies = g.enemies.count(); out.alive = g.player.alive;
+        if ('${dim}' === 'dim_twins') {
+          const lever = g.zone.levers[0], gate = g.zone.gates.find((x) => x.id === lever.gate);
+          g.interaction.pullLever(lever); step(3);
+          out.gateOpen = gate.open && !g.grid.has(gate.cells[0] % g.grid.w, Math.floor(gate.cells[0] / g.grid.w), 256);
+        }
+        return out;`);
+      await settle();
+      await page.screenshot({ path: path.join(SHOTS, `${dim}.png`) });
+      check(d.zone === dim && d.alive && d.enemies > 0, `${dim}: the portal leads there and it is populated (${d.enemies})`);
+      if (dim === 'dim_twins') check(d.gateOpen, 'twins: a lever opens a gate in the other lane');
+      // Dying ends the run.
+      const f = await sim(page, `g.godMode = false; g.combat.hurt(g.player, 1e9, null, { type: 'hazard' }); step(30 * 2); const dead = !g.player.alive; g.respawn(); step(3); g.godMode = true; g.ui.closeDialog && g.ui.closeDialog(); document.querySelector('.death')?.setAttribute('hidden', ''); return { dead, zone: g.zone.id, run: g.profile.run };`);
+      check(f.dead && f.zone === 'island' && !f.run, `${dim}: dying ends the run`);
+    }
+    check(!errors.length, `dimensions: no errors ${errors.slice(0, 3).join(' | ')}`);
+    await ctx.close();
+  }
 } catch (err) {
   failures++;
   console.error('FAIL smoke test crashed:', err);

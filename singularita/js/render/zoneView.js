@@ -7,7 +7,7 @@ import { NodeVisuals, buildDecor } from './props.js';
 import { buildStructures } from './structures.js';
 import { applyCavePalette, applyIslePalette } from './sky.js';
 import { Horizon } from './horizon.js';
-import { F } from '../world/grid.js';
+import { F, isWalled } from '../world/grid.js';
 
 export class ZoneView {
   constructor(renderer, zone, sky, quality, opts = {}) {
@@ -18,7 +18,7 @@ export class ZoneView {
     this.material = makeTerrainMaterial();
     this.terrain = buildTerrain(zone, this.material);
     scene.add(this.terrain.group);
-    this.nodes = new NodeVisuals(zone, scene, zone.type === 'cave' ? pal.wall : zone.type === 'isle' ? pal.rock : null);
+    this.nodes = new NodeVisuals(zone, scene, isWalled(zone) ? pal.wall : zone.type !== 'island' ? pal.rock : null);
     this.structures = buildStructures(zone, opts);
     scene.add(this.structures.group);
     this.decor = buildDecor(zone, quality);
@@ -32,13 +32,14 @@ export class ZoneView {
       renderer.scene.fog.near = 30;
       renderer.scene.fog.far = quality.viewDistance;
       renderer.playerLight.intensity = 0;
-    } else if (zone.type === 'isle') {
+    } else if (zone.type === 'isle' || zone.render === 'isle') {
       sky.setVisible(true);
       applyIslePalette(renderer, sky, pal);
-      if (zone.def.element === 'air') this.water = makeWater(zone.grid.w * 4, 0, c, { color: 0xf4f8ff, opacity: 0.94, floor: null, foam: [1, 1, 1] });
+      if (zone.render === 'isle') this.water = makeWater(zone.grid.w * 4, -10, c, { color: new THREE.Color(pal.sea).getHex(), opacity: 0.95, floor: null, foam: [1, 0.55, 0.3] });
+      else if (zone.def.element === 'air') this.water = makeWater(zone.grid.w * 4, 0, c, { color: 0xf4f8ff, opacity: 0.94, floor: null, foam: [1, 1, 1] });
       else this.water = makeWater(zone.grid.w * 3, (zone.tideLevel != null ? zone.tideLevel + 0.12 : zone.grid.seaLevel + 0.62), c, { color: new THREE.Color(pal.sea).getHex(), floor: new THREE.Color(pal.sea).multiplyScalar(0.6).getHex() });
       scene.add(this.water.group);
-      if (zone.def.element === 'fire') this.lava = buildLavaGlow(zone, scene);
+      if (zone.def.element === 'fire' || zone.render === 'isle') this.lava = buildLavaGlow(zone, scene);
       renderer.scene.fog.near = 40;
       renderer.scene.fog.far = quality.viewDistance;
       renderer.playerLight.intensity = 0;
@@ -46,7 +47,7 @@ export class ZoneView {
       sky.setVisible(false);
       renderer.scene.background = new THREE.Color(pal.fog);
       renderer.scene.fog.near = 6;
-      renderer.scene.fog.far = Math.min(quality.viewDistance, zone.def.hazards.includes('darkness') ? 26 : 38 + (7 - Math.min(7, zone.layer)) * 4);
+      renderer.scene.fog.far = Math.min(quality.viewDistance, zone.def.hazards.includes('darkness') || zone.modifier === 'dark' ? 26 : 38 + (7 - Math.min(7, zone.layer || 7)) * 4);
       applyCavePalette(renderer, pal);
       renderer.playerLight.color.set(pal.light);
       renderer.playerLight.intensity = zone.def.hazards.includes('darkness') ? 9 : 14;
@@ -55,6 +56,24 @@ export class ZoneView {
     this.viewDistance = quality.viewDistance;
   }
   setWaterLevel(y) { this.water?.setLevel(y); }
+  // A dimension portal: a ring of light standing on the ground. One at a time.
+  setPortal(p, color = '#c48cff') {
+    if (this.portal) { this.r.scene.remove(this.portal); this.portal.traverse((o) => { o.geometry?.dispose(); o.material?.dispose(); }); this.portal = null; }
+    if (!p) return;
+    const grp = new THREE.Group();
+    const ring = new THREE.Mesh(new THREE.TorusGeometry(1.4, 0.18, 8, 28), new THREE.MeshBasicMaterial({ color }));
+    const disc = new THREE.Mesh(new THREE.CircleGeometry(1.3, 28), new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.45, side: THREE.DoubleSide, depthWrite: false }));
+    ring.position.y = disc.position.y = 1.6;
+    grp.add(ring, disc);
+    grp.position.set(p.x, p.y ?? this.zone.grid.height(Math.floor(p.x), Math.floor(p.z)), p.z);
+    this.portal = grp;
+    this.r.scene.add(grp);
+  }
+  rebuildStructures() {
+    this.structures.dispose();
+    this.structures = buildStructures(this.zone, this.opts);
+    this.r.scene.add(this.structures.group);
+  }
   // The Sealed Core Gate opens: rebuild the structures with the open gate.
   setGateOpen(open) {
     this.opts = { ...this.opts, gateOpen: open };
@@ -70,6 +89,7 @@ export class ZoneView {
     if (this.water) this.water.uniforms.uTime.value = t;
     if (this.lava) this.lava.material.color.setRGB(1, 0.42 + Math.sin(t * 2.2) * 0.08, 0.1);
     if (this.horizon) this.horizon.update(cam, this.sky.uniforms.horizon.value);
+    if (this.portal) { this.portal.rotation.y = t * 0.8; this.portal.children[1].material.opacity = 0.35 + Math.sin(t * 3) * 0.12; }
   }
   dispose() {
     const scene = this.r.scene;
@@ -82,6 +102,7 @@ export class ZoneView {
     if (this.water) { scene.remove(this.water.group); this.water.dispose(); }
     if (this.lava) { scene.remove(this.lava); this.lava.geometry.dispose(); this.lava.material.dispose(); this.lava.dispose(); }
     this.horizon?.dispose();
+    this.setPortal(null);
     scene.background = null;
   }
 }

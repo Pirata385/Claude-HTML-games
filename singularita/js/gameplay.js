@@ -12,6 +12,7 @@ import { count, takeStack } from './systems/inventory.js';
 import { CONSUMABLES } from './data/consumables.js';
 import { defaultHotbar } from './data/skills.js';
 import { unlocksAt } from './data/unlocks.js';
+import { endRun } from './systems/run.js';
 
 export function installGameplay(game) {
   const r = game.r;
@@ -72,6 +73,10 @@ export function installGameplay(game) {
       const why = game.spawner.trySummon(e.summon);
       if (why) return game.ui?.toast(why, 'warn');
     }
+    if (e.portal) {
+      const why = game.interaction.openPortal(e.portal);
+      if (why) return game.ui?.toast(why, 'warn');
+    }
     if (e.heal) game.combat.healPlayer(game.stats.maxHp * e.heal * game.stats.tonicPotency);
     if (e.resource) p.res = Math.min(game.stats.resourceMax, p.res + game.stats.resourceMax * e.resource * game.stats.tonicPotency);
     if (e.cure) for (const s of e.cure) p.statuses.remove(s);
@@ -100,6 +105,8 @@ export function installGameplay(game) {
     const bed = game.zone.type === 'island' ? null : null;
     void bed;
     const z = (gz) => gz.base.stations.bed;
+    // Dying in a dimension ends the run; the dimension casts you out.
+    if (game.profile.run) { endRun(game.profile, 'fail'); game.ui?.toast('The dimension casts you out. The run is over.', 'warn', 5); }
     game.enterZone('island', null);
     const b = z(game.zone);
     p.x = b.x + 1.5; p.z = b.z + 1.5;
@@ -134,6 +141,7 @@ export function installGameplay(game) {
       g.astral?.manifest(false);
       g.spawner.onZoneExit();
       g.phenomena.onZoneExit();
+      g.portal = null; g.portalOut = null;
     },
     onZoneEnter(g) { g.spawner.onZoneEnter(); g.phenomena.onZoneEnter(); },
     update(dt, g) {

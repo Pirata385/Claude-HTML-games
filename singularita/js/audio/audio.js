@@ -171,8 +171,8 @@ export class AudioEngine {
     if (!this.started) return;
     const { lp, g } = this.amb, t = this.ctx.currentTime;
     // Island and isles: surf and wind (the spires are all wind). Caves: a low rumble that deepens with depth.
-    const conf = kind === 'island' ? { f: 520, v: 0.25 } : kind === 'isle_air' ? { f: 900, v: 0.3 } : String(kind).startsWith('isle') ? { f: 460, v: 0.25 }
-      : { f: 110 + Math.max(0, 8 - (kind || 1)) * 15, v: 0.35 };
+    const conf = kind === 'island' ? { f: 520, v: 0.25 } : kind === 'isle_air' || kind === 'dim_dragons' ? { f: 900, v: 0.3 } : String(kind).startsWith('isle') ? { f: 460, v: 0.25 }
+      : typeof kind === 'number' ? { f: 110 + Math.max(0, 8 - kind) * 15, v: 0.35 } : { f: 160, v: 0.3 };
     lp.frequency.setTargetAtTime(conf.f, t, 0.5);
     g.gain.setTargetAtTime(conf.v, t, 0.8);
   }

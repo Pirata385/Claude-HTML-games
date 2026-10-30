@@ -27,10 +27,21 @@ const TIER8 = {
     accessory: { vector_core: 2, allele_seed: 2, obsidian: 4, living_amber: 3 }, pickaxe: { obsidian: 4, living_amber: 3 }, axe: { salamander_scale: 3, golem_shard: 2 } },
 };
 
+// Tier 9: Chromantite gear draws on the dimensions, and every piece needs a Singularita Shard.
+const TIER9 = {
+  weapon: { gaol_iron: 8, dragon_scale: 6, singularita_shard: 2 }, armor: { purple_adamite: 10, twin_gel: 8, singularita_shard: 2 },
+  accessory: { specular_glass: 6, twin_gel: 4, jailer_chain: 1, singularita_shard: 3 }, pickaxe: { gaol_iron: 4, purple_adamite: 3, singularita_shard: 1 }, axe: { dragon_scale: 3, twin_gel: 2, singularita_shard: 1 },
+};
+// Tier 10: Singularita itself, bound with the materials of every dimension.
+const TIER10 = {
+  weapon: { gaol_iron: 10, dragon_scale: 10, specular_glass: 6, ragnarok_ember: 1 }, armor: { purple_adamite: 12, twin_gel: 10, dragon_scale: 6, siamese_heart: 1 },
+  accessory: { specular_glass: 8, purple_adamite: 6, twin_gel: 6, mirror_self: 1, adamite_crown_shard: 1 }, pickaxe: { gaol_iron: 6, specular_glass: 4 }, axe: { dragon_scale: 4, twin_gel: 4 },
+};
+
 function gearInputs(matId, slot) {
   const t = MATERIALS[matId].tier;
   const inputs = { [matId]: BASE_QTY[slot] + 2 * t };
-  for (const [id, n] of Object.entries(t === 8 ? TIER8[matId][slot] : SECONDARY[t][slot])) {
+  for (const [id, n] of Object.entries(t === 10 ? TIER10[slot] : t === 9 ? TIER9[slot] : t === 8 ? TIER8[matId][slot] : SECONDARY[t][slot])) {
     const real = id === 'X' ? RIFT_DROP[matId] : id;
     inputs[real] = (inputs[real] || 0) + n;
   }
@@ -64,6 +75,13 @@ consumable('echo_horn', 16, { zombie_sinew: 15, iron: 3 }, 1);
 consumable('antidote', 22, { slime_gel: 4, bat_leather: 2 }, 2);
 consumable('greater_healing_tonic', 30, { slime_gel: 4, crawler_chitin: 2, emerald: 1 }, 2);
 consumable('pearl_elixir', 72, { abyssal_pearl: 1, tide_silk: 2, slime_gel: 4 }, 2);
+
+// Emblems: each opens the portal to one dimension. Their hearts come from the bosses of the main world.
+consumable('emblem_dungeon', 100, { silver_mane: 3, vector_core: 2, dawndosite: 4, iron: 20 }, 1);
+consumable('emblem_twins', 110, { royal_jelly: 4, poseidon_tear: 2, escuresite: 4, slime_gel: 30 }, 1);
+consumable('emblem_king', 125, { allele_seed: 2, silver_mane: 3, escuresite: 6, prism_dust: 10 }, 1);
+consumable('emblem_mirror', 140, { eastwind_silk: 2, poseidon_tear: 2, dawndosite: 6, diamond: 8 }, 1);
+consumable('emblem_dragons', 160, { vector_core: 3, eastwind_silk: 2, allele_seed: 2, dawndosite: 4, escuresite: 4 }, 1);
 
 // Elemental isle accessories.
 const isleAcc = (item, level, inputs) => list.push({ id: `craft_${item}`, category: 'accessories', output: { item, count: 1 }, level, inputs });

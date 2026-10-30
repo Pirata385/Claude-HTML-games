@@ -94,3 +94,16 @@ test('the gate objective completes when the gate opens', () => {
   q.flags = { gateOpen: true };
   assert.equal(new ObjectiveTracker(q).checkImmediate()[0].id, 'o_open');
 });
+
+test('shard objectives count the Fracture Shards you carry', () => {
+  const p = fresh();
+  p.objectives.index = OBJECTIVES.findIndex((o) => o.id === 'o_shard');
+  const t = new ObjectiveTracker(p);
+  assert.equal(t.handle({ type: 'sigil', id: 'sigil_wind' }), null, 'sigils are not shards');
+  p.inv.stacks.shard_gaol = 1;
+  assert.equal(t.handle({ type: 'shard', id: 'shard_gaol' }).id, 'o_shard');
+  const q = fresh();
+  q.objectives.index = OBJECTIVES.findIndex((o) => o.id === 'o_shards');
+  for (const s of ['shard_gaol', 'shard_twins', 'shard_crown', 'shard_mirror', 'shard_dragon']) q.inv.stacks[s] = 1;
+  assert.equal(new ObjectiveTracker(q).checkImmediate()[0].id, 'o_shards');
+});

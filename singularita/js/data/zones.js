@@ -1,4 +1,5 @@
-// Zones of Milestone 1: the starter island and the seven layers of the Hollow Deep.
+// Zones: the starter island, the layers of the Hollow Deep, the elemental isles, the dimensions
+// and the Singular Heart.
 // Generators read `gen`; renderers read `palette`; the wave/population systems read `enemies`.
 import { WAVES } from './waves.js';
 
@@ -131,7 +132,73 @@ ZONES.isle_earth = isle('earth', {
   palette: { sky: '#e8b878', horizon: '#ffe0a8', fog: '#e8c898', sea: '#3a6a5a', ground: '#b8784a', mesa: '#c8885a', grass: '#7a9a4a', rock: '#9a6a4a', sun: '#fff0c8', hemi: '#ffe8c0', hemiG: '#6a4a2a' },
 });
 
-export const ZONE_ORDER = ['island', 'cave_1', 'cave_2', 'cave_3', 'cave_4', 'cave_5', 'cave_6', 'cave_7', 'isle_air', 'isle_water', 'isle_fire', 'isle_earth', 'cave_8'];
+// The dimensions: each opened by its Emblem, each run from entrance to its ruler.
+const dim = (id, o) => ({ id: `dim_${id}`, type: 'dimension', music: `dim_${id}`, hazards: [], phenomena: [], ...o });
+ZONES.dim_dungeon = dim('dungeon', {
+  name: 'The Endless Dungeon', subtitle: 'Dimension of the Iron Gaol', levelReq: 100, band: [100, 300], population: 10,
+  emblem: 'emblem_dungeon', boss: 'iron_jailer', rule: 'keys',
+  ruleDesc: 'Each floor\'s stair is locked. The Gaol Warden carries the key. Every fifth floor the Iron-Hand Jailer waits; leave by any stair to keep what you found.',
+  gen: { kind: 'floors', size: 96 },
+  nodes: [{ node: 'gaol_vein', w: 4 }, { node: 'ore_chromantite', w: 1 }],
+  enemies: [{ id: 'shackled_prisoner', w: 5 }, { id: 'chain_hound', w: 3 }, { id: 'gaol_sentry', w: 2 }],
+  exclusive: ['gaol_iron'], lore: ['lore_gaol', 'lore_keys'],
+  palette: { floor: '#3a3634', wall: '#5a544e', accent: '#ffcf6a', accent2: '#c86a2a', fog: '#0e0c0a', ambient: 0.4, light: '#ffd8a0', glow: 'crystal' },
+});
+ZONES.dim_twins = dim('twins', {
+  name: 'The Twin Slimes', subtitle: 'Dimension of the Twin Gel', levelReq: 110, band: [110, 130], population: 12,
+  emblem: 'emblem_twins', boss: 'siamese', rule: 'twins',
+  ruleDesc: 'Two lanes, one fate. Levers in one lane open the gates of the other, and twin-bound creatures revive each other unless both fall within three seconds.',
+  gen: { kind: 'lanes', size: 120 },
+  nodes: [{ node: 'ore_chromantite', w: 1 }, { node: 'ore_diamond', w: 2 }],
+  enemies: [{ id: 'twin_slime', w: 5 }, { id: 'twin_spitter', w: 3 }, { id: 'gel_knight', w: 1 }],
+  exclusive: ['twin_gel'], lore: ['lore_twin_birth', 'lore_twin_lanes'],
+  palette: { floor: '#f0d8e8', wall: '#c89ab8', accent: '#ff8ab0', accent2: '#8ab0ff', fog: '#2a1a2a', ambient: 0.7, light: '#ffe8f4', glow: 'glowcap' },
+});
+ZONES.dim_king = dim('king', {
+  name: 'The Corrupted King', subtitle: 'Dimension of the Purple Adamite', levelReq: 125, band: [125, 150], population: 12,
+  emblem: 'emblem_king', boss: 'adamite_king', rule: 'corruption',
+  ruleDesc: 'Purple Adamite corrupts. Standing on it fills your corruption; at full it eats your health. Break adamite crystals or stand by a brazier to cleanse yourself.',
+  gen: { kind: 'castle', size: 120 },
+  nodes: [{ node: 'adamite_cluster', w: 4 }, { node: 'ore_chromantite', w: 1 }],
+  enemies: [{ id: 'adamite_knight', w: 4 }, { id: 'shard_crawler', w: 3 }, { id: 'corrupted_courtier', w: 2 }, { id: 'adamite_golem', w: 1 }],
+  exclusive: ['purple_adamite'], lore: ['lore_crown', 'lore_court'],
+  palette: { floor: '#3a3040', wall: '#5a4a68', accent: '#b46aff', accent2: '#ffcf6a', fog: '#120a1a', ambient: 0.45, light: '#e0c8ff', glow: 'crystal' },
+});
+ZONES.dim_mirror = dim('mirror', {
+  name: 'The Mirrored', subtitle: 'Dimension of Reflections', levelReq: 140, band: [140, 170], population: 12,
+  emblem: 'emblem_mirror', boss: 'you', rule: 'reflection',
+  ruleDesc: 'Your Reflection walks the far side of the mirror line. Gates open only while both of you stand on mirrored plates; clear the glass from its path.',
+  gen: { kind: 'mirror', size: 112 },
+  nodes: [{ node: 'mirror_shard', w: 4 }, { node: 'ore_chromantite', w: 1 }],
+  enemies: [{ id: 'mirror_wraith', w: 3 }, { id: 'glass_knight', w: 3 }, { id: 'shard_bat', w: 3 }, { id: 'reflection', w: 2 }],
+  exclusive: ['specular_glass'], lore: ['lore_glass', 'lore_plates'],
+  palette: { floor: '#c8d8e8', wall: '#e8f4ff', accent: '#9fe0ff', accent2: '#ffffff', fog: '#1a2230', ambient: 0.75, light: '#f0f8ff', glow: 'crystal' },
+});
+ZONES.dim_dragons = dim('dragons', {
+  name: 'The Dragons\' Roost', subtitle: 'Dimension of the Dragons', levelReq: 160, band: [160, 200], population: 12,
+  emblem: 'emblem_dragons', boss: 'ragnarok', rule: 'breath',
+  ruleDesc: 'Dragon breath sweeps the mountain paths: hide behind the standing rocks. Climb on the updrafts; linger near the nests and the eggs hatch.',
+  gen: { kind: 'peaks', size: 160 },
+  nodes: [{ node: 'ore_chromantite', w: 2 }, { node: 'ore_ruby', w: 2 }, { node: 'tree_charred', w: 2 }],
+  enemies: [{ id: 'dragon_whelp', w: 4 }, { id: 'drake', w: 2 }, { id: 'wyrm_priest', w: 2 }, { id: 'ember_drake', w: 2 }],
+  exclusive: ['dragon_scale'], lore: ['lore_roost', 'lore_twilight'],
+  palette: { sky: '#3a1a2a', horizon: '#ff8a4a', fog: '#4a2a2a', sea: '#2a1a1a', ground: '#5a3a30', ash: '#7a6058', rock: '#4a3a3a', grass: '#6a5040', sun: '#ffb070', hemi: '#ff9a6a', hemiG: '#2a1010' },
+});
+
+ZONES.cave_9 = cave(9, {
+  name: 'The Singular Heart', subtitle: 'Beyond the Heart Seal', levelReq: 200, band: [200, 260], population: 12,
+  requires: ['shard_gaol', 'shard_twins', 'shard_crown', 'shard_mirror', 'shard_dragon'],
+  gen: { size: 112, fill: 0.45, steps: 5, wallHeight: 3, core: true },
+  nodes: [{ node: 'ore_singularita', w: 12 }, { node: 'ore_chromantite', w: 10 }, { node: 'ore_diamond', w: 6 }],
+  enemies: [{ id: 'singular_echo', w: 4 }, { id: 'echo_knight', w: 3 }, { id: 'gem_golem', w: 2 }, { id: 'crystal_sentry', w: 2 }],
+  hazards: ['stalactite', 'resonance'],
+  lore: ['lore_heart', 'lore_choice'],
+  palette: { floor: '#2a2438', wall: '#4a3a68', accent: '#f4e8ff', accent2: '#ff7ad8', fog: '#0a0812', ambient: 0.5, light: '#f4e8ff', glow: 'crystal' },
+});
+
+export const ZONE_ORDER = ['island', 'cave_1', 'cave_2', 'cave_3', 'cave_4', 'cave_5', 'cave_6', 'cave_7', 'isle_air', 'isle_water', 'isle_fire', 'isle_earth', 'cave_8',
+  'dim_dungeon', 'dim_twins', 'dim_king', 'dim_mirror', 'dim_dragons', 'cave_9'];
+export const DIMENSIONS = ['dim_dungeon', 'dim_twins', 'dim_king', 'dim_mirror', 'dim_dragons'];
 export const ISLES = ['isle_air', 'isle_water', 'isle_fire', 'isle_earth'];
 export const caveZone = (layer) => ZONES[`cave_${layer}`];
 

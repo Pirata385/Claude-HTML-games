@@ -115,3 +115,66 @@ export function validateIsle(z) {
   }
   return { ok: errors.length === 0, errors };
 }
+
+// Dimensions: like the isles, but gates count as open (they open during the run).
+export function dimReach(z) {
+  const g = z.grid;
+  const open = new Set((z.gates || []).flatMap((gt) => gt.cells));
+  const [si, sj] = g.cellAt(z.spawn.x, z.spawn.z);
+  const dist = new Int32Array(g.w * g.d).fill(-1);
+  const lift = new Map((z.updrafts || []).map((u) => [g.idx(Math.floor(u.x), Math.floor(u.z)), g.idx(Math.floor(u.to.x), Math.floor(u.to.z))]));
+  const q = [g.idx(si, sj)];
+  dist[q[0]] = 0;
+  for (let h = 0; h < q.length; h++) {
+    const k = q[h], i = k % g.w, j = (k - i) / g.w;
+    const next = [];
+    for (const [di, dj] of N4) {
+      const ni = i + di, nj = j + dj;
+      if (!g.inside(ni, nj)) continue;
+      const nk = g.idx(ni, nj);
+      if ((g.walkable(ni, nj) || open.has(nk)) && g.h[nk] - g.h[k] <= 1) next.push(nk);
+    }
+    if (lift.has(k)) next.push(lift.get(k));
+    for (const nk of next) if (dist[nk] < 0) { dist[nk] = dist[k] + 1; q.push(nk); }
+  }
+  return dist;
+}
+
+export function validateDimension(z) {
+  const errors = [];
+  const g = z.grid;
+  if (!g.walkable(...g.cellAt(z.spawn.x, z.spawn.z))) errors.push('spawn blocked');
+  const dist = dimReach(z);
+  const reach = (p, what) => {
+    const [i, j] = g.cellAt(p.x, p.z);
+    if (dist[g.idx(i, j)] < 0 && !reachableNeighbour(g, dist, i, j)) errors.push(`${what} unreachable from the entrance`);
+  };
+  if (z.arena) reach(z.arena, `arena ${z.arena.id}`);
+  if (z.exit) reach(z.exit, 'exit');
+  if (z.warden) reach(z.warden, 'warden');
+  for (const p of z.pois) reach(p, `poi ${p.id}`);
+  for (const l of z.levers || []) reach(l, `lever ${l.id}`);
+  for (const b of z.braziers || []) reach(b, 'brazier');
+  for (const pl of z.plates || []) {
+    reach(pl.left, `plate ${pl.gate}`);
+    if (z.reflectionReach[g.idx(pl.right.i, pl.right.j)] < 0) errors.push(`the reflection cannot reach plate ${pl.gate}`);
+  }
+  for (const n of z.nodes) {
+    reach(n, `node ${n.id}`);
+    if (g.flags[g.idx(n.i, n.j)] & (F.PATH | F.ARENA | F.VOID | F.LAVA | F.DEEP)) errors.push(`node ${n.id} on a reserved cell`);
+  }
+  const cells = new Set([...z.nodes, ...z.pois].map((n) => `${n.i},${n.j}`));
+  if (cells.size !== z.nodes.length + z.pois.length) errors.push('objects share a cell');
+  const a = z.arena;
+  if (a) {
+    const pillar = new Set(a.pillars.flatMap((p) => [[p.i, p.j], [p.i + 1, p.j], [p.i, p.j + 1], [p.i + 1, p.j + 1]].map(([i, j]) => g.idx(i, j))));
+    for (let j = Math.floor(a.z - a.r + 1); j <= a.z + a.r - 1; j++) for (let i = Math.floor(a.x - a.r + 1); i <= a.x + a.r - 1; i++) {
+      if (Math.hypot(i + 0.5 - a.x, j + 0.5 - a.z) > a.r - 1) continue;
+      const k = g.idx(i, j);
+      if (pillar.has(k)) continue;
+      if (g.h[k] !== a.h) { errors.push(`arena ${a.id} not flat at ${i},${j}`); break; }
+      if (g.flags[k] & (F.OBSTACLE | F.VOID | F.LAVA | F.WALL)) { errors.push(`arena ${a.id} blocked at ${i},${j}`); break; }
+    }
+  }
+  return { ok: errors.length === 0, errors };
+}

@@ -1,5 +1,5 @@
 // Minimap and full map: a pre-rendered zone image with fog of war, points of interest and foes.
-import { SURF, F } from '../world/grid.js';
+import { SURF, F, isWalled } from '../world/grid.js';
 import { FogMap } from '../systems/fog.js';
 
 const COL = {
@@ -7,6 +7,7 @@ const COL = {
   [SURF.DIRT]: [138, 94, 62], [SURF.BASE]: [190, 172, 140], [SURF.SNOW]: [232, 238, 242], [SURF.ARENA]: [170, 210, 110], [SURF.SEABED]: [38, 92, 150],
   [SURF.FLOOR]: [96, 88, 80], [SURF.WALL]: [24, 22, 26], [SURF.HOT]: [128, 62, 44], [SURF.COLD]: [58, 86, 128],
   [SURF.LAVA]: [255, 106, 26], [SURF.BASALT]: [58, 50, 54], [SURF.ROOT]: [122, 84, 52], [SURF.CORAL]: [255, 138, 168], [SURF.BRIDGE]: [154, 106, 58],
+  [SURF.ADAMITE]: [138, 74, 200], [SURF.GEL]: [232, 196, 220], [SURF.GLASS]: [200, 222, 240], [SURF.CARPET]: [122, 42, 58],
 };
 
 export class Minimap {
@@ -25,7 +26,7 @@ export class Minimap {
     c.width = g.w; c.height = g.d;
     const ctx = c.getContext('2d');
     const im = ctx.createImageData(g.w, g.d);
-    const cave = zone.type === 'cave';
+    const cave = isWalled(zone);
     for (let j = 0; j < g.d; j++) for (let i = 0; i < g.w; i++) {
       const k = g.idx(i, j);
       let col = g.flags[k] & F.VOID ? [206, 224, 242] : COL[g.surf[k]] || [255, 0, 255];
@@ -61,6 +62,13 @@ export class Minimap {
       out.push({ x: z.caveMouth.x, z: z.caveMouth.z, icon: '▼', color: '#f2ece0', label: 'Hollow Deep' });
       const bossAt = g.spawner?.boss && !g.spawner.boss.defeated ? g.spawner.boss.def.arena : null;
       for (const a of Object.values(z.arenas)) out.push({ x: a.x, z: a.z, icon: bossAt === a.id ? '☠' : '◎', color: bossAt === a.id ? '#ff4a3a' : '#c9b48a', label: a.name, always: bossAt === a.id });
+    } else if (z.type === 'dimension') {
+      out.push({ x: z.entry.x, z: z.entry.z, icon: '◎', color: '#c48cff', label: 'The way back' });
+      if (z.exit) out.push({ x: z.exit.x, z: z.exit.z, icon: '▼', color: z.exit.locked ? '#8a8494' : '#f2ece0', label: z.exit.locked ? 'Locked stair' : 'Stair down', always: true });
+      if (z.arena) out.push({ x: z.arena.x, z: z.arena.z, icon: g.spawner?.boss ? '☠' : '◎', color: g.spawner?.boss ? '#ff4a3a' : '#c9b48a', label: z.arena.name, always: true });
+      for (const l of z.levers || []) out.push({ x: l.x, z: l.z, icon: l.pulled ? '·' : '⚲', color: '#ffd166', label: 'Lever' });
+      for (const pl of z.plates || []) out.push({ x: pl.left.x, z: pl.left.z, icon: '◇', color: '#9fe0ff', label: 'Mirror plate' });
+      if (g.portalOut) out.push({ x: g.portalOut.x, z: g.portalOut.z, icon: '◎', color: '#ffe9a8', label: 'Exit portal', always: true });
     } else if (z.type === 'isle') {
       out.push({ x: z.landing.x, z: z.landing.z, icon: '✦', color: '#ffe9a0', label: 'Return stone' });
       const here = g.spawner?.boss && !g.spawner.boss.defeated;
@@ -78,15 +86,15 @@ export class Minimap {
   draw() {
     if (!this.img) return;
     const g = this.g, p = g.player, z = this.zone;
-    this.fog.reveal(p.x, p.z, z.type === 'cave' ? 14 : 24);
+    this.fog.reveal(p.x, p.z, isWalled(z) ? 14 : 24);
     if (this.fog.dirty) { this.maskDirty = true; this.revealT++; if (this.revealT % 20 === 0) this.saveFog(); }
     if (this.maskDirty) this.rebuildMask();
-    const ctx = this.ctx, W = this.cv.width, R = z.type === 'cave' ? 34 : 50;
+    const ctx = this.ctx, W = this.cv.width, R = isWalled(z) ? 34 : 50;
     const s = W / (R * 2);
     ctx.save();
     ctx.clearRect(0, 0, W, W);
     ctx.beginPath(); ctx.arc(W / 2, W / 2, W / 2 - 2, 0, Math.PI * 2); ctx.clip();
-    ctx.fillStyle = z.type === 'cave' ? '#0a0a10' : '#1d4f7a'; ctx.fillRect(0, 0, W, W);
+    ctx.fillStyle = isWalled(z) ? '#0a0a10' : '#1d4f7a'; ctx.fillRect(0, 0, W, W);
     ctx.imageSmoothingEnabled = false;
     ctx.drawImage(this.img, p.x - R, p.z - R, R * 2, R * 2, 0, 0, W, W);
     ctx.drawImage(this.mask, (p.x - R) / 4, (p.z - R) / 4, R / 2, R / 2, 0, 0, W, W);
@@ -129,7 +137,7 @@ export class Minimap {
     const W = canvas.width, H = canvas.height, gw = z.grid.w, gd = z.grid.d;
     const s = Math.min(W / gw, H / gd), ox = (W - gw * s) / 2, oy = (H - gd * s) / 2;
     ctx.imageSmoothingEnabled = false;
-    ctx.fillStyle = z.type === 'cave' ? '#0a0a10' : '#1d4f7a'; ctx.fillRect(0, 0, W, H);
+    ctx.fillStyle = isWalled(z) ? '#0a0a10' : '#1d4f7a'; ctx.fillRect(0, 0, W, H);
     ctx.drawImage(this.img, ox, oy, gw * s, gd * s);
     ctx.drawImage(this.mask, ox, oy, gw * s, gd * s);
     ctx.font = `${Math.max(12, s * 6)}px system-ui`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';

@@ -82,6 +82,7 @@ export function buildStructures(zone, opts = {}) {
   }
 
   if (zone.type === 'isle') buildIsle(zone, add, animated);
+  if (zone.type === 'dimension') buildDimension(zone, add, animated);
 
   // Echo Stones (every zone type).
   for (const p of zone.pois.filter((q) => q.type === 'lore')) {
@@ -200,4 +201,52 @@ function buildIsle(zone, add, animated) {
     const core = add([B(0, 0.03, 0, 1.4, 0.04, 1.4, '#cfefff')], u.x, u.z, { y: u.h, mat: glowMaterial(), cast: false });
     animated.push((t) => { core.scale.setScalar(0.8 + Math.sin(t * 3 + u.x) * 0.2); });
   }
+}
+
+// The dimensions: the way back, the Endless Dungeon's stair, the Twins' gel gates and levers,
+// the King's braziers, the Mirror's plates, the Roost's standing rocks and nests.
+function buildDimension(zone, add, animated) {
+  const g = zone.grid, pal = zone.def.palette;
+  const e = zone.entry;
+  // The way back: a dark ring where you came in.
+  add([B(0, 0.1, 0, 3, 0.2, 3, '#2a2438'), B(-1.3, 1.4, 0, 0.3, 2.8, 0.3, '#4a3a68'), B(1.3, 1.4, 0, 0.3, 2.8, 0.3, '#4a3a68'), B(0, 2.9, 0, 2.9, 0.3, 0.3, '#4a3a68')], e.x, e.z, { y: e.h });
+  const veil = add([B(0, 1.4, 0, 2.3, 2.6, 0.06, pal.accent || '#c48cff')], e.x, e.z, { y: e.h, mat: glowMaterial(), cast: false });
+  veil.material = veil.material.clone(); veil.material.opacity = 0.35;
+  animated.push((t) => { veil.material.opacity = 0.25 + Math.sin(t * 2) * 0.1; });
+  const x = zone.exit;
+  if (x?.type === 'stair') {
+    add([B(0, 0.04, 0, 2.6, 0.08, 2.6, '#020203')], x.x, x.z, { y: x.h, mat: unlitMaterial(), cast: false });
+    add([B(-1.5, 0.3, 0, 0.4, 0.6, 3.4, '#5a544e'), B(1.5, 0.3, 0, 0.4, 0.6, 3.4, '#5a544e'), B(0, 0.3, -1.5, 2.6, 0.6, 0.4, '#5a544e'), B(0, 0.3, 1.5, 2.6, 0.6, 0.4, '#5a544e')], x.x, x.z, { y: x.h });
+    if (x.locked) add([B(0, 1.0, 0, 3.0, 0.2, 0.2, '#8a8a96'), B(0, 1.0, 0, 0.2, 0.2, 3.0, '#8a8a96'), B(0, 1.2, 0, 0.5, 0.5, 0.3, '#ffcf6a')], x.x, x.z, { y: x.h });
+  }
+  // Twin Slimes: gates of solid gel, and the levers that melt them.
+  for (const gate of zone.gates || []) {
+    if (gate.open || zone.def.rule !== 'twins') continue;
+    const boxes = gate.cells.map((k) => { const i = k % g.w, j = (k - i) / g.w; return B(i + 0.5 - gate.x, 1.2, j + 0.5 - gate.z, 1, 2.4, 1, '#ff8ab0'); });
+    const m = add(boxes, gate.x, gate.z, { y: 0, mat: glowMaterial(), cast: false });
+    m.material = m.material.clone(); m.material.opacity = 0.55;
+  }
+  for (const l of zone.levers || []) {
+    add([B(0, 0.3, 0, 0.8, 0.6, 0.8, '#6a5a6a'), B(0, 1.0, 0, 0.16, 1.4, 0.16, '#d8c8d8')], l.x, l.z);
+    const handle = add([B(0, 0.5, 0, 0.12, 1.0, 0.12, '#ffd166'), B(0, 1.0, 0, 0.3, 0.3, 0.3, l.pulled ? '#8ad06a' : '#ff6a8a')], l.x, l.z, { cast: false });
+    handle.position.y += 0.6; handle.rotation.x = l.pulled ? 0.9 : -0.9;
+  }
+  // Mirrored: the glass gates and the plates on both sides of the line.
+  for (const gate of zone.gates || []) {
+    if (gate.open || zone.def.rule !== 'reflection') continue;
+    const boxes = gate.cells.map((k) => { const i = k % g.w, j = (k - i) / g.w; return B(i + 0.5 - gate.x, 1.4, j + 0.5 - gate.z, 1, 2.8, 1, '#cfefff'); });
+    const m = add(boxes, gate.x, gate.z, { y: 0, mat: glowMaterial(), cast: false });
+    m.material = m.material.clone(); m.material.opacity = 0.4;
+  }
+  for (const pl of zone.plates || []) for (const s of [pl.left, pl.right]) add([B(0, 0.04, 0, 1.6, 0.08, 1.6, '#9fe0ff')], s.x, s.z, { mat: unlitMaterial(), cast: false });
+  // Corrupted King: braziers burning back the adamite.
+  for (const b of zone.braziers || []) {
+    add([B(0, 0.5, 0, 0.5, 1.0, 0.5, '#4a3a2a'), B(0, 1.05, 0, 1.0, 0.2, 1.0, '#6a5a4a')], b.x, b.z);
+    const f = add([B(0, 0, 0, 0.6, 0.6, 0.6, '#ffcf6a'), B(0, 0.35, 0, 0.3, 0.4, 0.3, '#fff2a8')], b.x, b.z, { mat: unlitMaterial(), cast: false });
+    f.position.y += 1.5;
+    animated.push((t) => { f.scale.y = 1 + Math.sin(t * 8 + b.x) * 0.15; });
+  }
+  // Dragons' Roost: standing rocks to hide behind, and nests.
+  for (const r of zone.rocks || []) add([B(0, 2.0, 0, 2, 4, 2, '#4a3a3a'), B(0.3, 4.3, 0.2, 1.4, 0.8, 1.4, '#5a4a48')], r.x, r.z, { y: r.h });
+  for (const n of zone.nests || []) add([B(0, 0.2, 0, 3, 0.4, 3, '#5a3a22'), B(0.4, 0.55, 0.2, 0.5, 0.7, 0.5, '#e8d8a0'), B(-0.4, 0.5, -0.3, 0.45, 0.6, 0.45, '#d8c890'), B(0.1, 0.5, -0.6, 0.45, 0.6, 0.45, '#e8d8a0')], n.x, n.z, { y: n.h });
 }

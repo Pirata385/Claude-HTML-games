@@ -26,4 +26,13 @@ export const OBJECTIVES = [
   { id: 'o_core', type: 'reach', target: 'cave_8', count: 1, text: 'Enter the Dawn and Dusk Hollows', hint: 'Level 100 is needed to survive what lies beyond the gate.', xp: 30000 },
   { id: 'o_t8ore', type: 'gather', target: 'dawndosite|escuresite', count: 10, text: 'Mine Dawndosite or Escuresite', hint: 'A Diamond Pickaxe reaches them. Dawn on one side of the Hollows, dusk on the other.', xp: 40000 },
   { id: 'o_t8gear', type: 'equip', target: 'weapon', minTier: 8, count: 1, text: 'Wield a Dawndosite or Escuresite weapon', hint: 'Tier 8 gear needs materials from several isles. The Crafting menu shows where each one is found.', xp: 60000 },
+  // Milestone 3: the dimensions and the Singular Heart.
+  { id: 'o_emblem', type: 'craftAny', target: 'emblem_dungeon|emblem_twins|emblem_king|emblem_mirror|emblem_dragons', count: 1, text: 'Craft a dimension Emblem', hint: 'Emblems are made from the materials of the bosses of Dawnreach and the isles. The Iron Key Emblem opens at level 100.', xp: 70000 },
+  { id: 'o_dimension', type: 'reach', target: 'dim_dungeon|dim_twins|dim_king|dim_mirror|dim_dragons', count: 1, text: 'Open a portal and enter a dimension', hint: 'Use the Emblem from your bag: a portal opens in front of you.', xp: 80000 },
+  { id: 'o_shard', type: 'shard', target: 'any', count: 1, text: 'Take a Fracture Shard from a dimension\'s ruler', hint: 'Every dimension ends with its ruler. Each ruler keeps one of the five shards.', xp: 120000 },
+  { id: 'o_t9gear', type: 'equip', target: 'weapon', minTier: 9, count: 1, text: 'Wield a Chromantite weapon', hint: 'Chromantite grows in the dimensions\' final chambers; every Chromantite recipe needs Singularita Shards from their rulers.', xp: 150000 },
+  { id: 'o_shards', type: 'shard', target: 'any', count: 5, text: 'Gather all five Fracture Shards', hint: 'The Gaol, the Twins, the Crown, the Mirror and the Dragon.', xp: 250000 },
+  { id: 'o_heart', type: 'reach', target: 'cave_9', count: 1, text: 'Open the Heart Seal', hint: 'Bring the five shards to the Heart Seal at the bottom of the Dawn and Dusk Hollows.', xp: 300000 },
+  { id: 'o_singularita', type: 'gather', target: 'singularita', count: 6, text: 'Mine Singularita', hint: 'A Chromantite Pickaxe reaches it.', xp: 400000 },
+  { id: 'o_t10gear', type: 'equip', target: 'weapon', minTier: 10, count: 1, text: 'Wield a Singularita weapon', hint: 'At the Forge, choose which two materials it remembers.', xp: 600000 },
 ];

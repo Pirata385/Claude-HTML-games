@@ -1,7 +1,7 @@
 // Terrain mesher: block columns in 32×32 chunks. Top faces merge along rows, side faces
 // only where a neighbour is lower. A small shader adds per-block colour noise and block edges.
 import * as THREE from 'three';
-import { F, SURF } from '../world/grid.js';
+import { F, SURF, isWalled } from '../world/grid.js';
 
 export const CHUNK = 32;
 
@@ -87,7 +87,7 @@ class QuadBuilder {
 
 // Builds every chunk of a zone. Returns { group, chunks: [{ mesh, cx, cz }] }.
 export function buildTerrain(zone, material) {
-  const g = zone.grid, cave = zone.type === 'cave', isle = zone.type === 'isle';
+  const g = zone.grid, cave = isWalled(zone), isle = !cave && zone.type !== 'island';
   const pal = zone.def.palette;
   const isleTop = isle ? isleColors(pal) : null;
   // Split layers: the first half uses the HOT surface, the second the COLD one (dawn and dusk in the Core).

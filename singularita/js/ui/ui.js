@@ -297,6 +297,9 @@ export class UI {
     if (g.zone.type === 'island') {
       const dn = g.dayNight;
       el.clock.textContent = `${dn.phase === 'day' ? '☀ Day' : '☾ Night'} · ${Math.ceil(dn.remaining / 60)} min left`;
+    } else if (g.zone.type === 'dimension') {
+      const run = g.profile.run;
+      el.clock.textContent = `◎ ${g.zoneDef.subtitle}${g.zoneDef.rule === 'keys' && run ? ` · Floor ${run.floor}` : ''}${g.zone.modifier && g.zone.modifier !== 'none' ? ` · ${g.zone.modifier[0].toUpperCase()}${g.zone.modifier.slice(1)}` : ''}`;
     } else if (g.zone.type === 'isle') {
       const tide = g.phenomena?.tidePhase ? ` · Tide ${g.phenomena.tidePhase}` : '';
       el.clock.textContent = `✦ ${g.zoneDef.subtitle} · Lv ${g.zoneDef.band.join('–')}${tide}`;

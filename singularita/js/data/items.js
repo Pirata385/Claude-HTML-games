@@ -4,10 +4,10 @@ import { MATERIALS, MAIN_MATERIALS } from './materials.js';
 import { CLASSES, CLASS_IDS } from './classes.js';
 import { TOOL_POWER } from './nodes.js';
 
-export const WEAPON_POWER = [8, 13, 20, 30, 44, 62, 86, 118, 160];
-export const ARMOR_DEF = [4, 8, 14, 22, 33, 47, 64, 86, 114];
-export const ARMOR_HP = [10, 25, 45, 75, 115, 165, 230, 310, 410];
-export const ACC_ATTR = [2, 4, 7, 11, 16, 22, 30, 40, 52];
+export const WEAPON_POWER = [8, 13, 20, 30, 44, 62, 86, 118, 160, 215, 290];
+export const ARMOR_DEF = [4, 8, 14, 22, 33, 47, 64, 86, 114, 150, 195];
+export const ARMOR_HP = [10, 25, 45, 75, 115, 165, 230, 310, 410, 540, 700];
+export const ACC_ATTR = [2, 4, 7, 11, 16, 22, 30, 40, 52, 66, 84];
 
 // Material trait → stat modifiers, per slot.
 const TRAIT_MODS = {
@@ -24,6 +24,9 @@ const TRAIT_MODS = {
   prismatic: { weapon: { crit: 0.08, critMult: 0.3, prismatic: 1 }, armor: { crit: 0.05, defMult: 0.05 }, accessory: { crit: 0.04, critMult: 0.15 } },
   radiant: { weapon: { blindChance: 0.15, killHeal: 0.03 }, armor: { statusRes: 0.15, healBonus: 0.15 }, accessory: { killHeal: 0.02, blindChance: 0.08 } },
   umbral: { weapon: { critMult: 0.4, critLifesteal: 0.15 }, armor: { dodgeCd: 0.15, crit: 0.04 }, accessory: { critMult: 0.2, critLifesteal: 0.06 } },
+  chromatic: { weapon: { chromatic: 1, afflictedBonus: 0.2 }, armor: { statusRes: 0.25, afflictedBonus: 0.06 }, accessory: { chromatic: 1, afflictedBonus: 0.1 } },
+  // Singularita's own trait is its Collapse; the two remembered traits are added from the save (see systems/memory.js).
+  singular: { weapon: { collapse: 1 }, armor: { collapse: 0.5 }, accessory: { collapse: 0.5 } },
 };
 
 // Each class's accessory has its own perk on top of its attribute bonus.
@@ -60,6 +63,7 @@ function classItem(cls, slot, matId) {
   return {
     id: `${cls}_${slot}_${matId}`, name, kind: 'gear', slot, class: cls, material: matId, tier: t,
     rarity: m.rarity, trait: m.trait, stats,
+    ...(m.trait === 'singular' ? { memory: 2, collapse: true } : {}),
     desc: `${c.name} ${slot === 'accessory' ? 'accessory' : slot}. ${m.desc}`,
   };
 }
@@ -102,6 +106,13 @@ anyAcc('tearstone_pendant', 'Tearstone Pendant', 8, 'legendary', { hpRegen: 0.00
 anyAcc('vector_ring', 'Vector Ring', 8, 'legendary', { dmgBonus: 0.1, moveSpd: 0.05, armorPen: 0.1 }, 'A ring cut from the Magma Vector\'s path. It pulls your hand straight toward its target.', true);
 anyAcc('allele_crest', 'Allele Crest', 8, 'legendary', { hpMult: 0.08, dmgBonus: 0.06, statusRes: 0.15 }, 'A crest grown, not forged. Each time you look at it, it is a slightly different shape.', true);
 
+// Dimension rulers' uniques.
+anyAcc('jailers_grip', "Jailer's Grip", 9, 'legendary', { knockback: 0.6, staggerRes: 0.3, dmgBonus: 0.1 }, 'An iron hand that never let go of a key. Foes you strike are dragged a step closer.', true);
+anyAcc('siamese_locket', 'Siamese Locket', 9, 'legendary', { lifesteal: 0.04, hpRegen: 0.005, resMax: 30 }, 'Two hearts in a locket. When one of you is hurt, the other mends it.', true);
+anyAcc('adamite_signet', 'Adamite Signet', 9, 'legendary', { armorPen: 0.2, crit: 0.06, statusRes: 0.15 }, 'The Adamite King\'s ring, cleansed. It no longer whispers, but it still commands.', true);
+anyAcc('looking_glass', 'Looking-Glass', 10, 'legendary', { crit: 0.08, critMult: 0.3, dodgeCd: 0.15 }, 'A hand mirror from the Mirrored. The one in it moves first; follow it.', true);
+anyAcc('ragnarok_fang', "Ragnarok's Fang", 10, 'legendary', { dmgBonus: 0.15, fireBonus: 0.25, burnChance: 0.15 }, 'A fang of the Dragon God. It is still hungry.', true);
+
 export const ITEMS = Object.fromEntries(list.map((i) => [i.id, i]));
 
 // Human-readable stat labels, used by tooltips and comparisons.
@@ -114,8 +125,9 @@ export const STAT_LABELS = {
   luck: 'Drop luck', shockChance: 'Shock chance', burnChance: 'Burn chance', chillChance: 'Chill chance', prismatic: 'Prismatic',
   intScale: 'INT scaling', spiScale: 'SPI scaling', fireBonus: 'Fire bonus', hpMult: 'Max health', stillRegen: 'Regen when still', dmgBonus: 'Damage',
   blindChance: 'Blind chance', killHeal: 'Heal on kill', critLifesteal: 'Crit life drain', healBonus: 'Healing received',
+  chromatic: 'Chromatic hits', afflictedBonus: 'Damage to afflicted', collapse: 'Collapse',
 };
 // Stats shown as percentages.
 export const PERCENT_STATS = new Set(['atkSpd', 'moveSpd', 'dodgeCd', 'crit', 'critMult', 'knockback', 'staggerRes', 'armorPen', 'statusRes',
   'lifesteal', 'hpRegen', 'resRegen', 'cdr', 'luck', 'shockChance', 'burnChance', 'chillChance', 'intScale', 'spiScale', 'fireBonus', 'hpMult', 'stillRegen', 'dmgBonus',
-  'blindChance', 'killHeal', 'critLifesteal', 'healBonus']);
+  'blindChance', 'killHeal', 'critLifesteal', 'healBonus', 'afflictedBonus']);

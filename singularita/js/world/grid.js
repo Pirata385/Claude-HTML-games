@@ -4,10 +4,15 @@ import { hashStr } from '../core/rng.js';
 
 export const F = {
   WALL: 1, WATER: 2, BASE: 4, ARENA: 8, PATH: 16, POI: 32, NOSPAWN: 64, HAZARD: 128,
-  OBSTACLE: 256, DEEP: 512, HOT: 1024, COLD: 2048, VOID: 4096, LAVA: 8192, TIDAL: 16384,
+  OBSTACLE: 256, DEEP: 512, HOT: 1024, COLD: 2048, VOID: 4096, LAVA: 8192, TIDAL: 16384, CORRUPT: 32768,
 };
 export const SURF = { SAND: 0, GRASS: 1, FOREST: 2, ROCK: 3, PATH: 4, DIRT: 5, BASE: 6, SNOW: 7, FLOOR: 8, WALL: 9, HOT: 10, COLD: 11, ARENA: 12, SEABED: 13,
-  LAVA: 14, BASALT: 15, ROOT: 16, CORAL: 17, BRIDGE: 18 };
+  LAVA: 14, BASALT: 15, ROOT: 16, CORAL: 17, BRIDGE: 18, ADAMITE: 19, GEL: 20, GLASS: 21, CARPET: 22 };
+
+// Walled zones (the caves, and dimensions built of rooms) are lit and drawn like caves;
+// open ones (islands, isles, the Dragons' Roost) have a sky.
+export const isWalled = (z) => z.type === 'cave' || z.render === 'cave';
+export const isOpenSky = (z) => z.type === 'island' || z.type === 'isle' || z.render === 'isle';
 
 const N4 = [[1, 0], [-1, 0], [0, 1], [0, -1]];
 const N8 = [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [1, -1], [-1, 1], [-1, -1]];

@@ -22,6 +22,7 @@ export class StatusSet {
     return s;
   }
   has(id) { return this.map.has(id); }
+  harmfulCount() { let n = 0; for (const id of this.map.keys()) if (STATUS[id]?.harmful) n++; return n; }
   get(id) { return this.map.get(id); }
   remove(id) { this.map.delete(id); }
   clear() { this.map.clear(); }

@@ -92,6 +92,9 @@ export function computeStats(profile, gear) {
     blindChance: v('blindChance'),
     killHeal: v('killHeal'),
     critLifesteal: v('critLifesteal'),
+    chromatic: v('chromatic'),
+    afflictedBonus: v('afflictedBonus'),
+    collapse: v('collapse'),
     attrs: a,
   };
 }

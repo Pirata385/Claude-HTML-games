@@ -2,7 +2,12 @@
 
 A third-person 3D voxel RPG of exploration, combat and crafting for the browser, on desktop and mobile. Hold the starter isle of **Dawnreach** against slimes by day and the Echoes of dead miners by night, mine down through the seven layers of **the Hollow Deep** from wood to diamond, craft gear for five very different classes, and face the **Slime Prince** and the **Silverback Zombie Emperor**.
 
-> **Status — Milestones 1 and 2 of the full design.** Milestone 1 is the starter island, the Hollow Deep, all five classes, crafting, levels (cap 300), saving, mobile support and the first two bosses. Milestone 2 adds the four elemental isles (Air, Water, Fire, Earth) with their phenomena, creatures and guardians, the four sigils that open the Sealed Core Gate, and the eighth layer beyond it with the tier 8 materials, Dawndosite and Escuresite. The five dimensions, the remaining five bosses and the last tiers (Chromantite, Singularita) come in Milestone 3; the Core layer ends at the Heart Seal, which points to them. Nothing in this build is a placeholder. Every recipe can be crafted and every area can be reached.
+> **Status — the full design (Milestones 1 to 3).**
+> - **Milestone 1:** the starter island, the Hollow Deep, all five classes, crafting, levels (cap 300), saving, mobile support and the first two bosses.
+> - **Milestone 2:** the four elemental isles (Air, Water, Fire, Earth) with their phenomena, creatures and guardians; the four sigils that open the Sealed Core Gate; the eighth layer beyond it, with Dawndosite and Escuresite.
+> - **Milestone 3:** the five dimensions, opened with Emblems and played as runs, each with its own rule and ruler; the five Fracture Shards that open the Singular Heart; and the last two tiers, Chromantite and Singularita.
+>
+> All eleven bosses of the brief are in. Nothing in this build is a placeholder: every recipe can be crafted and every area can be reached.
 
 ## Running
 
@@ -55,6 +60,13 @@ On phones and tablets the game goes full screen on the first tap; the ⛶ button
   - **The Magma Vector:** dashes along shown vectors and leaves lava; its core cools after each dash, which is the time to strike. Later its vectors reflect off the rim and cross.
   - **Allele of the Divine Golem:** expresses alleles: Granite (armoured in front), Quartz (fast combos), Moss (seedlings that heal it until cut); later two at once, then mutating fast.
 - **The Sealed Core Gate and the Dawn and Dusk Hollows (Lv 100).** Bring the four sigils to the gate at the bottom of the Diamond Throat. Beyond it, the eighth layer is split into a dawn half (Dawndosite, radiance crystals that blind) and a dusk half (Escuresite, umbral pools that slow and drain), and ends at the Heart Seal.
+- **The dimensions (from level 100).** Each dimension is opened with its own **Emblem**, crafted at the Forge from the materials of the bosses of Dawnreach and the isles. Using an Emblem opens a portal in front of you for a minute. Every visit is a **run** with a fresh layout: it ends at the dimension's ruler, whose fall opens a portal home. Leaving by the way back, dying or recalling ends the run, and you return to where you opened the portal.
+  - **The Endless Dungeon (Lv 100, Iron Key Emblem).** Floor after floor of cells and corridors. Each floor's stair is locked until you kill the Gaol Warden who carries the key. Some floors are Dark, Swarming, Elite or Trapped. Every fifth floor the **Iron-Hand Jailer** waits (chain hook, iron fist, cages, a prisoners' riot), stronger the deeper you go. Leave by any stair to keep what you found; your deepest floor is remembered.
+  - **The Twin Slimes (Lv 110, Twin Gel Emblem).** Two lanes; each lane's gates open from levers in the other. Twin-bound creatures revive each other unless both fall within three seconds. **The Siamese**, fire and ice monarchs, must be hurt evenly; then they sever, then fuse again.
+  - **The Corrupted King (Lv 125, Amethyst Crown Emblem).** A castle overgrown with Purple Adamite. Standing on it fills your corruption, which eats your health at full. Braziers and broken adamite cleanse it. **The Adamite King** raises corrupting pillars, throws his crown's shards, and in the end corrupts the whole throne room.
+  - **The Mirrored (Lv 140, Looking-Glass Emblem).** Your Reflection walks the far side of a glass line. Gates open only while both of you stand on mirrored plates, and its side has walls yours does not. **You?** fights like your own class, splits into a decoy without a shadow, and casts your last skill back at you.
+  - **The Dragons' Roost (Lv 160, Dragonfire Emblem).** A climb of plateaus over the void. Dragon breath sweeps the paths: hide behind the standing rocks. Nests hatch whelps if you linger. **Ragnarok, the Dragon God** strafes from the sky, then fights on the ground, then calls meteors and a closing ring of fire.
+- **The Singular Heart (Lv 200).** Each ruler keeps one of five **Fracture Shards**. With all five, the Heart Seal at the bottom of the Dawn and Dusk Hollows opens into layer 9, where Singularita grows.
 - **Lore.** Echo Stones on the island and in every layer tell the story of the Dawnforgers, Singularita and the Fracture. Lume, item descriptions and the bosses fill in the rest. The Journal collects everything you have found.
 
 ## Classes
@@ -95,10 +107,13 @@ A Reset Crystal refunds all your spent points.
 | 6 | Ruby · Sapphire | Layers 5–6 | Emerald pickaxe | Lv 50 | Ember (burn) · Rime (chill, resource regen) |
 | 7 | Diamond | Layers 6–7 | Ruby/Sapphire pickaxe | Lv 64 | Prismatic: crits split arrows or send shockwaves |
 | 8 | Dawndosite · Escuresite | Layer 8 (dawn · dusk) | Diamond pickaxe | Lv 100 | Radiant (blinding hits, healing on kills) · Umbral (crit damage, life steal on crits) |
+| 9 | Chromantite | The dimensions' final chambers | Dawndosite/Escuresite pickaxe | Lv 180 | Chromatic: hits cycle burn, chill, shock and poison; afflicted foes take more |
+| 10 | Singularita | The Singular Heart (layer 9) | Chromantite pickaxe | Lv 240 | Singular: **shape memory** and **Collapse** (see below) |
 
 - **Gear.** Every class has a weapon, an armour and an accessory in every material, plus pickaxes, axes and boss uniques.
 - **Level.** Level gates recipes and areas, never equipping.
 - **Recipes.** They also need creature drops (Slime Gel, Echo Sinew, Bat Leather, Crawler Chitin, Ember Cores, Rime Shards, Prism Dust) and, from tier 3 accessories up, boss materials. Tier 8 gear needs materials from several isles: Skyglass, Abyssal Pearls, Obsidian and Living Amber, the isle creatures' drops and the guardians' materials. The isles also have their own accessories, and the Pearl Elixir cures poison, burns and bleeding.
+- **Chromantite and Singularita.** Every Chromantite recipe needs Singularita Shards from the dimension rulers. Singularita gear is made of Singularita bound with the materials of every dimension. Each Singularita piece **remembers two traits** of any lower material (for example Ember and Rime, or Umbral and Featherweight). You choose them in the item's panel at the Forge and change them whenever you like. Every twelfth hit **collapses** into a small singularity that pulls foes in and bursts; a full Singularita set collapses every eighth hit.
 - **Crafting menu.** It filters by class, item type, material and availability. It shows what you have against what you need, and **where to find** every missing material.
 
 ## Code layout
@@ -113,8 +128,8 @@ js/gameplay.js        combat, creatures, kit, Astral, XP, death and respawn
 js/session.js         objectives, saving, settings, audio routing, UI
 js/core/              rng, noise, events, pools, math, input
 js/data/              all content: materials, nodes, classes, skills, items, recipes, creatures, bosses, zones, waves, lore, objectives
-js/systems/           pure rules: stats, progression, inventory, equipment, crafting, gathering, saves, settings, day/night, the horde and boss clock, objectives, fog
-js/world/             grid, physics, interaction, generators and validators (gen/)
+js/systems/           pure rules: stats, progression, inventory, equipment, crafting, gathering, saves, settings, day/night, the horde and boss clock, travel, dimension runs, boss rewards, shape memory, objectives, fog
+js/world/             grid, physics, interaction, isle phenomena, dimension rules, the tide, generators and validators (gen/)
 js/render/            renderer, terrain mesher, props, sky, water, rigs and instancing, models, FX, camera
 js/combat/            formulas, statuses, combat system, class kits
 js/ai/                behaviours, flow field, creature manager, spawner, bosses

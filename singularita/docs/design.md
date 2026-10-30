@@ -1,6 +1,6 @@
 # Singularita — design
 
-This document records the design of the full game and what Milestones 1 and 2 implement. The original brief (in Portuguese) asked for a 3D web RPG in the progression-and-crafting genre. Hades, Genshin Impact and Minecraft were to inform the art direction only, never the mechanics.
+This document records the design of the full game, which Milestones 1 to 3 implement. The original brief (in Portuguese) asked for a 3D web RPG in the progression-and-crafting genre. Hades, Genshin Impact and Minecraft were to inform the art direction only, never the mechanics.
 
 ## Pillars
 
@@ -76,6 +76,25 @@ What the player meets on Dawnreach comes from that story:
 - **Populations.** Isles and caves keep a living population at their zone's fixed band; elites have a constant chance. Guardians are resident: one spawns on entry unless it fell less than 600 s of play time ago (`world.guardians`).
 - **Rewards.** `systems/rewards.js` rolls boss loot; `once` rewards (the sigils) are skipped when already carried.
 - **Objectives.** `reach` accepts alternatives (`a|b`). New types: `sigil` (progress follows the sigils carried) and `gate`.
+
+## Systems (Milestone 3)
+
+- **Emblems and runs.** An Emblem is a consumable whose effect opens a portal in front of the player. Using it is refused inside a dimension, in water or arenas, or when the dimension's level is not reached.
+  - Entering starts a run (`systems/run.js`): the run seed comes from `WORLD_SEED`, the dimension and the run counter; the start position is remembered; the dimension's zone state is reset.
+  - `getZone` keeps only the current dimension zone, generated from the run seed (and floor).
+  - Runs end with `complete` (the ruler fell), `leave` (the way back or a stair out) or `fail` (death, recall). Records are kept per dimension: runs, clears, best floor.
+- **Dimension generators** (`js/world/gen/dimensions.js`). Every layout is checked by `validateDimension` over many seeds; gates count as open.
+  - **floors:** random rooms, a spanning tree of corridors, a far stair room or the Jailer's block.
+  - **lanes:** two lanes, gel gates and the levers that open them.
+  - **castle:** four rooms in a row with corruption blobs and braziers.
+  - **mirror:** chambers mirrored across a glass line, plates and right-only walls, plus the reflection's own reachability map.
+  - **peaks:** a spiral of plateaus joined by ramps whose height follows each cell's projection along the link.
+- **Rules** (`js/world/dimrules.js`): twin pairs and revivals; the corruption meter; the Reflection (mirrored target, own collision, plates); dragon breath with rock shelter, and nests. Keys, stairs and levers live in `interact.js`.
+- **Rulers.** They are scripted bosses in their arenas. The Jailer appears on boss floors and his level follows the run. Each ruler's `once` reward is its Fracture Shard; its fall opens a portal home.
+- **Tiers 9 and 10.**
+  - **Chromantite:** its stats `chromatic` and `afflictedBonus` cycle afflictions and reward them.
+  - **Singularita:** pieces carry `memory: 2` and `collapse`. `systems/memory.js` adds the two remembered traits' modifiers for the piece's slot when stats are computed. Choices are stored per item in the save and are only changed at the Forge.
+  - **Collapse:** every 12 hits (8 with a full set) a pull and a burst.
 
 ## Extending (next milestones)
 

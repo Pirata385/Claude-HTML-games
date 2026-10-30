@@ -99,4 +99,6 @@ export const LUME_LINES = {
   gateHint: 'You found the gate. Four sigils… four isles. The Wayshrine by the beacon can carry you to their shores, once you are strong enough.',
   isleHint: 'The Wayshrine hums for you now. Wind, Tide, Flame and Stone: each isle keeps a guardian, and each guardian keeps a sigil.',
   sigilsHint: 'Four sigils. The gate will know them. Whatever lies below has waited a long time for someone to open it.',
+  emblemHint: 'The bosses of this world leave more than loot: their essences fold into Emblems at the Forge. An Emblem opens a door to one of the dimensions the Fracture made. Each has a ruler, and each ruler holds a piece of the Fracture itself.',
+  heartHint: 'Five pieces of the Fracture, humming against each other. The Heart Seal will know them. I think this is where Singularita sleeps.',
 };

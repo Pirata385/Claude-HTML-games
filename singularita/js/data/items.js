@@ -10,7 +10,7 @@ export const ARMOR_HP = [10, 25, 45, 75, 115, 165, 230, 310, 410, 540, 700];
 export const ACC_ATTR = [2, 4, 7, 11, 16, 22, 30, 40, 52, 66, 84];
 
 // Material trait → stat modifiers, per slot.
-const TRAIT_MODS = {
+export const TRAIT_MODS = {
   light: { weapon: { atkSpd: 0.06 }, armor: { moveSpd: 0.02 }, accessory: { atkSpd: 0.03 } },
   heavy: { weapon: { knockback: 0.4, atkSpd: -0.04 }, armor: { staggerRes: 0.25 }, accessory: { knockback: 0.2 } },
   conductive: { weapon: { shockChance: 0.12 }, armor: { shockChance: 0.04 }, accessory: { shockChance: 0.05 } },

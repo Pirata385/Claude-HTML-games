@@ -20,6 +20,7 @@ const PROJ = {
   fireball: { boxes: [B(0, 0, 0, 0.5, 0.5, 0.5, '#ff7a3d'), B(0, 0, 0, 0.3, 0.3, 0.7, '#ffd166')] },
   pebble: { boxes: [B(0, 0, 0, 0.34, 0.3, 0.34, '#b8a98a'), B(0.08, 0.1, 0, 0.2, 0.16, 0.2, '#9a8a6a')], lit: true },
 };
+const CHROMA = ['burn', 'chill', 'shock', 'poison'];
 const _m = new THREE.Matrix4(), _q = new THREE.Quaternion(), _p = new THREE.Vector3(), _s = new THREE.Vector3(), _f = new THREE.Vector3(), _z = new THREE.Vector3(0, 0, 1);
 const ZERO = new THREE.Matrix4().makeScale(0, 0, 0);
 
@@ -92,6 +93,8 @@ export class Combat {
     if (p.statuses.has('empower')) { forceCrit = true; p.statuses.remove('empower'); }
     if (spec.element === 'fire') mult *= 1 + st.fireBonus;
     if (spec.backstab) mult *= spec.backstab;
+    // Chromantite: afflicted foes take more.
+    if (st.afflictedBonus && target.statuses.harmfulCount?.() > 0) mult *= 1 + st.afflictedBonus;
     let deflected = false;
     if (target.def.frontArmor && !spec.pierceArmor && !spec.backstab && isInFront(target, from)) { mult *= 1 - target.def.frontArmor; deflected = true; }
     const dmgMult = st.dmgMult * (spec.src === 'astral' ? st.spiPower : 1);
@@ -121,6 +124,13 @@ export class Combat {
       if (st.chillChance && g.rng.next() < st.chillChance) this.applyStatus(target, 'chill', { power: dmg });
       if (st.shockChance && g.rng.next() < st.shockChance) this.arcLightning(target, dmg * 0.35, 2);
       if (st.prismatic && r.crit) this.prismBurst(target, spec.ranged);
+      // Chromantite: each hit carries the next colour in turn.
+      if (st.chromatic) {
+        const id = CHROMA[this.chroma = ((this.chroma || 0) + 1) % CHROMA.length];
+        if (g.rng.next() < 0.35 * Math.min(2, st.chromatic)) id === 'shock' ? this.arcLightning(target, dmg * 0.3, 2) : this.applyStatus(target, id, { power: dmg });
+      }
+      // Singularita: every so many hits, a small singularity.
+      if (st.collapse && (this.collapseN = (this.collapseN || 0) + 1) >= (st.collapse >= 2 ? 8 : 12)) { this.collapseN = 0; this.collapseAt(target.x, target.z, dmg); }
     }
     if (st.lifesteal > 0) this.healPlayer(dmg * st.lifesteal, true);
     if (r.crit && st.critLifesteal > 0) this.healPlayer(dmg * st.critLifesteal, true);
@@ -131,6 +141,20 @@ export class Combat {
     g.bus.emit('damage', { target, dmg, crit: r.crit, src: spec.src });
     if (target.hp <= 0) { g.enemies.kill(target, spec.src); if (st.killHeal > 0) this.healPlayer(g.stats.maxHp * st.killHeal); }
     return { dmg, crit: r.crit };
+  }
+
+  // Singularita's Collapse: foes nearby are pulled in, then the point bursts.
+  collapseAt(x, z, dmg) {
+    const g = this.g, y = g.grid.height(Math.floor(x), Math.floor(z));
+    g.fx.decal({ shape: 'ring', x, z, y, r: 5, t: 0.6, fill: true, color: '#f4e8ff' });
+    g.overlay.text(x, y + 2.6, z, 'Collapse', 'status');
+    for (const e of this.circle(x, z, 5, 'player')) if (!e.boss) { const dx = x - e.x, dz = z - e.z, l = Math.hypot(dx, dz) || 1; e.knock(dx / l, dz / l, Math.min(10, l * 3)); }
+    this.after(0.6, () => {
+      g.fx.burst(x, y + 1, z, 34, { color: '#f4e8ff', speed: 7, up: 3 });
+      g.fx.burst(x, y + 1, z, 16, { color: '#ff7ad8', speed: 4, up: 4 });
+      g.bus.emit('sfx', { id: 'boom', x, z });
+      for (const e of this.circle(x, z, 4, 'player')) this.applyRaw(e, dmg * 2, 'dmg');
+    });
   }
 
   applyStatus(target, id, o = {}) {

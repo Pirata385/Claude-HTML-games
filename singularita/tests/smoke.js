@@ -684,6 +684,56 @@ try {
     check(!errors.length, `rulers: no errors ${errors.slice(0, 3).join(' | ')}`);
     await ctx.close();
   }
+
+  // 12. Milestone 3: Singularita's shape memory, the Collapse and Chromantite.
+  {
+    const { ctx, page, errors } = await open(`${BASE}/singularita/index.html?quickstart=swordsman&debug`);
+    await waitGame(page);
+    const r = await page.evaluate(async () => {
+      const g = window.__SG, p = g.player, out = {};
+      g.ui.closeDialog && g.ui.closeDialog(); g.godMode = true;
+      g.profile.level = 260; g.recomputeStats();
+      // A Singularita blade, at the Forge.
+      const f = g.zone.base.stations.forge;
+      p.x = f.x + 1.5; p.z = f.z + 1.5;
+      const uid = g.profile.inv.nextUid++;
+      g.profile.inv.items.push({ uid, id: 'swordsman_weapon_singularita' });
+      g.ui.openMenu('inventory');
+      [...document.querySelectorAll('#menu .cell')].find((c) => c.textContent.includes('Singularita'))?.click();
+      const sel = [...document.querySelectorAll('#menu .memory select')];
+      out.panel = sel.length === 2;
+      document.querySelector('#menu .btn.primary')?.click(); // Equip
+      [...document.querySelectorAll('#menu .cell')].find((c) => c.textContent.includes('Singularita'))?.click();
+      const sel2 = [...document.querySelectorAll('#menu .memory select')];
+      sel2[0].value = 'ember'; sel2[0].dispatchEvent(new Event('change'));
+      sel2[1].value = 'rime'; sel2[1].dispatchEvent(new Event('change'));
+      document.querySelector('#menu .memory .btn').click();
+      out.memory = g.profile.memory.swordsman_weapon_singularita?.join(',');
+      out.burn = g.stats.burnChance > 0 && g.stats.chillChance > 0;
+      out.collapse = g.stats.collapse;
+      g.ui.closeMenu();
+      // Twelve hits make a Collapse.
+      let collapses = 0; const orig = g.combat.collapseAt.bind(g.combat); g.combat.collapseAt = (...a) => { collapses++; return orig(...a); };
+      const e = g.enemies.spawn('gel_knight', p.x + 2, p.z, { level: 200, noIntro: true });
+      e.hp = e.maxHp = 1e9;
+      for (let k = 0; k < 13; k++) g.combat.hit(e, { mult: 1, from: p });
+      out.collapses = collapses;
+      // A Chromantite blade colours its hits in turn.
+      g.profile.memory = {};
+      const uid2 = g.profile.inv.nextUid++;
+      g.profile.inv.items.push({ uid: uid2, id: 'swordsman_weapon_chromantite' });
+      g.profile.equipment.swordsman.weapon = uid2; g.recomputeStats();
+      e.statuses.clear();
+      for (let k = 0; k < 40; k++) g.combat.hit(e, { mult: 1, from: p });
+      out.chroma = ['burn', 'chill', 'poison'].filter((id) => e.statuses.has(id)).length;
+      return out;
+    });
+    check(r.panel && r.memory === 'ember,rime' && r.burn, `Singularita remembers what you choose at the Forge (${r.memory})`);
+    check(r.collapse >= 1 && r.collapses === 1, `every twelfth hit collapses (${r.collapses})`);
+    check(r.chroma >= 2, `Chromantite hits cycle through afflictions (${r.chroma} kinds)`);
+    check(!errors.length, `shape memory: no errors ${errors.slice(0, 3).join(' | ')}`);
+    await ctx.close();
+  }
 } catch (err) {
   failures++;
   console.error('FAIL smoke test crashed:', err);

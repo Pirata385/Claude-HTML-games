@@ -228,6 +228,8 @@ export class Interaction {
     else if (ownedSigils(p).length === 4 && !p.flags.gateOpen) text = LUME_LINES.sigilsHint;
     else if (p.level >= 66 && !p.flags.gateOpen && !Object.keys(p.zones).some((id) => id.startsWith('isle_'))) text = LUME_LINES.isleHint;
     else if (p.lore.includes('lore_seal') && !p.flags.gateOpen) text = LUME_LINES.gateHint;
+    else if (SHARDS.every((s) => (p.inv.stacks[s] || 0) > 0) && !p.zones.cave_9) text = LUME_LINES.heartHint;
+    else if (p.level >= 100 && p.flags.gateOpen && !Object.keys(p.dims || {}).length) text = LUME_LINES.emblemHint;
     else if (p.level >= 3 && !p.zones.cave_1) text = LUME_LINES.caveHint;
     else if (g.dayNight.phase === 'night') text = LUME_LINES.night;
     else text = LUME_LINES.greet[Math.floor(g.time) % LUME_LINES.greet.length] + ' ' + LUME_LINES.day;

@@ -3,6 +3,7 @@ import { h } from '../dom.js';
 import { ATTRS, ATTR_INFO, computeStats } from '../../systems/stats.js';
 import { allocate, respec } from '../../systems/attributes.js';
 import { equippedDefs } from '../../systems/equipment.js';
+import { withMemory } from '../../systems/memory.js';
 import { xpToNext } from '../../systems/progression.js';
 import { count, takeStack } from '../../systems/inventory.js';
 import { CLASSES } from '../../data/classes.js';
@@ -20,7 +21,7 @@ const SHOW = [
 
 export function characterTab(g, root, opts, rerender) {
   const p = g.profile, c = CLASSES[p.classId];
-  const gear = equippedDefs(p);
+  const gear = withMemory(p, equippedDefs(p));
   const cur = computeStats(p, gear);
   const preview = h('div', { class: 'preview muted small' }, 'Hover or tap + to preview what a point changes.');
   const showPreview = (a) => {

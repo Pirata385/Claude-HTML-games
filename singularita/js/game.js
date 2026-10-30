@@ -12,6 +12,7 @@ import { isWalled } from './world/grid.js';
 import { Player } from './entities/player.js';
 import { DayNight } from './systems/dayNight.js';
 import { computeStats } from './systems/stats.js';
+import { withMemory } from './systems/memory.js';
 import { equippedDefs, equippedIn } from './systems/equipment.js';
 import { WAVES } from './data/waves.js';
 import { ZONES } from './data/zones.js';
@@ -62,7 +63,7 @@ export class Game {
   getZone(id) { return getZone(id, this.profile.run); }
 
   recomputeStats() {
-    this.stats = computeStats(this.profile, equippedDefs(this.profile));
+    this.stats = computeStats(this.profile, withMemory(this.profile, equippedDefs(this.profile)));
     this.player.maxHp = this.stats.maxHp;
     this.player.level = this.profile.level;
     if (this.player.hp > this.player.maxHp) this.player.hp = this.player.maxHp;

@@ -1,0 +1,2 @@
+:root { --bg: #0d1020; --ink: #f1ecff; }
+html, body { margin: 0; height: 100%; background: var(--bg); color: var(--ink); overflow: hidden; }

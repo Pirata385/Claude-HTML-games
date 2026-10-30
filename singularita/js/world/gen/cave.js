@@ -207,6 +207,7 @@ function tryCave(def, seed) {
     id: def.id, type: 'cave', layer: def.layer, def, seed, grid: g,
     entry, exit, route, pois, nodes, hazards, split, sideOf,
     spawn: { x: spawnCell[0] + 0.5, z: spawnCell[1] + 0.5 },
+    spawnYaw: Math.atan2(spawnCell[0] - entry.i, spawnCell[1] - entry.j),
     diameter, floorFrac: frac, isReachable,
     decor: { glow, rails },
   };

@@ -29,10 +29,11 @@ export function installSession(game, { audio }) {
   };
   bus.on('gathered', (e) => progress({ type: 'gathered', material: e.material, n: e.n }));
   bus.on('kill', () => progress({ type: 'kill' }));
-  bus.on('waveEnd', (e) => { if (e.cleared) progress({ type: 'waveCleared' }); });
   bus.on('zoneEnter', ({ id }) => { const layer = game.zone.layer || 0; p.stats.maxLayer = Math.max(p.stats.maxLayer, layer); progress({ type: 'zone', id }); });
   bus.on('bossDefeated', () => progress({ type: 'boss' }));
   bus.on('lore', ({ id }) => progress({ type: 'lore', id }));
+  bus.on('sigil', ({ id }) => progress({ type: 'sigil', id }));
+  bus.on('gateOpened', () => progress({ type: 'gate' }));
 
   // ---------------------------------------------------------------- callbacks used by menus
   game.onGearChanged = (def) => {
@@ -89,12 +90,11 @@ export function installSession(game, { audio }) {
   bus.on('dodge', () => audio.play('dodge'));
   bus.on('jump', () => audio.play('jump'));
   bus.on('levelUp', () => audio.play('levelup'));
-  bus.on('waveStart', () => audio.play('horn'));
   bus.on('itemGained', (e) => { if (e.source !== 'gather') audio.play('pickup'); });
   bus.on('gathered', () => audio.play('pickup'));
   bus.on('died', () => audio.play('death'));
   bus.on('bossDefeated', () => audio.play('victory'));
-  bus.on('zoneEnter', () => audio.setAmbient(game.zone.type === 'island' ? 'island' : game.zone.layer));
+  bus.on('zoneEnter', () => audio.setAmbient(game.zone.type === 'island' ? 'island' : game.zone.type === 'isle' ? game.zone.id : game.zone.layer));
 
   // First-time hints: short, shown once per character, never blocking.
   const hint = (id, text) => {
@@ -112,6 +112,7 @@ export function installSession(game, { audio }) {
 
   // First arrival: Lume introduces the island.
   bus.on('started', ({ first }) => {
+    if (!game.input.isTouch) hint('mouse', 'While the mouse steers the camera, press Alt to free it and click the buttons. Tab, C, M and J open the menus directly.');
     if (!first) { game.ui.toast(`Welcome back, ${p.name}.`, 'good'); return; }
     (p.flags ||= {}).metLume = true;
     game.ui.dialog({ title: 'Lume, the Beacon Keeper', portrait: 'lume', text: `${LUME_LINES.first}
@@ -138,7 +139,7 @@ ${game.input.isTouch ? 'Move with the left side of the screen, look by dragging 
     const pl = game.player;
     audio.listener.x = pl.x; audio.listener.z = pl.z; audio.listener.yaw = game.cam.yaw;
     const bossOn = game.enemies.list.some((e) => e.boss && e.alive && e.group.engaged);
-    audio.setMood(bossOn ? 'boss' : game.zone.type === 'island' ? (game.dayNight.phase === 'day' ? 'island_day' : 'island_night') : `cave${game.zone.layer}`);
+    audio.setMood(bossOn ? 'boss' : game.zone.type === 'island' ? (game.dayNight.phase === 'day' ? 'island_day' : 'island_night') : game.zone.type === 'isle' ? game.zone.id : `cave${game.zone.layer}`);
     let near = 0;
     for (const e of game.enemies.active) if (e.alive && e.dist2(pl) < 400) near++;
     audio.setIntensity(bossOn ? 1 : Math.min(1, near / 6));
@@ -149,6 +150,7 @@ ${game.input.isTouch ? 'Move with the left side of the screen, look by dragging 
     document.removeEventListener('visibilitychange', onHide);
     window.removeEventListener('beforeunload', onUnload);
     game.ui.closeMenu?.();
+    game.overlay.dispose?.(); game.ui.touch.dispose?.();
     game.enemies.clear(); game.combat.clear(); game.combat.dispose(); game.fx.dispose(); game.overlay.clear(); game.overlay.draw(0);
     game.astral?.dispose();
     game.view?.dispose(); game.view = null;

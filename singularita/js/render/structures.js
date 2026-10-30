@@ -1,10 +1,11 @@
-// Static structures: the base camp, cave mouth, arenas, Echo Stones, stairs, shafts, the gate, vents.
+// Static structures: the base camp, cave mouth, arenas, Echo Stones, stairs, shafts, the gate, vents,
+// and on the isles their landings, arenas and updraft vents.
 import * as THREE from 'three';
 import { boxesGeometry, litMaterial, unlitMaterial, glowMaterial } from './voxel.js';
 
 const B = (x, y, z, w, h, d, c) => [x, y, z, w, h, d, c];
 
-export function buildStructures(zone) {
+export function buildStructures(zone, opts = {}) {
   const group = new THREE.Group();
   const geos = [];
   const animated = [];
@@ -50,6 +51,14 @@ export function buildStructures(zone) {
       add([B(0, 2.5, 0, 0.3, 0.3, 0.3, '#ffd48a')], zone.base.x + ox, zone.base.z + oz, { mat: unlitMaterial(), cast: false });
     }
 
+    // The Wayshrine: a standing stone with four rune bands, one per isle.
+    const w = zone.base.wayshrine;
+    if (w) {
+      add([B(0, 0.2, 0, 1.8, 0.4, 1.8, '#8e8a86'), B(0, 1.6, 0, 0.9, 2.6, 0.9, '#a8a29c'), B(0, 3.05, 0, 1.1, 0.3, 1.1, '#8e8a86')], w.x, w.z);
+      add([B(0, 2.3, 0.46, 0.5, 0.18, 0.02, '#9fe0ff'), B(0, 1.9, 0.46, 0.5, 0.18, 0.02, '#5fb0ff'), B(0, 1.5, 0.46, 0.5, 0.18, 0.02, '#ff7a3d'), B(0, 1.1, 0.46, 0.5, 0.18, 0.02, '#8ad06a')],
+        w.x, w.z, { rot: Math.atan2(zone.base.x - w.x, zone.base.z - w.z), mat: unlitMaterial(), cast: false });
+    }
+
     // Cave mouth: a stone arch over a dark opening, facing the base.
     const cm = zone.caveMouth;
     const face = Math.atan2(zone.base.x - cm.x, zone.base.z - cm.z);
@@ -72,9 +81,11 @@ export function buildStructures(zone) {
     }
   }
 
-  // Echo Stones (both zone types).
+  if (zone.type === 'isle') buildIsle(zone, add, animated);
+
+  // Echo Stones (every zone type).
   for (const p of zone.pois.filter((q) => q.type === 'lore')) {
-    const ruins = zone.type === 'island'
+    const ruins = zone.type !== 'cave'
       ? [B(-2, 1.2, -1, 0.9, 2.4, 0.9, '#b8b2a4'), B(2.1, 0.7, -0.6, 0.9, 1.4, 0.9, '#a8a294'), B(1.4, 0.2, 1.6, 1.8, 0.4, 0.9, '#b8b2a4'), B(-1.6, 0.15, 1.4, 1.2, 0.3, 0.8, '#a8a294')]
       : [];
     add([...ruins, B(0, 1.1, 0, 0.9, 2.2, 0.45, '#3a3448'), B(0, 0.15, 0, 1.4, 0.3, 0.9, '#4a4458')], p.x, p.z);
@@ -94,19 +105,44 @@ export function buildStructures(zone) {
       add([B(0, 0.04, 0, 2.6, 0.08, 2.6, '#020203')], x.x, x.z, { y: x.h, mat: unlitMaterial(), cast: false });
       add([B(-1.5, 0.25, 0, 0.4, 0.5, 3.4, '#6d6a72'), B(1.5, 0.25, 0, 0.4, 0.5, 3.4, '#6d6a72'), B(0, 0.25, -1.5, 2.6, 0.5, 0.4, '#6d6a72'), B(0, 0.25, 1.5, 2.6, 0.5, 0.4, '#6d6a72'),
         B(-1.2, 1.2, -1.5, 0.15, 2.4, 0.15, '#6b4a2e'), B(1.2, 1.2, -1.5, 0.15, 2.4, 0.15, '#6b4a2e'), B(0, 2.4, -1.5, 2.6, 0.18, 0.18, '#6b4a2e')], x.x, x.z, { y: x.h });
-    } else {
-      // The Sealed Core Gate: a great door with four empty sockets.
-      add([B(0, 3.5, 0, 7.5, 7, 1.4, '#2a2838'), B(-4.2, 3.8, 0, 1.2, 7.6, 1.8, '#3a3850'), B(4.2, 3.8, 0, 1.2, 7.6, 1.8, '#3a3850'), B(0, 7.6, 0, 9.6, 1.0, 2.0, '#3a3850'),
-        B(0, 3.5, 0.72, 0.15, 6.4, 0.1, '#14121c')], x.x, x.z, { y: x.h });
+    } else if (x.type === 'gate') {
+      // The Sealed Core Gate: a great door with four sockets. Open, its leaves stand aside
+      // and the sockets burn with the sigils.
+      const open = !!opts.gateOpen;
+      add([B(-4.2, 3.8, 0, 1.2, 7.6, 1.8, '#3a3850'), B(4.2, 3.8, 0, 1.2, 7.6, 1.8, '#3a3850'), B(0, 7.6, 0, 9.6, 1.0, 2.0, '#3a3850')], x.x, x.z, { y: x.h });
+      if (open) add([B(-3.0, 3.5, -1.4, 0.5, 7, 3.6, '#2a2838'), B(3.0, 3.5, -1.4, 0.5, 7, 3.6, '#2a2838'), B(0, 3.4, -0.4, 5.4, 6.8, 0.05, '#0a0810')], x.x, x.z, { y: x.h });
+      else add([B(0, 3.5, 0, 7.5, 7, 1.4, '#2a2838'), B(0, 3.5, 0.72, 0.15, 6.4, 0.1, '#14121c')], x.x, x.z, { y: x.h });
       const sockets = [];
       for (const [sx, sy, col] of [[-2, 5.4, '#9fe0ff'], [2, 5.4, '#5fb0ff'], [-2, 1.8, '#ff7a3d'], [2, 1.8, '#8ad06a']]) {
-        sockets.push(B(sx, sy, 0.75, 0.9, 0.9, 0.1, '#16141e'), B(sx, sy, 0.8, 0.4, 0.4, 0.05, col));
+        const ox = open ? Math.sign(sx) * 1.6 : 0;
+        sockets.push(B(sx + ox, sy, 0.75, 0.9, 0.9, 0.1, '#16141e'), B(sx + ox, sy, 0.8, open ? 0.7 : 0.4, open ? 0.7 : 0.4, 0.05, col));
       }
       add(sockets, x.x, x.z, { y: x.h, mat: unlitMaterial(), cast: false });
+      if (open) {
+        const glow = add([B(0, 3.4, 0, 5.2, 6.6, 0.3, '#ffe9a8')], x.x, x.z, { y: x.h, mat: glowMaterial(), cast: false });
+        glow.material = glow.material.clone(); glow.material.opacity = 0.25; geos.push({ dispose: () => glow.material.dispose() });
+        animated.push((t) => { glow.material.opacity = 0.2 + Math.sin(t * 1.5) * 0.06; });
+      }
+    } else {
+      // The Heart Seal: dawnstone and duskstone woven around a heart that does not beat yet.
+      add([B(0, 0.25, 0, 7, 0.5, 7, '#2a2630'), B(-2.6, 2.2, 0, 1.2, 4.4, 1.2, '#8a7a5a'), B(2.6, 2.2, 0, 1.2, 4.4, 1.2, '#3a2a5a'), B(0, 4.6, 0, 6.4, 0.8, 1.4, '#4a4058')], x.x, x.z, { y: x.h });
+      const heart = add([B(-0.35, 0, 0, 0.7, 1.4, 1.0, '#ffe9a8'), B(0.35, 0, 0, 0.7, 1.4, 1.0, '#a87aff'), B(0, 0, 0, 0.5, 0.5, 1.2, '#ffffff')], x.x, x.z, { y: x.h + 2.2, mat: unlitMaterial(), cast: false });
+      animated.push((t) => { heart.rotation.y = Math.sin(t * 0.6) * 0.4; heart.scale.setScalar(1 + Math.max(0, Math.sin(t * 1.1)) * 0.05); });
     }
     // Vents.
     for (const h of zone.hazards) {
       if (h.type === 'stalactite') continue;
+      if (h.type === 'radiance') {
+        add([B(0, 0.3, 0, 1.2, 0.6, 1.2, '#6a5a3a'), B(0, 1.1, 0, 0.4, 1.2, 0.4, '#8a7a5a')], h.x, h.z);
+        const c = add([B(0, 0, 0, 0.5, 1.0, 0.5, '#ffe9a8'), B(0.25, -0.2, 0.1, 0.3, 0.6, 0.3, '#fff4c8')], h.x, h.z, { mat: unlitMaterial(), cast: false });
+        c.position.y += 2.1;
+        animated.push((t) => { c.rotation.y = t * 0.9 + h.x; });
+        continue;
+      }
+      if (h.type === 'umbral') {
+        add([B(0, 0.03, 0, h.r * 1.7, 0.06, h.r * 1.7, '#1a1028'), B(0, 0.05, 0, h.r * 1.2, 0.06, h.r * 1.2, '#3a2060')], h.x, h.z, { mat: unlitMaterial(), cast: false });
+        continue;
+      }
       const col = h.type === 'gas_vent' ? '#9be15d' : h.type === 'heat_vent' ? '#ff7a3d' : '#9fd8ff';
       add([B(0, 0.3, 0, 1.0, 0.6, 1.0, '#4a4440'), B(0, 0.7, 0, 0.6, 0.3, 0.6, '#5a5450')], h.x, h.z);
       add([B(0, 0.86, 0, 0.36, 0.04, 0.36, col)], h.x, h.z, { mat: unlitMaterial(), cast: false });
@@ -118,4 +154,50 @@ export function buildStructures(zone) {
     update(t) { for (const f of animated) f(t); },
     dispose() { group.parent?.remove(group); for (const gg of geos) gg.dispose(); },
   };
+}
+
+// The isles: a dock and return stone at the landing, dressing for each guardian's arena, updraft vents.
+function buildIsle(zone, add, animated) {
+  const l = zone.landing, a = zone.arena;
+  // The landing: planks running out to sea and the return stone with its four runes.
+  const el = zone.def.element;
+  if (el !== 'air') add([B(0, 0.1, 2.2, 2.2, 0.2, 5, '#9a6a3a'), B(-1.0, -0.6, 4.2, 0.25, 1.6, 0.25, '#6b4a2e'), B(1.0, -0.6, 4.2, 0.25, 1.6, 0.25, '#6b4a2e')], l.x, l.z);
+  add([B(0, 0.2, 0, 1.4, 0.4, 1.4, '#8e8a86'), B(0, 1.2, 0, 0.7, 1.8, 0.7, '#a8a29c')], l.x, l.z);
+  add([B(0, 1.5, 0.36, 0.36, 0.14, 0.02, '#9fe0ff'), B(0, 1.2, 0.36, 0.36, 0.14, 0.02, '#5fb0ff'), B(0, 0.9, 0.36, 0.36, 0.14, 0.02, '#ff7a3d')], l.x, l.z, { mat: unlitMaterial(), cast: false, rot: zone.spawnYaw });
+  if (el === 'air') {
+    // The Windward Shrine: a gate of two posts and a lintel at the edge of the summit.
+    const gx = a.x, gz = a.z + a.r + 0.5;
+    add([B(-2.6, 2.2, 0, 0.5, 4.4, 0.5, '#c8443a'), B(2.6, 2.2, 0, 0.5, 4.4, 0.5, '#c8443a'), B(0, 4.5, 0, 7, 0.4, 0.7, '#2a2a2a'), B(0, 3.8, 0, 5.6, 0.3, 0.4, '#c8443a')], gx, gz);
+    const ring = [];
+    for (let k = 0; k < 16; k++) { const ang = (k / 16) * Math.PI * 2; ring.push(B(Math.cos(ang) * (a.r + 0.6), 0.3, Math.sin(ang) * (a.r + 0.6), 0.6, 0.6, 0.6, '#d8dde6')); }
+    add(ring, a.x, a.z, { y: a.h });
+  } else if (el === 'water') {
+    // The Drowned Temple: broken columns around the floor; the raised stones are part of the ground.
+    for (let k = 0; k < 8; k++) {
+      const ang = (k / 8) * Math.PI * 2 + 0.2, h = 2 + (k % 3);
+      add([B(0, h / 2, 0, 0.9, h, 0.9, '#d8d0c0'), B(0, h + 0.15, 0, 1.2, 0.3, 1.2, '#c8c0b0')], a.x + Math.cos(ang) * (a.r + 1.2), a.z + Math.sin(ang) * (a.r + 1.2), { y: a.h });
+    }
+  } else if (el === 'fire') {
+    // Braziers burn on the caldera rim.
+    for (let k = 0; k < 6; k++) {
+      const ang = (k / 6) * Math.PI * 2 + 0.5;
+      const x = a.x + Math.cos(ang) * (a.r + 3), z = a.z + Math.sin(ang) * (a.r + 3);
+      add([B(0, 0.6, 0, 0.6, 1.2, 0.6, '#2e2a2e'), B(0, 1.3, 0, 1.0, 0.3, 1.0, '#3a3236')], x, z);
+      const fire = add([B(0, 0, 0, 0.6, 0.6, 0.6, '#ff8a3d'), B(0, 0.35, 0, 0.35, 0.4, 0.35, '#ffd070')], x, z, { mat: unlitMaterial(), cast: false });
+      fire.position.y += 1.7;
+      animated.push((t) => { fire.scale.y = 1 + Math.sin(t * 9 + k) * 0.15; });
+    }
+  } else if (el === 'earth') {
+    // Standing stones ring the Seed Grove, with a young tree at its heart.
+    for (let k = 0; k < 10; k++) {
+      const ang = (k / 10) * Math.PI * 2;
+      add([B(0, 1.2, 0, 0.9, 2.4 + (k % 2) * 0.8, 0.7, '#9a8a7a'), B(0, 0.1, 0, 1.2, 0.2, 1.0, '#7a9a4a')], a.x + Math.cos(ang) * (a.r + 1.2), a.z + Math.sin(ang) * (a.r + 1.2), { y: a.h, rot: -ang });
+    }
+  }
+  // Updraft vents: a stone ring around a breathing hole.
+  for (const u of zone.updrafts) {
+    add([B(0.9, 0.12, 0, 0.3, 0.24, 2.1, '#b8c0cc'), B(-0.9, 0.12, 0, 0.3, 0.24, 2.1, '#b8c0cc'), B(0, 0.12, 0.9, 1.5, 0.24, 0.3, '#b8c0cc'), B(0, 0.12, -0.9, 1.5, 0.24, 0.3, '#b8c0cc')], u.x, u.z, { y: u.h });
+    const core = add([B(0, 0.03, 0, 1.4, 0.04, 1.4, '#cfefff')], u.x, u.z, { y: u.h, mat: glowMaterial(), cast: false });
+    animated.push((t) => { core.scale.setScalar(0.8 + Math.sin(t * 3 + u.x) * 0.2); });
+  }
 }

@@ -4,7 +4,8 @@ import { enemyHp, enemyDmg } from '../systems/scaling.js';
 import { ELITE, ELITE_AFFIXES } from '../data/enemies.js';
 import { makePose } from '../render/rigs.js';
 
-const HEIGHT = { slime: 0.9, zombie: 1.9, bat: 0.6, crab: 0.9, beetle: 0.7, crawler: 0.8, puff: 1.0, slug: 0.8, wraith: 1.8, golem: 2.2, lurker: 2.4, sentry: 2.4 };
+const HEIGHT = { slime: 0.9, zombie: 1.9, bat: 0.6, crab: 0.9, beetle: 0.7, crawler: 0.8, puff: 1.0, slug: 0.8, wraith: 1.8, golem: 2.2, lurker: 2.4, sentry: 2.4,
+  harpy: 1.3, serpent: 0.7, wisp: 0.8, jelly: 1.2, hound: 1.1, imp: 1.4, tortoise: 1.4, lasher: 3.0 };
 
 export class Enemy extends Entity {
   constructor(def, level, o = {}) {
@@ -26,7 +27,7 @@ export class Enemy extends Entity {
     this.radius = def.radius * (this.elite ? 1.15 : 1);
     this.height = HEIGHT[def.model] || 1.5;
     this.flying = def.flags.includes('flying');
-    this.wave = !!o.wave; this.ambient = !!o.ambient;
+    this.horde = !!o.horde; this.ambient = !!o.ambient; this.summoned = !!o.summoned;
     this.kbRes = def.role === 'tank' ? 0.6 : 0;
     this.ai = { state: 'idle', t: 0, cd: 0.5 + Math.random(), phase: Math.random() * 6, hop: 0, aux: 0 };
     this.anim = { t: Math.random() * 10, move: 0, phase: 0, atk: 0, wind: 0, squash: 0 };

@@ -10,7 +10,7 @@ export const RARITY = {
 };
 
 // Recipe level for each main tier (index = tier).
-export const TIER_RECIPE_LEVEL = [1, 3, 8, 16, 26, 38, 50, 64];
+export const TIER_RECIPE_LEVEL = [1, 3, 8, 16, 26, 38, 50, 64, 100];
 
 // Material traits: what crafting with a material does beyond raw numbers.
 export const TRAITS = {
@@ -25,6 +25,8 @@ export const TRAITS = {
   ember: { name: 'Ember', desc: 'Hits may set foes ablaze; fire skills burn hotter.' },
   rime: { name: 'Rime', desc: 'Hits may chill foes; armour speeds resource regeneration.' },
   prismatic: { name: 'Prismatic', desc: 'More critical hits. Critical hits split projectiles or release a shockwave.' },
+  radiant: { name: 'Radiant', desc: 'Hits may blind foes and every kill restores health; armour wards off afflictions and strengthens healing.' },
+  umbral: { name: 'Umbral', desc: 'Critical hits drink the life of their target and strike far harder; armour quickens your dodge.' },
 };
 
 const M = (id, o) => ({ id, ...o });
@@ -54,6 +56,29 @@ export const MATERIALS = {
   diamond: M('diamond', { name: 'Diamond', tier: 7, kind: 'main', rarity: 'epic', trait: 'prismatic', color: '#bff6ff',
     desc: 'Pressed into being beside the Sealed Core. It splits every light into all of its possibilities.' }),
 
+  dawndosite: M('dawndosite', { name: 'Dawndosite', tier: 8, kind: 'main', rarity: 'legendary', trait: 'radiant', color: '#ffe9a8',
+    desc: 'Singularita\'s memory of a morning that never ended. It glows warm in the hand and hums when the sun rises somewhere far above.' }),
+  escuresite: M('escuresite', { name: 'Escuresite', tier: 8, kind: 'main', rarity: 'legendary', trait: 'umbral', color: '#6a3aa8',
+    desc: 'Singularita\'s memory of a night with no dawn. It drinks lamplight, and shadows lean toward it.' }),
+
+  // Elemental isles (exclusive) ----------------------------------------------
+  skyglass: M('skyglass', { name: 'Skyglass', tier: 7, kind: 'isle', rarity: 'rare', color: '#bfe6ff',
+    desc: 'Glass the wind blew into shape on the Galeforge Spires. It weighs less than the air it displaces.' }),
+  zephyr_feather: M('zephyr_feather', { name: 'Zephyr Feather', tier: 7, kind: 'drop', rarity: 'rare', color: '#eef6ff',
+    desc: 'A gale harpy\'s flight feather. Dropped from a height, it never quite lands.' }),
+  abyssal_pearl: M('abyssal_pearl', { name: 'Abyssal Pearl', tier: 7, kind: 'isle', rarity: 'rare', color: '#d8f0ff',
+    desc: 'Pearls from the drowned palace\'s beds, reachable only at low tide. Each one holds a drop of the old sea.' }),
+  tide_silk: M('tide_silk', { name: 'Tide Silk', tier: 7, kind: 'drop', rarity: 'rare', color: '#6fd6e0',
+    desc: 'Threads spun by the reef\'s creatures from water itself. Cool, strong and always slightly damp.' }),
+  obsidian: M('obsidian', { name: 'Obsidian', tier: 7, kind: 'isle', rarity: 'rare', color: '#2a2030',
+    desc: 'Volcanic glass from Cinderspine\'s lava fields. The Dawnforgers ground it into the edges of their first crowns.' }),
+  salamander_scale: M('salamander_scale', { name: 'Salamander Scale', tier: 7, kind: 'drop', rarity: 'rare', color: '#ff7a3d',
+    desc: 'A scale shed by Cinderspine\'s fire creatures, still warm a week later.' }),
+  living_amber: M('living_amber', { name: 'Living Amber', tier: 7, kind: 'isle', rarity: 'rare', color: '#ffb030',
+    desc: 'Sap of the Worldroot, hardened around a heartbeat. It is slightly warm, and it slowly mends cracks.' }),
+  golem_shard: M('golem_shard', { name: 'Golem Shard', tier: 7, kind: 'drop', rarity: 'rare', color: '#a8987a',
+    desc: 'A chip of the stone creatures of the Rootdeep Mesas, veined with roots that still grow.' }),
+
   // Creature drops --------------------------------------------------------
   slime_gel: M('slime_gel', { name: 'Slime Gel', tier: 0, kind: 'drop', rarity: 'common', color: '#7ee07e',
     desc: 'Coolant gel from the old forges, gone feral. Sticky, cool and oddly cheerful.' }),
@@ -73,7 +98,26 @@ export const MATERIALS = {
     desc: 'The Slime Prince\'s golden gel. It wobbles with a dignity it has not earned.' }),
   silver_mane: M('silver_mane', { name: 'Silver Mane', tier: 4, kind: 'boss', rarity: 'epic', color: '#d8dde6',
     desc: 'A lock of the Silverback Emperor\'s mane, still bristling with the Echo that raised him.' }),
+  eastwind_silk: M('eastwind_silk', { name: 'Eastwind Silk', tier: 7, kind: 'boss', rarity: 'epic', color: '#cfe8ff',
+    desc: 'A strip of the Ronin\'s sash. Even folded in a pack, it streams eastward.' }),
+  poseidon_tear: M('poseidon_tear', { name: "Poseidon's Tear", tier: 7, kind: 'boss', rarity: 'epic', color: '#7fe0ff',
+    desc: 'A tear of grief, crystallised. Hold it to your ear and you hear the palace bells under the sea.' }),
+  vector_core: M('vector_core', { name: 'Vector Core', tier: 7, kind: 'boss', rarity: 'epic', color: '#ff9a3a',
+    desc: 'The still heart of the Magma Vector. It points, always, in the direction you are about to move.' }),
+  allele_seed: M('allele_seed', { name: 'Allele Seed', tier: 7, kind: 'boss', rarity: 'epic', color: '#8ad06a',
+    desc: 'A seed of the Divine Golem. Plant it and it would grow a different creature every time.' }),
+
+  // Sigils: key items that open the Sealed Core Gate --------------------------
+  sigil_wind: M('sigil_wind', { name: 'Sigil of Wind', tier: 7, kind: 'key', rarity: 'legendary', color: '#9fe0ff',
+    desc: 'One of the four keys to the Sealed Core Gate, kept by the Ronin of the East Wind.' }),
+  sigil_tide: M('sigil_tide', { name: 'Sigil of Tide', tier: 7, kind: 'key', rarity: 'legendary', color: '#5fb0ff',
+    desc: 'One of the four keys to the Sealed Core Gate, wept out by the Tears of Poseidon.' }),
+  sigil_flame: M('sigil_flame', { name: 'Sigil of Flame', tier: 7, kind: 'key', rarity: 'legendary', color: '#ff7a3d',
+    desc: 'One of the four keys to the Sealed Core Gate, burning at the heart of the Magma Vector.' }),
+  sigil_stone: M('sigil_stone', { name: 'Sigil of Stone', tier: 7, kind: 'key', rarity: 'legendary', color: '#8ad06a',
+    desc: 'One of the four keys to the Sealed Core Gate, grown inside the Allele of the Divine Golem.' }),
 };
+export const SIGILS = ['sigil_wind', 'sigil_tide', 'sigil_flame', 'sigil_stone'];
 
 export const MAIN_MATERIALS = Object.values(MATERIALS)
   .filter((m) => m.kind === 'main')

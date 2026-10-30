@@ -1,7 +1,7 @@
 // Creatures. hp/dmg are level-1 bases; js/systems/scaling.js scales them by level.
 // `role` drives wave composition, `behavior` picks the AI in js/ai/behaviors.js.
 
-export const BEHAVIORS = ['hopper', 'melee', 'ranged', 'support_heal', 'support_buff', 'bomber', 'swoop', 'burrow', 'lurker', 'golem', 'sentry'];
+export const BEHAVIORS = ['hopper', 'melee', 'ranged', 'support_heal', 'support_buff', 'bomber', 'swoop', 'burrow', 'lurker', 'golem', 'sentry', 'aura', 'lasher', 'seedling'];
 export const ROLE_COST = { swarm: 1, frontline: 2, ranged: 2, bomber: 2, support: 3, tank: 4 };
 
 const E = (id, o) => ({ id, drops: [], radius: 0.5, scale: 1, range: 1.6, atkCd: 1.4, windup: 0.45, flags: [], ...o });
@@ -61,6 +61,58 @@ export const ENEMIES = {
     model: 'lurker', color: '#2a2440', drops: [drop('prism_dust', 0.45)] }),
   crystal_sentry: E('crystal_sentry', { name: 'Crystal Sentry', family: 'construct', role: 'ranged', behavior: 'sentry', hp: 90, dmg: 12, speed: 0, xp: 25,
     proj: 'beam', range: 13, atkCd: 1.8, model: 'sentry', color: '#e8d2ff', drops: [drop('prism_dust', 0.4)] }),
+
+  // Isle of Air — the Galeforge Spires.
+  gale_harpy: E('gale_harpy', { name: 'Gale Harpy', family: 'sky', role: 'swarm', behavior: 'swoop', hp: 70, dmg: 16, speed: 7, xp: 40, radius: 0.55,
+    gust: 7, model: 'harpy', color: '#e8eef8', flags: ['flying'], drops: [drop('zephyr_feather', 0.5)] }),
+  kite_serpent: E('kite_serpent', { name: 'Kite Serpent', family: 'sky', role: 'ranged', behavior: 'ranged', hp: 80, dmg: 14, speed: 4, xp: 45,
+    proj: 'bolt', onHit: 'shock', range: 13, atkCd: 2.0, model: 'serpent', color: '#7fb3ff', flags: ['flying'], drops: [drop('zephyr_feather', 0.35)] }),
+  cloud_sprite: E('cloud_sprite', { name: 'Cloud Sprite', family: 'sky', role: 'support', behavior: 'support_buff', hp: 60, dmg: 6, speed: 3.5, xp: 50,
+    buff: 'shield', auraRadius: 9, atkCd: 7, model: 'puff', color: '#f4f8ff', flags: ['flying'], drops: [drop('zephyr_feather', 0.3)] }),
+  storm_wisp: E('storm_wisp', { name: 'Storm Wisp', family: 'sky', role: 'bomber', behavior: 'bomber', hp: 55, dmg: 30, speed: 3.2, xp: 38,
+    explode: 3.2, model: 'wisp', color: '#ffe066', flags: ['flying'], drops: [drop('zephyr_feather', 0.25)] }),
+
+  // Isle of Water — Tidecrown Atoll.
+  reef_crab: E('reef_crab', { name: 'Reef Crab', family: 'reef', role: 'frontline', behavior: 'melee', hp: 150, dmg: 16, speed: 2.2, xp: 48, radius: 0.8,
+    frontArmor: 0.7, model: 'crab', color: '#ff8a6a', drops: [drop('tide_silk', 0.3)] }),
+  siren: E('siren', { name: 'Siren', family: 'reef', role: 'ranged', behavior: 'ranged', hp: 85, dmg: 15, speed: 3.2, xp: 46,
+    proj: 'glob', onHit: 'slow', range: 12, atkCd: 2.2, model: 'wraith', color: '#6fd6e0', flags: ['flying'], drops: [drop('tide_silk', 0.5)] }),
+  drowned_sailor: E('drowned_sailor', { name: 'Drowned Sailor', family: 'reef', role: 'frontline', behavior: 'melee', hp: 120, dmg: 18, speed: 2.4, xp: 42,
+    model: 'zombie', color: '#8aa0a0', cloth: '#2a4a6a', helmet: true, drops: [drop('tide_silk', 0.4)] }),
+  glass_jelly: E('glass_jelly', { name: 'Glass Jelly', family: 'reef', role: 'swarm', behavior: 'aura', hp: 70, dmg: 9, speed: 2.0, xp: 34,
+    auraRadius: 2.4, atkCd: 1.0, onHit: 'shock', model: 'jelly', color: '#c9a0ff', flags: ['flying'], drops: [drop('tide_silk', 0.4)] }),
+
+  // Isle of Fire — Cinderspine.
+  lava_hound: E('lava_hound', { name: 'Lava Hound', family: 'cinder', role: 'swarm', behavior: 'melee', hp: 110, dmg: 18, speed: 5.5, xp: 46, atkCd: 1.1, windup: 0.35,
+    onHit: 'burn', model: 'hound', color: '#ff6a2a', fireproof: true, drops: [drop('salamander_scale', 0.35)] }),
+  obsidian_golem: E('obsidian_golem', { name: 'Obsidian Golem', family: 'cinder', role: 'tank', behavior: 'golem', hp: 420, dmg: 34, speed: 1.5, xp: 110, radius: 1.0, scale: 1.6,
+    range: 2.6, atkCd: 2.8, windup: 0.9, slam: 3.4, model: 'golem', color: '#ff7a3d', fireproof: true, drops: [drop('salamander_scale', 0.5, 1, 2)] }),
+  fire_imp: E('fire_imp', { name: 'Fire Imp', family: 'cinder', role: 'ranged', behavior: 'ranged', hp: 80, dmg: 16, speed: 3.6, xp: 44,
+    proj: 'fireball', onHit: 'burn', range: 12, atkCd: 2.0, model: 'imp', color: '#ff4a3a', fireproof: true, drops: [drop('salamander_scale', 0.4)] }),
+  ash_shaman: E('ash_shaman', { name: 'Ash Shaman', family: 'cinder', role: 'support', behavior: 'support_buff', hp: 100, dmg: 10, speed: 2.6, xp: 55,
+    buff: 'haste', auraRadius: 9, atkCd: 6, model: 'wraith', color: '#8a6a5a', fireproof: true, drops: [drop('salamander_scale', 0.4)] }),
+
+  // Isle of Earth — the Rootdeep Mesas.
+  mossback_tortoise: E('mossback_tortoise', { name: 'Mossback Tortoise', family: 'root', role: 'tank', behavior: 'melee', hp: 380, dmg: 26, speed: 1.4, xp: 100, radius: 1.1,
+    frontArmor: 0.8, range: 2.4, atkCd: 2.4, windup: 0.8, slam: 2.8, model: 'tortoise', color: '#6a8a4a', drops: [drop('golem_shard', 0.4, 1, 2)] }),
+  root_lasher: E('root_lasher', { name: 'Root Lasher', family: 'root', role: 'frontline', behavior: 'lasher', hp: 160, dmg: 22, speed: 0, xp: 50,
+    range: 6.5, atkCd: 2.2, windup: 0.7, model: 'lasher', color: '#7a5a3a', drops: [drop('golem_shard', 0.4)] }),
+  burrowing_mole: E('burrowing_mole', { name: 'Burrowing Mole', family: 'root', role: 'frontline', behavior: 'burrow', hp: 140, dmg: 22, speed: 3.4, xp: 50, radius: 0.8,
+    model: 'crawler', color: '#8a6a4a', scale: 1.3, drops: [drop('golem_shard', 0.45)] }),
+  stone_wisp: E('stone_wisp', { name: 'Stone Wisp', family: 'root', role: 'ranged', behavior: 'ranged', hp: 90, dmg: 15, speed: 3.0, xp: 44,
+    proj: 'pebble', range: 11, atkCd: 1.8, model: 'wisp', color: '#b8a98a', flags: ['flying'], drops: [drop('golem_shard', 0.45)] }),
+
+  // Sprouted by the Allele golem's Moss allele: they heal it until cut down. No drops.
+  allele_seedling: E('allele_seedling', { name: 'Allele Seedling', family: 'root', role: 'support', behavior: 'seedling', hp: 90, dmg: 0, speed: 0, xp: 12,
+    heal: 0.012, model: 'lasher', color: '#8ad06a', scale: 0.55 }),
+
+  // The Dawn and Dusk Hollows (Core layer 8).
+  dawn_sentinel: E('dawn_sentinel', { name: 'Dawnbound Sentinel', family: 'construct', role: 'ranged', behavior: 'sentry', hp: 260, dmg: 30, speed: 0, xp: 90,
+    proj: 'beam', onHit: 'blind', range: 14, atkCd: 1.6, model: 'sentry', color: '#ffe9a8', drops: [drop('prism_dust', 0.5, 1, 2)] }),
+  dusk_stalker: E('dusk_stalker', { name: 'Duskstalker', family: 'beast', role: 'frontline', behavior: 'lurker', hp: 220, dmg: 40, speed: 4.4, xp: 95,
+    model: 'lurker', color: '#5a2a8a', drops: [drop('prism_dust', 0.5, 1, 2)] }),
+  echo_knight: E('echo_knight', { name: 'Echo Knight', family: 'zombie', role: 'frontline', behavior: 'melee', hp: 320, dmg: 36, speed: 2.4, xp: 100, radius: 0.7, scale: 1.4,
+    frontArmor: 0.5, range: 2.2, model: 'zombie', color: '#c9ced8', cloth: '#3a3a5a', helmet: true, drops: [drop('zombie_sinew', 0.6, 1, 2), drop('prism_dust', 0.3)] }),
 };
 
 // Elite affixes: rolled on wave and cave spawns as the pressure rises.

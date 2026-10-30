@@ -77,10 +77,14 @@ export function inventoryTab(g, root, opts, rerender) {
     const isCons = state.tab === 'consumables';
     const ids = Object.keys(p.inv.stacks).filter((id) => (isCons ? CONSUMABLES[id] : MATERIALS[id]) && p.inv.stacks[id] > 0);
     ids.sort((a, b) => (state.sort === 'name' ? (CONSUMABLES[a] || MATERIALS[a]).name.localeCompare((CONSUMABLES[b] || MATERIALS[b]).name) : ((MATERIALS[a]?.tier ?? 0) - (MATERIALS[b]?.tier ?? 0))));
-    for (const id of ids) {
+    // Key items (the sigils) come first, under their own heading.
+    const keys = ids.filter((id) => MATERIALS[id]?.kind === 'key');
+    const cell = (id) => {
       const d = CONSUMABLES[id] || MATERIALS[id];
-      grid.append(h('button', { class: 'cell stack', style: { '--rc': rarityColor(d.rarity) }, onclick: () => showStack(id) }, h('i', { class: 'swatch', style: { background: d.color } }), h('b', {}, d.name), h('small', {}, `× ${p.inv.stacks[id]}`)));
-    }
+      return h('button', { class: 'cell stack', style: { '--rc': rarityColor(d.rarity) }, onclick: () => showStack(id) }, h('i', { class: 'swatch', style: { background: d.color } }), h('b', {}, d.kind === 'key' ? `✦ ${d.name}` : d.name), h('small', {}, d.kind === 'key' ? 'Key item' : `× ${p.inv.stacks[id]}`));
+    };
+    if (keys.length) grid.append(h('p', { class: 'muted small', style: { gridColumn: '1 / -1' } }, 'Key items'), ...keys.map(cell), h('p', { class: 'muted small', style: { gridColumn: '1 / -1' } }, 'Materials'));
+    for (const id of ids) if (!keys.includes(id)) grid.append(cell(id));
     if (!ids.length) grid.append(h('p', { class: 'muted' }, isCons ? 'No consumables. Tonics are crafted at the Forge.' : 'No materials yet. Chop trees and mine rocks.'));
   }
   root.append(h('div', { class: 'inv-layout' }, eqCol, h('div', { class: 'inv-main' }, h('div', { class: 'toolbar' }, tabs, sortSel), grid), detail));

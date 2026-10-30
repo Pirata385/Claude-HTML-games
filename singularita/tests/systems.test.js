@@ -6,9 +6,9 @@ import * as Inv from '../js/systems/inventory.js';
 import { equip, canEquip, equippedDefs, compareItems, bestTool } from '../js/systems/equipment.js';
 import { checkRecipe, craft } from '../js/systems/crafting.js';
 import { canGather, gatherDamage, rollYield } from '../js/systems/gathering.js';
-import { newProfile, serialize, deserialize, SaveStore, SAVE_VERSION, exportString, importString } from '../js/systems/save.js';
+import { newProfile, serialize, deserialize, SaveStore, SAVE_VERSION, exportString, importString, migrate } from '../js/systems/save.js';
 import { DEFAULT_SETTINGS, mergeSettings } from '../js/systems/settings.js';
-import { WaveDirector, composeWave } from '../js/systems/waveDirector.js';
+import { Horde, BossClock, islandLevel } from '../js/systems/horde.js';
 import { DayNight } from '../js/systems/dayNight.js';
 import { allocate, respec } from '../js/systems/attributes.js';
 import { enemyHp, enemyDmg } from '../js/systems/scaling.js';
@@ -256,28 +256,76 @@ test('settings merge keeps defaults and rejects junk', () => {
   assert.equal(s.audio.bogus, undefined);
 });
 
-test('composeWave spends its budget and unlocks roles over waves', () => {
-  const rng = makeRng(11);
+const CORE_ROLES = ['swarm', 'frontline', 'tank'];
+
+test('the horde keeps the island populated without ever exceeding its target', () => {
   const cfg = WAVES.island;
-  const early = composeWave(cfg, 'night', 0, 10, rng);
-  const late = composeWave(cfg, 'night', 6, 30, rng);
-  const roles = (list) => new Set(list.map((id) => ENEMIES[id].role));
-  assert.ok(early.length > 0 && late.length > early.length);
-  assert.ok(!roles(early).has('support'));
-  assert.ok(roles(late).has('support') || roles(late).has('tank'));
-  assert.ok(early.every((id) => ENEMIES[id].family === 'zombie'));
+  const h = new Horde(cfg, makeRng(3));
+  let alive = 0, most = 0;
+  for (let t = 0; t < 120; t += 0.25) {
+    alive += h.update(0.25, { phase: 'night', alive, core: alive, cap: 40 }).length;
+    most = Math.max(most, alive);
+  }
+  assert.equal(alive, cfg.population.night);
+  assert.equal(most, cfg.population.night);
+  let capped = 0;
+  for (let t = 0; t < 120; t += 0.25) capped += h.update(0.25, { phase: 'day', alive: capped, core: capped, cap: 5 }).length;
+  assert.equal(capped, 5, 'the enemy cap wins over the target');
 });
 
-test('WaveDirector alternates calm and wave and requests spawns', () => {
-  const wd = new WaveDirector(WAVES.island, makeRng(5));
-  let spawned = 0, waves = 0;
-  wd.onWaveStart = () => waves++;
-  for (let t = 0; t < 400; t += 0.5) {
-    const req = wd.update(0.5, { phase: 'day', playerLevel: 5, alive: 0 });
-    spawned += req.length;
+test('horde creatures keep their island level band and elite rate forever', () => {
+  const cfg = WAVES.island;
+  const h = new Horde(cfg, makeRng(9));
+  const windows = [[], []];
+  for (let t = 0; t < 4200; t += 0.5) {
+    const phase = Math.floor(t / 300) % 2 ? 'night' : 'day';
+    for (const r of h.update(0.5, { phase, alive: 0, core: 5, cap: 40 })) {
+      const [lo, hi] = cfg.levels[phase];
+      assert.ok(r.level >= lo && r.level <= hi, `level ${r.level} in ${phase}`);
+      if (t < 600) windows[0].push(r); else if (t >= 3600) windows[1].push(r);
+    }
   }
-  assert.ok(waves >= 2, `waves ${waves}`);
-  assert.ok(spawned > 10);
+  const rate = (list) => list.filter((r) => r.elite).length / list.length;
+  for (const w of windows) assert.ok(Math.abs(rate(w) - cfg.elite) < 0.04, `elite rate ${rate(w)}`);
+  assert.equal(islandLevel(cfg, 'day', { int: (lo) => lo }), cfg.levels.day[0]);
+});
+
+test('support creatures only join once a front line is standing', () => {
+  const h = new Horde(WAVES.island, makeRng(4));
+  for (let t = 0; t < 300; t += 0.5) {
+    for (const r of h.update(0.5, { phase: 'night', alive: 0, core: 0, cap: 40 })) assert.ok(CORE_ROLES.includes(ENEMIES[r.id].role), r.id);
+  }
+});
+
+test('bosses roam on a random clock with a minimum gap, by their own day or night', () => {
+  const cfg = WAVES.island;
+  const [lo, hi] = cfg.bossCooldown;
+  const clock = new BossClock(cfg, makeRng(2));
+  const run = (secs, ctx) => { const out = []; for (let t = 0; t < secs; t += 1) { const id = clock.update(1, ctx); if (id) out.push(id); } return out; };
+  clock.timer = clock.cooldown();
+  assert.ok(clock.timer >= lo && clock.timer <= hi);
+  assert.deepEqual(run(lo - 2, { phase: 'day', level: 30, bossAbroad: false }), []);
+  clock.timer = clock.cooldown();
+  assert.deepEqual(run(hi + 1, { phase: 'day', level: 30, bossAbroad: false }).slice(0, 1), ['slime_prince']);
+  clock.timer = 0;
+  assert.deepEqual(run(1, { phase: 'night', level: 30, bossAbroad: false }), ['silverback_emperor']);
+  // Too low for the Emperor: nothing comes, and the clock checks again a minute later.
+  clock.timer = 0;
+  assert.deepEqual(run(1, { phase: 'night', level: 10, bossAbroad: false }), []);
+  assert.ok(clock.timer > 0 && clock.timer <= 60);
+  // While a boss is abroad the clock waits.
+  clock.timer = 5;
+  assert.deepEqual(run(100, { phase: 'day', level: 30, bossAbroad: true }), []);
+  assert.equal(clock.timer, 5);
+});
+
+test('old saves lose the boss pity and gain the boss clock', () => {
+  const old = fresh();
+  delete old.world.bossTimer;
+  old.world.bossPity = { slime_prince: 3 };
+  const m = migrate(JSON.parse(JSON.stringify(old)));
+  assert.equal(m.world.bossPity, undefined);
+  assert.ok(m.world.bossTimer > 0);
 });
 
 test('DayNight cycles day then night', () => {
@@ -290,11 +338,19 @@ test('DayNight cycles day then night', () => {
   assert.ok(dn.sun >= -1 && dn.sun <= 1);
 });
 
+test('tier 8 traits bring their new stats', () => {
+  const p = fresh('mage'); p.level = 100;
+  const dawn = computeStats(p, [ITEMS.mage_weapon_dawndosite, ITEMS.mage_armor_dawndosite]);
+  assert.ok(dawn.blindChance > 0 && dawn.killHeal > 0 && dawn.healMult > computeStats(p, []).healMult);
+  const dusk = computeStats(p, [ITEMS.mage_weapon_escuresite]);
+  assert.ok(dusk.critLifesteal > 0 && dusk.critMult > computeStats(p, []).critMult);
+});
+
 test('balance: a same-level standard enemy takes a few hits; the player survives several', () => {
   // Expected gear for the level: best tier whose recipe level is reached.
-  const tierFor = (L) => [1, 3, 8, 16, 26, 38, 50, 64].filter((x) => x <= L).length - 1;
-  const mats = ['wood', 'stone', 'copper', 'iron', 'titanium', 'emerald', 'ruby', 'diamond'];
-  for (const L of [1, 10, 20, 35, 50, 65, 80]) {
+  const tierFor = (L) => [1, 3, 8, 16, 26, 38, 50, 64, 100].filter((x) => x <= L).length - 1;
+  const mats = ['wood', 'stone', 'copper', 'iron', 'titanium', 'emerald', 'ruby', 'diamond', 'dawndosite'];
+  for (const L of [1, 10, 20, 35, 50, 65, 80, 95, 100, 115]) {
     const p = fresh('swordsman'); p.level = L; p.attrs.str = Math.floor((L - 1) * 2); p.attrs.res = (L - 1);
     const m = mats[tierFor(L)];
     const s = computeStats(p, [ITEMS[`swordsman_weapon_${m}`], ITEMS[`swordsman_armor_${m}`]]);

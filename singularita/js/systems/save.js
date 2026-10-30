@@ -16,7 +16,7 @@ export function newProfile({ name, classId, slot, seed }) {
     inv, equipment: {}, hotbars: { [classId]: defaultHotbar(classId) },
     zone: 'island', pos: null,
     zones: {},
-    world: { clock: 150, bossPity: {}, bossesSeen: {} },
+    world: { clock: 150, bossTimer: 360, bossesSeen: {}, guardians: {} },
     objectives: { index: 0, progress: 0 },
     lore: [],
     stats: { kills: 0, killsBy: {}, crafted: {}, gathered: {}, bosses: {}, deaths: 0, maxLayer: 0, waves: 0 },
@@ -50,7 +50,8 @@ function fillDefaults(target, defaults) {
 export function migrate(data) {
   const defaults = newProfile({ name: data.name || 'Wanderer', classId: data.classId || 'swordsman', slot: data.slot ?? 0, seed: data.seed ?? 1 });
   delete defaults.inv.stacks.healing_tonic;
-  // Version-specific steps go here (none yet beyond filling defaults).
+  // The boss pity roll became a boss clock.
+  if (data.world) delete data.world.bossPity;
   fillDefaults(data, { ...defaults, inv: data.inv || defaults.inv, equipment: data.equipment || {}, hotbars: data.hotbars || defaults.hotbars });
   data.version = SAVE_VERSION;
   return data;

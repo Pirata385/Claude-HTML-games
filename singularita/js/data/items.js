@@ -4,10 +4,10 @@ import { MATERIALS, MAIN_MATERIALS } from './materials.js';
 import { CLASSES, CLASS_IDS } from './classes.js';
 import { TOOL_POWER } from './nodes.js';
 
-export const WEAPON_POWER = [8, 13, 20, 30, 44, 62, 86, 118];
-export const ARMOR_DEF = [4, 8, 14, 22, 33, 47, 64, 86];
-export const ARMOR_HP = [10, 25, 45, 75, 115, 165, 230, 310];
-export const ACC_ATTR = [2, 4, 7, 11, 16, 22, 30, 40];
+export const WEAPON_POWER = [8, 13, 20, 30, 44, 62, 86, 118, 160];
+export const ARMOR_DEF = [4, 8, 14, 22, 33, 47, 64, 86, 114];
+export const ARMOR_HP = [10, 25, 45, 75, 115, 165, 230, 310, 410];
+export const ACC_ATTR = [2, 4, 7, 11, 16, 22, 30, 40, 52];
 
 // Material trait → stat modifiers, per slot.
 const TRAIT_MODS = {
@@ -22,6 +22,8 @@ const TRAIT_MODS = {
   ember: { weapon: { burnChance: 0.25 }, armor: { statusRes: 0.1, fireBonus: 0.1 }, accessory: { burnChance: 0.1, fireBonus: 0.15 } },
   rime: { weapon: { chillChance: 0.25 }, armor: { resRegen: 0.15 }, accessory: { chillChance: 0.1, resRegen: 0.1 } },
   prismatic: { weapon: { crit: 0.08, critMult: 0.3, prismatic: 1 }, armor: { crit: 0.05, defMult: 0.05 }, accessory: { crit: 0.04, critMult: 0.15 } },
+  radiant: { weapon: { blindChance: 0.15, killHeal: 0.03 }, armor: { statusRes: 0.15, healBonus: 0.15 }, accessory: { killHeal: 0.02, blindChance: 0.08 } },
+  umbral: { weapon: { critMult: 0.4, critLifesteal: 0.15 }, armor: { dodgeCd: 0.15, crit: 0.04 }, accessory: { critMult: 0.2, critLifesteal: 0.06 } },
 };
 
 // Each class's accessory has its own perk on top of its attribute bonus.
@@ -89,6 +91,17 @@ list.push({
   desc: 'A silver knuckle-plate from the war-ape of the Dawnforger king. +12% damage and a heavier hand.',
 });
 
+// Elemental isle accessories (crafted from isle materials) and isle boss uniques. Any class.
+const anyAcc = (id, name, tier, rarity, stats, desc, unique = false) => list.push({ id, name, kind: 'gear', slot: 'accessory', class: 'any', tier, rarity, stats, desc, unique });
+anyAcc('zephyr_charm', 'Zephyr Charm', 7, 'epic', { moveSpd: 0.08, dodgeCd: 0.15, agi: 12 }, 'Skyglass threaded on harpy feathers. Your feet forget how heavy they are.');
+anyAcc('tidecaller_pendant', 'Tidecaller Pendant', 7, 'epic', { resRegen: 0.2, healBonus: 0.15, rsv: 12 }, 'An abyssal pearl in tide silk. It rises and falls with your breath.');
+anyAcc('cinder_brand', 'Cinder Brand', 7, 'epic', { fireBonus: 0.15, burnChance: 0.12, str: 12 }, 'An obsidian brand bound in salamander scale, warm as a coal.');
+anyAcc('rootbound_torc', 'Rootbound Torc', 7, 'epic', { hpMult: 0.12, staggerRes: 0.2, res: 12 }, 'Living amber set in a torc of root. It tightens when you are hit.');
+anyAcc('ronin_sash', "Ronin's Sash", 8, 'legendary', { atkSpd: 0.12, crit: 0.06, dodgeCd: 0.15 }, 'The Ronin of the East Wind wore it for a thousand years of guard duty. It still streams in a wind that is not there.', true);
+anyAcc('tearstone_pendant', 'Tearstone Pendant', 8, 'legendary', { hpRegen: 0.006, healBonus: 0.25, resMax: 25 }, 'A tear of the sea god set in coral. Grief, it turns out, is a kind of healing.', true);
+anyAcc('vector_ring', 'Vector Ring', 8, 'legendary', { dmgBonus: 0.1, moveSpd: 0.05, armorPen: 0.1 }, 'A ring cut from the Magma Vector\'s path. It pulls your hand straight toward its target.', true);
+anyAcc('allele_crest', 'Allele Crest', 8, 'legendary', { hpMult: 0.08, dmgBonus: 0.06, statusRes: 0.15 }, 'A crest grown, not forged. Each time you look at it, it is a slightly different shape.', true);
+
 export const ITEMS = Object.fromEntries(list.map((i) => [i.id, i]));
 
 // Human-readable stat labels, used by tooltips and comparisons.
@@ -100,7 +113,9 @@ export const STAT_LABELS = {
   lifesteal: 'Life steal', hpRegen: 'Health regen', resRegen: 'Resource regen', resMax: 'Resource max', cdr: 'Cooldown reduction',
   luck: 'Drop luck', shockChance: 'Shock chance', burnChance: 'Burn chance', chillChance: 'Chill chance', prismatic: 'Prismatic',
   intScale: 'INT scaling', spiScale: 'SPI scaling', fireBonus: 'Fire bonus', hpMult: 'Max health', stillRegen: 'Regen when still', dmgBonus: 'Damage',
+  blindChance: 'Blind chance', killHeal: 'Heal on kill', critLifesteal: 'Crit life drain', healBonus: 'Healing received',
 };
 // Stats shown as percentages.
 export const PERCENT_STATS = new Set(['atkSpd', 'moveSpd', 'dodgeCd', 'crit', 'critMult', 'knockback', 'staggerRes', 'armorPen', 'statusRes',
-  'lifesteal', 'hpRegen', 'resRegen', 'cdr', 'luck', 'shockChance', 'burnChance', 'chillChance', 'intScale', 'spiScale', 'fireBonus', 'hpMult', 'stillRegen', 'dmgBonus']);
+  'lifesteal', 'hpRegen', 'resRegen', 'cdr', 'luck', 'shockChance', 'burnChance', 'chillChance', 'intScale', 'spiScale', 'fireBonus', 'hpMult', 'stillRegen', 'dmgBonus',
+  'blindChance', 'killHeal', 'critLifesteal', 'healBonus']);

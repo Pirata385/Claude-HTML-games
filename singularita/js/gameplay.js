@@ -4,6 +4,7 @@ import { Overlay } from './ui/overlay.js';
 import { Combat } from './combat/combat.js';
 import { Enemies } from './ai/enemies.js';
 import { Spawner } from './ai/spawner.js';
+import { Phenomena } from './world/phenomena.js';
 import { Astral } from './entities/astral.js';
 import { makeKit } from './combat/kits/index.js';
 import { addXp, applyDeathPenalty, xpToNext } from './systems/progression.js';
@@ -19,6 +20,7 @@ export function installGameplay(game) {
   game.combat = new Combat(game);
   game.enemies = new Enemies(game);
   game.spawner = new Spawner(game);
+  game.phenomena = new Phenomena(game);
   game.lockTarget = null;
   game.stopT = 0;
   game.consumableCd = 0;
@@ -83,9 +85,13 @@ export function installGameplay(game) {
   };
   game.bestTonic = () => {
     const inv = game.profile.inv, p = game.player;
+    // Save the strongest draughts for when they matter; the Pearl Elixir also cures poison, burns and bleeding.
+    const hurting = p.statuses.has('poison') || p.statuses.has('burn') || p.statuses.has('bleed');
+    if ((p.hp < game.stats.maxHp * 0.3 || hurting) && count(inv, 'pearl_elixir')) return 'pearl_elixir';
     if (p.hp < game.stats.maxHp * 0.4 && count(inv, 'greater_healing_tonic')) return 'greater_healing_tonic';
     if (count(inv, 'healing_tonic')) return 'healing_tonic';
     if (count(inv, 'greater_healing_tonic')) return 'greater_healing_tonic';
+    if (count(inv, 'pearl_elixir')) return 'pearl_elixir';
     return null;
   };
 
@@ -127,8 +133,9 @@ export function installGameplay(game) {
       g.lockTarget = null;
       g.astral?.manifest(false);
       g.spawner.onZoneExit();
+      g.phenomena.onZoneExit();
     },
-    onZoneEnter(g) { g.spawner.onZoneEnter(); },
+    onZoneEnter(g) { g.spawner.onZoneEnter(); g.phenomena.onZoneEnter(); },
     update(dt, g) {
       const p = g.player, inp = g.input;
       g.consumableCd = Math.max(0, g.consumableCd - dt);
@@ -159,6 +166,7 @@ export function installGameplay(game) {
       g.astral?.update(dt);
       g.combat.update(dt);
       g.spawner.update(dt);
+      g.phenomena.update(dt);
       g.fx.update(dt);
     },
     render(dt, g) {

@@ -19,11 +19,18 @@ const SECONDARY = [
   { weapon: { prism_dust: 8, gold: 10 }, armor: { prism_dust: 10, titanium: 8 }, accessory: { royal_jelly: 3, silver_mane: 3, prism_dust: 4 }, pickaxe: { prism_dust: 5 }, axe: { prism_dust: 3 } },
 ];
 const RIFT_DROP = { ruby: 'ember_core', sapphire: 'rime_shard' };
+// Tier 8: Dawndosite draws on the isles of Air and Water, Escuresite on Fire and Earth.
+const TIER8 = {
+  dawndosite: { weapon: { skyglass: 8, abyssal_pearl: 6, zephyr_feather: 6 }, armor: { tide_silk: 10, zephyr_feather: 8, diamond: 10 },
+    accessory: { eastwind_silk: 2, poseidon_tear: 2, skyglass: 4, abyssal_pearl: 3 }, pickaxe: { skyglass: 4, abyssal_pearl: 3 }, axe: { zephyr_feather: 3, tide_silk: 2 } },
+  escuresite: { weapon: { obsidian: 8, living_amber: 6, salamander_scale: 6 }, armor: { golem_shard: 10, salamander_scale: 8, diamond: 10 },
+    accessory: { vector_core: 2, allele_seed: 2, obsidian: 4, living_amber: 3 }, pickaxe: { obsidian: 4, living_amber: 3 }, axe: { salamander_scale: 3, golem_shard: 2 } },
+};
 
 function gearInputs(matId, slot) {
   const t = MATERIALS[matId].tier;
   const inputs = { [matId]: BASE_QTY[slot] + 2 * t };
-  for (const [id, n] of Object.entries(SECONDARY[t][slot])) {
+  for (const [id, n] of Object.entries(t === 8 ? TIER8[matId][slot] : SECONDARY[t][slot])) {
     const real = id === 'X' ? RIFT_DROP[matId] : id;
     inputs[real] = (inputs[real] || 0) + n;
   }
@@ -56,6 +63,14 @@ consumable('royal_bait', 10, { slime_gel: 15, gold: 2 }, 1);
 consumable('echo_horn', 16, { zombie_sinew: 15, iron: 3 }, 1);
 consumable('antidote', 22, { slime_gel: 4, bat_leather: 2 }, 2);
 consumable('greater_healing_tonic', 30, { slime_gel: 4, crawler_chitin: 2, emerald: 1 }, 2);
+consumable('pearl_elixir', 72, { abyssal_pearl: 1, tide_silk: 2, slime_gel: 4 }, 2);
+
+// Elemental isle accessories.
+const isleAcc = (item, level, inputs) => list.push({ id: `craft_${item}`, category: 'accessories', output: { item, count: 1 }, level, inputs });
+isleAcc('zephyr_charm', 72, { skyglass: 6, zephyr_feather: 8, diamond: 4 });
+isleAcc('tidecaller_pendant', 72, { abyssal_pearl: 6, tide_silk: 8, sapphire: 4 });
+isleAcc('cinder_brand', 86, { obsidian: 8, salamander_scale: 8, ruby: 4 });
+isleAcc('rootbound_torc', 86, { living_amber: 10, golem_shard: 6, emerald: 6 });
 
 export const RECIPES = Object.fromEntries(list.map((r) => [r.id, r]));
 export const RECIPE_CATEGORIES = [

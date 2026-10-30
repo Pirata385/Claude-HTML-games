@@ -88,6 +88,65 @@ export const RIGS = {
 
 // ---------------------------------------------------------------- animation
 // Pose per part: rotation, offset, uniform-ish scale. Reused objects, no allocation per frame.
+// ---------------------------------------------------------------- Milestone 2 creatures
+Object.assign(RIGS, {
+  // Gale Harpy: a feathered body with talons; flaps like a bat.
+  harpy: () => ({ kind: 'bat', parts: [
+    P('body', -1, [0, 0, 0], [B(0, 0, 0, 0.5, 0.6, 0.45, W), B(0, 0.45, 0.08, 0.36, 0.34, 0.34, '#e8c8a8'), B(0.08, 0.5, 0.25, 0.06, 0.06, 0.02, '#2a2a40'), B(-0.08, 0.5, 0.25, 0.06, 0.06, 0.02, '#2a2a40'),
+      B(0, 0.42, 0.28, 0.1, 0.08, 0.1, '#ffb347'), B(0, 0.7, -0.05, 0.44, 0.1, 0.4, W), B(0.12, -0.42, 0.05, 0.08, 0.3, 0.08, '#ffb347'), B(-0.12, -0.42, 0.05, 0.08, 0.3, 0.08, '#ffb347'), B(0, -0.15, -0.35, 0.3, 0.1, 0.4, W)], 'a'),
+    P('wingL', 0, [0.25, 0.15, 0], [B(0.55, 0, 0, 1.1, 0.06, 0.6, W), B(1.05, 0, -0.15, 0.3, 0.05, 0.4, '#b8c8e0')], 'a'),
+    P('wingR', 0, [-0.25, 0.15, 0], [B(-0.55, 0, 0, 1.1, 0.06, 0.6, W), B(-1.05, 0, -0.15, 0.3, 0.05, 0.4, '#b8c8e0')], 'a'),
+  ] }),
+  // Kite Serpent: four segments that ripple as it swims through the air.
+  serpent: () => ({ kind: 'serpent', parts: [
+    P('s0', -1, [0, 0, 0.6], [B(0, 0, 0, 0.42, 0.36, 0.5, W), B(0.12, 0.08, 0.26, 0.06, 0.06, 0.02, '#ffe066'), B(-0.12, 0.08, 0.26, 0.06, 0.06, 0.02, '#ffe066'), B(0, 0.24, -0.1, 0.06, 0.24, 0.3, '#ffe066')], 'a'),
+    P('s1', -1, [0, 0, 0.1], [B(0, 0, 0, 0.36, 0.32, 0.5, W), B(0.3, 0, 0, 0.3, 0.04, 0.2, '#b8d8ff'), B(-0.3, 0, 0, 0.3, 0.04, 0.2, '#b8d8ff')], 'a'),
+    P('s2', -1, [0, 0, -0.4], [B(0, 0, 0, 0.3, 0.26, 0.5, W)], 'a'),
+    P('s3', -1, [0, 0, -0.85], [B(0, 0, 0, 0.2, 0.18, 0.44, W), B(0, 0.12, -0.2, 0.04, 0.3, 0.2, '#ffe066')], 'a'),
+  ] }),
+  // Wisps: a glowing core inside a slowly turning shell of stones or sparks.
+  wisp: () => ({ kind: 'wisp', parts: [
+    P('core', -1, [0, 0.4, 0], [B(0, 0, 0, 0.36, 0.36, 0.36, W), B(0, 0, 0, 0.5, 0.14, 0.14, W), B(0, 0, 0, 0.14, 0.5, 0.14, W)], 'a', { unlit: true }),
+    P('shell', 0, [0, 0, 0], [B(0.42, 0.1, 0, 0.18, 0.18, 0.18, '#8a8070'), B(-0.4, -0.12, 0.12, 0.16, 0.16, 0.16, '#8a8070'), B(0.05, 0.36, -0.36, 0.15, 0.15, 0.15, '#9a9080'), B(-0.1, -0.38, -0.3, 0.14, 0.14, 0.14, '#7a7060')]),
+  ] }),
+  // Glass Jelly: a pulsing bell trailing tentacles.
+  jelly: () => ({ kind: 'jelly', parts: [
+    P('bell', -1, [0, 0.6, 0], [B(0, 0.2, 0, 0.9, 0.5, 0.9, W), B(0, 0.5, 0, 0.6, 0.2, 0.6, W), B(0, 0, 0, 1.0, 0.1, 1.0, '#f0e0ff')], 'a'),
+    P('tails', 0, [0, -0.05, 0], [B(0.25, -0.35, 0.2, 0.06, 0.7, 0.06, '#e8d8ff'), B(-0.25, -0.4, 0.15, 0.06, 0.8, 0.06, '#e8d8ff'), B(0.15, -0.3, -0.25, 0.06, 0.6, 0.06, '#e8d8ff'), B(-0.2, -0.35, -0.2, 0.06, 0.7, 0.06, '#e8d8ff')], 'a'),
+  ] }),
+  // Lava Hound: a lean quadruped with a glowing back.
+  hound: () => ({ kind: 'quad', parts: [
+    P('body', -1, [0, 0.7, 0], [B(0, 0, 0, 0.5, 0.45, 1.2, W), B(0, 0.25, -0.1, 0.3, 0.06, 0.8, '#ffd070')], 'a'),
+    P('head', 0, [0, 0.2, 0.65], [B(0, 0.05, 0.15, 0.42, 0.38, 0.44, W), B(0, -0.05, 0.42, 0.26, 0.18, 0.22, '#3a2a26'), B(0.12, 0.12, 0.37, 0.06, 0.06, 0.02, '#ffe066'), B(-0.12, 0.12, 0.37, 0.06, 0.06, 0.02, '#ffe066'), B(0.14, 0.3, 0.05, 0.1, 0.16, 0.1, '#3a2a26'), B(-0.14, 0.3, 0.05, 0.1, 0.16, 0.1, '#3a2a26')], 'a'),
+    P('legFL', 0, [0.17, -0.15, 0.42], [B(0, -0.25, 0, 0.14, 0.5, 0.14, '#3a2a26')]),
+    P('legFR', 0, [-0.17, -0.15, 0.42], [B(0, -0.25, 0, 0.14, 0.5, 0.14, '#3a2a26')]),
+    P('legBL', 0, [0.17, -0.15, -0.42], [B(0, -0.25, 0, 0.14, 0.5, 0.14, '#3a2a26')]),
+    P('legBR', 0, [-0.17, -0.15, -0.42], [B(0, -0.25, 0, 0.14, 0.5, 0.14, '#3a2a26')]),
+    P('tail', 0, [0, 0.1, -0.6], [B(0, 0.05, -0.25, 0.1, 0.1, 0.5, '#ffb347')]),
+  ] }),
+  // Mossback Tortoise: a mossy shell on short legs.
+  tortoise: () => ({ kind: 'quad', parts: [
+    P('body', -1, [0, 0.55, 0], [B(0, 0.1, 0, 1.4, 0.7, 1.6, '#5a4a32'), B(0, 0.5, 0, 1.1, 0.3, 1.3, W), B(0.3, 0.7, 0.2, 0.3, 0.2, 0.3, '#8aba5a'), B(-0.35, 0.68, -0.3, 0.35, 0.18, 0.3, '#8aba5a')], 'a'),
+    P('head', 0, [0, 0.0, 0.85], [B(0, 0.05, 0.2, 0.44, 0.4, 0.44, '#7a8a5a'), B(0.12, 0.12, 0.43, 0.06, 0.06, 0.02, '#141018'), B(-0.12, 0.12, 0.43, 0.06, 0.06, 0.02, '#141018')]),
+    P('legFL', 0, [0.55, -0.2, 0.55], [B(0, -0.15, 0, 0.34, 0.4, 0.34, '#7a8a5a')]),
+    P('legFR', 0, [-0.55, -0.2, 0.55], [B(0, -0.15, 0, 0.34, 0.4, 0.34, '#7a8a5a')]),
+    P('legBL', 0, [0.55, -0.2, -0.55], [B(0, -0.15, 0, 0.34, 0.4, 0.34, '#7a8a5a')]),
+    P('legBR', 0, [-0.55, -0.2, -0.55], [B(0, -0.15, 0, 0.34, 0.4, 0.34, '#7a8a5a')]),
+    P('tail', 0, [0, -0.1, -0.85], [B(0, 0, -0.1, 0.18, 0.18, 0.2, '#7a8a5a')]),
+  ] }),
+  // Root Lasher: a rooted stalk that whips a thorned tip.
+  lasher: () => ({ kind: 'lasher', parts: [
+    P('base', -1, [0, 0, 0], [B(0, 0.2, 0, 1.2, 0.4, 1.2, '#5a3a22'), B(0.5, 0.1, 0.4, 0.5, 0.2, 0.3, '#5a3a22'), B(-0.45, 0.1, -0.45, 0.4, 0.2, 0.5, '#5a3a22')]),
+    P('stalk', 0, [0, 0.4, 0], [B(0, 0.6, 0, 0.36, 1.2, 0.36, W), B(0.22, 0.8, 0, 0.2, 0.08, 0.08, '#4a7a3a')], 'a'),
+    P('upper', 1, [0, 1.2, 0], [B(0, 0.5, 0, 0.28, 1.0, 0.28, W), B(-0.18, 0.4, 0.05, 0.16, 0.08, 0.08, '#4a7a3a')], 'a'),
+    P('tip', 2, [0, 1.0, 0], [B(0, 0.25, 0.1, 0.5, 0.5, 0.5, '#7a3a3a'), B(0, 0.25, 0.38, 0.12, 0.12, 0.2, '#e8d8a0'), B(0.2, 0.42, 0.2, 0.08, 0.2, 0.08, '#e8d8a0'), B(-0.2, 0.1, 0.2, 0.08, 0.2, 0.08, '#e8d8a0')]),
+  ] }),
+  // Fire Imp: a small horned humanoid with ember wings.
+  imp: () => humanoid({ armLen: 0.5, eyes: '#ffe066', scale: 0.75,
+    head: [B(0.16, 0.56, 0, 0.08, 0.2, 0.08, '#3a2a26'), B(-0.16, 0.56, 0, 0.08, 0.2, 0.08, '#3a2a26')],
+    extraTorso: [B(0.4, 0.55, -0.25, 0.5, 0.36, 0.04, '#ff8a3d'), B(-0.4, 0.55, -0.25, 0.5, 0.36, 0.04, '#ff8a3d'), B(0, 0.0, -0.25, 0.08, 0.08, 0.5, '#3a2a26')] }),
+});
+
 export function makePose(n) { return Array.from({ length: n }, () => ({ rx: 0, ry: 0, rz: 0, x: 0, y: 0, z: 0, sx: 1, sy: 1, sz: 1 })); }
 function reset(pose) { for (const p of pose) { p.rx = p.ry = p.rz = p.x = p.y = p.z = 0; p.sx = p.sy = p.sz = 1; } }
 
@@ -152,6 +211,29 @@ export function animate(rig, st, pose) {
     pose[0].rx = 0.15 * mv;
     pose[2].rx = -0.4 + Math.sin(st.t * 2.5) * 0.2 - (st.atk > 0 ? Math.sin(st.atk * Math.PI) * 1.2 : 0);
     pose[3].rx = -0.4 + Math.cos(st.t * 2.5) * 0.2 - (st.atk > 0 ? Math.sin(st.atk * Math.PI) * 1.2 : 0);
+  } else if (k === 'serpent') {
+    for (let s = 0; s < 4; s++) { pose[s].x = Math.sin(st.t * 4 - s * 0.9) * 0.18; pose[s].y = Math.sin(st.t * 3 - s * 0.8) * 0.1; pose[s].ry = Math.cos(st.t * 4 - s * 0.9) * 0.25; }
+    if (st.wind > 0) pose[0].rx = -0.4 * st.wind;
+  } else if (k === 'wisp') {
+    const p = 1 + Math.sin(st.t * 5) * 0.1 + (st.wind || 0) * 0.4;
+    pose[0].sx = pose[0].sy = pose[0].sz = p;
+    pose[1].ry = st.t * 1.6; pose[1].rx = st.t * 0.7;
+  } else if (k === 'jelly') {
+    const p = Math.sin(st.t * 3);
+    pose[0].sy = 1 - p * 0.12; pose[0].sx = pose[0].sz = 1 + p * 0.08;
+    pose[1].sy = 1 + p * 0.15; pose[1].ry = st.t * 0.5;
+    if (st.wind > 0) { pose[0].sx = pose[0].sz = 1 + st.wind * 0.3; }
+  } else if (k === 'quad') {
+    const sw = Math.sin(ph * 1.6) * 0.6 * mv;
+    pose[2].rx = sw; pose[5].rx = sw; pose[3].rx = -sw; pose[4].rx = -sw;
+    pose[0].y = Math.abs(Math.sin(ph * 1.6)) * 0.05 * mv;
+    pose[1].rx = (st.wind > 0 ? -0.35 * st.wind : 0) + (st.atk > 0 ? Math.sin(st.atk * Math.PI) * 0.5 : 0);
+    pose[6].ry = Math.sin(st.t * 6) * 0.4;
+  } else if (k === 'lasher') {
+    const sway = Math.sin(st.t * 1.6) * 0.15;
+    pose[1].rz = sway; pose[2].rz = sway * 1.4;
+    if (st.wind > 0) { pose[1].rx = -0.5 * st.wind; pose[2].rx = -0.7 * st.wind; }
+    if (st.atk > 0) { const s = Math.sin(st.atk * Math.PI); pose[1].rx = 0.9 * s; pose[2].rx = 1.2 * s; pose[3].rx = 0.6 * s; }
   } else if (k === 'sentry') {
     pose[1].y = Math.sin(st.t * 2) * 0.12;
     pose[1].ry = st.t * 1.5;
@@ -215,7 +297,7 @@ export class RigInstancer {
     this.rig = rig;
     this.capacity = capacity;
     this.meshes = rig.parts.map((p) => {
-      const mesh = new THREE.InstancedMesh(boxesGeometry(p.boxes), litMaterial(), capacity);
+      const mesh = new THREE.InstancedMesh(boxesGeometry(p.boxes), p.unlit ? unlitMaterial() : litMaterial(), capacity);
       mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
       mesh.frustumCulled = false;
       mesh.castShadow = true;

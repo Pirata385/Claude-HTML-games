@@ -24,8 +24,20 @@ export const NODES = {
   ore_ruby: ore('ruby', 6, { name: 'Ruby Cluster', yield: [1, 2] }),
   ore_sapphire: ore('sapphire', 6, { name: 'Sapphire Cluster', yield: [1, 2] }),
   ore_diamond: ore('diamond', 7, { name: 'Diamond Geode', yield: [1, 2] }),
+  ore_dawndosite: ore('dawndosite', 8, { name: 'Dawndosite Bloom', yield: [1, 2], model: 'ore' }),
+  ore_escuresite: ore('escuresite', 8, { name: 'Escuresite Knot', yield: [1, 2], model: 'ore' }),
+
+  // Elemental isles.
+  tree_cloudpine: { id: 'tree_cloudpine', name: 'Cloud Pine', material: 'wood', tier: 0, tool: 'axe', hp: 7, yield: [2, 4], respawn: 100, xp: 2, model: 'cloudpine' },
+  tree_palm: { id: 'tree_palm', name: 'Palm', material: 'wood', tier: 0, tool: 'axe', hp: 6, yield: [2, 4], respawn: 100, xp: 2, model: 'palm' },
+  tree_charred: { id: 'tree_charred', name: 'Charred Tree', material: 'wood', tier: 0, tool: 'axe', hp: 5, yield: [1, 3], respawn: 100, xp: 2, model: 'charred' },
+  tree_mossoak: { id: 'tree_mossoak', name: 'Moss Oak', material: 'wood', tier: 0, tool: 'axe', hp: 8, yield: [3, 5], respawn: 100, xp: 2, model: 'mossoak' },
+  node_skyglass: ore('skyglass', 7, { id: 'node_skyglass', name: 'Skyglass Spire', yield: [1, 3] }),
+  pearl_bed: ore('abyssal_pearl', 7, { id: 'pearl_bed', name: 'Pearl Bed', yield: [1, 2], model: 'pearl', tide: 'low' }),
+  ore_obsidian: ore('obsidian', 7, { name: 'Obsidian Flow', yield: [1, 3] }),
+  amber_root: { id: 'amber_root', name: 'Amber Root', material: 'living_amber', tier: 0, tool: 'axe', hp: 30, yield: [1, 2], respawn: 200, xp: 20, model: 'amber' },
 };
 
 // Power of tools by tier; hands are 1.
-export const TOOL_POWER = [2, 3, 4.5, 6.5, 9, 12.5, 17, 23];
+export const TOOL_POWER = [2, 3, 4.5, 6.5, 9, 12.5, 17, 23, 31];
 export const HAND_POWER = 1;

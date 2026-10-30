@@ -7,6 +7,7 @@ import { Sky, applyDayPalette } from './render/sky.js';
 import { ZoneView } from './render/zoneView.js';
 import { buildPlayerRig } from './render/models.js';
 import { generateZone } from './world/gen/index.js';
+import { placeWayshrine } from './world/gen/island.js';
 import { Player } from './entities/player.js';
 import { DayNight } from './systems/dayNight.js';
 import { computeStats } from './systems/stats.js';
@@ -16,7 +17,11 @@ import { ZONES } from './data/zones.js';
 
 const zoneCache = new Map();
 export function getZone(id) {
-  if (!zoneCache.has(id)) zoneCache.set(id, generateZone(id));
+  if (!zoneCache.has(id)) {
+    const z = generateZone(id);
+    if (z.type === 'island') placeWayshrine(z);
+    zoneCache.set(id, z);
+  }
   return zoneCache.get(id);
 }
 
@@ -69,7 +74,7 @@ export class Game {
     this.zoneDef = ZONES[zoneId];
     this.profile.zone = zoneId;
     this.profile.zones[zoneId] ||= { nodes: {}, fog: null };
-    this.view = new ZoneView(this.r, this.zone, this.sky, this.settings.graphics);
+    this.view = new ZoneView(this.r, this.zone, this.sky, this.settings.graphics, { gateOpen: !!this.profile.flags?.gateOpen });
     const p = arrival || this.zone.spawn;
     this.player.x = p.x; this.player.z = p.z;
     this.player.y = this.player.ry = this.grid.height(Math.floor(p.x), Math.floor(p.z));
@@ -107,6 +112,9 @@ export class Game {
     if (this.zone.type === 'island') {
       const dir = applyDayPalette(this.r, this.sky, this.dayNight.sun, this.dayNight.progress, this.dayNight.phase);
       this.r.sun.position.set(this.player.x + dir.x * 80, this.player.y + dir.y * 80, this.player.z + dir.z * 80);
+    } else if (this.zone.type === 'isle') {
+      // The same fixed afternoon sun the isle sky shows.
+      this.r.sun.position.set(this.player.x + 36, this.player.y + 60, this.player.z + 28);
     } else {
       this.r.sun.position.set(this.player.x + 20, this.player.y + 60, this.player.z + 10);
     }

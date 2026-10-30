@@ -18,6 +18,7 @@ const PROJ = {
   mote: { boxes: [B(0, 0, 0, 0.24, 0.24, 0.24, '#f0e0ff'), B(0, 0, 0, 0.4, 0.06, 0.06, '#c48cff'), B(0, 0, 0, 0.06, 0.4, 0.06, '#c48cff')] },
   shard: { boxes: [B(0, 0, 0, 0.12, 0.12, 0.5, '#e8fbff')] },
   fireball: { boxes: [B(0, 0, 0, 0.5, 0.5, 0.5, '#ff7a3d'), B(0, 0, 0, 0.3, 0.3, 0.7, '#ffd166')] },
+  pebble: { boxes: [B(0, 0, 0, 0.34, 0.3, 0.34, '#b8a98a'), B(0.08, 0.1, 0, 0.2, 0.16, 0.2, '#9a8a6a')], lit: true },
 };
 const _m = new THREE.Matrix4(), _q = new THREE.Quaternion(), _p = new THREE.Vector3(), _s = new THREE.Vector3(), _f = new THREE.Vector3(), _z = new THREE.Vector3(0, 0, 1);
 const ZERO = new THREE.Matrix4().makeScale(0, 0, 0);
@@ -122,16 +123,19 @@ export class Combat {
       if (st.prismatic && r.crit) this.prismBurst(target, spec.ranged);
     }
     if (st.lifesteal > 0) this.healPlayer(dmg * st.lifesteal, true);
+    if (r.crit && st.critLifesteal > 0) this.healPlayer(dmg * st.critLifesteal, true);
+    if (!spec.noTraits && st.blindChance && g.rng.next() < st.blindChance) target.statuses.apply('blind', { dur: 2.5 });
     if (!spec.noLink && target.statuses.has('linked')) {
       for (const o of this.g.enemies.active) if (o !== target && o.alive && o.statuses.has('linked')) this.applyRaw(o, dmg * 0.5, 'status');
     }
     g.bus.emit('damage', { target, dmg, crit: r.crit, src: spec.src });
-    if (target.hp <= 0) g.enemies.kill(target, spec.src);
+    if (target.hp <= 0) { g.enemies.kill(target, spec.src); if (st.killHeal > 0) this.healPlayer(g.stats.maxHp * st.killHeal); }
     return { dmg, crit: r.crit };
   }
 
   applyStatus(target, id, o = {}) {
     if (!target.alive) return;
+    if (id === 'burn' && target.def?.fireproof) return;
     if (id === 'chill' && target.statuses.get('chill')?.stacks >= 1) {
       target.statuses.remove('chill');
       target.statuses.apply('freeze', { dur: STATUS.freeze.duration * (target.boss ? 0.35 : 1) });

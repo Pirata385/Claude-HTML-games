@@ -70,6 +70,18 @@ export function applyDayPalette(r, sky, sunHeight, progress, phase) {
   return dir;
 }
 
+// The isles have no day and night: a fixed afternoon in each isle's own colours.
+export function applyIslePalette(r, sky, pal) {
+  sky.uniforms.top.value.set(pal.sky);
+  sky.uniforms.horizon.value.set(pal.horizon);
+  sky.uniforms.sunDir.value.set(0.45, 0.75, 0.35).normalize();
+  sky.uniforms.sunColor.value.set(pal.sun);
+  sky.stars.material.opacity = 0;
+  r.sun.color.set(pal.sun); r.sun.intensity = 2.1;
+  r.hemi.color.set(pal.hemi); r.hemi.groundColor.set(pal.hemiG); r.hemi.intensity = 1.1;
+  r.scene.fog.color.set(pal.fog);
+}
+
 // Static cave lighting: dim hemisphere tinted by the layer, no sun.
 export function applyCavePalette(r, pal) {
   r.hemi.color.set(pal.light); r.hemi.groundColor.set(pal.fog);

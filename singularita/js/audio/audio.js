@@ -170,8 +170,9 @@ export class AudioEngine {
   setAmbient(kind) {
     if (!this.started) return;
     const { lp, g } = this.amb, t = this.ctx.currentTime;
-    // Island: surf and wind. Caves: a low rumble that deepens with depth.
-    const conf = kind === 'island' ? { f: 520, v: 0.25 } : { f: 110 + Math.max(0, 8 - (kind || 1)) * 15, v: 0.35 };
+    // Island and isles: surf and wind (the spires are all wind). Caves: a low rumble that deepens with depth.
+    const conf = kind === 'island' ? { f: 520, v: 0.25 } : kind === 'isle_air' ? { f: 900, v: 0.3 } : String(kind).startsWith('isle') ? { f: 460, v: 0.25 }
+      : { f: 110 + Math.max(0, 8 - (kind || 1)) * 15, v: 0.35 };
     lp.frequency.setTargetAtTime(conf.f, t, 0.5);
     g.gain.setTargetAtTime(conf.v, t, 0.8);
   }
@@ -222,5 +223,11 @@ const MOODS = {
   cave5: { root: 46, bpm: 74, scale: PHRYG, prog: [0, 1, -2], pad: 'sawtooth', lead: 'triangle', density: 0.12, bass: true },
   cave6: { root: 52, bpm: 66, scale: [0, 2, 4, 6, 7, 9, 11], prog: [0, 2], pad: 'sine', lead: 'sine', density: 0.2, bass: false },
   cave7: { root: 45, bpm: 60, scale: PHRYG, prog: [0, 1, 0, 6], pad: 'sine', lead: 'sine', density: 0.08, bass: true },
+  cave8: { root: 44, bpm: 58, scale: [0, 2, 4, 6, 7, 9, 11], prog: [0, 6, 0, -1], pad: 'sine', lead: 'triangle', density: 0.12, bass: true },
+  // The isles: wind in fourths over the spires, a lilting tide, a heavy forge beat, an old slow song of the roots.
+  isle_air: { root: 64, bpm: 84, scale: [0, 2, 5, 7, 9], prog: [0, 5, 2, 7], pad: 'triangle', lead: 'sine', density: 0.28, bass: false },
+  isle_water: { root: 60, bpm: 78, scale: [0, 2, 4, 7, 9, 11], prog: [0, -3, 5, -1], pad: 'sine', lead: 'triangle', density: 0.3, bass: true },
+  isle_fire: { root: 52, bpm: 104, scale: PHRYG, prog: [0, 1, -2, 1], pad: 'sawtooth', lead: 'square', density: 0.3, bass: true },
+  isle_earth: { root: 55, bpm: 70, scale: DORIAN, prog: [0, -2, 3, -5], pad: 'triangle', lead: 'triangle', density: 0.24, bass: true },
   boss: { root: 50, bpm: 132, scale: PHRYG, prog: [0, 1, 0, -2], pad: 'sawtooth', lead: 'square', density: 0.5, bass: true },
 };

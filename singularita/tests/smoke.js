@@ -99,11 +99,25 @@ try {
       const pts = g.profile.attrPoints;
       g.ui.openMenu('character'); document.querySelector('.attr .btn.small').click(); g.ui.closeMenu();
       out.spent = pts - g.profile.attrPoints;
-      // Two simulated minutes of waves: the population stays within the cap.
-      step(30 * 120);
+      // Two simulated minutes of the endless horde: no waves, fixed levels, within the cap.
+      let waveEvents = 0; g.bus.on('waveStart', () => waveEvents++);
+      g.profile.playTime = Math.max(g.profile.playTime, 300);
+      let most = 0;
+      for (let k = 0; k < 120; k++) { step(30); most = Math.max(most, g.enemies.count((e) => e.horde)); }
+      const band = (e) => { const [lo, hi] = WAVES_LEVELS[e.def.family === 'zombie' ? 'night' : 'day']; return e.level >= lo && e.level <= hi; };
+      out.horde = { waveEvents, most, target: Math.max(8, 11), levelsOk: g.enemies.list.filter((e) => e.horde).every(band), n: g.enemies.count((e) => e.horde) };
       out.enemies = g.enemies.count(); out.cap = g.enemies.cap;
       out.stats = g.r.stats();
-      return out;`);
+      // The boss clock: when it runs out, the boss of the current phase appears, and the clock restarts.
+      const lvl = g.profile.level; g.profile.level = 20;
+      g.spawner.bossClock.timer = 0.5; step(30);
+      const boss = g.spawner.boss;
+      out.boss = { id: boss?.def.id, period: boss?.def.period, phase: g.dayNight.phase, timer: g.spawner.bossClock.timer, level: boss?.members[0].level };
+      step(30 * 20);
+      out.boss.paused = g.spawner.bossClock.timer === out.boss.timer;
+      if (boss) { for (const m of boss.members) { m.alive = false; m.dyingT = 0; } g.spawner.boss = null; }
+      g.profile.level = lvl;
+      return out;`.replace('WAVES_LEVELS', JSON.stringify({ day: [1, 10], night: [4, 14] })));
     check(r.objective0 === 'o_wood', 'tutorial starts with gathering wood');
     check(r.wood >= 6, `chopping trees gives wood (${r.wood})`);
     check(r.pickaxe, 'Wood Pickaxe crafted through the Forge menu');
@@ -112,6 +126,10 @@ try {
     check(r.kills >= 2, `combat kills creatures (${r.kills})`);
     check(r.spent === 1, 'attribute points can be spent');
     check(r.enemies <= r.cap, `creature count within cap (${r.enemies}/${r.cap})`);
+    check(r.horde.waveEvents === 0 && r.horde.n > 0 && r.horde.most <= r.horde.target, `endless horde: no waves, ${r.horde.n} creatures, never above ${r.horde.target} (${r.horde.most})`);
+    check(r.horde.levelsOk, 'horde creatures keep the fixed island levels');
+    check(r.boss.id && r.boss.period === r.boss.phase && r.boss.timer >= 480, `boss clock spawns the ${r.boss.phase} boss and restarts (${r.boss.id}, next in ${Math.round(r.boss.timer)} s, level ${r.boss.level})`);
+    check(r.boss.paused, 'the boss clock waits while a boss is abroad');
     check(r.stats.calls < 250 && r.stats.triangles < 400000, `render budget (calls ${r.stats.calls}, triangles ${r.stats.triangles})`);
     await page.screenshot({ path: path.join(SHOTS, 'island_combat.png') });
 
@@ -237,6 +255,8 @@ try {
     const r = await sim(page, `
       g.ui.closeDialog && g.ui.closeDialog();
       g.profile.level = 45; g.setupClass(); g.player.hp = g.stats.maxHp; g.player.res = g.stats.resourceMax;
+      // This checks the class kit, so the island horde stays out of the fight.
+      g.spawner.horde.timer = 1e9; g.enemies.clear();
       const p = g.player; goNear(g.zone.base.x, g.zone.base.z + 26); g.cam.snapBehind(0); p.yaw = 0;
       let kills = 0; g.bus.on('kill', () => kills++);
       const used = new Set(); g.bus.on('skill', (e) => used.add(e.id));
@@ -269,8 +289,208 @@ try {
       return { visible: !root.hidden, moved: Math.hypot(g.player.x - x0, g.player.z - z0), pressed, inView: b.right <= innerWidth && b.bottom <= innerHeight };
     });
     check(r.visible && r.moved > 2 && r.pressed && r.inView, `touch ${name}: stick moves (${r.moved.toFixed(1)} m) and buttons work`);
+    // Real taps hit-test like a finger: the HUD buttons and the gather prompt must sit above the touch layer.
+    const hud = await page.evaluate(() => [...document.querySelectorAll('#hud .hbtn')].map((b) => {
+      const q = b.getBoundingClientRect(), x = q.x + q.width / 2, y = q.y + q.height / 2;
+      return { x, y, top: document.elementFromPoint(x, y) === b, title: b.title };
+    }));
+    check(hud.length === 3 && hud.every((b) => b.top), `touch ${name}: HUD buttons are on top of the touch layer`);
+    for (const [prefix, tab] of [['Crafting', 'craft'], ['Menu', 'inventory']]) {
+      const b = hud.find((x) => x.title.startsWith(prefix));
+      await page.touchscreen.tap(b.x, b.y);
+      const m = await page.evaluate(() => { const g = window.__SG; const o = { open: g.ui.menuOpen, lock: !!g.lockTarget }; g.ui.closeMenu(); return o; });
+      check(m.open === tab && !m.lock, `touch ${name}: tapping ${prefix} opens it (${m.open})`);
+    }
+    const tree = await page.evaluate(() => {
+      const g = window.__SG, p = g.player;
+      g.godMode = true;
+      const st = g.profile.zones[g.zone.id].nodes;
+      let best = null, bd = Infinity;
+      g.zone.nodes.forEach((n, i) => { if (!n.node.startsWith('tree') || st[n.id]) return; const d = Math.hypot(n.x - p.x, n.z - p.z); if (d < bd && g.grid.walkable(n.i - 2, n.j) && g.grid.walkable(n.i - 1, n.j)) { bd = d; best = i; } });
+      const n = g.zone.nodes[best];
+      p.x = n.x - 1.5; p.z = n.z; p.y = p.ry = g.grid.height(Math.floor(p.x), Math.floor(p.z));
+      p.yaw = Math.atan2(n.x - p.x, n.z - p.z); g.cam.snapBehind(p.yaw);
+      for (let i = 0; i < 6; i++) { g.update(1 / 30); g.render(1 / 30); g.input.endFrame(); }
+      const q = document.querySelector('#hud .prompt').getBoundingClientRect();
+      return { index: best, x: q.x + q.width / 2, y: q.y + q.height / 2, label: document.querySelector('#hud .prompt').textContent, hidden: g.view.nodes.hidden.has(best), wood: g.profile.inv.stacks.wood || 0 };
+    });
+    check(!tree.hidden, `touch ${name}: the tree in front of you stays visible`);
+    const back = await page.evaluate((i) => {
+      const g = window.__SG, nv = g.view.nodes, n = g.zone.nodes[i], p = g.player;
+      const scaleOf = () => { const [m, k] = nv.slots[i].parts[0]; const a = nv.meshes[m].instanceMatrix.array; return Math.hypot(a[k * 16], a[k * 16 + 1], a[k * 16 + 2]); };
+      nv.occlude(n.x - (p.x - n.x) * 2, n.z - (p.z - n.z) * 2, p.x, p.z); // the camera swings round: the tree is in the way
+      const hidden = scaleOf();
+      nv.occlude(p.x - (n.x - p.x) * 4, p.z - (n.z - p.z) * 4, p.x, p.z); // and back behind the player
+      return { hidden, back: scaleOf() };
+    }, tree.index);
+    check(back.hidden === 0 && back.back > 0, `touch ${name}: a tree hidden for the camera comes back (${back.hidden} → ${back.back.toFixed(2)})`);
+    for (let k = 0; k < 14; k++) { await page.touchscreen.tap(tree.x, tree.y); await page.waitForTimeout(450); }
+    const wood = await page.evaluate(() => window.__SG.profile.inv.stacks.wood || 0);
+    check(wood > tree.wood, `touch ${name}: tapping the prompt (${tree.label}) chops wood (${tree.wood} → ${wood})`);
     check(!errors.length, `touch ${name}: no errors`);
     await page.screenshot({ path: path.join(SHOTS, `touch_${name}.png`) });
+    await ctx.close();
+  }
+
+  // 8. Milestone 2: the four isles, their phenomena, the Core gate and the Core layer.
+  {
+    const { ctx, page, errors } = await open(`${BASE}/singularita/index.html?quickstart=swordsman&debug`);
+    await waitGame(page);
+    const settle = () => page.evaluate(() => { const g = window.__SG; g.cam.snapBehind(g.player.yaw); for (let i = 0; i < 60; i++) g.render(1 / 30); });
+    for (const id of ['isle_air', 'isle_water', 'isle_fire', 'isle_earth']) {
+      const r = await sim(page, `
+        g.ui.closeDialog && g.ui.closeDialog(); g.godMode = true;
+        g.profile.level = 90; g.recomputeStats();
+        g.enterZone('${id}'); step(60);
+        return { id: g.zone.id, alive: g.player.alive };`);
+      await settle();
+      const stats = await page.evaluate(() => window.__SG.r.stats());
+      await page.screenshot({ path: path.join(SHOTS, `${id}.png`) });
+      check(r.id === id && r.alive, `${id}: loads and plays`);
+      check(stats.calls < 250 && stats.triangles < 400000, `${id}: render budget (calls ${stats.calls}, triangles ${stats.triangles})`);
+    }
+    const ph = await sim(page, `
+      const out = {}, p = g.player;
+      // An updraft vent carries you to its partner.
+      g.enterZone('isle_air');
+      const u = g.zone.updrafts[0];
+      goNear(u.x, u.z); p.grounded = true; step(3);
+      out.flying = !!p.carried;
+      step(30 * 3);
+      out.landed = Math.hypot(p.x - u.to.x, p.z - u.to.z); out.grounded = p.grounded && !p.carried;
+      // The tide: high water floods the sandbars and drags you ashore; pearl beds wait for low water.
+      g.enterZone('isle_water');
+      const z = g.zone, gr = g.grid, F = { WATER: 2, DEEP: 512 };
+      g.profile.playTime = 0; step(20);
+      const bar = z.tidal.find((k) => gr.h[k] === 2 && gr.walkable(k % gr.w, Math.floor(k / gr.w)) && !(gr.flags[k] & F.WATER));
+      goNear((bar % gr.w) + 0.5, Math.floor(bar / gr.w) + 0.5);
+      g.profile.playTime = 62; step(20);
+      out.barFlooded = !!(gr.flags[bar] & F.DEEP);
+      out.dragged = !gr.has(Math.floor(p.x), Math.floor(p.z), F.DEEP) && Math.hypot(p.x - ((bar % gr.w) + 0.5), p.z - (Math.floor(bar / gr.w) + 0.5)) > 0.5;
+      out.waterHigh = g.zone.tideLevel;
+      const pearl = z.nodes.find((n) => n.node === 'pearl_bed');
+      goNear(pearl.x + 1.2, pearl.z); p.yaw = Math.atan2(pearl.x - p.x, pearl.z - p.z);
+      out.pearlHigh = g.interaction.scan()?.label;
+      g.profile.playTime = 0; step(20);
+      goNear(pearl.x + 1.2, pearl.z); p.yaw = Math.atan2(pearl.x - p.x, pearl.z - p.z);
+      out.pearlLow = g.interaction.scan()?.label;
+      // Lava burns.
+      g.enterZone('isle_fire');
+      const lk = g.grid.flags.findIndex((f) => f & 8192);
+      goNear((lk % g.grid.w) + 0.5, Math.floor(lk / g.grid.w) + 0.5); p.grounded = true;
+      g.godMode = false; p.hp = g.stats.maxHp; step(30);
+      out.lavaHurts = p.hp < g.stats.maxHp; out.burning = p.statuses.has('burn');
+      g.godMode = true; p.hp = g.stats.maxHp; p.statuses.clear();
+      return out;`);
+    check(ph.flying && ph.landed < 1.5 && ph.grounded, `air: an updraft carries you to the partner vent (${ph.landed.toFixed(2)} m off)`);
+    check(ph.barFlooded && ph.dragged, `water: high tide floods the sandbar and drags you ashore (level ${ph.waterHigh})`);
+    check(/tide/i.test(ph.pearlHigh || '') && !/tide/i.test(ph.pearlLow || 'x'), `water: pearl beds wait for low tide (${ph.pearlHigh} / ${ph.pearlLow})`);
+    check(ph.lavaHurts && ph.burning, 'fire: lava burns');
+    const core = await sim(page, `
+      const out = {};
+      g.profile.level = 110; g.recomputeStats();
+      for (const s of ['sigil_wind', 'sigil_tide', 'sigil_flame', 'sigil_stone']) g.profile.inv.stacks[s] = 1;
+      g.enterZone('cave_7');
+      const ex = g.zone.exit; goNear(ex.x + 3, ex.z); step(3);
+      g.interaction.readGate();
+      document.querySelector('#dialog .btn.primary').click();
+      out.open = !!g.profile.flags.gateOpen;
+      g.interaction.readGate();
+      await new Promise((r) => setTimeout(r, 1200)); step(3);
+      out.zone = g.zone.id; out.exit = g.zone.exit.type;
+      step(30 * 10);
+      out.alive = g.player.alive; out.enemies = g.enemies.count();
+      return out;`);
+    await settle();
+    await page.screenshot({ path: path.join(SHOTS, 'cave_8.png') });
+    check(core.open && core.zone === 'cave_8' && core.exit === 'heart', `the sigils open the gate to the Core (${core.zone})`);
+    check(core.enemies > 0, `the Core is populated (${core.enemies})`);
+    const menus = await page.evaluate(() => {
+      const g = window.__SG, out = {};
+      g.ui.openMenu('map'); out.map = document.getElementById('menu').innerText;
+      g.ui.openMenu('journal'); [...document.querySelectorAll('#menu .stab')].find((b) => b.textContent === 'Bosses').click(); out.journal = document.getElementById('menu').innerText;
+      g.ui.openMenu('inventory'); [...document.querySelectorAll('#menu .stab')].find((b) => b.textContent === 'Materials').click(); out.inv = document.getElementById('menu').innerText;
+      g.ui.closeMenu();
+      return out;
+    });
+    check(/Galeforge Spires/.test(menus.map) && /Ronin of the East Wind keeps/.test(menus.map) && /Dawn and Dusk Hollows/.test(menus.map), 'the map lists the isles, their guardians and the Core');
+    check(/Guards The Galeforge Spires/.test(menus.journal), 'the journal knows where the guardians wait');
+    check(/Key items/.test(menus.inv) && /Sigil of Wind/.test(menus.inv), 'sigils show as key items');
+    const horizon = await sim(page, `g.enterZone('island'); step(3); return !!g.view.horizon;`);
+    await settle();
+    await page.screenshot({ path: path.join(SHOTS, 'horizon.png') });
+    check(horizon, 'Dawnreach shows the isles on the horizon');
+    check(!errors.length, `isles: no errors ${errors.slice(0, 3).join(' | ')}`);
+    await ctx.close();
+  }
+
+  // 9. Milestone 2 creatures and the isle guardians.
+  {
+    const { ctx, page, errors } = await open(`${BASE}/singularita/index.html?quickstart=swordsman&debug`);
+    await waitGame(page);
+    const settle = () => page.evaluate(() => { const g = window.__SG; clearTimeout(g.ui.combatDialog); g.ui.closeDialog && g.ui.closeDialog(); g.cam.snapBehind(g.player.yaw); for (let i = 0; i < 90; i++) g.render(1 / 30); });
+    const cr = await sim(page, `
+      g.ui.closeDialog && g.ui.closeDialog(); g.godMode = true;
+      g.profile.level = 100; g.recomputeStats();
+      g.enterZone('isle_earth'); step(30 * 20);
+      // The isle keeps its own creatures, at its own levels.
+      const table = g.zoneDef.enemies.map((e) => e.id), band = g.zoneDef.band;
+      const pop = g.enemies.list.filter((e) => e.alive && !e.boss && !e.summoned);
+      const out = { pop: pop.length, own: pop.every((e) => table.includes(e.def.id)), levels: pop.every((e) => e.level >= band[0] && e.level <= band[1]) };
+      // Every new creature spawns, moves, fights and renders.
+      g.enemies.clear(); g.spawner.boss = null; g.spawner.popT = 1e9;
+      const ids = ['gale_harpy', 'kite_serpent', 'cloud_sprite', 'storm_wisp', 'reef_crab', 'siren', 'drowned_sailor', 'glass_jelly', 'lava_hound', 'obsidian_golem',
+        'fire_imp', 'ash_shaman', 'mossback_tortoise', 'root_lasher', 'burrowing_mole', 'stone_wisp', 'dawn_sentinel', 'dusk_stalker', 'echo_knight'];
+      const p = g.player; let n = 0;
+      ids.forEach((id, k) => { const a = (k / ids.length) * Math.PI * 2; if (g.enemies.spawn(id, p.x + Math.cos(a) * 7, p.z + Math.sin(a) * 7, { level: 85, noIntro: true })) n++; });
+      const shot = []; g.bus.on('sfx', (e) => { if (e.id === 'enemyShoot') shot.push(1); });
+      for (let k = 0; k < 10; k++) { step(30); g.render(1 / 30); }
+      out.spawned = n; out.total = ids.length; out.shots = shot.length;
+      return out;`);
+    await settle();
+    await page.screenshot({ path: path.join(SHOTS, 'm2_creatures.png') });
+    check(cr.pop > 0 && cr.own && cr.levels, `isles keep their own creatures at their own levels (${cr.pop})`);
+    check(cr.spawned === cr.total && cr.shots > 0, `every new creature spawns and fights (${cr.spawned}/${cr.total}, ${cr.shots} shots)`);
+    for (const [isle, id, sigil] of [['isle_air', 'ronin_east_wind', 'sigil_wind'], ['isle_water', 'tears_of_poseidon', 'sigil_tide'], ['isle_fire', 'magma_vector', 'sigil_flame'], ['isle_earth', 'allele_golem', 'sigil_stone']]) {
+      const a = await sim(page, `
+        g.ui.closeDialog && g.ui.closeDialog();
+        const out = {}, p = g.player;
+        g.profile.world.guardians = {};
+        delete g.profile.inv.stacks['${sigil}'];
+        g.profile.playTime = Math.max(g.profile.playTime, 1000);
+        g.enterZone('${isle}'); step(3);
+        const boss = g.spawner.boss;
+        out.present = !!boss && boss.def.id === '${id}';
+        if (!boss) return out;
+        const ar = g.zone.arena; goNear(ar.x, ar.z + 4); p.grounded = true; p.yaw = Math.PI; step(30 * 3);
+        out.engaged = boss.engaged;
+        return out;`);
+      await settle();
+      await page.screenshot({ path: path.join(SHOTS, `guardian_${id}.png`) });
+      check(a.present && a.engaged, `${id}: waits in its arena and engages`);
+      if (!a.present) continue;
+      const r = await sim(page, `
+        const out = {}, p = g.player, boss = g.spawner.boss;
+        const phases = []; g.bus.on('bossPhase', (e) => { if (e.def.id === '${id}') phases.push(e.phase.name); });
+        for (let k = 0; k < 90 && boss.members.some((m) => m.alive); k++) {
+          for (const m of boss.members) if (m.alive) g.combat.applyRaw(m, m.maxHp * 0.035, 'dmg');
+          step(12); p.hp = g.stats.maxHp;
+        }
+        out.defeated = boss.defeated; out.phases = phases;
+        out.sigil = g.profile.inv.stacks['${sigil}'] || 0;
+        // Once the guardian returns, a second victory does not give the sigil again.
+        step(30 * 3); g.ui.closeDialog && g.ui.closeDialog();
+        g.profile.playTime += 601;
+        g.enterZone('island'); g.enterZone('${isle}'); step(3);
+        const again = g.spawner.boss; out.returns = !!again && again.def.id === '${id}';
+        if (again) for (let k = 0; k < 90 && again.members.some((m) => m.alive); k++) { for (const m of again.members) if (m.alive) g.combat.applyRaw(m, m.maxHp * 0.12, 'dmg'); step(6); p.hp = g.stats.maxHp; }
+        out.sigilAfter = g.profile.inv.stacks['${sigil}'] || 0;
+        step(30 * 3); g.ui.closeDialog && g.ui.closeDialog();
+        return out;`);
+      check(r.defeated && r.phases.length >= 2, `${id}: fights through its phases (${(r.phases || []).join(', ')})`);
+      check(r.sigil === 1 && r.returns && r.sigilAfter === 1, `${id}: the sigil comes once (${r.sigil} then ${r.sigilAfter}) and the guardian returns`);
+    }
+    check(!errors.length, `creatures and guardians: no errors ${errors.slice(0, 3).join(' | ')}`);
     await ctx.close();
   }
 } catch (err) {

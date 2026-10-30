@@ -19,7 +19,7 @@ export function buildUnlocks(classId) {
       const it = ITEMS[r.output.item];
       if (it.class !== classId && it.class !== 'any') continue;
       const what = it.kind === 'tool' ? 'tools' : it.slot === 'accessory' ? 'accessories' : it.slot === 'armor' ? 'armour' : 'weapons';
-      push(r.level, { type: 'recipe', label: `${MATERIALS[it.material].name} ${what}` });
+      push(r.level, { type: 'recipe', label: it.material ? `${MATERIALS[it.material].name} ${what}` : it.name });
     } else {
       push(r.level, { type: 'recipe', label: CONSUMABLES[r.output.stack].name });
     }

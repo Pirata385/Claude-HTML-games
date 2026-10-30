@@ -5,6 +5,7 @@ import { angleDiff } from '../core/math.js';
 import { F } from '../world/grid.js';
 
 const _dir = { x: 0, z: 0 };
+const PROJ_SPEED = { beam: 26, frost: 18, bolt: 20, fireball: 13, pebble: 16, glob: 12 };
 
 export function face(e, x, z, dt, rate = 10) {
   e.yaw += angleDiff(e.yaw, Math.atan2(x - e.x, z - e.z)) * Math.min(1, dt * rate);
@@ -119,7 +120,7 @@ export const BEHAVIOR = {
     if (a.state === 'windup') {
       a.t -= dt; e.anim.wind = 1 - a.t / def.windup;
       face(e, c.target.x, c.target.z, dt, 8);
-      if (a.t <= 0) { e.anim.wind = 0; e.anim.atkT = 0.3; shootAt(e, c, def.proj, def.proj === 'beam' ? 26 : def.proj === 'frost' ? 18 : 14); a.state = 'chase'; a.cd = def.atkCd; }
+      if (a.t <= 0) { e.anim.wind = 0; e.anim.atkT = 0.3; shootAt(e, c, def.proj, PROJ_SPEED[def.proj] || 14); a.state = 'chase'; a.cd = def.atkCd; }
       return;
     }
     const want = def.range * 0.7;
@@ -174,10 +175,15 @@ export const BEHAVIOR = {
     if (a.cd <= 0) {
       a.cd = e.def.atkCd;
       const r = e.def.auraRadius;
-      c.fx.decal({ shape: 'ring', x: e.x, z: e.z, y: e.ry, r, t: 0.8, fill: false, color: '#ffe17a' });
-      c.g.overlay.text(e.x, e.ry + 2.4, e.z, 'SCREAM!', 'status');
-      c.g.bus.emit('sfx', { id: 'scream', x: e.x, z: e.z });
-      for (const o of c.g.enemies.active) if (o.alive && o.dist2(e) < r * r) o.statuses.apply('haste', { dur: 5 });
+      // Screamers and Ash Shamans hasten their kin; Cloud Sprites wrap them in shields.
+      const shield = e.def.buff === 'shield';
+      c.fx.decal({ shape: 'ring', x: e.x, z: e.z, y: e.ry, r, t: 0.8, fill: false, color: shield ? '#7fb3ff' : '#ffe17a' });
+      c.g.overlay.text(e.x, e.ry + 2.4, e.z, shield ? 'SHIELD!' : e.def.family === 'zombie' ? 'SCREAM!' : 'HASTE!', 'status');
+      c.g.bus.emit('sfx', { id: shield ? 'heal' : 'scream', x: e.x, z: e.z });
+      for (const o of c.g.enemies.active) if (o.alive && o.dist2(e) < r * r) {
+        if (shield) { o.shield = Math.max(o.shield || 0, o.maxHp * 0.2); c.fx.column(o.x, o.ry, o.z, '#7fb3ff', 5, 0.4); }
+        else o.statuses.apply('haste', { dur: 5 });
+      }
     }
   },
 
@@ -218,7 +224,7 @@ export const BEHAVIOR = {
       moveCircle(c.grid, e, (c.dx / l) * sp * dt, (c.dz / l) * sp * dt, e.radius, 9, true);
       e.yOff = Math.max(0.6, e.yOff - dt * 5);
       face(e, t.x, t.z, dt, 12);
-      if (c.dist < e.radius + t.radius + 0.4 && !a.hitDone) { hurt(c, e, 1, { type: 'melee' }); a.hitDone = true; }
+      if (c.dist < e.radius + t.radius + 0.4 && !a.hitDone) { hurt(c, e, 1, { type: 'melee', knock: e.def.gust || 0 }); a.hitDone = true; }
       if (a.t <= 0 || a.hitDone) { a.state = 'circle'; a.cd = e.def.atkCd + Math.random(); }
       return;
     }
@@ -258,6 +264,58 @@ export const BEHAVIOR = {
     a.surf -= dt;
     meleeCore(e, dt, c);
     if (a.surf <= 0 && a.state !== 'windup') { a.state = 'under'; c.fx.burst(e.x, e.ry + 0.2, e.z, 14, { color: '#8a6a4a', speed: 4 }); }
+  },
+
+  // Glass Jelly: drifts at you and pulses a shocking aura.
+  aura(e, dt, c) {
+    const a = e.ai, def = e.def;
+    if (!c.target) return;
+    if (a.state === 'charge') {
+      a.t -= dt; e.anim.wind = 1 - a.t / 0.6;
+      if (a.t <= 0) {
+        e.anim.wind = 0; a.state = 'chase'; a.cd = def.atkCd + 0.6;
+        c.fx.burst(e.x, e.ry + 1.6, e.z, 14, { color: def.color, speed: 4, up: 1 });
+        for (const t of c.combat.circle(e.x, e.z, def.auraRadius, 'enemy')) c.combat.hurt(t, e.dmg, e, { type: 'aoe', status: def.onHit ? [{ id: def.onHit, chance: 0.6 }] : [] });
+      }
+      return;
+    }
+    if (c.dist > 1.2) steer(e, dt, c, 1);
+    if (a.cd <= 0 && c.dist < def.auraRadius + 0.8) { a.state = 'charge'; a.t = 0.6; c.fx.telegraph({ shape: 'circle', x: e.x, z: e.z, y: e.ry, r: def.auraRadius, t: 0.6, color: def.color, follow: e }); }
+  },
+
+  // Root Lasher: rooted in place, it whips a thorned tip along a line.
+  lasher(e, dt, c) {
+    const a = e.ai, def = e.def;
+    if (!c.target) return;
+    if (a.state === 'windup') {
+      a.t -= dt; e.anim.wind = 1 - a.t / def.windup;
+      if (a.t <= 0) {
+        e.anim.wind = 0; e.anim.atkT = 0.3; a.state = 'idle'; a.cd = def.atkCd;
+        c.g.bus.emit('sfx', { id: 'heavy', x: e.x, z: e.z });
+        for (const t of c.combat.line(e.x, e.z, a.ldx, a.ldz, def.range, 1.6, 'enemy')) c.combat.hurt(t, e.dmg, e, { type: 'melee', knock: 6, status: [{ id: 'root', chance: 0.4, dur: 1 }] });
+        c.fx.burst(e.x + a.ldx * def.range * 0.6, e.ry + 0.5, e.z + a.ldz * def.range * 0.6, 12, { color: '#7a5a3a', speed: 4, up: 3 });
+      }
+      return;
+    }
+    face(e, c.target.x, c.target.z, dt, 4);
+    if (c.dist <= def.range && c.los && a.cd <= 0) {
+      const l = c.dist || 1;
+      a.ldx = c.dx / l; a.ldz = c.dz / l;
+      e.yaw = Math.atan2(a.ldx, a.ldz);
+      a.state = 'windup'; a.t = def.windup;
+      c.fx.telegraph({ shape: 'line', x: e.x, z: e.z, y: e.ry, dx: a.ldx, dz: a.ldz, len: def.range, width: 1.6, t: def.windup, color: '#c8885a' });
+    }
+  },
+
+  // Allele seedling: rooted, it feeds the golem that sprouted it with a thin green beam.
+  seedling(e, dt, c) {
+    const b = e.golem;
+    if (!b?.alive) { c.g.enemies.kill(e, 'despawn'); return; }
+    e.ai.aux -= dt;
+    if (e.ai.aux > 0) return;
+    e.ai.aux = 1;
+    b.hp = Math.min(b.maxHp, b.hp + b.maxHp * e.def.heal);
+    c.fx.beam(e.x, e.ry + 1, e.z, b.x, b.ry + 2.5, b.z, '#8ad06a', 0.4);
   },
 
   lurker(e, dt, c) {

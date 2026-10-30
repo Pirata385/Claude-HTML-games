@@ -67,3 +67,51 @@ export function validateCave(z) {
   if (cells.size !== z.nodes.length + z.pois.length) errors.push('objects share a cell');
   return { ok: errors.length === 0, errors };
 }
+
+// Isles: everything reachable on foot from the landing, where updraft vents count as links.
+export function isleReach(z) {
+  const g = z.grid;
+  const [si, sj] = g.cellAt(z.spawn.x, z.spawn.z);
+  const dist = new Int32Array(g.w * g.d).fill(-1);
+  const lift = new Map(z.updrafts.map((u) => [g.idx(Math.floor(u.x), Math.floor(u.z)), g.idx(Math.floor(u.to.x), Math.floor(u.to.z))]));
+  const q = [g.idx(si, sj)];
+  dist[q[0]] = 0;
+  for (let h = 0; h < q.length; h++) {
+    const k = q[h], i = k % g.w, j = (k - i) / g.w;
+    const next = N4.filter(([di, dj]) => g.canStep(i, j, i + di, j + dj, 1)).map(([di, dj]) => g.idx(i + di, j + dj));
+    if (lift.has(k)) next.push(lift.get(k));
+    for (const nk of next) if (dist[nk] < 0) { dist[nk] = dist[k] + 1; q.push(nk); }
+  }
+  return dist;
+}
+
+export function validateIsle(z) {
+  const errors = [];
+  const g = z.grid;
+  if (!g.walkable(...g.cellAt(z.spawn.x, z.spawn.z))) errors.push('spawn blocked');
+  const dist = isleReach(z);
+  const reach = (p, what) => {
+    const [i, j] = g.cellAt(p.x, p.z);
+    if (dist[g.idx(i, j)] < 0 && !reachableNeighbour(g, dist, i, j)) errors.push(`${what} unreachable from the landing`);
+  };
+  reach(z.arena, `arena ${z.arena.id}`);
+  reach(z.landing, 'landing');
+  for (const p of z.pois) reach(p, `poi ${p.id}`);
+  for (const n of z.nodes) {
+    reach(n, `node ${n.id}`);
+    if (g.flags[g.idx(n.i, n.j)] & (F.PATH | F.ARENA | F.VOID | F.LAVA | F.DEEP)) errors.push(`node ${n.id} on a reserved cell`);
+  }
+  const cells = new Set([...z.nodes, ...z.pois].map((n) => `${n.i},${n.j}`));
+  if (cells.size !== z.nodes.length + z.pois.length) errors.push('objects share a cell');
+  // The arena floor is flat apart from its pillars.
+  const a = z.arena;
+  const pillar = new Set(a.pillars.flatMap((p) => [[p.i, p.j], [p.i + 1, p.j], [p.i, p.j + 1], [p.i + 1, p.j + 1]].map(([i, j]) => g.idx(i, j))));
+  for (let j = Math.floor(a.z - a.r + 1); j <= a.z + a.r - 1; j++) for (let i = Math.floor(a.x - a.r + 1); i <= a.x + a.r - 1; i++) {
+    if (Math.hypot(i + 0.5 - a.x, j + 0.5 - a.z) > a.r - 1) continue;
+    const k = g.idx(i, j);
+    if (pillar.has(k)) continue;
+    if (g.h[k] !== a.h) { errors.push(`arena ${a.id} not flat at ${i},${j}`); break; }
+    if (g.flags[k] & (F.OBSTACLE | F.VOID | F.LAVA)) { errors.push(`arena ${a.id} blocked at ${i},${j}`); break; }
+  }
+  return { ok: errors.length === 0, errors };
+}

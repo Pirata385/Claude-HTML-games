@@ -1,5 +1,5 @@
 // The objectives chain doubles as the tutorial: it teaches by doing, never by blocking.
-// type: gather | craft | craftAny | kill | allocate | wave | reach | boss | lore | equip | level
+// type: gather | craft | craftAny | kill | allocate | reach | boss | lore | equip | level
 export const OBJECTIVES = [
   { id: 'o_wood', type: 'gather', target: 'wood', count: 6, text: 'Gather Wood', hint: 'Walk up to a tree and press F (or the hand button) to chop it.', xp: 30 },
   { id: 'o_pick', type: 'craft', target: 'pickaxe_wood', count: 1, text: 'Craft a Wood Pickaxe at the Forge', hint: 'Open Crafting (C) next to the Forge in camp.', xp: 40 },
@@ -7,16 +7,23 @@ export const OBJECTIVES = [
   { id: 'o_weapon', type: 'equip', target: 'weapon', minTier: 1, count: 1, text: 'Craft and equip a Stone (or better) weapon', hint: "Lume's worn weapon will not last. Check Crafting → Weapons.", xp: 60 },
   { id: 'o_kill', type: 'kill', target: 'any', count: 10, text: 'Defeat creatures', hint: 'Left click (or the sword button) to attack. Q locks on.', xp: 80 },
   { id: 'o_points', type: 'allocate', target: 'any', count: 1, text: 'Spend attribute points', hint: 'Open the Character tab (K) and assign your points.', xp: 40 },
-  { id: 'o_wave', type: 'wave', target: 'any', count: 1, text: 'Survive a wave', hint: 'A horn sounds when a wave comes. Defeat every creature in it.', xp: 120 },
+  { id: 'o_hunt', type: 'kill', target: 'any', count: 25, text: 'Hold the island: defeat 25 creatures', hint: 'The island is never quiet: slimes by day, Echoes by night. Their drops feed your crafting.', xp: 120 },
   { id: 'o_cave', type: 'reach', target: 'cave_1', count: 1, text: 'Enter the Hollow Deep', hint: 'The cave mouth is on the hill. Follow the marker on the minimap.', xp: 120 },
   { id: 'o_copper', type: 'gather', target: 'copper|gold', count: 6, text: 'Mine Copper or Gold', hint: 'A Stone Pickaxe or better is needed for copper and gold veins.', xp: 150 },
   { id: 'o_pick2', type: 'craftAny', target: 'pickaxe_copper|pickaxe_gold', count: 1, text: 'Craft a Copper or Gold Pickaxe', hint: 'Better pickaxes reach deeper veins.', xp: 200 },
   { id: 'o_layer2', type: 'reach', target: 'cave_2', count: 1, text: 'Descend to Layer 2', hint: 'Find the descent shaft in the Rootways. Layer 2 opens at level 8.', xp: 300 },
-  { id: 'o_boss', type: 'boss', target: 'any', count: 1, text: 'Defeat the Slime Prince or the Silverback Emperor', hint: 'Bosses appear by chance at their arenas, or can be summoned with a crafted lure.', xp: 600 },
+  { id: 'o_boss', type: 'boss', target: 'any', count: 1, text: 'Defeat the Slime Prince or the Silverback Emperor', hint: 'Bosses roam Dawnreach from time to time (the Prince by day, the Emperor by night), or can be summoned with a crafted lure.', xp: 600 },
   { id: 'o_iron', type: 'gather', target: 'iron', count: 10, text: 'Mine Iron', hint: 'Iron veins run through layers 2 and 3.', xp: 400 },
   { id: 'o_layer4', type: 'reach', target: 'cave_4', count: 1, text: 'Reach the Whispering Depths (Layer 4)', hint: 'Bring Antidotes: the deep layers have hazards of their own.', xp: 900 },
   { id: 'o_emerald', type: 'gather', target: 'emerald', count: 6, text: 'Mine Emerald', hint: 'Emeralds grow in layers 4 and 5.', xp: 1200 },
   { id: 'o_layer6', type: 'reach', target: 'cave_6', count: 1, text: 'Reach the Prism Caverns (Layer 6)', hint: 'Ruby and sapphire gear will see you through.', xp: 2500 },
   { id: 'o_diamond', type: 'gather', target: 'diamond', count: 8, text: 'Mine Diamond', hint: 'Diamond needs a Ruby or Sapphire Pickaxe.', xp: 4000 },
   { id: 'o_gate', type: 'lore', target: 'lore_seal', count: 1, text: 'Find the Sealed Core Gate', hint: 'It waits at the bottom of the Diamond Throat (Layer 7).', xp: 6000 },
+  { id: 'o_isle', type: 'reach', target: 'isle_air|isle_water|isle_fire|isle_earth', count: 1, text: 'Sail to an elemental isle', hint: 'The Wayshrine by the beacon opens the isles of Air and Water at level 66, Fire and Earth at 80.', xp: 8000 },
+  { id: 'o_sigil', type: 'sigil', target: 'any', count: 1, text: 'Claim a sigil from an isle guardian', hint: 'Each isle\'s guardian waits in its arena. Read the patterns before you strike.', xp: 12000 },
+  { id: 'o_sigils', type: 'sigil', target: 'any', count: 4, text: 'Claim all four sigils', hint: 'Wind, Tide, Flame and Stone. Isle materials make strong accessories along the way.', xp: 30000 },
+  { id: 'o_open', type: 'gate', target: 'any', count: 1, text: 'Open the Sealed Core Gate', hint: 'Bring the four sigils to the bottom of the Diamond Throat (Layer 7).', xp: 20000 },
+  { id: 'o_core', type: 'reach', target: 'cave_8', count: 1, text: 'Enter the Dawn and Dusk Hollows', hint: 'Level 100 is needed to survive what lies beyond the gate.', xp: 30000 },
+  { id: 'o_t8ore', type: 'gather', target: 'dawndosite|escuresite', count: 10, text: 'Mine Dawndosite or Escuresite', hint: 'A Diamond Pickaxe reaches them. Dawn on one side of the Hollows, dusk on the other.', xp: 40000 },
+  { id: 'o_t8gear', type: 'equip', target: 'weapon', minTier: 8, count: 1, text: 'Wield a Dawndosite or Escuresite weapon', hint: 'Tier 8 gear needs materials from several isles. The Crafting menu shows where each one is found.', xp: 60000 },
 ];

@@ -31,6 +31,7 @@ export class Player extends Entity {
 
   update(dt, g) {
     if (!this.alive) return;
+    if (this.carried) { this.combatT += dt; return; }
     const { input, cam, grid, stats } = g;
     if (unstick(grid, this)) { this.y = this.ry = groundAt(grid, this.x, this.z); this.grounded = true; }
     const st = this.statuses;

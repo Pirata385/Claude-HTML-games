@@ -1,31 +1,35 @@
-// Spawning: island waves and ambient creatures by day and night, the boss schedule,
-// cave populations, tremors and cave hazards.
-import { WaveDirector } from '../systems/waveDirector.js';
+// Spawning: the endless island horde by day and night, the roaming bosses,
+// cave and isle populations, the isle guardians, tremors and cave hazards.
+import { Horde, BossClock } from '../systems/horde.js';
+import { ENEMIES } from '../data/enemies.js';
 import { WAVES } from '../data/waves.js';
 import { BOSSES } from '../data/bosses.js';
 import { NODES } from '../data/nodes.js';
 import { F } from '../world/grid.js';
-import { clamp } from '../core/math.js';
 import { enemyDmg } from '../systems/scaling.js';
 import { SlimePrince } from './bosses/slimePrince.js';
 import { Silverback } from './bosses/silverback.js';
+import { Ronin } from './bosses/ronin.js';
+import { Tears } from './bosses/tears.js';
+import { MagmaVector } from './bosses/magmaVector.js';
+import { AlleleGolem } from './bosses/alleleGolem.js';
 
-const BOSS_CLASS = { slime_prince: SlimePrince, silverback_emperor: Silverback };
+const BOSS_CLASS = { slime_prince: SlimePrince, silverback_emperor: Silverback, ronin_east_wind: Ronin, tears_of_poseidon: Tears, magma_vector: MagmaVector, allele_golem: AlleleGolem };
 
 export class Spawner {
   constructor(game) {
     this.g = game;
-    this.director = new WaveDirector(WAVES.island, game.rng);
-    this.director.onWaveStart = (idx, total) => { this.wave = { idx, total }; game.bus.emit('waveStart', { idx, total, phase: game.dayNight.phase }); };
-    this.director.onWaveEnd = (idx, cleared) => { this.wave = null; game.bus.emit('waveEnd', { idx, cleared }); if (cleared) game.profile.stats.waves++; };
-    this.wave = null;
-    // A fresh character gets a quiet start before the first wave.
-    if (game.profile.playTime < 180) this.director.timer = 150;
+    this.horde = new Horde(WAVES.island, game.rng);
+    this.bossClock = new BossClock(WAVES.island, game.rng, game.profile.world.bossTimer);
     this.popT = 0; this.tremorT = 150; this.stalT = 3;
     this.boss = null; // active scheduled boss group
-    game.bus.on('phase', ({ phase }) => this.onPhase(phase));
+    game.bus.on('phase', () => this.onPhase());
     game.bus.on('gathered', (e) => this.onGathered(e));
-    game.bus.on('bossDefeated', () => { this.boss = null; });
+    game.bus.on('bossDefeated', ({ def }) => {
+      this.boss = null;
+      // Isle guardians come back to their arenas a while after each defeat.
+      if (def.zone && def.zone !== 'island') (game.profile.world.guardians ||= {})[def.id] = game.profile.playTime + def.respawn;
+    });
   }
 
   onZoneEnter() {
@@ -33,21 +37,17 @@ export class Spawner {
     this.vents = (g.zone.hazards || []).filter((h) => h.type !== 'stalactite').map((h) => ({ ...h, t: h.phase }));
     this.tremorT = g.rng.range(...WAVES.cave.tremor.every);
     this.boss = null;
-    if (g.zone.type === 'cave') {
-      // Start each layer partly populated, away from the stairs.
+    if (g.zone.type === 'cave' || g.zone.type === 'isle') {
+      // Start each layer and isle partly populated, away from the way in.
       const n = Math.round(this.population() * 0.6);
       for (let k = 0; k < n; k++) this.spawnCave(18, 50);
     }
+    if (g.zone.type === 'isle') this.spawnGuardian();
   }
-  onZoneExit() { this.wave = null; this.director.mode = 'calm'; this.director.timer = 30; }
+  onZoneExit() {}
 
   population() { const z = this.g.zoneDef; return Math.min(this.g.enemies.cap - 4, (z.population || 10)); }
 
-  islandLevel() {
-    const g = this.g, f = WAVES.island.levelFollow;
-    const bonus = (g.dayNight.phase === 'night' ? 1 : 0) + Math.floor(this.director.waveIdx / 3);
-    return clamp(g.profile.level + bonus + g.rng.int(-1, 1), f.min, f.max);
-  }
   caveLevel() { const b = this.g.zoneDef.band; return this.g.rng.int(b[0], b[1]); }
 
   // A walkable, reachable spot at a distance from the player, preferably out of view.
@@ -73,8 +73,8 @@ export class Spawner {
     const side = g.zone.sideOf?.(Math.floor(spot.x));
     const table = z.enemies.filter((e) => !e.side || e.side === side);
     const pick = id || g.rng.weighted(table).id;
-    const el = WAVES.cave.elite;
-    const eliteChance = Math.min(el.max, el.base + el.perLayer * g.zone.layer);
+    const el = g.zone.type === 'isle' ? WAVES.isle.elite : WAVES.cave.elite;
+    const eliteChance = Math.min(el.max, el.base + el.perLayer * (g.zone.layer || 0));
     return g.enemies.spawn(pick, spot.x, spot.z, { level: this.caveLevel(), elite: g.rng.chance(eliteChance), ambient: true });
   }
 
@@ -82,21 +82,44 @@ export class Spawner {
     const g = this.g;
     if (!g.player.alive) return;
     if (g.zone.type === 'island') this.updateIsland(dt);
+    else if (g.zone.type === 'isle') this.updateIsle(dt);
     else this.updateCave(dt);
   }
 
   updateIsland(dt) {
     const g = this.g;
-    const reqs = this.director.update(dt, {
-      phase: g.dayNight.phase, playerLevel: g.profile.level,
-      waveAlive: g.enemies.count((e) => e.wave), ambientAlive: g.enemies.count((e) => e.ambient),
-      paused: g.enemies.list.length >= g.enemies.cap,
-    });
-    for (const r of reqs) {
+    // Creatures left far behind wander off, so the horde follows you around the island.
+    for (const e of g.enemies.list) if (e.horde && e.alive && e.tier === 'dormant' && e.dormantT > 20) { e.alive = false; e.dyingT = 0; }
+    let alive = 0, core = 0;
+    for (const e of g.enemies.list) if (e.alive && e.horde) { alive++; if (['swarm', 'frontline', 'tank'].includes(ENEMIES[e.def.id].role)) core++; }
+    // A brand-new castaway gets a thinner horde for the first few minutes.
+    const target = g.profile.playTime < 240 ? 4 : undefined;
+    for (const r of this.horde.update(dt, { phase: g.dayNight.phase, alive, core, cap: g.enemies.cap - 4, target })) {
       const spot = this.findSpot(22, 34);
-      const e = spot && g.enemies.spawn(r.id, spot.x, spot.z, { level: this.islandLevel(), elite: r.elite, wave: r.wave, ambient: !r.wave });
-      if (!e && r.wave) this.director.pending.push(r.id); // try again next interval
+      if (spot) g.enemies.spawn(r.id, spot.x, spot.z, { level: r.level, elite: r.elite, horde: true, ambient: true });
     }
+    // Roaming bosses: a random clock, paused while one is abroad.
+    const id = this.bossClock.update(dt, { phase: g.dayNight.phase, level: g.profile.level, bossAbroad: !!this.boss });
+    g.profile.world.bossTimer = this.bossClock.timer;
+    if (id) this.spawnBoss(id, false);
+  }
+
+  // The isles keep a living population at their own fixed levels, like the caves.
+  updateIsle(dt) {
+    const g = this.g;
+    this.popT -= dt;
+    if (this.popT <= 0) {
+      this.popT = WAVES.isle.respawnDelay;
+      if (g.enemies.count((e) => !e.boss && !e.summoned) < this.population()) this.spawnCave();
+    }
+  }
+
+  // Each isle's guardian waits in its arena unless it fell recently.
+  spawnGuardian() {
+    const g = this.g;
+    const def = Object.values(BOSSES).find((b) => b.zone === g.zone.id);
+    if (!def || (g.profile.world.guardians?.[def.id] || 0) > g.profile.playTime) return;
+    this.spawnBoss(def.id, false);
   }
 
   updateCave(dt) {
@@ -148,6 +171,22 @@ export class Spawner {
       if (v.type === 'gas_vent') {
         g.combat.zone({ x: v.x, z: v.z, y, r: v.r, t: 3.5, interval: 0.5, team: 'enemy', color: '#9be15d',
           onTick: (ts, z) => { g.fx.burst(z.x + g.rng.range(-2, 2), y + 0.4, z.z + g.rng.range(-2, 2), 2, { color: '#9be15d', speed: 0.5, up: 1, gravity: -0.5, life: 1.2, size: 0.3 }); for (const t of ts) g.combat.hurt(t, dmg * 0.25, null, { type: 'hazard', status: [{ id: 'poison' }] }); } });
+      } else if (v.type === 'radiance') {
+        // Dawn crystals flare: a blinding burst.
+        g.fx.telegraph({ shape: 'circle', x: v.x, z: v.z, y, r: 3.2, t: 1.0, color: '#ffe9a8' });
+        g.combat.after(1.0, () => {
+          g.fx.burst(v.x, y + 1.2, v.z, 30, { color: '#fff4c8', speed: 6, up: 4, life: 0.6 });
+          g.fx.column(v.x, y, v.z, '#ffe9a8', 16, 0.8);
+          for (const t of g.combat.circle(v.x, v.z, 3.2, 'enemy')) g.combat.hurt(t, dmg, null, { type: 'hazard', status: [{ id: 'blind' }] });
+        });
+      } else if (v.type === 'umbral') {
+        v.t = 0.5;
+        // Dusk pools: standing in one slows you and drains your resource.
+        if (Math.hypot(p.x - v.x, p.z - v.z) < v.r - 0.3) {
+          p.statuses.apply('slow', { dur: 1 });
+          p.res = Math.max(0, p.res - g.stats.resourceMax * 0.05);
+          g.fx.burst(p.x, p.ry + 0.3, p.z, 2, { color: '#8a5aff', speed: 0.6, up: 1.5, life: 0.6, size: 0.14 });
+        }
       } else {
         const fire = v.type === 'heat_vent';
         g.fx.telegraph({ shape: 'circle', x: v.x, z: v.z, y, r: 2.6, t: 0.9, color: fire ? '#ff7a3d' : '#9fd8ff' });
@@ -175,7 +214,7 @@ export class Spawner {
   }
 
   // ------------------------------------------------------------------ bosses
-  onPhase(phase) {
+  onPhase() {
     const g = this.g;
     if (g.zone.type !== 'island') return;
     // A waiting boss who was never engaged leaves when its time is over.
@@ -184,21 +223,14 @@ export class Spawner {
       g.ui?.toast(`${this.boss.def.name} grows bored and departs.`);
       this.boss = null;
     }
-    for (const b of WAVES.island.bosses) {
-      if (b.period !== phase || this.boss) continue;
-      const def = BOSSES[b.id];
-      if (g.profile.level < def.minLevel) continue;
-      const pity = g.profile.world.bossPity[b.id] || 0;
-      if (g.rng.next() < b.chance + pity * b.pity) { g.profile.world.bossPity[b.id] = 0; this.spawnBoss(b.id, false); }
-      else g.profile.world.bossPity[b.id] = pity + 1;
-    }
   }
 
   spawnBoss(id, engaged) {
     const g = this.g;
     const def = BOSSES[id];
-    const arena = g.zone.arenas[def.arena];
-    const level = Math.max(def.minLevel, g.profile.level) + def.levelOffset;
+    const arena = g.zone.arenas ? g.zone.arenas[def.arena] : g.zone.arena;
+    // Bosses have fixed levels, like the creatures of their island.
+    const level = def.minLevel + def.levelOffset;
     const b = new BOSS_CLASS[id](g, level, arena);
     g.enemies.addBoss(b);
     this.boss = b.group;

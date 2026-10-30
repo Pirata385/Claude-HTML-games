@@ -78,13 +78,13 @@ function tryCave(def, seed) {
     }
   };
   if (!open(ek % N, Math.floor(ek / N), 2)) clearAround(ek, 3);
-  clearAround(xk, def.gen.gate ? 5 : 3);
+  clearAround(xk, def.gen.gate || def.gen.heart ? 5 : 3);
   // Recompute after clearing.
   dFromEntry = g.bfs(ek % N, Math.floor(ek / N), { maxStep: 1 });
   diameter = 0;
   for (let k = 0; k < dFromEntry.length; k++) diameter = Math.max(diameter, dFromEntry[k]);
   const entry = { i: ek % N, j: Math.floor(ek / N), type: 'stairs' };
-  const exit = { i: xk % N, j: Math.floor(xk / N), type: def.gen.gate ? 'gate' : 'shaft' };
+  const exit = { i: xk % N, j: Math.floor(xk / N), type: def.gen.heart ? 'heart' : def.gen.gate ? 'gate' : 'shaft' };
   for (const p of [entry, exit]) { p.x = p.i + 0.5; p.z = p.j + 0.5; p.h = g.h[g.idx(p.i, p.j)]; }
   if (dFromEntry[g.idx(exit.i, exit.j)] < diameter * 0.6) return null;
 
@@ -106,14 +106,16 @@ function tryCave(def, seed) {
   for (const [i, j] of route) { g.set(i, j, F.PATH); for (const [di, dj] of N4) if (g.walkable(i + di, j + dj)) g.set(i + di, j + dj, F.PATH); }
   for (const p of [entry, exit]) for (let oj = -3; oj <= 3; oj++) for (let oi = -3; oi <= 3; oi++) g.set(p.i + oi, p.j + oj, F.NOSPAWN);
 
+  // Split layers have two halves; the first side uses the hot surface and flag, the second the cold one.
   const split = !!def.gen.split;
-  const sideOf = (i) => (split ? (i < N / 2 ? 'hot' : 'cold') : null);
+  const sides = def.gen.sides || ['hot', 'cold'];
+  const sideOf = (i) => (split ? (i < N / 2 ? sides[0] : sides[1]) : null);
 
   // Surfaces.
   for (let j = 0; j < N; j++) for (let i = 0; i < N; i++) {
     const k = g.idx(i, j);
     if (g.flags[k] & F.WALL) g.surf[k] = SURF.WALL;
-    else if (split) { g.surf[k] = sideOf(i) === 'hot' ? SURF.HOT : SURF.COLD; g.flags[k] |= sideOf(i) === 'hot' ? F.HOT : F.COLD; }
+    else if (split) { g.surf[k] = i < N / 2 ? SURF.HOT : SURF.COLD; g.flags[k] |= i < N / 2 ? F.HOT : F.COLD; }
     else g.surf[k] = SURF.FLOOR;
   }
 
@@ -160,13 +162,13 @@ function tryCave(def, seed) {
 
   // Hazards.
   const hazards = [];
-  const placeVents = (type, count, side) => {
+  const placeVents = (type, count, side, solid = true) => {
     let n = 0;
     for (const [i, j] of candidates) {
       if (n >= count) break;
       if (side && sideOf(i) !== side) continue;
       if (g.has(i, j, F.OBSTACLE | F.PATH) || corridor(i, j) || !farFrom(i, j, [entry, exit], 10) || !farFrom(i, j, [...occupied, ...hazards], 6)) continue;
-      g.set(i, j, F.OBSTACLE | F.HAZARD);
+      g.set(i, j, solid ? F.OBSTACLE | F.HAZARD : F.HAZARD);
       hazards.push({ type, i, j, x: i + 0.5, z: j + 0.5, r: 3, period: rng.range(5, 9), phase: rng.range(0, 5) });
       n++;
     }
@@ -184,6 +186,8 @@ function tryCave(def, seed) {
     } else if (hz === 'gas_vent') placeVents('gas_vent', 7);
     else if (hz === 'heat_vent') placeVents('heat_vent', 6, 'hot');
     else if (hz === 'frost_vent') placeVents('frost_vent', 6, 'cold');
+    else if (hz === 'radiance') placeVents('radiance', 6, sides[0]);
+    else if (hz === 'umbral') placeVents('umbral', 6, sides[1], false);
   }
 
   // Obstacles must never wall anything off: drop any object that ended up unreachable.
@@ -205,7 +209,7 @@ function tryCave(def, seed) {
   const spawnCell = N4.map(([di, dj]) => [entry.i + di * 2, entry.j + dj * 2]).find(([i, j]) => g.walkable(i, j)) || [entry.i, entry.j];
   return {
     id: def.id, type: 'cave', layer: def.layer, def, seed, grid: g,
-    entry, exit, route, pois, nodes, hazards, split, sideOf,
+    entry, exit, route, pois, nodes, hazards, split, sides, sideOf,
     spawn: { x: spawnCell[0] + 0.5, z: spawnCell[1] + 0.5 },
     spawnYaw: Math.atan2(spawnCell[0] - entry.i, spawnCell[1] - entry.j),
     diameter, floorFrac: frac, isReachable,

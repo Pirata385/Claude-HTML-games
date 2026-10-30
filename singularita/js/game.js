@@ -103,7 +103,7 @@ export class Game {
     this.player.render(dt);
     for (const s of this.systems) s.render?.(dt, this);
     const camPos = this.r.camera.position;
-    this.view.update(dt, this.time, camPos);
+    this.view.update(dt, this.time, camPos, this.player);
     if (this.zone.type === 'island') {
       const dir = applyDayPalette(this.r, this.sky, this.dayNight.sun, this.dayNight.progress, this.dayNight.phase);
       this.r.sun.position.set(this.player.x + dir.x * 80, this.player.y + dir.y * 80, this.player.z + dir.z * 80);

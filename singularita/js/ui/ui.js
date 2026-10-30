@@ -51,6 +51,9 @@ export class UI {
     el.objText = h('div', { class: 'obj-text' }); el.objProg = h('div', { class: 'obj-prog' }); el.objHint = h('div', { class: 'obj-hint' }); el.objNext = h('div', { class: 'obj-next' });
     el.obj = h('div', { class: 'hud-obj' }, h('div', { class: 'obj-title' }, 'Objective'), el.objText, el.objProg, el.objHint, el.objNext);
     el.prompt = h('div', { class: 'prompt', hidden: true });
+    // On touch screens the prompt itself is the interact button (hold to keep gathering).
+    el.prompt.addEventListener('pointerdown', (e) => { e.preventDefault(); this.g.input.press('interact'); });
+    for (const ev of ['pointerup', 'pointercancel', 'pointerleave']) el.prompt.addEventListener(ev, () => this.g.input.release('interact'));
     el.chanI = h('i'); el.chanS = h('span');
     el.channel = h('div', { class: 'channel', hidden: true }, el.chanS, h('div', { class: 'chan-bar' }, el.chanI));
     el.hotbar = h('div', { class: 'hotbar' });

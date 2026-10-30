@@ -17,4 +17,9 @@ export function fmtTime(sec) {
   const h = Math.floor(sec / 3600), m = Math.floor((sec % 3600) / 60);
   return h ? `${h}h ${m}m` : `${m}m`;
 }
-export function clear(el) { while (el.firstChild) el.removeChild(el.firstChild); return el; }
+// Empties an element and returns an appender that skips null/false children
+// (DOM append would otherwise print "null").
+export function clear(el) {
+  while (el.firstChild) el.removeChild(el.firstChild);
+  return { el, append: (...kids) => el.append(...kids.flat(Infinity).filter((k) => k != null && k !== false)) };
+}

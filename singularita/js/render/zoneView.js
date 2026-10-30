@@ -40,9 +40,10 @@ export class ZoneView {
     }
     this.viewDistance = quality.viewDistance;
   }
-  update(dt, t, cam) {
+  update(dt, t, cam, player) {
     cullChunks(this.terrain.chunks, cam.x, cam.z, this.viewDistance);
     this.nodes.update(dt);
+    if (player) this.nodes.occlude(cam.x, cam.z, player.x, player.z);
     this.structures.update(t);
     if (this.water) this.water.uniforms.uTime.value = t;
   }

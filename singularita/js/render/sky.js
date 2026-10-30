@@ -44,7 +44,7 @@ const KEYS = [
   { s: -1.0, top: '#060914', hor: '#141c38', sun: '#8fa6ff', sunI: 0.45, hemiS: '#3a4a7a', hemiG: '#141420', hemiI: 0.55 },
   { s: -0.15, top: '#0c1430', hor: '#2a2d55', sun: '#9ab0ff', sunI: 0.5, hemiS: '#45508a', hemiG: '#1a1a2a', hemiI: 0.6 },
   { s: 0.05, top: '#4a5aa8', hor: '#ff9f7a', sun: '#ff9a5a', sunI: 1.2, hemiS: '#ffc0a0', hemiG: '#4a3a3a', hemiI: 0.8 },
-  { s: 0.25, top: '#4f98f0', hor: '#ffd9b0', sun: '#ffd9a8', sunI: 1.9, hemiS: '#cfe0ff', hemiG: '#6a5a3a', hemiI: 1.0 },
+  { s: 0.25, top: '#4f98f0', hor: '#ffe2c0', sun: '#ffe2b8', sunI: 2.1, hemiS: '#d6e6ff', hemiG: '#7a6a48', hemiI: 1.15 },
   { s: 1.0, top: '#3d8fff', hor: '#cfe8ff', sun: '#fff4e0', sunI: 2.3, hemiS: '#cde6ff', hemiG: '#7a6a48', hemiI: 1.15 },
 ];
 const ca = new THREE.Color(), cb = new THREE.Color();

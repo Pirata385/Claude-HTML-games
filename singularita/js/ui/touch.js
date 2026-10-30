@@ -24,11 +24,16 @@ export class TouchControls {
       window.addEventListener('touchstart', () => { const c = current; if (!c || c.g.disposed) return; c.g.input.lastDevice = 'touch'; if (c.root.hidden) { c.root.hidden = false; c.applyLayout(); } }, { passive: true, capture: true });
     }
     this.applyLayout();
+    addEventListener('resize', () => { if (current === this) this.applyLayout(); });
   }
 
   applyLayout() {
     const t = this.g.settings.touch;
-    this.root.style.setProperty('--tsize', t.size);
+    // Scale the cluster to the short side of the screen so it never crowds the HUD.
+    const portrait = innerHeight > innerWidth;
+    const fit = portrait ? Math.min(1.1, Math.max(0.8, innerWidth / 430)) : Math.min(1.1, Math.max(0.68, innerHeight / 600));
+    this.root.style.setProperty('--tsize', t.size * fit);
+    document.body.style.setProperty('--tsize', t.size * fit);
     this.root.style.setProperty('--topa', t.opacity);
     this.root.classList.toggle('lefty', t.leftHanded);
     document.body.classList.toggle('touch-ui', !this.root.hidden);

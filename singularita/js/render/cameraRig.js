@@ -35,7 +35,7 @@ export class CameraRig {
       this.pitch += (0.32 - this.pitch) * Math.min(1, dt * 2);
     }
     this.aim = damp(this.aim, aiming ? 1 : 0, 10, dt);
-    this.dist = damp(this.dist, this.zoomTarget * (1 - this.aim * 0.45), 8, dt);
+    this.dist = damp(this.dist, this.zoomTarget * (1 - this.aim * 0.45) * (this.camera.aspect < 1 ? 1.2 : 1), 8, dt);
 
     // In caves the pivot rides above the 3-block walls, so the view looks down into the passages.
     _pivot.set(player.x, player.ry + (high ? 3.4 : 1.55), player.z);
@@ -51,8 +51,8 @@ export class CameraRig {
       const u = s / steps;
       const x = _pivot.x + (_want.x - _pivot.x) * u, y = _pivot.y + (_want.y - _pivot.y) * u, z = _pivot.z + (_want.z - _pivot.z) * u;
       const i = Math.floor(x), j = Math.floor(z);
-      // Trees and rocks stand on obstacle cells: treat them as tall so the camera never ends up inside one.
-      if (!grid.inside(i, j) || grid.top(i, j) + (grid.has(i, j, F.OBSTACLE) ? 4.2 : 0) > y - 0.3) { t = Math.max(0.12, (s - 1) / steps); break; }
+      // Rocks and ores stand on obstacle cells; trees in the way are hidden by the zone view instead.
+      if (!grid.inside(i, j) || grid.top(i, j) + (grid.has(i, j, F.OBSTACLE) ? 1.6 : 0) > y - 0.3) { t = Math.max(0.12, (s - 1) / steps); break; }
     }
     _want.lerpVectors(_pivot, _want, t);
     if (this.first) { this.cur.copy(_want); this.first = false; }
@@ -65,7 +65,8 @@ export class CameraRig {
     }
     _look.set(_pivot.x + f.x * 2 + r.x * shoulder, high ? player.ry + 1.2 : _pivot.y + 0.1, _pivot.z + f.z * 2 + r.z * shoulder);
     this.camera.lookAt(_look);
-    const fov = this.baseFov * (1 - this.aim * 0.18);
+    // Portrait screens get a wider view so the player is not cramped.
+    const fov = (this.baseFov + (this.camera.aspect < 1 ? 14 : 0)) * (1 - this.aim * 0.18);
     if (Math.abs(this.camera.fov - fov) > 0.05) { this.camera.fov = fov; this.camera.updateProjectionMatrix(); }
   }
 }

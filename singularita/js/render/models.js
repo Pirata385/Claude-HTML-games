@@ -12,7 +12,7 @@ const OUTFIT = {
   swordsman: { cloth: '#b8433a', legs: '#4a3a34', skin: '#e8c4a0', hair: '#4a2e1e', extra: (m) => [B(0, 0.62, -0.2, 0.66, 0.2, 0.06, m), B(0.36, 0.7, 0, 0.18, 0.18, 0.4, m), B(-0.36, 0.7, 0, 0.18, 0.18, 0.4, m)] },
   archer: { cloth: '#4f8a4a', legs: '#5a4630', skin: '#d9b08a', hair: '#7a4a24', extra: (m) => [B(0.2, 0.3, -0.22, 0.2, 0.7, 0.14, '#7a5232'), B(0, 0.1, 0, 0.66, 0.1, 0.4, m)] },
   mage: { cloth: '#4a52a8', legs: '#3a3a6a', skin: '#ecd0b0', hair: '#d8d8e8', extra: (m) => [B(0, -0.1, 0, 0.7, 0.3, 0.42, '#4a52a8'), B(0, 0.4, 0.19, 0.12, 0.6, 0.02, m)] },
-  assassin: { cloth: '#2e2a3a', legs: '#24202e', skin: '#c99a7a', hair: '#141018', extra: (m) => [B(0, 0.05, 0, 0.66, 0.08, 0.4, m), B(0, 0.75, -0.18, 0.5, 0.3, 0.06, '#2e2a3a')] },
+  assassin: { cloth: '#4a3f63', legs: '#352e48', skin: '#d4a882', hair: '#1e1826', extra: (m) => [B(0, 0.05, 0, 0.66, 0.08, 0.4, m), B(0, 0.75, -0.18, 0.5, 0.3, 0.06, '#2e2a3a')] },
   stardust: { cloth: '#3a2a5a', legs: '#2a2040', skin: '#e0c0e8', hair: '#f0e8ff', extra: (m) => [B(0, 0.4, -0.2, 0.7, 0.9, 0.06, '#5a3a8a'), B(0.2, 0.55, -0.24, 0.06, 0.06, 0.02, '#ffffff'), B(-0.15, 0.3, -0.24, 0.06, 0.06, 0.02, '#ffffff'), B(0, 0.62, 0.19, 0.14, 0.14, 0.02, m)] },
 };
 const HEADGEAR = {
@@ -124,7 +124,7 @@ export function buildAstral(seed) {
   const lineMat = new THREE.LineBasicMaterial({ color: col, transparent: true, opacity: 0.6 });
   group.add(new THREE.LineSegments(lineGeo, lineMat));
   // A soft body of light.
-  const auraGeo = boxesGeometry([B(0, 1.15, 0, 1.0, 2.1, 0.5, '#' + col.clone().multiplyScalar(0.35).getHexString())]);
+  const auraGeo = boxesGeometry([B(0, 1.15, 0, 0.7, 1.9, 0.3, '#' + col.clone().multiplyScalar(0.12).getHexString())]);
   const aura = new THREE.Mesh(auraGeo, glowMaterial());
   group.add(aura);
   return { group, color: col, dispose() { starGeo.dispose(); lineGeo.dispose(); lineMat.dispose(); auraGeo.dispose(); group.parent?.remove(group); } };

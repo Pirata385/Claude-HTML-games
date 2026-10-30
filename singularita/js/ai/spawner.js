@@ -19,6 +19,8 @@ export class Spawner {
     this.director.onWaveStart = (idx, total) => { this.wave = { idx, total }; game.bus.emit('waveStart', { idx, total, phase: game.dayNight.phase }); };
     this.director.onWaveEnd = (idx, cleared) => { this.wave = null; game.bus.emit('waveEnd', { idx, cleared }); if (cleared) game.profile.stats.waves++; };
     this.wave = null;
+    // A fresh character gets a quiet start before the first wave.
+    if (game.profile.playTime < 180) this.director.timer = 150;
     this.popT = 0; this.tremorT = 150; this.stalT = 3;
     this.boss = null; // active scheduled boss group
     game.bus.on('phase', ({ phase }) => this.onPhase(phase));

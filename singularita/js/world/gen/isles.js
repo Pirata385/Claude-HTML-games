@@ -111,6 +111,7 @@ function landing(z, x, zz, yaw) {
   z.spawn = { x: z.landing.x + Math.sin(yaw) * 3, z: z.landing.z + Math.cos(yaw) * 3 };
   z.spawnYaw = yaw;
   markDisk(g, z.landing.x, z.landing.z, 7, F.NOSPAWN);
+  g.set(Math.floor(x), Math.floor(zz), F.OBSTACLE); // the return stone
 }
 
 // ------------------------------------------------------------------ Air: the Galeforge Spires

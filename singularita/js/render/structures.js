@@ -50,6 +50,14 @@ export function buildStructures(zone) {
       add([B(0, 2.5, 0, 0.3, 0.3, 0.3, '#ffd48a')], zone.base.x + ox, zone.base.z + oz, { mat: unlitMaterial(), cast: false });
     }
 
+    // The Wayshrine: a standing stone with four rune bands, one per isle.
+    const w = zone.base.wayshrine;
+    if (w) {
+      add([B(0, 0.2, 0, 1.8, 0.4, 1.8, '#8e8a86'), B(0, 1.6, 0, 0.9, 2.6, 0.9, '#a8a29c'), B(0, 3.05, 0, 1.1, 0.3, 1.1, '#8e8a86')], w.x, w.z);
+      add([B(0, 2.3, 0.46, 0.5, 0.18, 0.02, '#9fe0ff'), B(0, 1.9, 0.46, 0.5, 0.18, 0.02, '#5fb0ff'), B(0, 1.5, 0.46, 0.5, 0.18, 0.02, '#ff7a3d'), B(0, 1.1, 0.46, 0.5, 0.18, 0.02, '#8ad06a')],
+        w.x, w.z, { rot: Math.atan2(zone.base.x - w.x, zone.base.z - w.z), mat: unlitMaterial(), cast: false });
+    }
+
     // Cave mouth: a stone arch over a dark opening, facing the base.
     const cm = zone.caveMouth;
     const face = Math.atan2(zone.base.x - cm.x, zone.base.z - cm.z);

@@ -7,6 +7,7 @@ import { Sky, applyDayPalette } from './render/sky.js';
 import { ZoneView } from './render/zoneView.js';
 import { buildPlayerRig } from './render/models.js';
 import { generateZone } from './world/gen/index.js';
+import { placeWayshrine } from './world/gen/island.js';
 import { Player } from './entities/player.js';
 import { DayNight } from './systems/dayNight.js';
 import { computeStats } from './systems/stats.js';
@@ -16,7 +17,11 @@ import { ZONES } from './data/zones.js';
 
 const zoneCache = new Map();
 export function getZone(id) {
-  if (!zoneCache.has(id)) zoneCache.set(id, generateZone(id));
+  if (!zoneCache.has(id)) {
+    const z = generateZone(id);
+    if (z.type === 'island') placeWayshrine(z);
+    zoneCache.set(id, z);
+  }
   return zoneCache.get(id);
 }
 

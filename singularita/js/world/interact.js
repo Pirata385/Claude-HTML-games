@@ -1,5 +1,5 @@
 // World interaction: gathering resource nodes, camp stations, cave stairs and shafts,
-// Echo Stones, the Sealed Core Gate and the recall channel.
+// Echo Stones, the Wayshrine and the isles, the Sealed Core Gate and the recall channel.
 import { NODES } from '../data/nodes.js';
 import { MATERIALS } from '../data/materials.js';
 import { ZONES } from '../data/zones.js';
@@ -7,6 +7,7 @@ import { LORE, LUME_LINES } from '../data/lore.js';
 import { canGather, gatherDamage, rollYield } from '../systems/gathering.js';
 import { gatherXp } from '../systems/progression.js';
 import { addStack } from '../systems/inventory.js';
+import { canEnter, isleList, openGate, ownedSigils } from '../systems/travel.js';
 import { F } from './grid.js';
 
 const REACH = 2.6, NODE_REACH = 1.9;
@@ -47,14 +48,20 @@ export class Interaction {
       add({ id: 'lume', x: s.lume.x, z: s.lume.z, label: 'Talk to Lume', act: () => this.talkLume() });
       add({ id: 'beacon', x: s.beacon.x, z: s.beacon.z, label: 'The Beacon', act: () => g.ui.dialog({ title: 'The Beacon', text: 'Its light keeps creatures out of the camp. Nothing that hops or shambles will cross into it.' }) });
       add({ id: 'cave', x: z.caveMouth.x, z: z.caveMouth.z, r: 3.4, label: 'Enter the Hollow Deep', act: () => this.travel('cave_1') });
+      const w = z.base.wayshrine;
+      if (w) add({ id: 'wayshrine', x: w.x, z: w.z, r: 3, label: 'The Wayshrine', act: () => this.wayshrine() });
+    } else if (z.type === 'isle') {
+      add({ id: 'return', x: z.landing.x, z: z.landing.z, r: 3, label: 'Return to Dawnreach', act: () => this.travel('island') });
     } else {
       const layer = z.layer;
       add({ id: 'up', x: z.entry.x, z: z.entry.z, r: 2.8, label: layer === 1 ? 'Climb back to Dawnreach' : `Climb to ${ZONES[`cave_${layer - 1}`].name}`, act: () => this.travel(layer === 1 ? 'island' : `cave_${layer - 1}`, 'fromBelow') });
       if (z.exit.type === 'shaft') {
         const next = ZONES[`cave_${layer + 1}`];
         add({ id: 'down', x: z.exit.x, z: z.exit.z, r: 2.8, label: () => (g.profile.level >= next.levelReq ? `Descend to ${next.name}` : `Descend (requires level ${next.levelReq})`), act: () => this.travel(next.id) });
+      } else if (z.exit.type === 'gate') {
+        add({ id: 'gate', x: z.exit.x, z: z.exit.z, r: 4.5, label: () => (g.profile.flags?.gateOpen ? 'Enter the Core' : 'The Sealed Core Gate'), act: () => this.readGate() });
       } else {
-        add({ id: 'gate', x: z.exit.x, z: z.exit.z, r: 4.5, label: 'The Sealed Core Gate', act: () => this.readGate() });
+        add({ id: 'heart', x: z.exit.x, z: z.exit.z, r: 4.5, label: 'The Heart Seal', act: () => this.readHeart() });
       }
     }
     for (const p of z.pois) if (p.type === 'lore') add({ id: `lore:${p.id}`, x: p.x, z: p.z, label: () => (g.profile.lore.includes(p.id) ? 'Echo Stone (read)' : 'Read the Echo Stone'), act: () => this.readLore(p.id) });
@@ -62,10 +69,15 @@ export class Interaction {
 
   // Arrival points when moving between zones.
   travel(zoneId, how) {
-    const g = this.g, def = ZONES[zoneId];
-    if (g.profile.level < def.levelReq) { g.ui.toast(`${def.name} requires level ${def.levelReq}.`, 'warn'); g.bus.emit('sfx', { id: 'denied' }); return; }
+    const g = this.g;
+    const gate = canEnter(g.profile, zoneId);
+    if (!gate.ok) { g.ui.toast(gate.reason, 'warn'); g.bus.emit('sfx', { id: 'denied' }); return; }
     let arrival = null;
-    if (zoneId === 'island' && g.zone.type === 'cave') {
+    if (zoneId === 'island' && g.zone.type === 'isle') {
+      const z = g.getZone('island'), w = z.base.wayshrine;
+      const spot = this.openNear(z, Math.floor(w.x), Math.floor(w.z), 2);
+      arrival = { x: spot[0] + 0.5, z: spot[1] + 0.5, yaw: Math.atan2(spot[0] + 0.5 - w.x, spot[1] + 0.5 - w.z) };
+    } else if (zoneId === 'island' && g.zone.type === 'cave') {
       const z = g.getZone('island'), cm = z.caveMouth;
       const yaw = Math.atan2(z.base.x - cm.x, z.base.z - cm.z);
       arrival = { x: cm.x + Math.sin(yaw) * 3, z: cm.z + Math.cos(yaw) * 3, yaw };
@@ -102,7 +114,9 @@ export class Interaction {
     const g = this.g, p = g.profile;
     let text;
     if (!p.flags?.metLume) { (p.flags ||= {}).metLume = true; text = LUME_LINES.first; }
-    else if (p.lore.includes('lore_seal')) text = LUME_LINES.gateHint;
+    else if (ownedSigils(p).length === 4 && !p.flags.gateOpen) text = LUME_LINES.sigilsHint;
+    else if (p.level >= 66 && !p.flags.gateOpen && !Object.keys(p.zones).some((id) => id.startsWith('isle_'))) text = LUME_LINES.isleHint;
+    else if (p.lore.includes('lore_seal') && !p.flags.gateOpen) text = LUME_LINES.gateHint;
     else if (p.level >= 3 && !p.zones.cave_1) text = LUME_LINES.caveHint;
     else if (g.dayNight.phase === 'night') text = LUME_LINES.night;
     else text = LUME_LINES.greet[Math.floor(g.time) % LUME_LINES.greet.length] + ' ' + LUME_LINES.day;
@@ -128,10 +142,43 @@ export class Interaction {
     g.bus.emit('sfx', { id: 'lore' });
   }
 
-  readGate() {
+  // The Wayshrine: a standing stone that remembers the old sea roads to the four isles.
+  wayshrine() {
     const g = this.g;
+    const list = isleList(g.profile);
+    const lines = list.map((x) => `${x.hasSigil ? '✦' : '·'} ${x.name} (${x.subtitle}): level ${x.levelReq}. ${x.boss} keeps the ${MATERIALS[x.sigil].name}.`);
+    const buttons = list.map((x) => ({ label: x.ok ? `Sail to ${x.name}` : `${x.name} (level ${x.levelReq})`, action: () => this.travel(x.id) }));
+    buttons.push({ label: 'Stay', primary: true });
+    g.ui.dialog({ title: 'The Wayshrine', text: `The old sea roads still answer the stone. Touch a rune and the current will carry you.\n\n${lines.join('\n\n')}`, buttons, portrait: 'echo' });
+  }
+
+  readGate() {
+    const g = this.g, p = g.profile;
     this.learn('lore_seal', false);
-    g.ui.dialog({ title: 'The Sealed Core Gate', text: `${LORE.lore_seal.text}\n\nFour sockets wait: Wind, Tide, Flame and Stone. Their sigils lie on the elemental isles, beyond Dawnreach's horizon.`, portrait: 'echo' });
+    if (p.flags?.gateOpen) { this.travel('cave_8'); return; }
+    const have = ownedSigils(p);
+    if (have.length === 4) {
+      g.ui.dialog({ title: 'The Sealed Core Gate', portrait: 'echo', text: 'The four sockets glow as you come near. The sigils in your pack are warm.', buttons: [
+        { label: 'Set the four sigils', primary: true, action: () => {
+          openGate(p);
+          g.view.setGateOpen?.(true);
+          g.cam.shake(1.2);
+          g.bus.emit('sfx', { id: 'tremor' });
+          g.ui.banner('The Sealed Core Gate opens', 'Dawn and dusk wait below.', 'boss');
+          g.bus.emit('gateOpened', {});
+          g.save('gate');
+        } },
+        { label: 'Not yet' },
+      ] });
+      return;
+    }
+    const names = have.map((s) => MATERIALS[s].name);
+    g.ui.dialog({ title: 'The Sealed Core Gate', text: `${LORE.lore_seal.text}\n\nFour sockets wait: Wind, Tide, Flame and Stone. Their sigils lie on the elemental isles, beyond Dawnreach's horizon. The Wayshrine in camp knows the way.${names.length ? `\n\nYou carry: ${names.join(', ')}.` : ''}`, portrait: 'echo' });
+  }
+
+  readHeart() {
+    const g = this.g;
+    g.ui.dialog({ title: 'The Heart Seal', portrait: 'echo', text: 'A second seal, older than the gate and woven of both lights at once. Dawnstone and duskstone meet here and refuse each other. It does not answer yet: whatever sleeps beyond it is not ready to wake, and neither are you.' });
   }
 
   // Nearest interactable or resource node in reach.
@@ -159,7 +206,7 @@ export class Interaction {
     }
     if (bn < 0) return null;
     const n = nodes[bn], nd = NODES[n.node];
-    const ok = canGather(g.profile.inv, nd);
+    const ok = nd.tide === 'low' && g.grid.has(n.i, n.j, F.WATER) ? { ok: false, reason: 'Under the tide. Wait for low water.' } : canGather(g.profile.inv, nd);
     const verb = nd.tool === 'axe' ? 'Chop' : 'Mine';
     return { kind: 'node', index: bn, n, nd, ok, label: ok.ok ? `${verb} ${nd.name}` : ok.reason };
   }

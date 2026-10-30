@@ -224,3 +224,20 @@ export function smoothRamp(g, path, protect) {
     if (!changed) break;
   }
 }
+
+// The Wayshrine joined the camp after the isles were charted. It is placed on the generated
+// island at load time, so the island itself (and its snapshot) stays the same.
+export function placeWayshrine(z) {
+  if (z.base.wayshrine) return z.base.wayshrine;
+  const g = z.grid, b = z.base;
+  const clear = (i, j) => Object.values(b.stations).every((s) => Math.hypot(i + 0.5 - s.x, j + 0.5 - s.z) > 4.5)
+    && Math.hypot(i + 0.5 - (b.x - 11), j + 0.5 - (b.z + 4)) > 4 && Math.hypot(i + 0.5 - b.x, j + 0.5 - b.z) < b.r - 4;
+  for (const [ox, oz] of [[12, 2], [11, -6], [-12, -4], [2, 12], [12, 8]]) {
+    const i = Math.floor(b.x + ox), j = Math.floor(b.z + oz);
+    if (!clear(i, j) || !g.walkable(i, j) || g.height(i, j) !== b.h) continue;
+    g.set(i, j, F.OBSTACLE);
+    b.wayshrine = { x: i + 0.5, z: j + 0.5 };
+    return b.wayshrine;
+  }
+  throw new Error('no room for the Wayshrine');
+}

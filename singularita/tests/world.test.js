@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { ZoneGrid, F } from '../js/world/grid.js';
 import { generateZone, zoneSeed, WORLD_SEED, GEN_VERSION } from '../js/world/gen/index.js';
 import { validateIsland, validateCave, validateIsle } from '../js/world/gen/validate.js';
+import { placeWayshrine } from '../js/world/gen/island.js';
 import { applyTide, TIDE } from '../js/world/tide.js';
 import { NODES } from '../js/data/nodes.js';
 import { ZONES, ZONE_ORDER } from '../js/data/zones.js';
@@ -53,6 +54,19 @@ test('island has beaches, water around it and a safe base', () => {
   const [bi, bj] = g.cellAt(z.base.x, z.base.z);
   assert.ok(g.flags[g.idx(bi, bj)] & F.BASE);
   assert.ok(g.flags[g.idx(bi, bj)] & F.NOSPAWN);
+});
+
+test('the Wayshrine stands in camp, clear of the stations, and can be reached', () => {
+  const z = generateZone('island'), g = z.grid;
+  const w = placeWayshrine(z);
+  assert.equal(placeWayshrine(z), w, 'placing twice keeps one shrine');
+  assert.ok(Math.hypot(w.x - z.base.x, w.z - z.base.z) < z.base.r - 3);
+  for (const s of Object.values(z.base.stations)) assert.ok(Math.hypot(w.x - s.x, w.z - s.z) > 4);
+  assert.ok(g.has(Math.floor(w.x), Math.floor(w.z), F.OBSTACLE));
+  const [si, sj] = g.cellAt(z.spawn.x, z.spawn.z);
+  const d = g.bfs(si, sj, { maxStep: 1 });
+  const i = Math.floor(w.x), j = Math.floor(w.z);
+  assert.ok([[1, 0], [-1, 0], [0, 1], [0, -1]].some(([di, dj]) => d[g.idx(i + di, j + dj)] >= 0));
 });
 
 test('crater arena has pillars to bait the Emperor into', () => {
@@ -162,9 +176,9 @@ const SNAPSHOT = {
   cave_5: 2709913210,
   cave_6: 1321776304,
   cave_7: 3610936536,
-  isle_air: 2514299229,
-  isle_water: 1450239811,
-  isle_fire: 675776019,
-  isle_earth: 744785793,
+  isle_air: 864389213,
+  isle_water: 1510201923,
+  isle_fire: 3261711635,
+  isle_earth: 1606759553,
   cave_8: 1470528535,
 };

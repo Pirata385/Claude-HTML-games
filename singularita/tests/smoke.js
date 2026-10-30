@@ -182,6 +182,41 @@ try {
     await ctx.close();
   }
 
+  // 5b. Regressions: the Prince resets whole after a split, hit flashes wear off, the Altar arms a new class.
+  {
+    const { ctx, page, errors } = await open(`${BASE}/singularita/index.html?quickstart=swordsman&debug`);
+    await waitGame(page);
+    const r = await sim(page, `
+      g.ui.closeDialog && g.ui.closeDialog();
+      g.godMode = true; g.profile.level = 30; g.recomputeStats(); g.dayNight.clock = 100;
+      const a = g.zone.arenas.glade; goNear(a.x + 4, a.z);
+      const b = g.spawner.spawnBoss('slime_prince', false); step(20);
+      const full = b.maxHp;
+      for (let n = 0; n < 3000 && b.group.members.length < 2; n++) { if (n % 15 === 0) g.combat.hit(b, { mult: 30 }); step(1); }
+      const split = b.group.members.length;
+      goNear(g.zone.base.x, g.zone.base.z); step(30 * 10);
+      const out = { split, members: b.group.members.filter((m) => m.alive).length, hpFull: b.alive && b.hp === full && b.maxHp === full };
+      b.flash = 1; step(30); g.render(0.1);
+      out.flashCleared = b.rig.parts.every((pp) => pp.mesh.material === pp.mesh.userData.baseMat);
+      const before = g.profile.classId;
+      g.ui.altar();
+      [...document.querySelectorAll('#dialog .btn')].find((x) => x.textContent === 'Become Mage').click();
+      out.mageArmed = g.profile.classId === 'mage' && g.profile.equipment.mage && g.profile.equipment.mage.weapon != null;
+      return out;`);
+    check(r.split === 2 && r.members === 1 && r.hpFull, `Prince resets whole after a split (${JSON.stringify(r)})`);
+    check(r.flashCleared, 'boss hit flash wears off');
+    check(r.mageArmed, 'switching class at the Altar arms the new class');
+    check(!errors.length, `regressions: no errors ${errors.slice(0, 2).join(' | ')}`);
+    await ctx.close();
+    const t = await open(`${BASE}/singularita/index.html`);
+    await t.page.locator('.title-buttons .btn', { hasText: 'Settings' }).click();
+    await t.page.locator('.binds .btn.key').first().click();
+    await t.page.keyboard.press('KeyZ');
+    const bound = await t.page.locator('.binds .btn.key').first().textContent();
+    check(bound === 'KeyZ', `key rebinding works from the title screen (${bound})`);
+    await t.ctx.close();
+  }
+
   // 6. Every class can fight with every skill.
   for (const cls of ['swordsman', 'archer', 'mage', 'assassin', 'stardust']) {
     const { ctx, page, errors } = await open(`${BASE}/singularita/index.html?quickstart=${cls}&debug`);

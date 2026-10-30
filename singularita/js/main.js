@@ -65,7 +65,7 @@ function quitToTitle() {
 
 function showTitle() {
   loading.hidden = true;
-  new TitleScreen(document.getElementById('screens'), { store, settings, storage, renderer, onPlay: startGame, saveSettings: () => { saveSettings(storage, settings); audio.applyVolumes(); input.setBindings(settings.controls.bindings); } }).show();
+  new TitleScreen(document.getElementById('screens'), { store, settings, storage, renderer, input, onPlay: startGame, saveSettings: () => { saveSettings(storage, settings); audio.applyVolumes(); input.setBindings(settings.controls.bindings); } }).show();
 }
 
 // Main loop with a clamped delta.

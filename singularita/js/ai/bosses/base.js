@@ -56,7 +56,7 @@ export class Boss extends Entity {
     // Leash: leaving the arena for long resets the fight.
     if (Math.hypot(p.x - this.arena.x, p.z - this.arena.z) > this.arena.r + 14 || !p.alive) {
       this.leaveT += dt;
-      if (this.leaveT > 8) { for (const m of this.group.members) m.resetFight(); g.bus.emit('bossReset', { def: this.bossDef }); return; }
+      if (this.leaveT > 8) { for (const m of [...this.group.members]) if (m.alive) m.resetFight(); g.bus.emit('bossReset', { def: this.bossDef }); return; }
     } else this.leaveT = 0;
     const frac = this.group.members.reduce((a, m) => a + Math.max(0, m.hp), 0) / this.group.members.reduce((a, m) => a + m.maxHp, 0);
     const phases = this.bossDef.phases;

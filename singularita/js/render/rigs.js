@@ -174,6 +174,7 @@ export class RigMesh {
       this.geos.push(geo);
       const mesh = new THREE.Mesh(geo, p.unlit ? unlitMaterial() : material);
       mesh.castShadow = true;
+      mesh.userData.baseMat = mesh.material;
       grp.add(mesh);
       grp.userData.base = new THREE.Vector3(...p.pivot);
       (p.parent >= 0 ? this.parts[p.parent].group : this.root).add(grp);
@@ -190,12 +191,15 @@ export class RigMesh {
       g.scale.set(ps.sx, ps.sy, ps.sz);
     });
   }
+  // Brief white flash when hit; always restores the original material afterwards.
   setFlash(k) {
+    if (k <= 0 && !this.flashing) return;
+    this.flashing = k > 0;
     for (const p of this.parts) {
-      const m = p.mesh.material;
-      if (k > 0 && !p.flashMat) { p.flashMat = m.clone(); p.flashMat.emissive?.setRGB(1, 1, 1); }
-      p.mesh.material = k > 0 && p.flashMat ? p.flashMat : (p.def.unlit ? unlitMaterial() : this.baseMaterial || m);
-      if (k > 0 && p.flashMat?.emissive) p.flashMat.emissiveIntensity = k * 0.8;
+      const base = p.mesh.userData.baseMat;
+      if (k > 0 && !p.flashMat) { p.flashMat = base.clone(); p.flashMat.emissive?.setRGB(1, 1, 1); }
+      p.mesh.material = k > 0 ? p.flashMat : base;
+      if (k > 0 && p.flashMat.emissive) p.flashMat.emissiveIntensity = k * 0.8;
     }
   }
   dispose() { this.root.parent?.remove(this.root); for (const g of this.geos) g.dispose(); for (const p of this.parts) p.flashMat?.dispose(); }

@@ -104,6 +104,7 @@ export class Player extends Entity {
     this.rig.applyPose();
     this.rig.root.position.set(this.x, this.ry, this.z);
     this.rig.root.rotation.y = this.yaw;
+    this.rig.setFlash(this.flash);
     const veiled = this.statuses.has('invisible');
     this.rig.root.visible = !veiled || Math.sin(a.t * 30) > 0.6;
   }

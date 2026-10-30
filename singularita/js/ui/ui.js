@@ -5,7 +5,8 @@ import { SKILLS } from '../data/skills.js';
 import { STATUS } from '../data/status.js';
 import { ZONES } from '../data/zones.js';
 import { CONSUMABLES } from '../data/consumables.js';
-import { count } from '../systems/inventory.js';
+import { count, addItem } from '../systems/inventory.js';
+import { equip } from '../systems/equipment.js';
 import { xpToNext, MAX_LEVEL } from '../systems/progression.js';
 import { Minimap } from './minimap.js';
 import { MENUS, MENU_TABS } from './menus/index.js';
@@ -204,6 +205,11 @@ export class UI {
     const g = this.g, p = g.profile;
     const buttons = Object.values(CLASSES).filter((c) => c.id !== p.classId).map((c) => ({ label: `Become ${c.name}`, action: () => {
       p.classId = c.id;
+      // The first time on a new path, Lume lends a worn weapon so you are never unarmed.
+      if (!p.inv.items.some((i) => i.id.startsWith(`${c.id}_weapon_`))) {
+        const uid = addItem(p.inv, `${c.id}_weapon_wood`);
+        equip(p, uid);
+      }
       g.setupClass();
       this.buildHotbar();
       this.banner(`You walk the path of the ${c.name}`, c.tagline);

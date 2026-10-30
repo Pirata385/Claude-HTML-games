@@ -15,6 +15,8 @@ export class SlimePrince extends Boss {
     this.hops = 0;
     this.speed = opts.half ? 4.2 : 3.2;
     this.absorbT = 12;
+    this.original = !opts.half;
+    this.fullMaxHp = this.maxHp;
     if (opts.half) { this.maxHp = opts.hp; this.hp = opts.hp; }
   }
 
@@ -23,7 +25,15 @@ export class SlimePrince extends Boss {
     if (i === 1 && !this.half) { this.summonGuards(4); g.ui?.banner('The Royal Guard!', 'He absorbs his guards to heal. Strike them first.'); }
     if (i === 2 && !this.half && !this.split) this.doSplit();
   }
-  onReset() { this.scale = this.baseScale; for (const m of [...this.group.members]) if (m !== this && m.half) { m.alive = false; m.dyingT = 0; } this.group.members = [this]; this.split = false; }
+  // A reset brings back the whole Prince; the twin half simply vanishes.
+  onReset() {
+    if (!this.original) { this.alive = false; this.dyingT = 0; return; }
+    for (const m of this.group.members) if (m !== this) { m.alive = false; m.dyingT = 0; }
+    this.group.members = [this];
+    this.half = false; this.split = false;
+    this.baseScale = 2.4; this.scale = 2.4; this.speed = 3.2;
+    this.maxHp = this.fullMaxHp; this.hp = this.maxHp;
+  }
 
   summonGuards(n) {
     for (let k = 0; k < n; k++) {

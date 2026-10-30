@@ -57,7 +57,7 @@ export function openSettings(ctx) {
   const host = document.getElementById('dialog');
   const render = () => {
     clear(host).append(h('div', { class: 'dlg wide' }, h('div', { class: 'dlg-body' }, h('h3', {}, 'Settings'),
-      panel(ctx.settings, () => { ctx.renderer.applyQuality(ctx.settings.graphics); ctx.saveSettings(); }, render, null),
+      panel(ctx.settings, () => { ctx.renderer.applyQuality(ctx.settings.graphics); ctx.saveSettings(); }, render, ctx.input || null),
       h('div', { class: 'row' }, h('button', { class: 'btn primary', onclick: () => { host.hidden = true; } }, 'Done')))));
     host.hidden = false;
   };

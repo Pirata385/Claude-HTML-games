@@ -5,7 +5,8 @@ import { moveCircle } from '../../world/physics.js';
 import { animate } from '../../render/rigs.js';
 import { angleDiff } from '../../core/math.js';
 import { addStack, addItem } from '../../systems/inventory.js';
-import { MATERIALS } from '../../data/materials.js';
+import { MATERIALS, SIGILS } from '../../data/materials.js';
+import { rollRewards } from '../../systems/rewards.js';
 import { ITEMS } from '../../data/items.js';
 
 export class Boss extends Entity {
@@ -83,9 +84,12 @@ export class Boss extends Entity {
     const first = !p.stats.bosses[def.id];
     p.stats.bosses[def.id] = (p.stats.bosses[def.id] || 0) + 1;
     const loot = [];
-    for (const r of def.rewards) {
-      if (r.material) { const n = g.rng.int(r.min, r.max); addStack(p.inv, r.material, n); loot.push(`${n} ${MATERIALS[r.material].name}`); g.bus.emit('itemGained', { id: r.material, n, source: 'boss' }); }
-      else if (r.item && ((r.firstKill && first) || g.rng.next() < r.chance)) { addItem(p.inv, r.item); loot.push(ITEMS[r.item].name); }
+    for (const r of rollRewards(def, p, g.rng, first)) {
+      if (r.material) {
+        addStack(p.inv, r.material, r.n); loot.push(`${r.n} ${MATERIALS[r.material].name}`);
+        g.bus.emit('itemGained', { id: r.material, n: r.n, source: 'boss' });
+        if (SIGILS.includes(r.material)) g.bus.emit('sigil', { id: r.material });
+      } else { addItem(p.inv, r.item); loot.push(ITEMS[r.item].name); }
     }
     g.grantXp(def.xp * (1 + 0.08 * this.level), this);
     g.fx.column(this.x, this.ry, this.z, def.color, 50, 2);

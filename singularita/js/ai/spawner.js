@@ -1,5 +1,5 @@
 // Spawning: the endless island horde by day and night, the roaming bosses,
-// cave populations, tremors and cave hazards.
+// cave and isle populations, the isle guardians, tremors and cave hazards.
 import { Horde, BossClock } from '../systems/horde.js';
 import { ENEMIES } from '../data/enemies.js';
 import { WAVES } from '../data/waves.js';
@@ -9,8 +9,12 @@ import { F } from '../world/grid.js';
 import { enemyDmg } from '../systems/scaling.js';
 import { SlimePrince } from './bosses/slimePrince.js';
 import { Silverback } from './bosses/silverback.js';
+import { Ronin } from './bosses/ronin.js';
+import { Tears } from './bosses/tears.js';
+import { MagmaVector } from './bosses/magmaVector.js';
+import { AlleleGolem } from './bosses/alleleGolem.js';
 
-const BOSS_CLASS = { slime_prince: SlimePrince, silverback_emperor: Silverback };
+const BOSS_CLASS = { slime_prince: SlimePrince, silverback_emperor: Silverback, ronin_east_wind: Ronin, tears_of_poseidon: Tears, magma_vector: MagmaVector, allele_golem: AlleleGolem };
 
 export class Spawner {
   constructor(game) {
@@ -21,7 +25,11 @@ export class Spawner {
     this.boss = null; // active scheduled boss group
     game.bus.on('phase', () => this.onPhase());
     game.bus.on('gathered', (e) => this.onGathered(e));
-    game.bus.on('bossDefeated', () => { this.boss = null; });
+    game.bus.on('bossDefeated', ({ def }) => {
+      this.boss = null;
+      // Isle guardians come back to their arenas a while after each defeat.
+      if (def.zone && def.zone !== 'island') (game.profile.world.guardians ||= {})[def.id] = game.profile.playTime + def.respawn;
+    });
   }
 
   onZoneEnter() {
@@ -29,11 +37,12 @@ export class Spawner {
     this.vents = (g.zone.hazards || []).filter((h) => h.type !== 'stalactite').map((h) => ({ ...h, t: h.phase }));
     this.tremorT = g.rng.range(...WAVES.cave.tremor.every);
     this.boss = null;
-    if (g.zone.type === 'cave') {
-      // Start each layer partly populated, away from the stairs.
+    if (g.zone.type === 'cave' || g.zone.type === 'isle') {
+      // Start each layer and isle partly populated, away from the way in.
       const n = Math.round(this.population() * 0.6);
       for (let k = 0; k < n; k++) this.spawnCave(18, 50);
     }
+    if (g.zone.type === 'isle') this.spawnGuardian();
   }
   onZoneExit() {}
 
@@ -64,8 +73,8 @@ export class Spawner {
     const side = g.zone.sideOf?.(Math.floor(spot.x));
     const table = z.enemies.filter((e) => !e.side || e.side === side);
     const pick = id || g.rng.weighted(table).id;
-    const el = WAVES.cave.elite;
-    const eliteChance = Math.min(el.max, el.base + el.perLayer * g.zone.layer);
+    const el = g.zone.type === 'isle' ? WAVES.isle.elite : WAVES.cave.elite;
+    const eliteChance = Math.min(el.max, el.base + el.perLayer * (g.zone.layer || 0));
     return g.enemies.spawn(pick, spot.x, spot.z, { level: this.caveLevel(), elite: g.rng.chance(eliteChance), ambient: true });
   }
 
@@ -95,8 +104,23 @@ export class Spawner {
     if (id) this.spawnBoss(id, false);
   }
 
-  // The isles: their creatures arrive with the isle populations (see updateIsle below).
-  updateIsle() {}
+  // The isles keep a living population at their own fixed levels, like the caves.
+  updateIsle(dt) {
+    const g = this.g;
+    this.popT -= dt;
+    if (this.popT <= 0) {
+      this.popT = WAVES.isle.respawnDelay;
+      if (g.enemies.count((e) => !e.boss && !e.summoned) < this.population()) this.spawnCave();
+    }
+  }
+
+  // Each isle's guardian waits in its arena unless it fell recently.
+  spawnGuardian() {
+    const g = this.g;
+    const def = Object.values(BOSSES).find((b) => b.zone === g.zone.id);
+    if (!def || (g.profile.world.guardians?.[def.id] || 0) > g.profile.playTime) return;
+    this.spawnBoss(def.id, false);
+  }
 
   updateCave(dt) {
     const g = this.g;
@@ -204,7 +228,7 @@ export class Spawner {
   spawnBoss(id, engaged) {
     const g = this.g;
     const def = BOSSES[id];
-    const arena = g.zone.arenas[def.arena];
+    const arena = g.zone.arenas ? g.zone.arenas[def.arena] : g.zone.arena;
     // Bosses have fixed levels, like the creatures of their island.
     const level = def.minLevel + def.levelOffset;
     const b = new BOSS_CLASS[id](g, level, arena);

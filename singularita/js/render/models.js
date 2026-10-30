@@ -88,6 +88,68 @@ export function buildSilverbackRig() {
   return new RigMesh(rig);
 }
 
+// The isle guardians.
+export function buildRoninRig() {
+  const robe = '#2a3a6a', sash = '#e8e2d0', skin = '#e0c0a0', straw = '#d8b870', steel = '#d8dde6';
+  const rig = {
+    kind: 'humanoid', scale: 1.25,
+    parts: [
+      { name: 'torso', parent: -1, pivot: [0, 0.95, 0], boxes: [B(0, 0.38, 0, 0.64, 0.76, 0.38, robe), B(0, 0.08, 0, 0.68, 0.14, 0.42, sash), B(0.18, 0.5, 0.2, 0.08, 0.5, 0.02, sash), B(0, 0.1, -0.24, 0.12, 0.6, 0.06, '#c8443a')] },
+      { name: 'head', parent: 0, pivot: [0, 0.78, 0], boxes: [B(0, 0.22, 0, 0.44, 0.44, 0.44, skin), B(0.1, 0.24, 0.23, 0.08, 0.04, 0.02, '#141018'), B(-0.1, 0.24, 0.23, 0.08, 0.04, 0.02, '#141018'),
+        B(0, 0.5, 0, 1.3, 0.08, 1.3, straw), B(0, 0.6, 0, 0.8, 0.14, 0.8, straw), B(0, 0.7, 0, 0.36, 0.1, 0.36, straw)] },
+      { name: 'armL', parent: 0, pivot: [0.44, 0.68, 0], boxes: [B(0, -0.3, 0, 0.26, 0.66, 0.28, robe), B(0, -0.66, 0, 0.18, 0.12, 0.18, skin)] },
+      { name: 'armR', parent: 0, pivot: [-0.44, 0.68, 0], boxes: [B(0, -0.3, 0, 0.26, 0.66, 0.28, robe), B(0, -0.66, 0, 0.18, 0.12, 0.18, skin), B(0, -0.72, 0.65, 0.06, 0.08, 1.3, steel), B(0, -0.72, -0.02, 0.14, 0.12, 0.3, '#2a2a2a')] },
+      { name: 'legL', parent: -1, pivot: [0.17, 0.95, 0], boxes: [B(0, -0.45, 0, 0.3, 0.9, 0.34, '#1e2a4a')] },
+      { name: 'legR', parent: -1, pivot: [-0.17, 0.95, 0], boxes: [B(0, -0.45, 0, 0.3, 0.9, 0.34, '#1e2a4a')] },
+    ],
+  };
+  return new RigMesh(rig);
+}
+
+export function buildTearRig(k = 0) {
+  const water = ['#7fe0ff', '#5fc8f0', '#9fe8ff'][k % 3];
+  const rig = RIGS.wraith();
+  for (const p of rig.parts) p.boxes = p.boxes.map((bx) => (bx[6] === W ? [...bx.slice(0, 6), water] : bx));
+  rig.parts[1].boxes.push(B(0, 0.62, 0, 0.5, 0.12, 0.5, '#e8f8ff'), B(0.18, 0.75, 0, 0.08, 0.16, 0.08, '#e8f8ff'), B(-0.18, 0.75, 0, 0.08, 0.16, 0.08, '#e8f8ff'), B(0.1, 0.12, 0.24, 0.04, 0.12, 0.02, '#e8f8ff'));
+  rig.scale = 1.3;
+  return new RigMesh(rig);
+}
+
+export function buildVectorRig() {
+  const rig = {
+    kind: 'wisp', scale: 1.6,
+    parts: [
+      { name: 'core', parent: -1, pivot: [0, 1.6, 0], unlit: true, boxes: [B(0, 0, 0, 0.9, 0.9, 0.9, '#ffb347'), B(0, 0, 0, 0.5, 0.5, 1.4, '#ffe0a0'), B(0, 0, 0.75, 0.2, 0.2, 0.3, '#ffffff')] },
+      { name: 'shell', parent: 0, pivot: [0, 0, 0], boxes: [B(0.75, 0, 0, 0.3, 0.9, 0.9, '#2e2a2e'), B(-0.75, 0, 0, 0.3, 0.9, 0.9, '#2e2a2e'), B(0, 0.75, 0, 0.9, 0.3, 0.9, '#3a3236'), B(0, -0.75, 0, 0.9, 0.3, 0.9, '#3a3236'),
+        B(0, 0, -0.9, 0.5, 0.5, 0.4, '#2e2a2e'), B(0.6, 0.6, -0.6, 0.2, 0.2, 0.6, '#ff6a1a'), B(-0.6, -0.6, -0.6, 0.2, 0.2, 0.6, '#ff6a1a')] },
+    ],
+  };
+  return new RigMesh(rig);
+}
+
+export function buildAlleleRig() {
+  const stone = '#7a7068', moss = '#6a9a4a';
+  const rig = {
+    kind: 'humanoid', scale: 1.6,
+    parts: [
+      { name: 'torso', parent: -1, pivot: [0, 1.0, 0], boxes: [B(0, 0.45, 0, 1.1, 0.95, 0.75, stone), B(0.3, 1.0, -0.1, 0.4, 0.3, 0.4, moss), B(-0.35, 0.95, 0.1, 0.3, 0.2, 0.5, moss), B(0, 0.5, -0.4, 0.6, 0.6, 0.06, '#c8f0a0')] },
+      { name: 'head', parent: 0, pivot: [0, 0.95, 0.1], boxes: [B(0, 0.2, 0, 0.55, 0.45, 0.5, '#6a6058'), B(0, 0.22, 0.26, 0.36, 0.08, 0.02, '#c8f0a0'), B(0, 0.5, -0.05, 0.6, 0.12, 0.5, moss)] },
+      { name: 'armL', parent: 0, pivot: [0.75, 0.8, 0], boxes: [B(0, -0.45, 0, 0.44, 0.9, 0.44, stone), B(0, -0.98, 0, 0.55, 0.32, 0.55, '#5a5048'), B(0.1, -0.3, 0.2, 0.2, 0.3, 0.1, moss)] },
+      { name: 'armR', parent: 0, pivot: [-0.75, 0.8, 0], boxes: [B(0, -0.45, 0, 0.44, 0.9, 0.44, stone), B(0, -0.98, 0, 0.55, 0.32, 0.55, '#5a5048')] },
+      { name: 'legL', parent: -1, pivot: [0.28, 1.0, 0], boxes: [B(0, -0.5, 0, 0.42, 1.0, 0.46, '#6a6058')] },
+      { name: 'legR', parent: -1, pivot: [-0.28, 1.0, 0], boxes: [B(0, -0.5, 0, 0.42, 1.0, 0.46, '#6a6058')] },
+    ],
+  };
+  const r = new RigMesh(rig);
+  // The allele crystal on its chest shows which gene is expressed.
+  r.crystal = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.4, 0.12), new THREE.MeshBasicMaterial({ color: 0xc8f0a0 }));
+  r.crystal.position.set(0, 0.5, 0.4);
+  r.attach('torso', r.crystal);
+  const base = r.dispose.bind(r);
+  r.dispose = () => { base(); r.crystal.geometry.dispose(); r.crystal.material.dispose(); };
+  return r;
+}
+
 export function buildLumeRig() {
   const brass = '#c9a24c', dark = '#5a4a2a';
   const rig = {

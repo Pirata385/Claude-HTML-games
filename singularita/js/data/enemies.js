@@ -1,7 +1,7 @@
 // Creatures. hp/dmg are level-1 bases; js/systems/scaling.js scales them by level.
 // `role` drives wave composition, `behavior` picks the AI in js/ai/behaviors.js.
 
-export const BEHAVIORS = ['hopper', 'melee', 'ranged', 'support_heal', 'support_buff', 'bomber', 'swoop', 'burrow', 'lurker', 'golem', 'sentry', 'aura', 'lasher'];
+export const BEHAVIORS = ['hopper', 'melee', 'ranged', 'support_heal', 'support_buff', 'bomber', 'swoop', 'burrow', 'lurker', 'golem', 'sentry', 'aura', 'lasher', 'seedling'];
 export const ROLE_COST = { swarm: 1, frontline: 2, ranged: 2, bomber: 2, support: 3, tank: 4 };
 
 const E = (id, o) => ({ id, drops: [], radius: 0.5, scale: 1, range: 1.6, atkCd: 1.4, windup: 0.45, flags: [], ...o });
@@ -101,6 +101,10 @@ export const ENEMIES = {
     model: 'crawler', color: '#8a6a4a', scale: 1.3, drops: [drop('golem_shard', 0.45)] }),
   stone_wisp: E('stone_wisp', { name: 'Stone Wisp', family: 'root', role: 'ranged', behavior: 'ranged', hp: 90, dmg: 15, speed: 3.0, xp: 44,
     proj: 'pebble', range: 11, atkCd: 1.8, model: 'wisp', color: '#b8a98a', flags: ['flying'], drops: [drop('golem_shard', 0.45)] }),
+
+  // Sprouted by the Allele golem's Moss allele: they heal it until cut down. No drops.
+  allele_seedling: E('allele_seedling', { name: 'Allele Seedling', family: 'root', role: 'support', behavior: 'seedling', hp: 90, dmg: 0, speed: 0, xp: 12,
+    heal: 0.012, model: 'lasher', color: '#8ad06a', scale: 0.55 }),
 
   // The Dawn and Dusk Hollows (Core layer 8).
   dawn_sentinel: E('dawn_sentinel', { name: 'Dawnbound Sentinel', family: 'construct', role: 'ranged', behavior: 'sentry', hp: 260, dmg: 30, speed: 0, xp: 90,

@@ -111,7 +111,7 @@ export class UI {
       this.buildHotbar();
     });
     bus.on('phase', ({ phase }) => this.toast(phase === 'night' ? 'Night falls. The Echoes rise.' : 'Dawn breaks over Dawnreach.', 'info'));
-    bus.on('bossAppear', ({ def, arena }) => { this.banner(`${def.name} appears!`, `Seek them in the ${arena.name}.`, 'boss'); });
+    bus.on('bossAppear', ({ def, arena }) => { if (def.zone === 'island' || !def.zone) this.banner(`${def.name} appears!`, `Seek them in the ${arena.name}.`, 'boss'); });
     bus.on('bossEngage', ({ def }) => this.bossIntro(def));
     bus.on('bossPhase', ({ phase }) => { this.phaseName = phase.name; });
     bus.on('bossReset', ({ def }) => this.toast(`${def.name} loses interest and recovers.`, 'warn'));

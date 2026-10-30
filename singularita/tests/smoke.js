@@ -412,6 +412,76 @@ try {
     check(!errors.length, `isles: no errors ${errors.slice(0, 3).join(' | ')}`);
     await ctx.close();
   }
+
+  // 9. Milestone 2 creatures and the isle guardians.
+  {
+    const { ctx, page, errors } = await open(`${BASE}/singularita/index.html?quickstart=swordsman&debug`);
+    await waitGame(page);
+    const settle = () => page.evaluate(() => { const g = window.__SG; clearTimeout(g.ui.combatDialog); g.ui.closeDialog && g.ui.closeDialog(); g.cam.snapBehind(g.player.yaw); for (let i = 0; i < 90; i++) g.render(1 / 30); });
+    const cr = await sim(page, `
+      g.ui.closeDialog && g.ui.closeDialog(); g.godMode = true;
+      g.profile.level = 100; g.recomputeStats();
+      g.enterZone('isle_earth'); step(30 * 20);
+      // The isle keeps its own creatures, at its own levels.
+      const table = g.zoneDef.enemies.map((e) => e.id), band = g.zoneDef.band;
+      const pop = g.enemies.list.filter((e) => e.alive && !e.boss && !e.summoned);
+      const out = { pop: pop.length, own: pop.every((e) => table.includes(e.def.id)), levels: pop.every((e) => e.level >= band[0] && e.level <= band[1]) };
+      // Every new creature spawns, moves, fights and renders.
+      g.enemies.clear(); g.spawner.boss = null; g.spawner.popT = 1e9;
+      const ids = ['gale_harpy', 'kite_serpent', 'cloud_sprite', 'storm_wisp', 'reef_crab', 'siren', 'drowned_sailor', 'glass_jelly', 'lava_hound', 'obsidian_golem',
+        'fire_imp', 'ash_shaman', 'mossback_tortoise', 'root_lasher', 'burrowing_mole', 'stone_wisp', 'dawn_sentinel', 'dusk_stalker', 'echo_knight'];
+      const p = g.player; let n = 0;
+      ids.forEach((id, k) => { const a = (k / ids.length) * Math.PI * 2; if (g.enemies.spawn(id, p.x + Math.cos(a) * 7, p.z + Math.sin(a) * 7, { level: 85, noIntro: true })) n++; });
+      const shot = []; g.bus.on('sfx', (e) => { if (e.id === 'enemyShoot') shot.push(1); });
+      for (let k = 0; k < 10; k++) { step(30); g.render(1 / 30); }
+      out.spawned = n; out.total = ids.length; out.shots = shot.length;
+      return out;`);
+    await settle();
+    await page.screenshot({ path: path.join(SHOTS, 'm2_creatures.png') });
+    check(cr.pop > 0 && cr.own && cr.levels, `isles keep their own creatures at their own levels (${cr.pop})`);
+    check(cr.spawned === cr.total && cr.shots > 0, `every new creature spawns and fights (${cr.spawned}/${cr.total}, ${cr.shots} shots)`);
+    for (const [isle, id, sigil] of [['isle_air', 'ronin_east_wind', 'sigil_wind'], ['isle_water', 'tears_of_poseidon', 'sigil_tide'], ['isle_fire', 'magma_vector', 'sigil_flame'], ['isle_earth', 'allele_golem', 'sigil_stone']]) {
+      const a = await sim(page, `
+        g.ui.closeDialog && g.ui.closeDialog();
+        const out = {}, p = g.player;
+        g.profile.world.guardians = {};
+        delete g.profile.inv.stacks['${sigil}'];
+        g.profile.playTime = Math.max(g.profile.playTime, 1000);
+        g.enterZone('${isle}'); step(3);
+        const boss = g.spawner.boss;
+        out.present = !!boss && boss.def.id === '${id}';
+        if (!boss) return out;
+        const ar = g.zone.arena; goNear(ar.x, ar.z + 4); p.grounded = true; p.yaw = Math.PI; step(30 * 3);
+        out.engaged = boss.engaged;
+        return out;`);
+      await settle();
+      await page.screenshot({ path: path.join(SHOTS, `guardian_${id}.png`) });
+      check(a.present && a.engaged, `${id}: waits in its arena and engages`);
+      if (!a.present) continue;
+      const r = await sim(page, `
+        const out = {}, p = g.player, boss = g.spawner.boss;
+        const phases = []; g.bus.on('bossPhase', (e) => { if (e.def.id === '${id}') phases.push(e.phase.name); });
+        for (let k = 0; k < 90 && boss.members.some((m) => m.alive); k++) {
+          for (const m of boss.members) if (m.alive) g.combat.applyRaw(m, m.maxHp * 0.035, 'dmg');
+          step(12); p.hp = g.stats.maxHp;
+        }
+        out.defeated = boss.defeated; out.phases = phases;
+        out.sigil = g.profile.inv.stacks['${sigil}'] || 0;
+        // Once the guardian returns, a second victory does not give the sigil again.
+        step(30 * 3); g.ui.closeDialog && g.ui.closeDialog();
+        g.profile.playTime += 601;
+        g.enterZone('island'); g.enterZone('${isle}'); step(3);
+        const again = g.spawner.boss; out.returns = !!again && again.def.id === '${id}';
+        if (again) for (let k = 0; k < 90 && again.members.some((m) => m.alive); k++) { for (const m of again.members) if (m.alive) g.combat.applyRaw(m, m.maxHp * 0.12, 'dmg'); step(6); p.hp = g.stats.maxHp; }
+        out.sigilAfter = g.profile.inv.stacks['${sigil}'] || 0;
+        step(30 * 3); g.ui.closeDialog && g.ui.closeDialog();
+        return out;`);
+      check(r.defeated && r.phases.length >= 2, `${id}: fights through its phases (${(r.phases || []).join(', ')})`);
+      check(r.sigil === 1 && r.returns && r.sigilAfter === 1, `${id}: the sigil comes once (${r.sigil} then ${r.sigilAfter}) and the guardian returns`);
+    }
+    check(!errors.length, `creatures and guardians: no errors ${errors.slice(0, 3).join(' | ')}`);
+    await ctx.close();
+  }
 } catch (err) {
   failures++;
   console.error('FAIL smoke test crashed:', err);

@@ -21,14 +21,15 @@ export function getZone(id) {
 }
 
 export class Game {
-  constructor({ renderer, settings, store, profile, hooks = {} }) {
+  constructor({ renderer, settings, store, profile, input, hooks = {} }) {
     this.r = renderer;
     this.settings = settings;
     this.store = store;
     this.profile = profile;
     this.hooks = hooks;
     this.bus = new EventBus();
-    this.input = new Input(renderer.gl.domElement, settings.controls.bindings);
+    this.input = input || new Input(renderer.gl.domElement, settings.controls.bindings);
+    this.input.setBindings(settings.controls.bindings);
     this.cam = new CameraRig(renderer.camera, settings);
     this.sky = new Sky(renderer.scene);
     this.dayNight = new DayNight(WAVES.island.cycle, profile.world.clock);
@@ -45,6 +46,7 @@ export class Game {
   }
 
   get grid() { return this.zone.grid; }
+  getZone(id) { return getZone(id); }
 
   recomputeStats() {
     this.stats = computeStats(this.profile, equippedDefs(this.profile));
@@ -122,6 +124,7 @@ export class Game {
     if (this.stopT > 0) { this.stopT -= dt; sdt = dt * 0.06; }
     if (!this.paused) this.update(sdt);
     this.render(this.paused ? 0 : sdt);
+    this.afterFrame?.(dt);
     this.input.endFrame();
   }
 }

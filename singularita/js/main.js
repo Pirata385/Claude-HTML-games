@@ -5,6 +5,9 @@ import { SaveStore, newProfile } from './systems/save.js';
 import { loadSettings, saveSettings } from './systems/settings.js';
 import { installGameplay } from './gameplay.js';
 import { TitleScreen } from './ui/screens.js';
+import { installSession } from './session.js';
+import { AudioEngine } from './audio/audio.js';
+import { Input } from './core/input.js';
 
 const storage = (() => { try { const k = '__sg_probe'; localStorage.setItem(k, '1'); localStorage.removeItem(k); return localStorage; } catch { const m = new Map(); return { getItem: (k) => (m.has(k) ? m.get(k) : null), setItem: (k, v) => m.set(k, String(v)), removeItem: (k) => m.delete(k) }; } })();
 const params = new URLSearchParams(location.search);
@@ -29,6 +32,8 @@ try {
 }
 
 let game = null;
+const audio = new AudioEngine(settings);
+const input = new Input(renderer.gl.domElement, settings.controls.bindings);
 
 async function startGame(profile) {
   loading.hidden = false;
@@ -40,8 +45,9 @@ async function startGame(profile) {
   if (profile.zone !== 'island') getZone(profile.zone);
   setLoading(0.8, 'Waking the creatures…');
   await nextFrame();
-  game = new Game({ renderer, settings, store, profile, hooks: { saveSettings: () => saveSettings(storage, settings), quitToTitle } });
+  game = new Game({ renderer, settings, store, profile, input, hooks: { saveSettings: () => saveSettings(storage, settings), quitToTitle } });
   installGameplay(game);
+  installSession(game, { audio });
   const pos = profile.pos && profile.zone ? { x: profile.pos[0], z: profile.pos[1] } : null;
   game.enterZone(profile.zone || 'island', pos);
   setLoading(1, 'Ready.');
@@ -53,12 +59,13 @@ async function startGame(profile) {
 
 function quitToTitle() {
   if (game) { game.hooks.save?.(); game.dispose?.(); game = null; }
+  renderer.gl.clear();
   showTitle();
 }
 
 function showTitle() {
   loading.hidden = true;
-  new TitleScreen(document.getElementById('screens'), { store, settings, storage, renderer, onPlay: startGame, saveSettings: () => saveSettings(storage, settings) }).show();
+  new TitleScreen(document.getElementById('screens'), { store, settings, storage, renderer, onPlay: startGame, saveSettings: () => { saveSettings(storage, settings); audio.applyVolumes(); input.setBindings(settings.controls.bindings); } }).show();
 }
 
 // Main loop with a clamped delta.

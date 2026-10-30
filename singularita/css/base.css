@@ -39,8 +39,8 @@ input, textarea, select { font: inherit; }
 .loading-inner { text-align: center; width: min(420px, 86vw); }
 .logo, .title-logo { font-family: var(--title); letter-spacing: 0.32em; font-size: clamp(28px, 7vw, 56px); color: var(--gold-2); text-shadow: 0 0 24px rgba(196, 140, 255, 0.55), 0 2px 0 #4a2a10; padding-left: 0.32em; }
 .sub, .title-sub { font-family: var(--title); font-style: italic; color: var(--accent); letter-spacing: 0.12em; margin-top: 4px; }
-.bar { height: 8px; background: rgba(255, 255, 255, 0.08); border-radius: 99px; margin: 26px 0 10px; overflow: hidden; border: 1px solid var(--line); }
-.bar .fill { height: 100%; width: 0; background: linear-gradient(90deg, var(--accent), var(--gold)); transition: width 0.25s; }
+.load-bar { height: 8px; background: rgba(255, 255, 255, 0.08); border-radius: 99px; margin: 26px 0 10px; overflow: hidden; border: 1px solid var(--line); }
+.load-bar .fill { height: 100%; width: 0; background: linear-gradient(90deg, var(--accent), var(--gold)); transition: width 0.25s; }
 .msg { color: var(--muted); font-size: 14px; }
 
 /* Buttons */

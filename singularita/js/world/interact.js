@@ -1,0 +1,234 @@
+// World interaction: gathering resource nodes, camp stations, cave stairs and shafts,
+// Echo Stones, the Sealed Core Gate and the recall channel.
+import { NODES } from '../data/nodes.js';
+import { MATERIALS } from '../data/materials.js';
+import { ZONES } from '../data/zones.js';
+import { LORE, LUME_LINES } from '../data/lore.js';
+import { canGather, gatherDamage, rollYield } from '../systems/gathering.js';
+import { gatherXp } from '../systems/progression.js';
+import { addStack } from '../systems/inventory.js';
+import { F } from './grid.js';
+
+const REACH = 2.6, NODE_REACH = 1.9;
+
+export class Interaction {
+  constructor(game) {
+    this.g = game;
+    this.items = [];
+    this.nodeHp = new Map();
+    this.swingCd = 0;
+    this.respawnT = 0;
+    this.focus = null;
+    this.recall = null;
+    game.bus.on('playerHurt', () => { if (this.recall) { this.recall = null; game.ui?.toast('Recall interrupted.', 'warn'); } });
+  }
+
+  get zstate() { return this.g.profile.zones[this.g.zone.id]; }
+
+  onZoneEnter() {
+    const g = this.g, z = g.zone;
+    this.nodeHp.clear();
+    this.recall = null;
+    // Restore depleted nodes from the save.
+    const st = this.zstate;
+    st.nodes ||= {};
+    z.nodes.forEach((n, i) => {
+      const at = st.nodes[n.id];
+      if (at && at > g.profile.playTime) g.view.nodes.setDepleted(i, true);
+      else if (at) delete st.nodes[n.id];
+    });
+    this.items = [];
+    const add = (o) => this.items.push({ r: REACH, ...o });
+    if (z.type === 'island') {
+      const s = z.base.stations;
+      add({ id: 'forge', x: s.forge.x, z: s.forge.z, label: 'Use the Forge', act: () => g.ui.openMenu('craft', { atForge: true }) });
+      add({ id: 'altar', x: s.altar.x, z: s.altar.z, label: 'Altar of Paths', act: () => g.ui.altar() });
+      add({ id: 'bed', x: s.bed.x, z: s.bed.z, label: 'Rest and save', act: () => this.rest() });
+      add({ id: 'lume', x: s.lume.x, z: s.lume.z, label: 'Talk to Lume', act: () => this.talkLume() });
+      add({ id: 'beacon', x: s.beacon.x, z: s.beacon.z, label: 'The Beacon', act: () => g.ui.dialog({ title: 'The Beacon', text: 'Its light keeps creatures out of the camp. Nothing that hops or shambles will cross into it.' }) });
+      add({ id: 'cave', x: z.caveMouth.x, z: z.caveMouth.z, r: 3.4, label: 'Enter the Hollow Deep', act: () => this.travel('cave_1') });
+    } else {
+      const layer = z.layer;
+      add({ id: 'up', x: z.entry.x, z: z.entry.z, r: 2.8, label: layer === 1 ? 'Climb back to Dawnreach' : `Climb to ${ZONES[`cave_${layer - 1}`].name}`, act: () => this.travel(layer === 1 ? 'island' : `cave_${layer - 1}`, 'fromBelow') });
+      if (z.exit.type === 'shaft') {
+        const next = ZONES[`cave_${layer + 1}`];
+        add({ id: 'down', x: z.exit.x, z: z.exit.z, r: 2.8, label: () => (g.profile.level >= next.levelReq ? `Descend to ${next.name}` : `Descend (requires level ${next.levelReq})`), act: () => this.travel(next.id) });
+      } else {
+        add({ id: 'gate', x: z.exit.x, z: z.exit.z, r: 4.5, label: 'The Sealed Core Gate', act: () => this.readGate() });
+      }
+    }
+    for (const p of z.pois) if (p.type === 'lore') add({ id: `lore:${p.id}`, x: p.x, z: p.z, label: () => (g.profile.lore.includes(p.id) ? 'Echo Stone (read)' : 'Read the Echo Stone'), act: () => this.readLore(p.id) });
+  }
+
+  // Arrival points when moving between zones.
+  travel(zoneId, how) {
+    const g = this.g, def = ZONES[zoneId];
+    if (g.profile.level < def.levelReq) { g.ui.toast(`${def.name} requires level ${def.levelReq}.`, 'warn'); g.bus.emit('sfx', { id: 'denied' }); return; }
+    let arrival = null;
+    if (zoneId === 'island' && g.zone.type === 'cave') {
+      const z = g.getZone('island'), cm = z.caveMouth;
+      const yaw = Math.atan2(z.base.x - cm.x, z.base.z - cm.z);
+      arrival = { x: cm.x + Math.sin(yaw) * 3, z: cm.z + Math.cos(yaw) * 3, yaw };
+    } else if (how === 'fromBelow') {
+      const z = g.getZone(zoneId), ex = z.exit;
+      const spot = this.openNear(z, ex.i, ex.j, 3);
+      arrival = { x: spot[0] + 0.5, z: spot[1] + 0.5, yaw: Math.atan2(spot[0] - ex.i, spot[1] - ex.j) };
+    }
+    g.ui.fadeTravel(() => {
+      g.enterZone(zoneId, arrival);
+      g.save('travel');
+    });
+  }
+
+  openNear(z, i0, j0, rmin) {
+    const grid = z.grid;
+    for (let r = rmin; r < rmin + 6; r++) for (let a = 0; a < 16; a++) {
+      const i = Math.round(i0 + Math.cos((a / 16) * Math.PI * 2) * r), j = Math.round(j0 + Math.sin((a / 16) * Math.PI * 2) * r);
+      if (grid.walkable(i, j) && !grid.has(i, j, F.HAZARD)) return [i, j];
+    }
+    return [z.spawn.x - 0.5, z.spawn.z - 0.5];
+  }
+
+  rest() {
+    const g = this.g, p = g.player;
+    p.hp = g.stats.maxHp; p.res = g.stats.resourceMax;
+    p.statuses.clear();
+    g.save('bed');
+    g.ui.toast('Rested. Your progress is saved.', 'good');
+    g.bus.emit('sfx', { id: 'rest' });
+  }
+
+  talkLume() {
+    const g = this.g, p = g.profile;
+    let text;
+    if (!p.flags?.metLume) { (p.flags ||= {}).metLume = true; text = LUME_LINES.first; }
+    else if (p.lore.includes('lore_seal')) text = LUME_LINES.gateHint;
+    else if (p.level >= 3 && !p.zones.cave_1) text = LUME_LINES.caveHint;
+    else if (g.dayNight.phase === 'night') text = LUME_LINES.night;
+    else text = LUME_LINES.greet[Math.floor(g.time) % LUME_LINES.greet.length] + ' ' + LUME_LINES.day;
+    g.ui.dialog({ title: 'Lume, the Beacon Keeper', text, portrait: 'lume' });
+    if (!p.lore.includes('lore_beacon') && p.flags.metLume) this.learn('lore_beacon', false);
+  }
+
+  learn(id, show = true) {
+    const g = this.g, p = g.profile;
+    if (p.lore.includes(id)) return false;
+    p.lore.push(id);
+    const lvl = ZONES[LORE[id].zone]?.levelReq || 1;
+    g.grantXp(40 + lvl * 25, null);
+    g.bus.emit('lore', { id });
+    if (!show) g.ui.toast(`New lore: ${LORE[id].title}`, 'good');
+    return true;
+  }
+
+  readLore(id) {
+    const g = this.g;
+    const isNew = this.learn(id);
+    g.ui.dialog({ title: LORE[id].title, text: LORE[id].text, sub: isNew ? 'Recorded in your Journal.' : null, portrait: 'echo' });
+    g.bus.emit('sfx', { id: 'lore' });
+  }
+
+  readGate() {
+    const g = this.g;
+    this.learn('lore_seal', false);
+    g.ui.dialog({ title: 'The Sealed Core Gate', text: `${LORE.lore_seal.text}\n\nFour sockets wait: Wind, Tide, Flame and Stone. Their sigils lie on the elemental isles, beyond Dawnreach's horizon.`, portrait: 'echo' });
+  }
+
+  // Nearest interactable or resource node in reach.
+  scan() {
+    const g = this.g, p = g.player;
+    let best = null, bd = Infinity;
+    for (const it of this.items) {
+      const d = Math.hypot(it.x - p.x, it.z - p.z);
+      if (d < it.r && d < bd) { bd = d; best = { kind: 'item', it, label: typeof it.label === 'function' ? it.label() : it.label }; }
+    }
+    if (best) return best;
+    const st = this.zstate;
+    const f = { x: Math.sin(p.yaw), z: Math.cos(p.yaw) };
+    let bn = -1, bs = -Infinity;
+    const nodes = g.zone.nodes;
+    const pi = Math.floor(p.x), pj = Math.floor(p.z);
+    for (let i = 0; i < nodes.length; i++) {
+      const n = nodes[i];
+      if (Math.abs(n.i - pi) > 3 || Math.abs(n.j - pj) > 3) continue;
+      if (st.nodes[n.id]) continue;
+      const dx = n.x - p.x, dz = n.z - p.z, d = Math.hypot(dx, dz);
+      if (d > NODE_REACH + 0.5 * (n.scale || 1)) continue;
+      const score = (dx * f.x + dz * f.z) / (d || 1) - d * 0.5;
+      if (score > bs) { bs = score; bn = i; }
+    }
+    if (bn < 0) return null;
+    const n = nodes[bn], nd = NODES[n.node];
+    const ok = canGather(g.profile.inv, nd);
+    const verb = nd.tool === 'axe' ? 'Chop' : 'Mine';
+    return { kind: 'node', index: bn, n, nd, ok, label: ok.ok ? `${verb} ${nd.name}` : ok.reason };
+  }
+
+  gather(target) {
+    const g = this.g, p = g.player;
+    const { n, nd, index } = target;
+    const ok = target.ok;
+    if (!ok.ok) { g.ui.toast(ok.reason, 'warn'); g.bus.emit('sfx', { id: 'denied' }); this.swingCd = 0.6; return; }
+    p.yaw = Math.atan2(n.x - p.x, n.z - p.z);
+    p.kit.play(nd.tool === 'axe' ? 'slash' : 'overhead', 0.32);
+    this.swingCd = 0.45 / g.stats.attackSpeed;
+    const hp = (this.nodeHp.get(index)?.hp ?? nd.hp) - gatherDamage(ok.tool, g.stats.gatherPower);
+    this.nodeHp.set(index, { hp, t: g.time });
+    g.view.nodes.hit(index);
+    const mat = MATERIALS[nd.material];
+    g.fx.burst(n.x, n.h + 0.9, n.z, 6, { color: nd.tool === 'axe' ? '#c9a46a' : mat.color, speed: 3, up: 3, life: 0.5, size: 0.12 });
+    g.bus.emit('sfx', { id: nd.tool === 'axe' ? 'chop' : 'pick', x: n.x, z: n.z });
+    p.combatT = Math.min(p.combatT, 99);
+    if (hp > 0) return;
+    // Depleted: collect the yield.
+    this.nodeHp.delete(index);
+    const amount = rollYield(nd, g.stats.luck, g.rng);
+    addStack(g.profile.inv, nd.material, amount);
+    g.profile.stats.gathered[nd.material] = (g.profile.stats.gathered[nd.material] || 0) + amount;
+    g.overlay.text(n.x, n.h + 2.2, n.z, `+${amount} ${mat.name}`, 'loot');
+    g.fx.burst(n.x, n.h + 0.8, n.z, 16, { color: mat.color, speed: 4, up: 4 });
+    g.view.nodes.setDepleted(index, true);
+    this.zstate.nodes[n.id] = g.profile.playTime + nd.respawn;
+    g.grantXp(gatherXp(nd.xp, g.profile.level), null);
+    g.bus.emit('gathered', { node: n.node, material: nd.material, n: amount, x: n.x, z: n.z });
+    g.bus.emit('itemGained', { id: nd.material, n: amount, source: 'gather' });
+  }
+
+  update(dt) {
+    const g = this.g, p = g.player;
+    this.swingCd -= dt;
+    // Respawn nodes.
+    this.respawnT -= dt;
+    if (this.respawnT <= 0) {
+      this.respawnT = 1;
+      const st = this.zstate;
+      g.zone.nodes.forEach((n, i) => { const at = st.nodes[n.id]; if (at && at <= g.profile.playTime) { delete st.nodes[n.id]; g.view.nodes.setDepleted(i, false); } });
+      for (const [k, v] of this.nodeHp) if (g.time - v.t > 10) this.nodeHp.delete(k);
+    }
+    // Recall channel.
+    if (this.recall) {
+      this.recall.t += dt;
+      if (Math.hypot(p.x - this.recall.x, p.z - this.recall.z) > 1.2) { this.recall = null; g.ui.toast('Recall cancelled: you moved.', 'warn'); }
+      else if (this.recall.t >= this.recall.dur) {
+        this.recall = null;
+        g.ui.fadeTravel(() => { g.enterZone('island', null); g.save('recall'); });
+      }
+    }
+    g.ui?.channel(this.recall ? 'Returning to camp…' : null, this.recall ? this.recall.t / this.recall.dur : 0);
+    if (!p.alive || g.inputBlocked) { this.focus = null; g.ui?.prompt(null); return; }
+    this.focus = this.scan();
+    g.ui?.prompt(this.focus ? this.focus.label : null, this.focus?.kind === 'node' && !this.focus.ok.ok);
+    const inp = g.input;
+    if (this.focus?.kind === 'item' && inp.wasPressed('interact')) { this.focus.it.act(); g.bus.emit('sfx', { id: 'ui' }); }
+    else if (this.focus?.kind === 'node' && (inp.wasPressed('interact') || (inp.isDown('interact') && this.swingCd <= 0)) && this.swingCd <= 0) this.gather(this.focus);
+    if (inp.wasPressed('recall')) this.startRecall();
+  }
+
+  startRecall() {
+    const g = this.g, p = g.player;
+    if (g.zone.type === 'island' && Math.hypot(p.x - g.zone.base.x, p.z - g.zone.base.z) < g.zone.base.r) { g.ui.toast('You are already in camp.'); return; }
+    if (this.recall) { this.recall = null; return; }
+    this.recall = { t: 0, dur: 6, x: p.x, z: p.z };
+    g.bus.emit('sfx', { id: 'recall' });
+  }
+}

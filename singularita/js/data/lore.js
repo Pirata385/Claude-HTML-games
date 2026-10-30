@@ -33,6 +33,30 @@ export const LORE = {
     'Pressure turned everything here to diamond: stone, roots, rails, even the bones of the first Echo. At the bottom of the throat stands a gate. The king\'s engineers called it the last thing that worked as intended.' },
   lore_seal: { zone: 'cave_7', title: 'The Sealed Core Gate', text:
     'Four sockets around a door that is not quite there. Wind, Tide, Flame and Stone: the four isles torn from Vael each carry a sigil of the seal. Bring all four and the gate will open. Whether it should is another question.' },
+
+  // The elemental isles ---------------------------------------------------
+  lore_eastgate: { zone: 'isle_air', title: 'The Eastern Gate', text:
+    'A gate of white stone, with no wall on either side of it. The king built it so that visitors from the east would remember they were arriving somewhere. Its guard is still on duty. Nobody has told him there is no one left to arrive.' },
+  lore_galeforge: { zone: 'isle_air', title: 'The Galeforge', text:
+    'The Dawnforgers blew their finest glass with the wind of these spires and shaped skyglass lenses to watch the sky for the Fracture. They saw it coming. Nobody believed them.' },
+  lore_drowned_palace: { zone: 'isle_water', title: 'The Drowned Palace', text:
+    'Under the lagoon lies the palace of Vael: its halls, its throne and its bells. At low tide, the tops of the highest towers break the surface like the fingers of someone reaching up for air.' },
+  lore_tidecrown: { zone: 'isle_water', title: 'The Tidecrown', text:
+    'The atoll is a crown: the reef grew around the palace\'s ring wall. Pearls form where the god\'s tears touch the old stone, which is why they glow.' },
+  lore_cinder_forge: { zone: 'isle_fire', title: 'The Cinder Forge', text:
+    'This was the great forge. The Dawnforgers ran pipes of iron from the caldera to their anvils and gave the volcano\'s heat a direction. The pipes are gone. The direction remained.' },
+  lore_vector: { zone: 'isle_fire', title: 'Heat Given Direction', text:
+    'An engineer\'s note, carved into obsidian: "It does not want. It does not hate. It only travels, in straight lines, and anything in a straight line from it should move."' },
+  lore_worldroot: { zone: 'isle_earth', title: 'The Worldroot', text:
+    'Before the Fracture, a single tree held the land of Vael together, and its roots ran under every province. When the land broke, the root broke with it. This isle is the part of it that refused to die.' },
+  lore_divine_golem: { zone: 'isle_earth', title: 'The Divine Golem', text:
+    'They called it divine because it could become anything. They called it a golem because it could not become anything else. The Dawnforgers grew it in the Worldroot\'s shade and taught it to guard the stone sigil.' },
+
+  // Beyond the Sealed Core Gate --------------------------------------------
+  lore_dawn_dusk: { zone: 'cave_8', title: 'Dawn and Dusk', text:
+    'Here Singularita remembered two endings: a morning that never ended and a night that never began. Both grew into stone. The Dawnforgers called them Dawndosite and Escuresite and forged with them, until they understood what they were holding.' },
+  lore_singular_heart: { zone: 'cave_8', title: 'The Singular Heart', text:
+    'A second door, older than the first, with five keyholes that are not quite holes: shapes folded out of the world. The dimensions torn open by the Fracture hold its keys. Beyond it, something hums the shape of every possible thing.' },
 };
 
 // Lume, the beacon-keeper construct at the base.
@@ -46,5 +70,7 @@ export const LUME_LINES = {
   night: 'Night. The Echoes are walking. Stay near the beacon if you are tired, or go out and meet them. Their sinew makes fine grips.',
   day: 'Day again. The slimes will be after the warmth. Kill the pink ones first: they mend the rest.',
   caveHint: 'The Hollow Deep lies under the hill to the north-east. Each layer is deeper, richer and more dangerous. The Dawnforgers marked the depths with stones. Read them.',
-  gateHint: 'You found the gate. Four sigils… four isles. Their shores are beyond my light, for now.',
+  gateHint: 'You found the gate. Four sigils… four isles. The Wayshrine by the beacon can carry you to their shores, once you are strong enough.',
+  isleHint: 'The Wayshrine hums for you now. Wind, Tide, Flame and Stone: each isle keeps a guardian, and each guardian keeps a sigil.',
+  sigilsHint: 'Four sigils. The gate will know them. Whatever lies below has waited a long time for someone to open it.',
 };

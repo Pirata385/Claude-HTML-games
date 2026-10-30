@@ -27,7 +27,7 @@ export function findSources(materialId) {
       const nd = NODES[n.node];
       if (nd.material !== materialId) continue;
       out.push({ zone: zid, level: Math.max(z.levelReq, toolRequirementLevel(nd)), kind: 'node',
-        how: `${nd.name} in ${z.name}${n.side ? ` (${n.side} side)` : ''} — ${toolRequirementText(nd)}` });
+        how: `${nd.name} in ${z.name}${n.side ? ` (${n.side} side)` : ''}${nd.tide ? ' (low tide only)' : ''} — ${toolRequirementText(nd)}` });
     }
     for (const e of z.enemies) {
       const en = ENEMIES[e.id];
@@ -38,7 +38,7 @@ export function findSources(materialId) {
     }
   }
   for (const b of Object.values(BOSSES)) {
-    if (b.rewards.some((r) => r.material === materialId)) out.push({ zone: 'island', level: b.minLevel, kind: 'boss', how: `Reward from ${b.name}` });
+    if (b.rewards.some((r) => r.material === materialId)) out.push({ zone: b.zone || 'island', level: Math.max(b.minLevel, ZONES[b.zone || 'island'].levelReq), kind: 'boss', how: `Reward from ${b.name} (${ZONES[b.zone || 'island'].name})` });
   }
   cache.set(materialId, out);
   return out;

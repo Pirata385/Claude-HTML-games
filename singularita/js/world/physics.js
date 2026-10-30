@@ -1,7 +1,7 @@
 // Circle-versus-grid movement shared by the player and creatures.
 import { F } from './grid.js';
 
-const BLOCK = F.WALL | F.DEEP | F.OBSTACLE;
+const BLOCK = F.WALL | F.DEEP | F.OBSTACLE | F.VOID;
 
 export function blockedAt(grid, x, z, r, feetY, maxStep, flying = false, extraMask = 0) {
   const i0 = Math.floor(x - r), i1 = Math.floor(x + r), j0 = Math.floor(z - r), j1 = Math.floor(z + r);

@@ -4,6 +4,8 @@ export const CONSUMABLES = {
     desc: 'Restores 35% of your health. Slime gel, boiled with sap: it tastes exactly like that.' },
   greater_healing_tonic: { id: 'greater_healing_tonic', name: 'Greater Healing Tonic', rarity: 'rare', icon: '❤', color: '#ff3d6e', effect: { heal: 0.65 }, cd: 8,
     desc: 'Restores 65% of your health. Emerald dust makes it mend what the gel cannot.' },
+  pearl_elixir: { id: 'pearl_elixir', name: 'Pearl Elixir', rarity: 'epic', icon: '❤', color: '#bfefff', effect: { heal: 1.0, cure: ['poison', 'burn', 'bleed'] }, cd: 10,
+    desc: 'Restores all of your health and washes away poison, burns and bleeding. An abyssal pearl dissolved in tide silk.' },
   resource_tonic: { id: 'resource_tonic', name: 'Vigour Tonic', rarity: 'uncommon', icon: '◆', color: '#6fa8ff', effect: { resource: 0.6 }, cd: 8,
     desc: 'Restores 60% of your class resource (Stamina, Focus, Mana, Energy or Spirit).' },
   antidote: { id: 'antidote', name: 'Antidote', rarity: 'uncommon', icon: '⚕', color: '#8ef0c8', effect: { cure: ['poison'], status: 'antidote' }, cd: 4,

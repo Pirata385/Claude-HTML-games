@@ -17,15 +17,15 @@ import { OBJECTIVES } from '../js/data/objectives.js';
 import { buildUnlocks } from '../js/data/unlocks.js';
 import { findSources } from '../js/data/sources.js';
 
-test('M1 contains no content beyond tier 7 (no unreachable recipes)', () => {
-  for (const m of Object.values(MATERIALS)) assert.ok(m.tier <= 7, m.id);
-  for (const it of Object.values(ITEMS)) assert.ok(it.tier <= 7, it.id);
+test('content stops at tier 8: Chromantite and Singularita belong to Milestone 3', () => {
+  for (const m of Object.values(MATERIALS)) assert.ok(m.tier <= 8, m.id);
+  for (const it of Object.values(ITEMS)) assert.ok(it.tier <= 8, it.id);
 });
 
 test('main material chain follows the required order', () => {
   const order = MAIN_MATERIALS.map((id) => MATERIALS[id].tier);
   for (let i = 1; i < order.length; i++) assert.ok(order[i] >= order[i - 1]);
-  assert.deepEqual(MAIN_MATERIALS, ['wood', 'stone', 'copper', 'gold', 'iron', 'lead', 'titanium', 'emerald', 'ruby', 'sapphire', 'diamond']);
+  assert.deepEqual(MAIN_MATERIALS, ['wood', 'stone', 'copper', 'gold', 'iron', 'lead', 'titanium', 'emerald', 'ruby', 'sapphire', 'diamond', 'dawndosite', 'escuresite']);
   for (let t = 1; t < TIER_RECIPE_LEVEL.length; t++) assert.ok(TIER_RECIPE_LEVEL[t] > TIER_RECIPE_LEVEL[t - 1]);
 });
 
@@ -81,12 +81,15 @@ test('every recipe input can be obtained at or below the recipe level', () => {
   }
 });
 
-test('progression sim: from bare hands the pickaxe chain reaches diamond by its recipe level', () => {
+test('progression sim: from bare hands the pickaxe chain reaches tier 8 by its recipe level', () => {
   // Greedy player: at each level, mine everything minable in reachable zones, craft the best pickaxe.
+  // Zones behind sigils open once every sigil's boss is within reach.
   let pickTier = -1; // hands
   const have = new Set(['wood', 'slime_gel', 'zombie_sinew']);
-  for (let L = 1; L <= 80; L++) {
-    for (const z of ZONE_ORDER.map((id) => ZONES[id]).filter((z) => z.levelReq <= L)) {
+  const open = (z, L) => z.levelReq <= L && (z.requires || []).every((id) => have.has(id));
+  for (let L = 1; L <= 120; L++) {
+    for (const b of Object.values(BOSSES)) if (b.minLevel <= L && ZONES[b.zone || 'island'].levelReq <= L) for (const r of b.rewards) if (r.material) have.add(r.material);
+    for (const z of ZONE_ORDER.map((id) => ZONES[id]).filter((z) => open(z, L))) {
       for (const n of z.nodes) {
         const nd = NODES[n.node];
         if (nd.tool === 'axe' || pickTier + 1 >= nd.tier) have.add(nd.material);
@@ -99,8 +102,49 @@ test('progression sim: from bare hands the pickaxe chain reaches diamond by its 
       if (Object.keys(r.inputs).every((id) => have.has(id))) pickTier = Math.max(pickTier, it.tier);
     }
   }
-  assert.ok(have.has('diamond'), 'diamond reachable');
-  assert.ok(pickTier >= 7, `best pickaxe tier ${pickTier}`);
+  assert.ok(have.has('diamond') && have.has('dawndosite') && have.has('escuresite'), 'every main material reachable');
+  assert.ok(pickTier >= 8, `best pickaxe tier ${pickTier}`);
+});
+
+test('four elemental isles, each with exclusive materials found nowhere else', () => {
+  const isles = Object.values(ZONES).filter((z) => z.type === 'isle');
+  assert.deepEqual(isles.map((z) => z.element).sort(), ['air', 'earth', 'fire', 'water']);
+  for (const z of isles) {
+    assert.ok(z.exclusive.length >= 2, z.id);
+    for (const m of z.exclusive) {
+      assert.ok(MATERIALS[m], m);
+      const zonesWith = findSources(m).map((s) => s.zone);
+      assert.ok(zonesWith.length && zonesWith.every((id) => id === z.id), `${m} only on ${z.id}: ${zonesWith}`);
+    }
+    assert.ok(z.lore.length >= 2, `${z.id} lore`);
+  }
+});
+
+test('each isle boss guards its sigil, and the four sigils open the Core', () => {
+  const sigils = ['sigil_wind', 'sigil_tide', 'sigil_flame', 'sigil_stone'];
+  for (const id of sigils) {
+    assert.equal(MATERIALS[id]?.kind, 'key', id);
+    const b = Object.values(BOSSES).find((x) => x.rewards.some((r) => r.material === id));
+    assert.ok(b && ZONES[b.zone]?.type === 'isle', `${id} boss`);
+    assert.ok(b.phases.length >= 3 && b.intro && b.defeat && b.lore, b.id);
+  }
+  assert.deepEqual([...ZONES.cave_8.requires].sort(), [...sigils].sort());
+  assert.ok(ZONES.cave_8.levelReq >= 95);
+});
+
+test('tier 8 gear needs materials from at least two different isles', () => {
+  const isleOf = (m) => Object.values(ZONES).find((z) => z.type === 'isle' && z.exclusive.includes(m))?.id;
+  for (const r of Object.values(RECIPES)) {
+    const it = r.output.item && ITEMS[r.output.item];
+    if (!it || it.tier !== 8 || it.kind === 'tool') continue;
+    const isles = new Set(Object.keys(r.inputs).map(isleOf).filter(Boolean));
+    assert.ok(isles.size >= 2, `${r.id} uses ${[...isles]}`);
+  }
+});
+
+test('the four isle bosses from the brief are present by name', () => {
+  const names = Object.values(BOSSES).map((b) => b.name);
+  for (const n of ['Ronin of the East Wind', 'Allele of the Divine Golem', 'The Magma Vector', 'Tears of Poseidon']) assert.ok(names.includes(n), n);
 });
 
 test('class skills: basic, alt and six skills at the planned levels', () => {
@@ -135,9 +179,9 @@ test('day spawns are mostly slimes and night spawns mostly zombies', () => {
   assert.ok(sum(night, (e) => ENEMIES[e.id].family === 'zombie') / sum(night, () => true) >= 0.8);
 });
 
-test('cave layers: 7 layers, increasing access levels, hazards from layer 4', () => {
+test('cave layers: 8 layers, increasing access levels, hazards from layer 4', () => {
   const caves = ZONE_ORDER.filter((id) => ZONES[id].type === 'cave').map((id) => ZONES[id]);
-  assert.equal(caves.length, 7);
+  assert.equal(caves.length, 8);
   for (let i = 1; i < caves.length; i++) assert.ok(caves[i].levelReq > caves[i - 1].levelReq);
   caves.forEach((c, i) => assert.equal(c.hazards.length > 0, i >= 3, c.id));
 });
@@ -158,7 +202,7 @@ test('status effects referenced by skills exist', () => {
 test('lore ids referenced by zones exist and are unique', () => {
   const ids = new Set();
   for (const z of Object.values(ZONES)) for (const l of z.lore) { assert.ok(LORE[l], l); assert.ok(!ids.has(l), l); ids.add(l); }
-  assert.ok(ids.size >= 12);
+  assert.ok(ids.size >= 22);
 });
 
 test('objectives are well formed', () => {

@@ -70,7 +70,7 @@ export function computeStats(profile, gear) {
     leash: 6 + Math.min(6, soft(a.spi, 0.04, 150)),
     statusPotency: 1 + soft(a.spi, 0.006, 250),
     statusRes: Math.min(0.7, soft(a.spi, 0.004, 250) + v('statusRes')),
-    healMult: 1 + soft(a.spi, 0.004, 250),
+    healMult: 1 + soft(a.spi, 0.004, 250) + v('healBonus'),
     cdr: Math.min(0.4, soft(a.int, 0.003, 250) + v('cdr')),
     resourceMax,
     resourceRegen: cls.resource.regen * (1 + soft(a.rsv, 0.012, 250)) * (1 + v('resRegen')),
@@ -89,6 +89,9 @@ export function computeStats(profile, gear) {
     chillChance: v('chillChance'),
     fireBonus: v('fireBonus'),
     prismatic: v('prismatic') > 0 ? 1 : 0,
+    blindChance: v('blindChance'),
+    killHeal: v('killHeal'),
+    critLifesteal: v('critLifesteal'),
     attrs: a,
   };
 }

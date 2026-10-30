@@ -24,6 +24,10 @@ export const WAVES = {
       { id: 'silverback_emperor', period: 'night', chance: 0.25, pity: 0.1 },
     ],
   },
+  isle: {
+    elite: { base: 0.08, perLayer: 0, max: 0.3 },
+    respawnDelay: 5,
+  },
   cave: {
     // Caves keep a living population instead of horns and waves; deeper layers add tremors.
     tremor: { fromLayer: 4, every: [120, 220], size: [4, 7] },

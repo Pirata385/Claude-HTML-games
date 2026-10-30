@@ -4,7 +4,7 @@ import { F } from '../world/grid.js';
 
 const W = 80, HALF = W / 2;
 // Distances flow through the camp, but creatures are kept out of it by their movement mask.
-const BLOCK = F.WALL | F.DEEP | F.OBSTACLE;
+const BLOCK = F.WALL | F.DEEP | F.OBSTACLE | F.VOID;
 
 export class FlowField {
   constructor() {

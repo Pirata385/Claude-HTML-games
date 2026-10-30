@@ -4,9 +4,10 @@ import { hashStr } from '../core/rng.js';
 
 export const F = {
   WALL: 1, WATER: 2, BASE: 4, ARENA: 8, PATH: 16, POI: 32, NOSPAWN: 64, HAZARD: 128,
-  OBSTACLE: 256, DEEP: 512, HOT: 1024, COLD: 2048,
+  OBSTACLE: 256, DEEP: 512, HOT: 1024, COLD: 2048, VOID: 4096, LAVA: 8192, TIDAL: 16384,
 };
-export const SURF = { SAND: 0, GRASS: 1, FOREST: 2, ROCK: 3, PATH: 4, DIRT: 5, BASE: 6, SNOW: 7, FLOOR: 8, WALL: 9, HOT: 10, COLD: 11, ARENA: 12, SEABED: 13 };
+export const SURF = { SAND: 0, GRASS: 1, FOREST: 2, ROCK: 3, PATH: 4, DIRT: 5, BASE: 6, SNOW: 7, FLOOR: 8, WALL: 9, HOT: 10, COLD: 11, ARENA: 12, SEABED: 13,
+  LAVA: 14, BASALT: 15, ROOT: 16, CORAL: 17, BRIDGE: 18 };
 
 const N4 = [[1, 0], [-1, 0], [0, 1], [0, -1]];
 const N8 = [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [1, -1], [-1, 1], [-1, -1]];
@@ -38,7 +39,7 @@ export class ZoneGrid {
   walkable(i, j) {
     if (!this.inside(i, j)) return false;
     const f = this.flags[this.idx(i, j)];
-    return (f & (F.WALL | F.DEEP | F.OBSTACLE)) === 0;
+    return (f & (F.WALL | F.DEEP | F.OBSTACLE | F.VOID)) === 0;
   }
   canStep(i0, j0, i1, j1, maxStep) {
     return this.walkable(i1, j1) && this.height(i1, j1) - this.height(i0, j0) <= maxStep;

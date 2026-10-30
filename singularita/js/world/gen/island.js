@@ -210,7 +210,7 @@ export function generateIsland(def, seed) {
 
 // Make consecutive path cells differ by at most one block, preferring to cut into terrain
 // that is not protected (plateaus, arenas and pads keep their heights).
-function smoothRamp(g, path, protect) {
+export function smoothRamp(g, path, protect) {
   for (let pass = 0; pass < 12; pass++) {
     let changed = false;
     for (let dir = 0; dir < 2; dir++) {

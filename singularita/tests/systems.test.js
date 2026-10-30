@@ -290,11 +290,19 @@ test('DayNight cycles day then night', () => {
   assert.ok(dn.sun >= -1 && dn.sun <= 1);
 });
 
+test('tier 8 traits bring their new stats', () => {
+  const p = fresh('mage'); p.level = 100;
+  const dawn = computeStats(p, [ITEMS.mage_weapon_dawndosite, ITEMS.mage_armor_dawndosite]);
+  assert.ok(dawn.blindChance > 0 && dawn.killHeal > 0 && dawn.healMult > computeStats(p, []).healMult);
+  const dusk = computeStats(p, [ITEMS.mage_weapon_escuresite]);
+  assert.ok(dusk.critLifesteal > 0 && dusk.critMult > computeStats(p, []).critMult);
+});
+
 test('balance: a same-level standard enemy takes a few hits; the player survives several', () => {
   // Expected gear for the level: best tier whose recipe level is reached.
-  const tierFor = (L) => [1, 3, 8, 16, 26, 38, 50, 64].filter((x) => x <= L).length - 1;
-  const mats = ['wood', 'stone', 'copper', 'iron', 'titanium', 'emerald', 'ruby', 'diamond'];
-  for (const L of [1, 10, 20, 35, 50, 65, 80]) {
+  const tierFor = (L) => [1, 3, 8, 16, 26, 38, 50, 64, 100].filter((x) => x <= L).length - 1;
+  const mats = ['wood', 'stone', 'copper', 'iron', 'titanium', 'emerald', 'ruby', 'diamond', 'dawndosite'];
+  for (const L of [1, 10, 20, 35, 50, 65, 80, 95, 100, 115]) {
     const p = fresh('swordsman'); p.level = L; p.attrs.str = Math.floor((L - 1) * 2); p.attrs.res = (L - 1);
     const m = mats[tierFor(L)];
     const s = computeStats(p, [ITEMS[`swordsman_weapon_${m}`], ITEMS[`swordsman_armor_${m}`]]);

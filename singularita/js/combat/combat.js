@@ -122,11 +122,13 @@ export class Combat {
       if (st.prismatic && r.crit) this.prismBurst(target, spec.ranged);
     }
     if (st.lifesteal > 0) this.healPlayer(dmg * st.lifesteal, true);
+    if (r.crit && st.critLifesteal > 0) this.healPlayer(dmg * st.critLifesteal, true);
+    if (!spec.noTraits && st.blindChance && g.rng.next() < st.blindChance) target.statuses.apply('blind', { dur: 2.5 });
     if (!spec.noLink && target.statuses.has('linked')) {
       for (const o of this.g.enemies.active) if (o !== target && o.alive && o.statuses.has('linked')) this.applyRaw(o, dmg * 0.5, 'status');
     }
     g.bus.emit('damage', { target, dmg, crit: r.crit, src: spec.src });
-    if (target.hp <= 0) g.enemies.kill(target, spec.src);
+    if (target.hp <= 0) { g.enemies.kill(target, spec.src); if (st.killHeal > 0) this.healPlayer(g.stats.maxHp * st.killHeal); }
     return { dmg, crit: r.crit };
   }
 

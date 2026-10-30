@@ -33,6 +33,7 @@ export function installSession(game, { audio }) {
   bus.on('bossDefeated', () => progress({ type: 'boss' }));
   bus.on('lore', ({ id }) => progress({ type: 'lore', id }));
   bus.on('sigil', ({ id }) => progress({ type: 'sigil', id }));
+  bus.on('shard', ({ id }) => progress({ type: 'shard', id }));
   bus.on('gateOpened', () => progress({ type: 'gate' }));
 
   // ---------------------------------------------------------------- callbacks used by menus

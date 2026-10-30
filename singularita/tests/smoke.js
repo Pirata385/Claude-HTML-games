@@ -263,7 +263,7 @@ try {
       for (let k = 0; k < 5; k++) g.enemies.spawn(['slime', 'zombie_walker', 'great_slime', 'zombie_runner', 'mender_slime'][k], p.x - 2 + k, p.z + 3 + (k % 2) * 2, { level: 8, noIntro: true });
       if (g.profile.classId === 'stardust') tap('alt');
       const hb = g.profile.hotbars[g.profile.classId];
-      for (let t = 0; t < 40; t++) { hold('attack', 8); if (t % 5 === 0) for (let s = 1; s <= 4; s++) tap('skill' + s); }
+      for (let t = 0; t < 60; t++) { hold('attack', 8); if (t % 5 === 0) for (let s = 1; s <= 4; s++) tap('skill' + s); }
       return { kills, used: [...used], hp: p.hp > 0 };`);
     check(r.kills >= 2 && r.used.length >= 4, `${cls}: fights (kills ${r.kills}, skills ${r.used.join(',')})`);
     check(!errors.length, `${cls}: no errors ${errors.slice(0, 2).join(' | ')}`);
@@ -631,6 +631,57 @@ try {
     await settle();
     await page.screenshot({ path: path.join(SHOTS, 'cave_9.png') });
     check(!errors.length, `dimensions: no errors ${errors.slice(0, 3).join(' | ')}`);
+    await ctx.close();
+  }
+
+  // 11. Milestone 3: the five rulers of the dimensions.
+  {
+    const { ctx, page, errors } = await open(`${BASE}/singularita/index.html?quickstart=swordsman&debug`);
+    await waitGame(page);
+    const settle = () => page.evaluate(() => { const g = window.__SG; clearTimeout(g.ui.combatDialog); g.ui.closeDialog && g.ui.closeDialog(); g.cam.snapBehind(g.player.yaw); for (let i = 0; i < 90; i++) g.render(1 / 30); });
+    await sim(page, `g.ui.closeDialog && g.ui.closeDialog(); g.godMode = true; g.profile.level = 220; g.recomputeStats(); for (const id of ['emblem_dungeon', 'emblem_twins', 'emblem_king', 'emblem_mirror', 'emblem_dragons']) g.profile.inv.stacks[id] = 3; return 1;`);
+    for (const [dim, boss, shard] of [['dim_dungeon', 'iron_jailer', 'shard_gaol'], ['dim_twins', 'siamese', 'shard_twins'], ['dim_king', 'adamite_king', 'shard_crown'], ['dim_mirror', 'you', 'shard_mirror'], ['dim_dragons', 'ragnarok', 'shard_dragon']]) {
+      const a = await sim(page, `
+        g.ui.closeDialog && g.ui.closeDialog();
+        const out = {}, p = g.player;
+        delete g.profile.inv.stacks['${shard}'];
+        // Open each portal from the camp's arrival point, facing open ground.
+        g.enterZone('island'); step(3); p.yaw = g.zone.spawnYaw ?? Math.PI;
+        g.useConsumable('${dim.replace('dim_', 'emblem_')}'); step(3);
+        out.portal = !!g.portal;
+        g.interaction.enterPortal(); await new Promise((r) => setTimeout(r, 1200)); step(3);
+        // The Jailer waits on the fifth floor.
+        if ('${dim}' === 'dim_dungeon') { g.profile.run.floor = 5; g.enterZone('dim_dungeon'); step(3); }
+        const boss = g.spawner.boss;
+        out.present = !!boss && boss.def.id === '${boss}';
+        if (!boss) return out;
+        g.enemies.list.filter((e) => !e.boss).forEach((e) => { e.alive = false; e.dyingT = 0; }); g.spawner.popT = 1e9;
+        const ar = g.zone.arena; goNear(ar.x, ar.z + 5); p.grounded = true; p.yaw = Math.PI; step(30 * 3);
+        out.engaged = boss.engaged;
+        return out;`);
+      await settle();
+      await page.screenshot({ path: path.join(SHOTS, `ruler_${boss}.png`) });
+      check(a.present && a.engaged, `${boss}: rules its dimension and engages (${JSON.stringify(a)})`);
+      if (!a.present) { await sim(page, `g.interaction.leaveRun('leave'); await new Promise((r) => setTimeout(r, 1200)); return 1;`); continue; }
+      const r = await sim(page, `
+        const out = {}, p = g.player, boss = g.spawner.boss;
+        const phases = []; g.bus.on('bossPhase', (e) => { if (e.def.id === '${boss}' && !phases.includes(e.phase.name)) phases.push(e.phase.name); });
+        for (let k = 0; k < 120 && boss.members.some((m) => m.alive); k++) {
+          for (const m of boss.members) if (m.alive) g.combat.applyRaw(m, m.maxHp * 0.03, 'dmg');
+          step(12); p.hp = g.stats.maxHp; p.corruption = 0;
+        }
+        out.defeated = boss.defeated; out.phases = phases;
+        out.shard = g.profile.inv.stacks['${shard}'] || 0;
+        out.exit = !!g.portalOut;
+        step(30 * 2); g.ui.closeDialog && g.ui.closeDialog();
+        g.interaction.leaveRun('complete'); await new Promise((r) => setTimeout(r, 1200)); step(3);
+        out.home = g.zone.type !== 'dimension' && !g.profile.run;
+        out.cleared = g.profile.dims['${dim}'].cleared;
+        return out;`);
+      check(r.defeated && r.phases.length >= 2, `${boss}: fights through its phases (${(r.phases || []).join(', ')})`);
+      check(r.shard === 1 && r.exit && r.home && r.cleared >= 1, `${boss}: gives its Fracture Shard, opens the way home and clears the run`);
+    }
+    check(!errors.length, `rulers: no errors ${errors.slice(0, 3).join(' | ')}`);
     await ctx.close();
   }
 } catch (err) {

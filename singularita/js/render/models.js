@@ -150,6 +150,75 @@ export function buildAlleleRig() {
   return r;
 }
 
+// The rulers of the dimensions.
+export function buildJailerRig() {
+  const iron = '#5a5a66', dark = '#2e2e36', cloth = '#3a2a22';
+  const rig = {
+    kind: 'humanoid', scale: 1.7,
+    parts: [
+      { name: 'torso', parent: -1, pivot: [0, 1.0, 0], boxes: [B(0, 0.42, 0, 0.9, 0.84, 0.55, iron), B(0, 0.05, 0, 0.95, 0.2, 0.6, cloth), B(0.42, 0.1, 0.32, 0.3, 0.3, 0.06, '#ffcf6a'), B(0.5, -0.05, 0.32, 0.2, 0.2, 0.06, '#ffcf6a')] },
+      { name: 'head', parent: 0, pivot: [0, 0.84, 0], boxes: [B(0, 0.24, 0, 0.5, 0.5, 0.5, dark), B(0, 0.28, 0.26, 0.4, 0.06, 0.02, '#ff6a3a'), B(0, 0.52, 0, 0.56, 0.1, 0.56, iron)] },
+      { name: 'armL', parent: 0, pivot: [0.6, 0.72, 0], boxes: [B(0, -0.32, 0, 0.26, 0.7, 0.3, iron), B(0, -0.72, 0, 0.22, 0.14, 0.22, dark)] },
+      // The iron hand: a fist as big as a head.
+      { name: 'armR', parent: 0, pivot: [-0.62, 0.72, 0], boxes: [B(0, -0.3, 0, 0.34, 0.7, 0.36, iron), B(0, -0.88, 0.05, 0.72, 0.62, 0.72, '#8a8a96'), B(0, -0.6, 0.05, 0.5, 0.1, 0.5, dark)] },
+      { name: 'legL', parent: -1, pivot: [0.22, 1.0, 0], boxes: [B(0, -0.5, 0, 0.32, 1.0, 0.36, dark)] },
+      { name: 'legR', parent: -1, pivot: [-0.22, 1.0, 0], boxes: [B(0, -0.5, 0, 0.32, 1.0, 0.36, dark)] },
+    ],
+  };
+  return new RigMesh(rig);
+}
+
+export function buildSiameseRig(element) {
+  const color = element === 'fire' ? '#ff7a5a' : '#7ab8ff';
+  const rig = RIGS.slime();
+  rig.parts.push({ name: 'crown', parent: 0, pivot: [0, 0.92, 0], boxes: [B(0, 0.1, 0, 0.62, 0.2, 0.62, '#ffcf3a'), B(element === 'fire' ? 0.24 : -0.24, 0.32, 0, 0.14, 0.3, 0.14, element === 'fire' ? '#ff4a3a' : '#9fe0ff'), B(0, 0.3, 0.24, 0.12, 0.26, 0.12, '#ffcf3a')] });
+  return new RigMesh(rig, { tints: { a: color } });
+}
+
+export function buildAdamiteKingRig() {
+  const robe = '#3a1a5a', crystal = '#b46aff', gold = '#ffcf6a';
+  const rig = {
+    kind: 'humanoid', scale: 1.6,
+    parts: [
+      { name: 'torso', parent: -1, pivot: [0, 0.95, 0], boxes: [B(0, 0.38, 0, 0.7, 0.8, 0.42, robe), B(0, 0.1, -0.3, 0.9, 1.0, 0.08, '#5a2a8a'), B(0.42, 0.78, 0, 0.26, 0.4, 0.26, crystal), B(-0.4, 0.72, 0.05, 0.22, 0.5, 0.22, crystal), B(0, 0.5, 0.22, 0.14, 0.4, 0.02, gold)] },
+      { name: 'head', parent: 0, pivot: [0, 0.8, 0], boxes: [B(0, 0.22, 0, 0.44, 0.44, 0.44, '#c8b8d8'), B(0.1, 0.24, 0.23, 0.08, 0.06, 0.02, '#e8a8ff'), B(-0.1, 0.24, 0.23, 0.08, 0.06, 0.02, '#e8a8ff'),
+        B(0, 0.5, 0, 0.52, 0.12, 0.52, gold), B(0.2, 0.72, 0.2, 0.1, 0.4, 0.1, crystal), B(-0.2, 0.75, 0.2, 0.1, 0.46, 0.1, crystal), B(0.2, 0.7, -0.2, 0.1, 0.36, 0.1, crystal), B(-0.2, 0.78, -0.2, 0.1, 0.5, 0.1, crystal), B(0, 0.85, 0, 0.12, 0.6, 0.12, '#e8c8ff')] },
+      { name: 'armL', parent: 0, pivot: [0.45, 0.68, 0], boxes: [B(0, -0.32, 0, 0.22, 0.68, 0.24, robe)] },
+      { name: 'armR', parent: 0, pivot: [-0.45, 0.68, 0], boxes: [B(0, -0.32, 0, 0.22, 0.68, 0.24, robe), B(0, -0.7, 0.75, 0.1, 0.16, 1.4, crystal), B(0, -0.72, 0.02, 0.3, 0.1, 0.1, gold)] },
+      { name: 'legL', parent: -1, pivot: [0.17, 0.95, 0], boxes: [B(0, -0.45, 0, 0.26, 0.9, 0.3, robe)] },
+      { name: 'legR', parent: -1, pivot: [-0.17, 0.95, 0], boxes: [B(0, -0.45, 0, 0.26, 0.9, 0.3, robe)] },
+    ],
+  };
+  return new RigMesh(rig);
+}
+
+// The one in the glass: your own shape, in dark mirror-glass.
+export function buildMirrorRig(cls, weaponMat, armorMat) {
+  const r = buildPlayerRig(cls, weaponMat, armorMat);
+  const mat = new THREE.MeshLambertMaterial({ vertexColors: true, color: 0x8aa8c8, emissive: 0x101828 });
+  r.root.traverse((o) => { if (o.isMesh) { o.material = mat; o.userData.baseMat = mat; } });
+  const base = r.dispose.bind(r);
+  r.dispose = () => { base(); mat.dispose(); };
+  return r;
+}
+
+export function buildRagnarokRig() {
+  const scale = '#a83a1a', belly = '#e8a060', horn = '#e8d8c0', dark = '#5a1a0a';
+  const rig = {
+    kind: 'bat', scale: 3.0,
+    parts: [
+      { name: 'body', parent: -1, pivot: [0, 0.9, 0], boxes: [B(0, 0, 0, 0.9, 0.7, 1.6, scale), B(0, -0.3, 0.1, 0.7, 0.2, 1.2, belly), B(0, 0.42, -0.2, 0.2, 0.2, 1.2, dark),
+        B(0.3, -0.6, 0.5, 0.22, 0.6, 0.22, scale), B(-0.3, -0.6, 0.5, 0.22, 0.6, 0.22, scale), B(0.3, -0.6, -0.5, 0.22, 0.6, 0.22, scale), B(-0.3, -0.6, -0.5, 0.22, 0.6, 0.22, scale)] },
+      { name: 'wingL', parent: 0, pivot: [0.45, 0.3, 0], boxes: [B(1.2, 0, 0, 2.4, 0.06, 1.3, '#8a2a1a'), B(1.2, 0.05, 0.55, 2.4, 0.1, 0.12, dark)] },
+      { name: 'wingR', parent: 0, pivot: [-0.45, 0.3, 0], boxes: [B(-1.2, 0, 0, 2.4, 0.06, 1.3, '#8a2a1a'), B(-1.2, 0.05, 0.55, 2.4, 0.1, 0.12, dark)] },
+      { name: 'neck', parent: 0, pivot: [0, 0.25, 0.75], boxes: [B(0, 0.25, 0.25, 0.36, 0.36, 0.6, scale), B(0, 0.5, 0.65, 0.5, 0.42, 0.62, scale), B(0, 0.38, 1.02, 0.36, 0.22, 0.3, dark),
+        B(0.14, 0.62, 0.86, 0.08, 0.08, 0.02, '#ffe066'), B(-0.14, 0.62, 0.86, 0.08, 0.08, 0.02, '#ffe066'), B(0.18, 0.8, 0.45, 0.08, 0.36, 0.08, horn), B(-0.18, 0.8, 0.45, 0.08, 0.36, 0.08, horn)] },
+      { name: 'tail', parent: 0, pivot: [0, 0, -0.8], boxes: [B(0, 0, -0.45, 0.4, 0.34, 0.9, scale), B(0, -0.05, -1.1, 0.26, 0.22, 0.6, scale), B(0, 0, -1.5, 0.4, 0.06, 0.3, dark)] },
+    ],
+  };
+  return new RigMesh(rig);
+}
+
 export function buildLumeRig() {
   const brass = '#c9a24c', dark = '#5a4a2a';
   const rig = {

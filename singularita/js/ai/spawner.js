@@ -14,8 +14,14 @@ import { Ronin } from './bosses/ronin.js';
 import { Tears } from './bosses/tears.js';
 import { MagmaVector } from './bosses/magmaVector.js';
 import { AlleleGolem } from './bosses/alleleGolem.js';
+import { IronJailer } from './bosses/jailer.js';
+import { Siamese } from './bosses/siamese.js';
+import { AdamiteKing } from './bosses/adamiteKing.js';
+import { MirrorSelf } from './bosses/mirrorSelf.js';
+import { Ragnarok } from './bosses/ragnarok.js';
 
-const BOSS_CLASS = { slime_prince: SlimePrince, silverback_emperor: Silverback, ronin_east_wind: Ronin, tears_of_poseidon: Tears, magma_vector: MagmaVector, allele_golem: AlleleGolem };
+const BOSS_CLASS = { slime_prince: SlimePrince, silverback_emperor: Silverback, ronin_east_wind: Ronin, tears_of_poseidon: Tears, magma_vector: MagmaVector, allele_golem: AlleleGolem,
+  iron_jailer: IronJailer, siamese: Siamese, adamite_king: AdamiteKing, you: MirrorSelf, ragnarok: Ragnarok };
 
 export class Spawner {
   constructor(game) {
@@ -29,7 +35,7 @@ export class Spawner {
     game.bus.on('bossDefeated', ({ def }) => {
       this.boss = null;
       // Isle guardians come back to their arenas a while after each defeat.
-      if (def.zone && def.zone !== 'island') (game.profile.world.guardians ||= {})[def.id] = game.profile.playTime + def.respawn;
+      if (def.respawn && def.zone && def.zone.startsWith('isle_')) (game.profile.world.guardians ||= {})[def.id] = game.profile.playTime + def.respawn;
     });
   }
 

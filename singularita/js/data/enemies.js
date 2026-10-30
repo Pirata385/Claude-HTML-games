@@ -142,6 +142,10 @@ export const ENEMIES = {
   adamite_golem: E('adamite_golem', { name: 'Adamite Colossus', family: 'adamite', role: 'tank', behavior: 'golem', hp: 900, dmg: 56, speed: 1.5, xp: 200, radius: 1.1, scale: 1.7,
     range: 2.8, atkCd: 2.8, windup: 0.9, slam: 3.6, model: 'golem', color: '#8a4ac8', drops: [drop('purple_adamite', 0.6, 1, 2)] }),
 
+  // Raised by the Adamite King: it corrupts the ground around it until it is broken. No drops.
+  adamite_pillar: E('adamite_pillar', { name: 'Adamite Pillar', family: 'adamite', role: 'support', behavior: 'sentry', hp: 420, dmg: 24, speed: 0, xp: 30,
+    proj: 'beam', range: 12, atkCd: 2.4, model: 'sentry', color: '#9a4ae0' }),
+
   // The Mirrored: reflections, glass and the things that live behind mirrors.
   mirror_wraith: E('mirror_wraith', { name: 'Mirror Wraith', family: 'mirror', role: 'ranged', behavior: 'ranged', hp: 300, dmg: 40, speed: 3.4, xp: 120,
     proj: 'shard', range: 13, atkCd: 1.8, model: 'wraith', color: '#d8f0ff', flags: ['flying'], drops: [drop('specular_glass', 0.35)] }),

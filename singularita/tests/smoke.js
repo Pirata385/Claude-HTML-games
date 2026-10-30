@@ -658,10 +658,19 @@ try {
         g.enemies.list.filter((e) => !e.boss).forEach((e) => { e.alive = false; e.dyingT = 0; }); g.spawner.popT = 1e9;
         const ar = g.zone.arena; goNear(ar.x, ar.z + 5); p.grounded = true; p.yaw = Math.PI; step(30 * 3);
         out.engaged = boss.engaged;
+        // Step just outside the arena: the ruler keeps to its arena instead of following you out.
+        const fx = ar.x + ar.r + 6, fz = ar.z;
+        if (g.grid.walkable(Math.floor(fx), Math.floor(fz))) {
+          let far = 0;
+          for (let k = 0; k < 30 * 4; k++) { goNear(fx, fz); step(1); for (const m of boss.members) far = Math.max(far, Math.hypot(m.x - ar.x, m.z - ar.z) - ar.r); }
+          out.staysIn = far <= 0.5;
+          goNear(ar.x, ar.z + 5); step(3);
+        } else out.staysIn = true;
         return out;`);
       await settle();
       await page.screenshot({ path: path.join(SHOTS, `ruler_${boss}.png`) });
       check(a.present && a.engaged, `${boss}: rules its dimension and engages (${JSON.stringify(a)})`);
+      check(a.staysIn, `${boss}: keeps to its arena when you step out`);
       if (!a.present) { await sim(page, `g.interaction.leaveRun('leave'); await new Promise((r) => setTimeout(r, 1200)); return 1;`); continue; }
       const r = await sim(page, `
         const out = {}, p = g.player, boss = g.spawner.boss;

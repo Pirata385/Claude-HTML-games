@@ -145,7 +145,7 @@ ZONES.dim_dungeon = dim('dungeon', {
   palette: { floor: '#3a3634', wall: '#5a544e', accent: '#ffcf6a', accent2: '#c86a2a', fog: '#0e0c0a', ambient: 0.4, light: '#ffd8a0', glow: 'crystal' },
 });
 ZONES.dim_twins = dim('twins', {
-  name: 'The Twin Slimes', subtitle: 'Dimension of the Twin Gel', levelReq: 110, band: [110, 130], population: 12,
+  name: 'The Twin Slimes', subtitle: 'Dimension of the Twin Gel', levelReq: 110, band: [110, 126], population: 12,
   emblem: 'emblem_twins', boss: 'siamese', rule: 'twins',
   ruleDesc: 'Two lanes, one fate. Levers in one lane open the gates of the other, and twin-bound creatures revive each other unless both fall within three seconds.',
   gen: { kind: 'lanes', size: 120 },
@@ -155,7 +155,7 @@ ZONES.dim_twins = dim('twins', {
   palette: { floor: '#f0d8e8', wall: '#c89ab8', accent: '#ff8ab0', accent2: '#8ab0ff', fog: '#2a1a2a', ambient: 0.7, light: '#ffe8f4', glow: 'glowcap' },
 });
 ZONES.dim_king = dim('king', {
-  name: 'The Corrupted King', subtitle: 'Dimension of the Purple Adamite', levelReq: 125, band: [125, 150], population: 12,
+  name: 'The Corrupted King', subtitle: 'Dimension of the Purple Adamite', levelReq: 125, band: [125, 141], population: 12,
   emblem: 'emblem_king', boss: 'adamite_king', rule: 'corruption',
   ruleDesc: 'Purple Adamite corrupts. Standing on it fills your corruption; at full it eats your health. Break adamite crystals or stand by a brazier to cleanse yourself.',
   gen: { kind: 'castle', size: 120 },
@@ -165,7 +165,7 @@ ZONES.dim_king = dim('king', {
   palette: { floor: '#3a3040', wall: '#5a4a68', accent: '#b46aff', accent2: '#ffcf6a', fog: '#120a1a', ambient: 0.45, light: '#e0c8ff', glow: 'crystal' },
 });
 ZONES.dim_mirror = dim('mirror', {
-  name: 'The Mirrored', subtitle: 'Dimension of Reflections', levelReq: 140, band: [140, 170], population: 12,
+  name: 'The Mirrored', subtitle: 'Dimension of Reflections', levelReq: 140, band: [140, 156], population: 12,
   emblem: 'emblem_mirror', boss: 'you', rule: 'reflection',
   ruleDesc: 'Your Reflection walks the far side of the mirror line. Gates open only while both of you stand on mirrored plates; clear the glass from its path.',
   gen: { kind: 'mirror', size: 112 },
@@ -175,7 +175,7 @@ ZONES.dim_mirror = dim('mirror', {
   palette: { floor: '#c8d8e8', wall: '#e8f4ff', accent: '#9fe0ff', accent2: '#ffffff', fog: '#1a2230', ambient: 0.75, light: '#f0f8ff', glow: 'crystal' },
 });
 ZONES.dim_dragons = dim('dragons', {
-  name: 'The Dragons\' Roost', subtitle: 'Dimension of the Dragons', levelReq: 160, band: [160, 200], population: 12,
+  name: 'The Dragons\' Roost', subtitle: 'Dimension of the Dragons', levelReq: 160, band: [160, 176], population: 12,
   emblem: 'emblem_dragons', boss: 'ragnarok', rule: 'breath',
   ruleDesc: 'Dragon breath sweeps the mountain paths: hide behind the standing rocks. Climb on the updrafts; linger near the nests and the eggs hatch.',
   gen: { kind: 'peaks', size: 160 },
@@ -186,11 +186,11 @@ ZONES.dim_dragons = dim('dragons', {
 });
 
 ZONES.cave_9 = cave(9, {
-  name: 'The Singular Heart', subtitle: 'Beyond the Heart Seal', levelReq: 200, band: [200, 260], population: 12,
+  name: 'The Singular Heart', subtitle: 'Beyond the Heart Seal', levelReq: 200, band: [200, 220], population: 10, elite: 0.12,
   requires: ['shard_gaol', 'shard_twins', 'shard_crown', 'shard_mirror', 'shard_dragon'],
   gen: { size: 112, fill: 0.45, steps: 5, wallHeight: 3, core: true },
   nodes: [{ node: 'ore_singularita', w: 12 }, { node: 'ore_chromantite', w: 10 }, { node: 'ore_diamond', w: 6 }],
-  enemies: [{ id: 'singular_echo', w: 4 }, { id: 'echo_knight', w: 3 }, { id: 'gem_golem', w: 2 }, { id: 'crystal_sentry', w: 2 }],
+  enemies: [{ id: 'singular_echo', w: 5 }, { id: 'echo_knight', w: 3 }, { id: 'crystal_sentry', w: 2 }],
   hazards: ['stalactite', 'resonance'],
   lore: ['lore_heart', 'lore_choice'],
   palette: { floor: '#2a2438', wall: '#4a3a68', accent: '#f4e8ff', accent2: '#ff7ad8', fog: '#0a0812', ambient: 0.5, light: '#f4e8ff', glow: 'crystal' },

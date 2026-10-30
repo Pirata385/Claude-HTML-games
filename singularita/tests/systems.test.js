@@ -8,10 +8,13 @@ import { checkRecipe, craft } from '../js/systems/crafting.js';
 import { canGather, gatherDamage, rollYield } from '../js/systems/gathering.js';
 import { newProfile, serialize, deserialize, SaveStore, SAVE_VERSION, exportString, importString, migrate } from '../js/systems/save.js';
 import { DEFAULT_SETTINGS, mergeSettings } from '../js/systems/settings.js';
-import { Horde, BossClock, islandLevel } from '../js/systems/horde.js';
+import { Horde, BossClock, islandLevel, eliteChance } from '../js/systems/horde.js';
 import { DayNight } from '../js/systems/dayNight.js';
 import { allocate, respec } from '../js/systems/attributes.js';
 import { enemyHp, enemyDmg } from '../js/systems/scaling.js';
+import { runLevel } from '../js/systems/run.js';
+import { ZONES } from '../js/data/zones.js';
+import { BOSSES } from '../js/data/bosses.js';
 import { RECIPES } from '../js/data/recipes.js';
 import { ITEMS } from '../js/data/items.js';
 import { NODES } from '../js/data/nodes.js';
@@ -348,9 +351,9 @@ test('tier 8 traits bring their new stats', () => {
 
 test('balance: a same-level standard enemy takes a few hits; the player survives several', () => {
   // Expected gear for the level: best tier whose recipe level is reached.
-  const tierFor = (L) => [1, 3, 8, 16, 26, 38, 50, 64, 100].filter((x) => x <= L).length - 1;
-  const mats = ['wood', 'stone', 'copper', 'iron', 'titanium', 'emerald', 'ruby', 'diamond', 'dawndosite'];
-  for (const L of [1, 10, 20, 35, 50, 65, 80, 95, 100, 115]) {
+  const tierFor = (L) => [1, 3, 8, 16, 26, 38, 50, 64, 100, 180, 240].filter((x) => x <= L).length - 1;
+  const mats = ['wood', 'stone', 'copper', 'iron', 'titanium', 'emerald', 'ruby', 'diamond', 'dawndosite', 'chromantite', 'singularita'];
+  for (const L of [1, 10, 20, 35, 50, 65, 80, 95, 100, 115, 140, 170, 179, 200, 239, 260, 300]) {
     const p = fresh('swordsman'); p.level = L; p.attrs.str = Math.floor((L - 1) * 2); p.attrs.res = (L - 1);
     const m = mats[tierFor(L)];
     const s = computeStats(p, [ITEMS[`swordsman_weapon_${m}`], ITEMS[`swordsman_armor_${m}`]]);
@@ -361,4 +364,80 @@ test('balance: a same-level standard enemy takes a few hits; the player survives
     assert.ok(hitsToKill >= 1.5 && hitsToKill <= 9, `L${L} hitsToKill ${hitsToKill.toFixed(1)}`);
     assert.ok(hitsToDie >= 6 && hitsToDie <= 40, `L${L} hitsToDie ${hitsToDie.toFixed(1)}`);
   }
+});
+
+test('balance: the Core and the dimensions are fair to a player who just reached them', () => {
+  // The player enters at the zone's level with the best gear that level can craft; creatures are
+  // at the level the zone spawns them. Tough roles may take longer, but none should be a wall.
+  const tiers = [1, 3, 8, 16, 26, 38, 50, 64, 100, 180, 240];
+  const mats = ['wood', 'stone', 'copper', 'iron', 'titanium', 'emerald', 'ruby', 'diamond', 'dawndosite', 'chromantite', 'singularita'];
+  // [most hits to kill, fewest hits to die]: dimensions come in packs, so each creature hits softly.
+  const BOUNDS = { tank: [30, 8], frontline: [16, 11], bomber: [12, 5] };
+  for (const id of ['cave_8', 'dim_dungeon', 'dim_twins', 'dim_king', 'dim_mirror', 'dim_dragons', 'cave_9']) {
+    const z = ZONES[id], L = z.levelReq;
+    const foeLevel = z.type === 'dimension' ? runLevel(z, { floor: 1 }) : Math.round((z.band[0] + z.band[1]) / 2);
+    const p = fresh('swordsman'); p.level = L; p.attrs.str = (L - 1) * 2; p.attrs.res = L - 1;
+    const m = mats[tiers.filter((x) => x <= L).length - 1];
+    const s = computeStats(p, [ITEMS[`swordsman_weapon_${m}`], ITEMS[`swordsman_armor_${m}`]]);
+    const hit = s.power * s.dmgMult;
+    for (const { id: eid } of z.enemies) {
+      const e = ENEMIES[eid], [maxHits, minHits] = BOUNDS[e.role] || [12, 16];
+      // Most blows land from the front, where armoured creatures turn part of them aside.
+      const hitsToKill = enemyHp(e.hp, foeLevel) / (hit * (1 - (e.frontArmor || 0)));
+      const hitsToDie = s.maxHp / (enemyDmg(e.dmg, foeLevel) * 100 / (100 + s.def));
+      assert.ok(hitsToKill >= 1.5 && hitsToKill <= maxHits, `${id} ${eid} L${foeLevel}: hitsToKill ${hitsToKill.toFixed(1)}`);
+      assert.ok(hitsToDie >= minHits, `${id} ${eid} L${foeLevel}: hitsToDie ${hitsToDie.toFixed(1)}`);
+    }
+  }
+});
+
+test('balance: the rulers of the dimensions are long fights, not walls', () => {
+  // Each ruler against a player at the dimension's entry level, with that level's gear. The Jailer
+  // is met on floor 5; deeper Jailers grow with the gaol on purpose.
+  const RULERS = { dim_dungeon: 'iron_jailer', dim_twins: 'siamese', dim_king: 'adamite_king', dim_mirror: 'you', dim_dragons: 'ragnarok' };
+  const tiers = [1, 3, 8, 16, 26, 38, 50, 64, 100, 180, 240];
+  const mats = ['wood', 'stone', 'copper', 'iron', 'titanium', 'emerald', 'ruby', 'diamond', 'dawndosite', 'chromantite', 'singularita'];
+  let last = 0;
+  for (const [dim, id] of Object.entries(RULERS)) {
+    const z = ZONES[dim], b = BOSSES[id], L = z.levelReq, bl = runLevel(z, { floor: 5 }) + b.levelOffset;
+    const p = fresh('swordsman'); p.level = L; p.attrs.str = (L - 1) * 2; p.attrs.res = L - 1;
+    const m = mats[tiers.filter((x) => x <= L).length - 1];
+    const s = computeStats(p, [ITEMS[`swordsman_weapon_${m}`], ITEMS[`swordsman_armor_${m}`]]);
+    const hitsToKill = (enemyHp(b.hp, bl) * (b.members || 1)) / (s.power * s.dmgMult);
+    const hitsToDie = s.maxHp / (enemyDmg(b.dmg, bl) * 100 / (100 + s.def));
+    assert.ok(hitsToKill >= 150 && hitsToKill <= 320, `${id}: hitsToKill ${hitsToKill.toFixed(0)}`);
+    assert.ok(hitsToKill >= last * 0.95, `${id} should not be quicker than the ruler before it`);
+    assert.ok(hitsToDie >= 6.5, `${id}: hitsToDie ${hitsToDie.toFixed(1)}`);
+    last = hitsToKill;
+  }
+});
+
+test('balance: endgame experience comes at a steady pace', () => {
+  // A ruler or a guardian is worth a level or two, not ten; dimension creatures take a few dozen
+  // kills per level for a player at the entry level.
+  const RULERS = { dim_dungeon: 'iron_jailer', dim_twins: 'siamese', dim_king: 'adamite_king', dim_mirror: 'you', dim_dragons: 'ragnarok' };
+  for (const [dim, id] of Object.entries(RULERS)) {
+    const z = ZONES[dim], b = BOSSES[id], bl = runLevel(z, { floor: 5 }) + b.levelOffset;
+    const levels = (b.xp * (1 + 0.08 * bl)) / xpToNext(z.levelReq);
+    assert.ok(levels >= 1 && levels <= 2.5, `${id}: ${levels.toFixed(1)} levels`);
+    for (const { id: eid } of z.enemies) {
+      const kills = xpToNext(z.levelReq) / killXp(ENEMIES[eid].xp, runLevel(z, { floor: 1 }), z.levelReq);
+      assert.ok(kills >= (ENEMIES[eid].role === 'tank' ? 4 : 8) && kills <= 80, `${dim} ${eid}: ${kills.toFixed(0)} kills per level`);
+    }
+  }
+  for (const id of ['ronin_east_wind', 'tears_of_poseidon', 'magma_vector', 'allele_golem']) {
+    const b = BOSSES[id], bl = b.minLevel + b.levelOffset;
+    const levels = (b.xp * (1 + 0.08 * bl)) / xpToNext(b.minLevel);
+    assert.ok(levels <= 1.5, `${id}: ${levels.toFixed(1)} levels, and guardians return every ten minutes`);
+  }
+});
+
+test('elite chance: deeper caves bring more elites; the Heart and the dimensions keep their own', () => {
+  assert.ok(Math.abs(eliteChance(ZONES.cave_1, { type: 'cave', layer: 1 }, WAVES) - 0.075) < 1e-9);
+  assert.ok(Math.abs(eliteChance(ZONES.cave_7, { type: 'cave', layer: 7 }, WAVES) - 0.225) < 1e-9);
+  // The Singular Heart is crowded enough without a quarter of it being elite.
+  assert.equal(eliteChance(ZONES.cave_9, { type: 'cave', layer: 9 }, WAVES), ZONES.cave_9.elite);
+  assert.ok(ZONES.cave_9.elite <= 0.15);
+  assert.equal(eliteChance(ZONES.dim_twins, { type: 'dimension' }, WAVES), WAVES.isle.elite.base);
+  assert.equal(eliteChance(ZONES.dim_dungeon, { type: 'dimension', modifier: 'elite' }, WAVES), 0.35);
 });

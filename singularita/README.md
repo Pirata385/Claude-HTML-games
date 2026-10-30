@@ -134,7 +134,7 @@ js/render/            renderer, terrain mesher, props, sky, water, rigs and inst
 js/combat/            formulas, statuses, combat system, class kits
 js/ai/                behaviours, flow field, creature manager, spawner, bosses
 js/ui/                HUD, minimap, menus, touch controls, overlay, title screens
-tests/                unit tests (node --test) and a Playwright smoke test
+tests/                unit tests (node --test), a Playwright smoke test and the balance playtest bot
 docs/design.md        the design of the full game and of this milestone
 ```
 
@@ -147,6 +147,9 @@ From this folder:
 ```
 npm test              # unit tests: data integrity, systems, world generation rules, combat maths, objectives, fog
 npm run smoke         # browser smoke test (Playwright + Chromium): plays the opening loop, caves, both bosses, every class and touch
+npm run playtest      # balance playtests: a bot plays every class through every dimension and reports how it went
 ```
 
-The smoke test serves the repository itself and prints the folder where it saved its screenshots. For debugging, add `?debug` to the URL to expose the running game as `window.__SG`, and `?quickstart=<class>` to skip the title screen with a test character.
+The smoke test serves the repository itself and prints the folder where it saved its screenshots.
+
+The playtest bot plays the real game with the player's own controls: it moves, locks on, attacks, casts its hotbar, drinks tonics and reacts to the warnings drawn on the ground after a human-like delay. Puzzles are solved for it; fights, hazards and rulers are played for real. Options: `--classes=archer,mage`, `--dims=dim_king,cave_9` (earlier zones such as `cave_3` or `isle_air`, and island bosses such as `boss:silverback_emperor`, work as references), `--skill=casual|skilled`, `--offset=10` (levels above each zone's entry level), `--bosses` (only the rulers) and `--runs=3`. It prints one line per run (outcome, time, damage taken by source, kills, XP and loot) and writes the details to a JSON file. For debugging, add `?debug` to the URL to expose the running game as `window.__SG`, and `?quickstart=<class>` to skip the title screen with a test character.

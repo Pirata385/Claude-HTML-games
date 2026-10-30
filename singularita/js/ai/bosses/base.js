@@ -66,6 +66,9 @@ export class Boss extends Entity {
     if (this.atkDur > 0) { this.atkT += dt; this.anim.atk = Math.min(1, this.atkT / this.atkDur); if (this.atkT >= this.atkDur) { this.atkDur = 0; this.anim.atk = 0; } }
     if (this.statuses.stunned) { this.anim.wind = 0; return; }
     this.think(dt, c);
+    // Bosses hold their arena: they never chase you out of it.
+    const ax = this.x - this.arena.x, az = this.z - this.arena.z, d = Math.hypot(ax, az), rmax = this.arena.r - this.radius * 0.5;
+    if (d > rmax) { this.x = this.arena.x + (ax / d) * rmax; this.z = this.arena.z + (az / d) * rmax; }
   }
   resetFight() {
     this.hp = this.maxHp; this.x = this.arena.x; this.z = this.arena.z; this.state = 'idle'; this.cd = 2; this.phase = 0; this.leaveT = 0;

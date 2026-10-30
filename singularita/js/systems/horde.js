@@ -8,6 +8,15 @@ const CORE = new Set(['swarm', 'frontline', 'tank']);
 
 export const islandLevel = (cfg, phase, rng) => rng.int(...cfg.levels[phase]);
 
+// Chance that a creature in a cave, isle or dimension spawns elite. Caves grow more elite with
+// depth unless the zone sets its own rate; a dimension's Elite modifier overrides everything.
+export function eliteChance(def, zone, waves) {
+  if (zone.modifier === 'elite') return 0.35;
+  if (def.elite != null) return def.elite;
+  const el = zone.type === 'cave' ? waves.cave.elite : waves.isle.elite;
+  return Math.min(el.max, el.base + el.perLayer * (zone.layer || 0));
+}
+
 export class Horde {
   constructor(cfg, rng) {
     this.cfg = cfg; this.rng = rng;

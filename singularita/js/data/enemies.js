@@ -107,67 +107,67 @@ export const ENEMIES = {
     heal: 0.012, model: 'lasher', color: '#8ad06a', scale: 0.55 }),
 
   // The Dawn and Dusk Hollows (Core layer 8).
-  dawn_sentinel: E('dawn_sentinel', { name: 'Dawnbound Sentinel', family: 'construct', role: 'ranged', behavior: 'sentry', hp: 260, dmg: 30, speed: 0, xp: 90,
+  dawn_sentinel: E('dawn_sentinel', { name: 'Dawnbound Sentinel', family: 'construct', role: 'ranged', behavior: 'sentry', hp: 80, dmg: 13, speed: 0, xp: 14,
     proj: 'beam', onHit: 'blind', range: 14, atkCd: 1.6, model: 'sentry', color: '#ffe9a8', drops: [drop('prism_dust', 0.5, 1, 2)] }),
-  dusk_stalker: E('dusk_stalker', { name: 'Duskstalker', family: 'beast', role: 'frontline', behavior: 'lurker', hp: 220, dmg: 40, speed: 4.4, xp: 95,
+  dusk_stalker: E('dusk_stalker', { name: 'Duskstalker', family: 'beast', role: 'frontline', behavior: 'lurker', hp: 100, dmg: 18, speed: 4.4, xp: 18,
     model: 'lurker', color: '#5a2a8a', drops: [drop('prism_dust', 0.5, 1, 2)] }),
-  echo_knight: E('echo_knight', { name: 'Echo Knight', family: 'zombie', role: 'frontline', behavior: 'melee', hp: 320, dmg: 36, speed: 2.4, xp: 100, radius: 0.7, scale: 1.4,
+  echo_knight: E('echo_knight', { name: 'Echo Knight', family: 'zombie', role: 'frontline', behavior: 'melee', hp: 60, dmg: 18, speed: 2.4, xp: 22, radius: 0.7, scale: 1.4,
     frontArmor: 0.5, range: 2.2, model: 'zombie', color: '#c9ced8', cloth: '#3a3a5a', helmet: true, drops: [drop('zombie_sinew', 0.6, 1, 2), drop('prism_dust', 0.3)] }),
 
   // The Endless Dungeon. The Warden carries the key to each floor's stair.
-  jail_warden: E('jail_warden', { name: 'Gaol Warden', family: 'gaol', role: 'frontline', behavior: 'melee', hp: 520, dmg: 40, speed: 2.6, xp: 160, radius: 0.75, scale: 1.45,
+  jail_warden: E('jail_warden', { name: 'Gaol Warden', family: 'gaol', role: 'frontline', behavior: 'melee', hp: 260, dmg: 14, speed: 2.6, xp: 29, radius: 0.75, scale: 1.45,
     range: 2.2, frontArmor: 0.4, model: 'zombie', color: '#8a8a96', cloth: '#3a3a4a', helmet: true, keyCarrier: true, drops: [drop('gaol_iron', 0.8, 1, 2)] }),
-  shackled_prisoner: E('shackled_prisoner', { name: 'Shackled Prisoner', family: 'gaol', role: 'swarm', behavior: 'melee', hp: 180, dmg: 26, speed: 3.9, xp: 60,
+  shackled_prisoner: E('shackled_prisoner', { name: 'Shackled Prisoner', family: 'gaol', role: 'swarm', behavior: 'melee', hp: 85, dmg: 10, speed: 3.9, xp: 9,
     model: 'zombie', color: '#a8a090', cloth: '#c86a2a', drops: [drop('gaol_iron', 0.25)] }),
-  chain_hound: E('chain_hound', { name: 'Chain Hound', family: 'gaol', role: 'swarm', behavior: 'melee', hp: 200, dmg: 28, speed: 5.4, xp: 62, atkCd: 1.1, windup: 0.35,
+  chain_hound: E('chain_hound', { name: 'Chain Hound', family: 'gaol', role: 'swarm', behavior: 'melee', hp: 70, dmg: 10, speed: 5.4, xp: 8, atkCd: 1.1, windup: 0.35,
     model: 'hound', color: '#7a7a80', drops: [drop('gaol_iron', 0.3)] }),
-  gaol_sentry: E('gaol_sentry', { name: 'Gaol Lantern', family: 'gaol', role: 'ranged', behavior: 'sentry', hp: 240, dmg: 30, speed: 0, xp: 70,
+  gaol_sentry: E('gaol_sentry', { name: 'Gaol Lantern', family: 'gaol', role: 'ranged', behavior: 'sentry', hp: 90, dmg: 10, speed: 0, xp: 10,
     proj: 'beam', range: 14, atkCd: 1.8, model: 'sentry', color: '#ffcf6a', drops: [drop('gaol_iron', 0.35)] }),
 
   // The Twin Slimes: twin-bound creatures revive each other unless both fall close together.
-  twin_slime: E('twin_slime', { name: 'Twin Slime', family: 'slime', role: 'swarm', behavior: 'hopper', hp: 220, dmg: 26, speed: 3.2, xp: 66, radius: 0.6, scale: 1.2,
+  twin_slime: E('twin_slime', { name: 'Twin Slime', family: 'slime', role: 'swarm', behavior: 'hopper', hp: 75, dmg: 9, speed: 3.2, xp: 8, radius: 0.6, scale: 1.2,
     twin: true, model: 'slime', color: '#ff8ab0', drops: [drop('twin_gel', 0.45)] }),
-  twin_spitter: E('twin_spitter', { name: 'Twin Spitter', family: 'slime', role: 'ranged', behavior: 'ranged', hp: 180, dmg: 24, speed: 2.8, xp: 66,
+  twin_spitter: E('twin_spitter', { name: 'Twin Spitter', family: 'slime', role: 'ranged', behavior: 'ranged', hp: 60, dmg: 8, speed: 2.8, xp: 7,
     proj: 'glob', onHit: 'slow', range: 12, atkCd: 2.0, twin: true, model: 'slime', color: '#8ab0ff', drops: [drop('twin_gel', 0.45)] }),
-  gel_knight: E('gel_knight', { name: 'Gel Knight', family: 'slime', role: 'tank', behavior: 'golem', hp: 700, dmg: 44, speed: 1.8, xp: 150, radius: 1.0, scale: 1.4,
+  gel_knight: E('gel_knight', { name: 'Gel Knight', family: 'slime', role: 'tank', behavior: 'golem', hp: 230, dmg: 17, speed: 1.8, xp: 25, radius: 1.0, scale: 1.4,
     range: 2.6, atkCd: 2.6, windup: 0.85, slam: 3.2, model: 'golem', color: '#d8a0ff', drops: [drop('twin_gel', 0.6, 1, 2)] }),
 
   // The Corrupted King: knights and courtiers grown through with Purple Adamite.
-  adamite_knight: E('adamite_knight', { name: 'Adamite Knight', family: 'adamite', role: 'frontline', behavior: 'melee', hp: 560, dmg: 46, speed: 2.5, xp: 150, radius: 0.75, scale: 1.4,
+  adamite_knight: E('adamite_knight', { name: 'Adamite Knight', family: 'adamite', role: 'frontline', behavior: 'melee', hp: 60, dmg: 12, speed: 2.5, xp: 13, radius: 0.75, scale: 1.4,
     frontArmor: 0.55, range: 2.2, model: 'zombie', color: '#8a4ac8', cloth: '#3a1a5a', helmet: true, drops: [drop('purple_adamite', 0.4)] }),
-  corrupted_courtier: E('corrupted_courtier', { name: 'Corrupted Courtier', family: 'adamite', role: 'support', behavior: 'support_buff', hp: 300, dmg: 20, speed: 2.8, xp: 110,
+  corrupted_courtier: E('corrupted_courtier', { name: 'Corrupted Courtier', family: 'adamite', role: 'support', behavior: 'support_buff', hp: 70, dmg: 7, speed: 2.8, xp: 8,
     buff: 'shield', auraRadius: 9, atkCd: 7, model: 'wraith', color: '#a060e0', drops: [drop('purple_adamite', 0.3)] }),
-  shard_crawler: E('shard_crawler', { name: 'Shard Crawler', family: 'adamite', role: 'swarm', behavior: 'burrow', hp: 260, dmg: 36, speed: 3.6, xp: 80, radius: 0.8,
+  shard_crawler: E('shard_crawler', { name: 'Shard Crawler', family: 'adamite', role: 'swarm', behavior: 'burrow', hp: 70, dmg: 9, speed: 3.6, xp: 8, radius: 0.8,
     model: 'crawler', color: '#b46aff', scale: 1.2, drops: [drop('purple_adamite', 0.3)] }),
-  adamite_golem: E('adamite_golem', { name: 'Adamite Colossus', family: 'adamite', role: 'tank', behavior: 'golem', hp: 900, dmg: 56, speed: 1.5, xp: 200, radius: 1.1, scale: 1.7,
+  adamite_golem: E('adamite_golem', { name: 'Adamite Colossus', family: 'adamite', role: 'tank', behavior: 'golem', hp: 220, dmg: 21, speed: 1.5, xp: 24, radius: 1.1, scale: 1.7,
     range: 2.8, atkCd: 2.8, windup: 0.9, slam: 3.6, model: 'golem', color: '#8a4ac8', drops: [drop('purple_adamite', 0.6, 1, 2)] }),
 
   // Raised by the Adamite King: it corrupts the ground around it until it is broken. No drops.
-  adamite_pillar: E('adamite_pillar', { name: 'Adamite Pillar', family: 'adamite', role: 'support', behavior: 'sentry', hp: 420, dmg: 24, speed: 0, xp: 30,
+  adamite_pillar: E('adamite_pillar', { name: 'Adamite Pillar', family: 'adamite', role: 'support', behavior: 'sentry', hp: 160, dmg: 4, speed: 0, xp: 18,
     proj: 'beam', range: 12, atkCd: 2.4, model: 'sentry', color: '#9a4ae0' }),
 
   // The Mirrored: reflections, glass and the things that live behind mirrors.
-  mirror_wraith: E('mirror_wraith', { name: 'Mirror Wraith', family: 'mirror', role: 'ranged', behavior: 'ranged', hp: 300, dmg: 40, speed: 3.4, xp: 120,
+  mirror_wraith: E('mirror_wraith', { name: 'Mirror Wraith', family: 'mirror', role: 'ranged', behavior: 'ranged', hp: 65, dmg: 9, speed: 3.4, xp: 7,
     proj: 'shard', range: 13, atkCd: 1.8, model: 'wraith', color: '#d8f0ff', flags: ['flying'], drops: [drop('specular_glass', 0.35)] }),
-  glass_knight: E('glass_knight', { name: 'Glass Knight', family: 'mirror', role: 'frontline', behavior: 'melee', hp: 600, dmg: 50, speed: 2.6, xp: 150, radius: 0.75, scale: 1.4,
+  glass_knight: E('glass_knight', { name: 'Glass Knight', family: 'mirror', role: 'frontline', behavior: 'melee', hp: 60, dmg: 12, speed: 2.6, xp: 12, radius: 0.75, scale: 1.4,
     frontArmor: 0.5, range: 2.2, model: 'zombie', color: '#e8f8ff', cloth: '#8ab8d8', helmet: true, drops: [drop('specular_glass', 0.35)] }),
-  shard_bat: E('shard_bat', { name: 'Shard Bat', family: 'mirror', role: 'swarm', behavior: 'swoop', hp: 200, dmg: 34, speed: 7.2, xp: 70, radius: 0.5,
+  shard_bat: E('shard_bat', { name: 'Shard Bat', family: 'mirror', role: 'swarm', behavior: 'swoop', hp: 60, dmg: 8, speed: 7.2, xp: 7, radius: 0.5,
     model: 'bat', color: '#e8f8ff', flags: ['flying'], drops: [drop('specular_glass', 0.25)] }),
-  reflection: E('reflection', { name: 'Reflection', family: 'mirror', role: 'frontline', behavior: 'lurker', hp: 420, dmg: 58, speed: 4.4, xp: 140,
+  reflection: E('reflection', { name: 'Reflection', family: 'mirror', role: 'frontline', behavior: 'lurker', hp: 105, dmg: 14, speed: 4.4, xp: 12,
     model: 'lurker', color: '#c8e0ff', drops: [drop('specular_glass', 0.4)] }),
 
   // The Dragons' Roost.
-  dragon_whelp: E('dragon_whelp', { name: 'Dragon Whelp', family: 'dragon', role: 'swarm', behavior: 'swoop', hp: 280, dmg: 40, speed: 7.4, xp: 100, radius: 0.6, scale: 1.3,
+  dragon_whelp: E('dragon_whelp', { name: 'Dragon Whelp', family: 'dragon', role: 'swarm', behavior: 'swoop', hp: 52, dmg: 9, speed: 7.4, xp: 6, radius: 0.6, scale: 1.3,
     model: 'harpy', color: '#c84a2a', flags: ['flying'], fireproof: true, onHit: 'burn', drops: [drop('dragon_scale', 0.35)] }),
-  drake: E('drake', { name: 'Drake', family: 'dragon', role: 'tank', behavior: 'golem', hp: 1000, dmg: 60, speed: 2.4, xp: 220, radius: 1.1, scale: 2.0,
+  drake: E('drake', { name: 'Drake', family: 'dragon', role: 'tank', behavior: 'golem', hp: 175, dmg: 18, speed: 2.4, xp: 19, radius: 1.1, scale: 2.0,
     range: 2.8, atkCd: 2.4, windup: 0.8, slam: 3.4, model: 'hound', color: '#a83a1a', fireproof: true, drops: [drop('dragon_scale', 0.6, 1, 2)] }),
-  wyrm_priest: E('wyrm_priest', { name: 'Wyrm Priest', family: 'dragon', role: 'support', behavior: 'support_buff', hp: 360, dmg: 26, speed: 2.8, xp: 120,
+  wyrm_priest: E('wyrm_priest', { name: 'Wyrm Priest', family: 'dragon', role: 'support', behavior: 'support_buff', hp: 65, dmg: 8, speed: 2.8, xp: 7,
     buff: 'haste', auraRadius: 10, atkCd: 6, model: 'wraith', color: '#c84a2a', fireproof: true, drops: [drop('dragon_scale', 0.3)] }),
-  ember_drake: E('ember_drake', { name: 'Ember Spark', family: 'dragon', role: 'bomber', behavior: 'bomber', hp: 200, dmg: 70, speed: 3.6, xp: 80,
+  ember_drake: E('ember_drake', { name: 'Ember Spark', family: 'dragon', role: 'bomber', behavior: 'bomber', hp: 50, dmg: 21, speed: 3.6, xp: 6,
     explode: 3.4, model: 'wisp', color: '#ff6a2a', flags: ['flying'], fireproof: true, drops: [drop('dragon_scale', 0.25)] }),
 
   // The Singular Heart: echoes of everything Singularita has been.
-  singular_echo: E('singular_echo', { name: 'Singular Echo', family: 'echo', role: 'frontline', behavior: 'lurker', hp: 700, dmg: 70, speed: 4.6, xp: 260,
+  singular_echo: E('singular_echo', { name: 'Singular Echo', family: 'echo', role: 'frontline', behavior: 'lurker', hp: 90, dmg: 12, speed: 4.6, xp: 12,
     model: 'lurker', color: '#f4e8ff', drops: [drop('prism_dust', 0.6, 1, 3)] }),
 };
 

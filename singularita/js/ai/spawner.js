@@ -1,6 +1,6 @@
 // Spawning: the endless island horde by day and night, the roaming bosses,
 // cave and isle populations, the isle guardians, tremors and cave hazards.
-import { Horde, BossClock } from '../systems/horde.js';
+import { Horde, BossClock, eliteChance } from '../systems/horde.js';
 import { ENEMIES } from '../data/enemies.js';
 import { runLevel } from '../systems/run.js';
 import { WAVES } from '../data/waves.js';
@@ -86,9 +86,7 @@ export class Spawner {
     const side = g.zone.sideOf?.(Math.floor(spot.x));
     const table = z.enemies.filter((e) => !e.side || e.side === side);
     const pick = id || g.rng.weighted(table).id;
-    const el = g.zone.type === 'cave' ? WAVES.cave.elite : WAVES.isle.elite;
-    const eliteChance = g.zone.modifier === 'elite' ? 0.35 : Math.min(el.max, el.base + el.perLayer * (g.zone.layer || 0));
-    return g.enemies.spawn(pick, spot.x, spot.z, { level: this.caveLevel(), elite: g.rng.chance(eliteChance), ambient: true });
+    return g.enemies.spawn(pick, spot.x, spot.z, { level: this.caveLevel(), elite: g.rng.chance(eliteChance(z, g.zone, WAVES)), ambient: true });
   }
 
   update(dt) {

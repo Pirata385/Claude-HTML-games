@@ -55,7 +55,7 @@ export const BOSSES = {
       { item: 'ronin_sash', chance: 0.2, firstKill: true },
       { material: 'zephyr_feather', min: 6, max: 10, chance: 1 },
     ],
-    xp: 30000,
+    xp: 6000,
   },
   tears_of_poseidon: {
     id: 'tears_of_poseidon', name: 'Tears of Poseidon', title: 'Grief of the Drowned Palace', zone: 'isle_water', arena: 'temple', minLevel: 70,
@@ -74,7 +74,7 @@ export const BOSSES = {
       { item: 'tearstone_pendant', chance: 0.2, firstKill: true },
       { material: 'abyssal_pearl', min: 3, max: 6, chance: 1 },
     ],
-    xp: 30000,
+    xp: 6000,
   },
   magma_vector: {
     id: 'magma_vector', name: 'The Magma Vector', title: 'Heat Given Direction', zone: 'isle_fire', arena: 'caldera', minLevel: 84,
@@ -93,7 +93,7 @@ export const BOSSES = {
       { item: 'vector_ring', chance: 0.2, firstKill: true },
       { material: 'obsidian', min: 6, max: 10, chance: 1 },
     ],
-    xp: 42000,
+    xp: 7000,
   },
   allele_golem: {
     id: 'allele_golem', name: 'Allele of the Divine Golem', title: 'The Living Genome', zone: 'isle_earth', arena: 'grove', minLevel: 84,
@@ -112,13 +112,13 @@ export const BOSSES = {
       { item: 'allele_crest', chance: 0.2, firstKill: true },
       { material: 'living_amber', min: 4, max: 8, chance: 1 },
     ],
-    xp: 42000,
+    xp: 7000,
   },
 
   // ---------------------------------------------------------------- the dimensions
   iron_jailer: {
     id: 'iron_jailer', name: 'The Iron-Hand Jailer', title: 'Keeper of the Endless Gaol', zone: 'dim_dungeon', arena: 'block', minLevel: 100,
-    hp: 4200, dmg: 44, levelOffset: 2, color: '#9a9aa8', model: 'jailer',
+    hp: 1900, dmg: 25, levelOffset: 2, color: '#9a9aa8', model: 'jailer',
     intro: 'Another one. They always think the stairs go somewhere. Hold still. My hand remembers the shape of every wrist it ever closed around.',
     defeat: 'The keys… take them, then. There is always another floor. There is always another jailer.',
     lore: 'When the Fracture folded the Dawnforgers\' prisons into a dimension of their own, the head jailer was inside, keys in his iron hand. He has been locking doors ever since, and the gaol has been growing floors to give him more of them.',
@@ -134,11 +134,11 @@ export const BOSSES = {
       { item: 'jailers_grip', chance: 0.12, firstKill: true },
       { material: 'gaol_iron', min: 6, max: 10, chance: 1 },
     ],
-    xp: 60000,
+    xp: 9600,
   },
   siamese: {
     id: 'siamese', name: 'The Siamese', title: 'Twin Monarchs of the Gel', zone: 'dim_twins', arena: 'throne', minLevel: 110,
-    hp: 2600, dmg: 40, levelOffset: 2, color: '#ff8ab0', model: 'siamese', members: 2,
+    hp: 1050, dmg: 27, levelOffset: 2, color: '#ff8ab0', model: 'siamese', members: 2,
     intro: '“We were one prince once.” “We were never one prince.” “Strike us evenly, little one, or we will argue about it forever.”',
     defeat: '“Together, then.” “Together, at last.”',
     lore: 'The Slime Prince of Dawnreach had a twin, they say, who melted into the Fracture the night it opened. What came out the other side was two monarchs who share one body and agree on nothing but that you should not be here.',
@@ -154,11 +154,11 @@ export const BOSSES = {
       { item: 'siamese_locket', chance: 0.12, firstKill: true },
       { material: 'twin_gel', min: 6, max: 10, chance: 1 },
     ],
-    xp: 65000,
+    xp: 10800,
   },
   adamite_king: {
     id: 'adamite_king', name: 'The Adamite King', title: 'Crowned in Purple Adamite', zone: 'dim_king', arena: 'throne', minLevel: 125,
-    hp: 6500, dmg: 52, levelOffset: 2, color: '#9a4ae0', model: 'adamite_king',
+    hp: 2100, dmg: 27, levelOffset: 2, color: '#9a4ae0', model: 'adamite_king',
     intro: 'Kneel. No? Then the floor will kneel for you. Everything in my kingdom kneels, eventually. Even the light.',
     defeat: 'It is… quiet. I had forgotten what my own voice sounded like, under the crystal.',
     lore: 'The Dawnforger king who tried to forge a crown of Singularita did not die in the Fracture. The crown failed, and Purple Adamite grew in the crack it left, through his court and his castle and him. His dimension is the throne room he never left.',
@@ -174,11 +174,11 @@ export const BOSSES = {
       { item: 'adamite_signet', chance: 0.12, firstKill: true },
       { material: 'purple_adamite', min: 6, max: 10, chance: 1 },
     ],
-    xp: 75000,
+    xp: 11500,
   },
   you: {
     id: 'you', name: 'You?', title: 'The One in the Glass', zone: 'dim_mirror', arena: 'hall', minLevel: 140,
-    hp: 5200, dmg: 50, levelOffset: 2, color: '#d8eeff', model: 'you',
+    hp: 1900, dmg: 27, levelOffset: 2, color: '#d8eeff', model: 'you',
     intro: '…?',
     defeat: 'So that is what I look like, from the outside.',
     lore: 'The Mirrored dimension keeps a copy of everyone who has ever looked into it. Most copies are content to stay in the glass. One of them noticed you coming, and practised.',
@@ -194,17 +194,17 @@ export const BOSSES = {
       { item: 'looking_glass', chance: 0.12, firstKill: true },
       { material: 'specular_glass', min: 6, max: 10, chance: 1 },
     ],
-    xp: 85000,
+    xp: 12500,
   },
   ragnarok: {
     id: 'ragnarok', name: 'Ragnarok, the Dragon God', title: 'Last of the Old Dragons', zone: 'dim_dragons', arena: 'summit', minLevel: 160,
-    hp: 9000, dmg: 60, levelOffset: 3, color: '#ff6a2a', model: 'ragnarok',
+    hp: 1900, dmg: 26, levelOffset: 3, color: '#ff6a2a', model: 'ragnarok',
     intro: 'A Dawnforger\'s child climbs my mountain carrying a dragon\'s fire in a trinket. Your kind broke the world once. Show me why I should let you finish the job.',
     defeat: 'Then end it, or mend it. I am too old to do either.',
     lore: 'The dragons were Vael\'s first smiths, long before the Dawnforgers. When the world broke they took their mountain into a dimension of their own and slept. Ragnarok alone stayed awake, guarding the last fire that remembers how the world was whole.',
     phases: [
       { at: 1.0, name: 'Sky Lord', desc: 'He circles the summit and strafes it with breath. Watch the burning lines.' },
-      { at: 0.6, name: 'Earthbound', desc: 'He lands: claws, tail sweeps and a roar that knocks you back.' },
+      { at: 0.75, name: 'Earthbound', desc: 'He lands: claws, tail sweeps and a roar that knocks you back.' },
       { at: 0.3, name: 'Twilight of the Gods', desc: 'Meteors fall and the summit burns inward from its edges.' },
     ],
     rewards: [
@@ -214,6 +214,6 @@ export const BOSSES = {
       { item: 'ragnarok_fang', chance: 0.12, firstKill: true },
       { material: 'dragon_scale', min: 8, max: 12, chance: 1 },
     ],
-    xp: 100000,
+    xp: 13500,
   },
 };

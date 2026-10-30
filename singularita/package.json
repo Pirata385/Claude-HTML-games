@@ -6,6 +6,7 @@
   "description": "Singularita — The Broken Isles: a 3D exploration, combat and crafting RPG for the browser.",
   "scripts": {
     "test": "node --test tests/*.test.js",
-    "smoke": "node tests/smoke.js"
+    "smoke": "node tests/smoke.js",
+    "playtest": "node tests/playtest.js"
   }
 }

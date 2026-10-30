@@ -96,6 +96,18 @@ What the player meets on Dawnreach comes from that story:
   - **Singularita:** pieces carry `memory: 2` and `collapse`. `systems/memory.js` adds the two remembered traits' modifiers for the piece's slot when stats are computed. Choices are stored per item in the save and are only changed at the Forge.
   - **Collapse:** every 12 hits (8 with a full set) a pull and a burst.
 
+## Balance
+
+The numbers are held by unit tests in `tests/systems.test.js` and checked in play with the bot in `tests/playtest.js` (`npm run playtest`).
+
+- **Scaling.** Past level 100 the tiers are far apart (100, 180, 240), so creature health grows at 60% of the level there (`hpLevel` in `systems/scaling.js`). Damage keeps its curve: armour and health from the tiers already keep up with it.
+- **Creatures** are tested against a Swordsman who just reached the zone, at the level the zone spawns them. Hits to kill (counting frontal armour, since most blows land in front): common creatures 12 at most, frontliners 16, heavies 30. Hits to die: 16, 11 and 8, because dimension creatures come in packs. Their experience is about a tenth of their base health, a few dozen kills per level.
+- **Dimension levels** sit about eight levels above each emblem's level; the Endless Dungeon adds four per floor. The Singular Heart spawns at 200 to 220, with fewer elites than its depth would give.
+- **Rulers** take 150 to 320 hits, each harder than the one before, and kill in no fewer than about seven blows. A ruler is worth one to two and a half levels; an isle guardian, who returns every ten minutes, at most one and a half.
+- **Bosses hold their arenas.** They never follow the player out, so kiting does not drag a fight past the leash and reset it.
+- **Warnings.** Boss attacks that hurt have a tell a player can read: a telegraph on the ground, a filling ring, or a wind-up arc. "You?" takes aim with a visible line before its volley.
+- **Playtests** (bot, after tuning). A careless player at each dimension's entry level wins about half of the ruler fights, and a careful one ten levels higher wins most. For reference, the careless bot beats the Slime Prince at its level and loses to the Silverback. The Stardust is the slowest class against bosses (its Astral breaks in lingering hazards), but it often survives where others fall.
+
 ## Extending (next milestones)
 
 - **A new zone:** add it to `js/data/zones.js` and write a generator in `js/world/gen/` returning the same shape (grid, spawn, nodes, points of interest). Add its validator rules and pin its snapshot hash.

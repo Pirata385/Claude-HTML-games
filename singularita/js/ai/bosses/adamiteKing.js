@@ -86,11 +86,11 @@ export class AdamiteKing extends Boss {
         // The crown's shards, one after another.
         if (this.t === 0) { this.shots = 0; this.play('cast', 1.6); }
         this.t += dt;
-        if (this.t >= 0.25 * (this.shots + 1) && this.shots < 6) {
+        if (this.t >= 0.3 * (this.shots + 1) && this.shots < 5) {
           this.shots++;
           const a = Math.atan2(dx, dz) + (Math.random() - 0.5) * 0.2;
           g.combat.shoot({ x: this.x, y: this.ry + 3.2, z: this.z, dx: Math.sin(a), dy: (p.ry + 1 - this.ry - 3.2) / (dist || 1), dz: Math.cos(a), speed: 17, team: 'enemy', kind: 'shard', radius: 0.45, life: 2,
-            onHit: (t) => g.combat.hurt(t, this.dmg * 0.5, this, { type: 'ranged' }) });
+            onHit: (t) => g.combat.hurt(t, this.dmg * 0.4, this, { type: 'ranged' }) });
           g.bus.emit('sfx', { id: 'enemyShoot', x: this.x, z: this.z });
         }
         if (this.t >= 1.8) { this.state = 'approach'; this.cd = 1.5; }

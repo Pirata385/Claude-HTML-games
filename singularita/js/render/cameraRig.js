@@ -1,6 +1,7 @@
 // Third-person orbit camera: mouse/touch look, zoom, lock-on, collision with terrain and walls, shake.
 import * as THREE from 'three';
 import { clamp, damp, angleDiff } from '../core/math.js';
+import { F } from '../world/grid.js';
 
 const _pivot = new THREE.Vector3(), _want = new THREE.Vector3(), _look = new THREE.Vector3();
 
@@ -50,7 +51,8 @@ export class CameraRig {
       const u = s / steps;
       const x = _pivot.x + (_want.x - _pivot.x) * u, y = _pivot.y + (_want.y - _pivot.y) * u, z = _pivot.z + (_want.z - _pivot.z) * u;
       const i = Math.floor(x), j = Math.floor(z);
-      if (!grid.inside(i, j) || grid.top(i, j) > y - 0.3) { t = Math.max(0.12, (s - 1) / steps); break; }
+      // Trees and rocks stand on obstacle cells: treat them as tall so the camera never ends up inside one.
+      if (!grid.inside(i, j) || grid.top(i, j) + (grid.has(i, j, F.OBSTACLE) ? 4.2 : 0) > y - 0.3) { t = Math.max(0.12, (s - 1) / steps); break; }
     }
     _want.lerpVectors(_pivot, _want, t);
     if (this.first) { this.cur.copy(_want); this.first = false; }

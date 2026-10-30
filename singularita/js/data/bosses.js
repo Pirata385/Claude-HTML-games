@@ -2,7 +2,7 @@
 export const BOSSES = {
   slime_prince: {
     id: 'slime_prince', name: 'The Slime Prince', title: 'Heir to the Coolant Throne', period: 'day', arena: 'glade', minLevel: 8,
-    hp: 1400, dmg: 14, levelOffset: 2, color: '#ffd166', model: 'prince',
+    hp: 900, dmg: 14, levelOffset: 2, color: '#ffd166', model: 'prince',
     intro: 'Kneel! The Prince of all that Wobbles graces the Glade. My crown was poured in the first forge of Vael, and so I am owed a kingdom.',
     defeat: 'Unthinkable… The gel… remembers… a cooler time…',
     lore: 'When the Dawnforgers poured their crown-moulds, the coolant that cooled the royal casts drank in a little of their ambition. It grew a crown of its own, and opinions.',
@@ -20,7 +20,7 @@ export const BOSSES = {
   },
   silverback_emperor: {
     id: 'silverback_emperor', name: 'The Silverback Zombie Emperor', title: 'War-Ape of the Dawnforger King', period: 'night', arena: 'crater', minLevel: 14,
-    hp: 2600, dmg: 26, levelOffset: 3, color: '#d8dde6', model: 'silverback',
+    hp: 1600, dmg: 24, levelOffset: 3, color: '#d8dde6', model: 'silverback',
     intro: '(A roar shakes the crater. On the Emperor\'s wrist a royal seal still gleams: he guarded a king who has been dust for a thousand years.)',
     defeat: '(The Emperor sinks to one knee and bows toward the sea, where the old palace once stood. The Echo leaves him gently.)',
     lore: 'The Dawnforger king kept a menagerie. Its silver ape guarded the throne room on the night of the Fracture, and the Echo raised it still loyal, still waiting for orders.',

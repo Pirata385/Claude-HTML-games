@@ -30,6 +30,7 @@ export class Player extends Entity {
   }
 
   update(dt, g) {
+    if (!this.alive) return;
     const { input, cam, grid, stats } = g;
     const st = this.statuses;
     this.combatT += dt;

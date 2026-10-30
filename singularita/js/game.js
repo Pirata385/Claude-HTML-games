@@ -117,8 +117,11 @@ export class Game {
   }
 
   frame(dt) {
-    if (!this.paused) this.update(dt);
-    this.render(this.paused ? 0 : dt);
+    // Hit-stop: a few frames of near-freeze on heavy impacts.
+    let sdt = dt;
+    if (this.stopT > 0) { this.stopT -= dt; sdt = dt * 0.06; }
+    if (!this.paused) this.update(sdt);
+    this.render(this.paused ? 0 : sdt);
     this.input.endFrame();
   }
 }

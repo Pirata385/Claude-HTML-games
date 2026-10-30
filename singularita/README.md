@@ -34,10 +34,10 @@ All key bindings can be changed in Settings.
 ## How it plays
 
 - **Camp.** The beacon keeps creatures out. Craft at the **Forge** (you can browse recipes anywhere). Change class at the **Altar of Paths**; each class keeps its own gear. Rest and save at the **bed**. Talk to **Lume**, the beacon keeper.
-- **Day and night.** A 20-minute cycle. Slimes come by day: hoppers, Great Slimes that split, Spitters, and Menders that heal the others (kill them first). Echoes come by night: Walkers, fast Runners, Brutes, Screamers that hasten their friends, and Bloaters that burst into poison. Waves arrive after calm spells, with a horn. Their makeup changes as the night goes on: supports, bombers and tanks join later waves, and elites gain affixes (Swift, Armoured, Vampiric, Volatile, Shielding).
+- **Day and night.** A 20-minute cycle. Slimes come by day: hoppers, Great Slimes that split, Spitters, and Menders that heal the others (kill them first). Echoes come by night: Walkers, fast Runners, Brutes, Screamers that hasten their friends, and Bloaters that burst into poison. The island is never quiet: one endless horde keeps coming a few creatures at a time, with no waves to announce and no growth in strength. Island creatures have fixed levels (slimes 1–10 by day, Echoes 4–14 by night), so you outgrow them; the cave is where the challenge grows. Healers, Screamers and Bloaters only show up behind a front line, and some creatures are elites with an affix (Swift, Armoured, Vampiric, Volatile, Shielding).
 - **Gathering.** Trees need no tool; axes are just faster. A pickaxe of tier T mines veins up to tier T + 1. Your best tools are used automatically, Strength speeds gathering, and nodes grow back over time.
 - **The Hollow Deep.** Seven seeded cave layers, each with its own palette, creatures and ores. Each layer needs a minimum level (1, 8, 15, 24, 34, 46, 58). From layer 4 the cave fights back: falling stalactites with shadow warnings, poison gas vents (carry Antidotes), heat and frost vents in the split Ember & Rime Rift, tremors that bring burrowers, crystal resonance that wakes sentries when you mine gems, and the deep dark of the Diamond Throat.
-- **Bosses.** Each day there is a chance (with a pity timer) that the Slime Prince holds court in the Sunlit Glade; each night, that the Silverback Emperor waits in Bone Ridge Crater. You can also summon them with a crafted Royal Jelly Bait or Echo Horn.
+- **Bosses.** Bosses roam Dawnreach at random, 8 to 14 minutes apart: the Slime Prince holds court in the Sunlit Glade by day, the Silverback Emperor waits in Bone Ridge Crater by night. A banner tells you when one appears. You can also summon them with a crafted Royal Jelly Bait or Echo Horn.
   - **The Slime Prince** lands in shockwave rings you must jump or dodge. He slams his crown down and absorbs his golden guards to heal unless you kill them first, then splits in two.
   - **The Silverback Emperor** leaps, throws boulders and roars up Echoes. His charge stuns him for a few seconds if you bait him into a pillar.
 - **Lore.** Echo Stones on the island and in every layer tell the story of the Dawnforgers, Singularita and the Fracture. Lume, item descriptions and the bosses fill in the rest. The Journal collects everything you have found.
@@ -97,7 +97,7 @@ js/gameplay.js        combat, creatures, kit, Astral, XP, death and respawn
 js/session.js         objectives, saving, settings, audio routing, UI
 js/core/              rng, noise, events, pools, math, input
 js/data/              all content: materials, nodes, classes, skills, items, recipes, creatures, bosses, zones, waves, lore, objectives
-js/systems/           pure rules: stats, progression, inventory, equipment, crafting, gathering, saves, settings, day/night, waves, objectives, fog
+js/systems/           pure rules: stats, progression, inventory, equipment, crafting, gathering, saves, settings, day/night, the horde and boss clock, objectives, fog
 js/world/             grid, physics, interaction, generators and validators (gen/)
 js/render/            renderer, terrain mesher, props, sky, water, rigs and instancing, models, FX, camera
 js/combat/            formulas, statuses, combat system, class kits

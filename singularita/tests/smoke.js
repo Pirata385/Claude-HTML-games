@@ -99,11 +99,25 @@ try {
       const pts = g.profile.attrPoints;
       g.ui.openMenu('character'); document.querySelector('.attr .btn.small').click(); g.ui.closeMenu();
       out.spent = pts - g.profile.attrPoints;
-      // Two simulated minutes of waves: the population stays within the cap.
-      step(30 * 120);
+      // Two simulated minutes of the endless horde: no waves, fixed levels, within the cap.
+      let waveEvents = 0; g.bus.on('waveStart', () => waveEvents++);
+      g.profile.playTime = Math.max(g.profile.playTime, 300);
+      let most = 0;
+      for (let k = 0; k < 120; k++) { step(30); most = Math.max(most, g.enemies.count((e) => e.horde)); }
+      const band = (e) => { const [lo, hi] = WAVES_LEVELS[e.def.family === 'zombie' ? 'night' : 'day']; return e.level >= lo && e.level <= hi; };
+      out.horde = { waveEvents, most, target: Math.max(8, 11), levelsOk: g.enemies.list.filter((e) => e.horde).every(band), n: g.enemies.count((e) => e.horde) };
       out.enemies = g.enemies.count(); out.cap = g.enemies.cap;
       out.stats = g.r.stats();
-      return out;`);
+      // The boss clock: when it runs out, the boss of the current phase appears, and the clock restarts.
+      const lvl = g.profile.level; g.profile.level = 20;
+      g.spawner.bossClock.timer = 0.5; step(30);
+      const boss = g.spawner.boss;
+      out.boss = { id: boss?.def.id, period: boss?.def.period, phase: g.dayNight.phase, timer: g.spawner.bossClock.timer, level: boss?.members[0].level };
+      step(30 * 20);
+      out.boss.paused = g.spawner.bossClock.timer === out.boss.timer;
+      if (boss) { for (const m of boss.members) { m.alive = false; m.dyingT = 0; } g.spawner.boss = null; }
+      g.profile.level = lvl;
+      return out;`.replace('WAVES_LEVELS', JSON.stringify({ day: [1, 10], night: [4, 14] })));
     check(r.objective0 === 'o_wood', 'tutorial starts with gathering wood');
     check(r.wood >= 6, `chopping trees gives wood (${r.wood})`);
     check(r.pickaxe, 'Wood Pickaxe crafted through the Forge menu');
@@ -112,6 +126,10 @@ try {
     check(r.kills >= 2, `combat kills creatures (${r.kills})`);
     check(r.spent === 1, 'attribute points can be spent');
     check(r.enemies <= r.cap, `creature count within cap (${r.enemies}/${r.cap})`);
+    check(r.horde.waveEvents === 0 && r.horde.n > 0 && r.horde.most <= r.horde.target, `endless horde: no waves, ${r.horde.n} creatures, never above ${r.horde.target} (${r.horde.most})`);
+    check(r.horde.levelsOk, 'horde creatures keep the fixed island levels');
+    check(r.boss.id && r.boss.period === r.boss.phase && r.boss.timer >= 480, `boss clock spawns the ${r.boss.phase} boss and restarts (${r.boss.id}, next in ${Math.round(r.boss.timer)} s, level ${r.boss.level})`);
+    check(r.boss.paused, 'the boss clock waits while a boss is abroad');
     check(r.stats.calls < 250 && r.stats.triangles < 400000, `render budget (calls ${r.stats.calls}, triangles ${r.stats.triangles})`);
     await page.screenshot({ path: path.join(SHOTS, 'island_combat.png') });
 
@@ -237,6 +255,8 @@ try {
     const r = await sim(page, `
       g.ui.closeDialog && g.ui.closeDialog();
       g.profile.level = 45; g.setupClass(); g.player.hp = g.stats.maxHp; g.player.res = g.stats.resourceMax;
+      // This checks the class kit, so the island horde stays out of the fight.
+      g.spawner.horde.timer = 1e9; g.enemies.clear();
       const p = g.player; goNear(g.zone.base.x, g.zone.base.z + 26); g.cam.snapBehind(0); p.yaw = 0;
       let kills = 0; g.bus.on('kill', () => kills++);
       const used = new Set(); g.bus.on('skill', (e) => used.add(e.id));
@@ -269,6 +289,44 @@ try {
       return { visible: !root.hidden, moved: Math.hypot(g.player.x - x0, g.player.z - z0), pressed, inView: b.right <= innerWidth && b.bottom <= innerHeight };
     });
     check(r.visible && r.moved > 2 && r.pressed && r.inView, `touch ${name}: stick moves (${r.moved.toFixed(1)} m) and buttons work`);
+    // Real taps hit-test like a finger: the HUD buttons and the gather prompt must sit above the touch layer.
+    const hud = await page.evaluate(() => [...document.querySelectorAll('#hud .hbtn')].map((b) => {
+      const q = b.getBoundingClientRect(), x = q.x + q.width / 2, y = q.y + q.height / 2;
+      return { x, y, top: document.elementFromPoint(x, y) === b, title: b.title };
+    }));
+    check(hud.length === 3 && hud.every((b) => b.top), `touch ${name}: HUD buttons are on top of the touch layer`);
+    for (const [prefix, tab] of [['Crafting', 'craft'], ['Menu', 'inventory']]) {
+      const b = hud.find((x) => x.title.startsWith(prefix));
+      await page.touchscreen.tap(b.x, b.y);
+      const m = await page.evaluate(() => { const g = window.__SG; const o = { open: g.ui.menuOpen, lock: !!g.lockTarget }; g.ui.closeMenu(); return o; });
+      check(m.open === tab && !m.lock, `touch ${name}: tapping ${prefix} opens it (${m.open})`);
+    }
+    const tree = await page.evaluate(() => {
+      const g = window.__SG, p = g.player;
+      g.godMode = true;
+      const st = g.profile.zones[g.zone.id].nodes;
+      let best = null, bd = Infinity;
+      g.zone.nodes.forEach((n, i) => { if (!n.node.startsWith('tree') || st[n.id]) return; const d = Math.hypot(n.x - p.x, n.z - p.z); if (d < bd && g.grid.walkable(n.i - 2, n.j) && g.grid.walkable(n.i - 1, n.j)) { bd = d; best = i; } });
+      const n = g.zone.nodes[best];
+      p.x = n.x - 1.5; p.z = n.z; p.y = p.ry = g.grid.height(Math.floor(p.x), Math.floor(p.z));
+      p.yaw = Math.atan2(n.x - p.x, n.z - p.z); g.cam.snapBehind(p.yaw);
+      for (let i = 0; i < 6; i++) { g.update(1 / 30); g.render(1 / 30); g.input.endFrame(); }
+      const q = document.querySelector('#hud .prompt').getBoundingClientRect();
+      return { index: best, x: q.x + q.width / 2, y: q.y + q.height / 2, label: document.querySelector('#hud .prompt').textContent, hidden: g.view.nodes.hidden.has(best), wood: g.profile.inv.stacks.wood || 0 };
+    });
+    check(!tree.hidden, `touch ${name}: the tree in front of you stays visible`);
+    const back = await page.evaluate((i) => {
+      const g = window.__SG, nv = g.view.nodes, n = g.zone.nodes[i], p = g.player;
+      const scaleOf = () => { const [m, k] = nv.slots[i].parts[0]; const a = nv.meshes[m].instanceMatrix.array; return Math.hypot(a[k * 16], a[k * 16 + 1], a[k * 16 + 2]); };
+      nv.occlude(n.x - (p.x - n.x) * 2, n.z - (p.z - n.z) * 2, p.x, p.z); // the camera swings round: the tree is in the way
+      const hidden = scaleOf();
+      nv.occlude(p.x - (n.x - p.x) * 4, p.z - (n.z - p.z) * 4, p.x, p.z); // and back behind the player
+      return { hidden, back: scaleOf() };
+    }, tree.index);
+    check(back.hidden === 0 && back.back > 0, `touch ${name}: a tree hidden for the camera comes back (${back.hidden} → ${back.back.toFixed(2)})`);
+    for (let k = 0; k < 14; k++) { await page.touchscreen.tap(tree.x, tree.y); await page.waitForTimeout(450); }
+    const wood = await page.evaluate(() => window.__SG.profile.inv.stacks.wood || 0);
+    check(wood > tree.wood, `touch ${name}: tapping the prompt (${tree.label}) chops wood (${tree.wood} → ${wood})`);
     check(!errors.length, `touch ${name}: no errors`);
     await page.screenshot({ path: path.join(SHOTS, `touch_${name}.png`) });
     await ctx.close();

@@ -1,5 +1,5 @@
 // The objectives chain doubles as the tutorial: it teaches by doing, never by blocking.
-// type: gather | craft | craftAny | kill | allocate | wave | reach | boss | lore | equip | level
+// type: gather | craft | craftAny | kill | allocate | reach | boss | lore | equip | level
 export const OBJECTIVES = [
   { id: 'o_wood', type: 'gather', target: 'wood', count: 6, text: 'Gather Wood', hint: 'Walk up to a tree and press F (or the hand button) to chop it.', xp: 30 },
   { id: 'o_pick', type: 'craft', target: 'pickaxe_wood', count: 1, text: 'Craft a Wood Pickaxe at the Forge', hint: 'Open Crafting (C) next to the Forge in camp.', xp: 40 },
@@ -7,12 +7,12 @@ export const OBJECTIVES = [
   { id: 'o_weapon', type: 'equip', target: 'weapon', minTier: 1, count: 1, text: 'Craft and equip a Stone (or better) weapon', hint: "Lume's worn weapon will not last. Check Crafting → Weapons.", xp: 60 },
   { id: 'o_kill', type: 'kill', target: 'any', count: 10, text: 'Defeat creatures', hint: 'Left click (or the sword button) to attack. Q locks on.', xp: 80 },
   { id: 'o_points', type: 'allocate', target: 'any', count: 1, text: 'Spend attribute points', hint: 'Open the Character tab (K) and assign your points.', xp: 40 },
-  { id: 'o_wave', type: 'wave', target: 'any', count: 1, text: 'Survive a wave', hint: 'A horn sounds when a wave comes. Defeat every creature in it.', xp: 120 },
+  { id: 'o_hunt', type: 'kill', target: 'any', count: 25, text: 'Hold the island: defeat 25 creatures', hint: 'The island is never quiet: slimes by day, Echoes by night. Their drops feed your crafting.', xp: 120 },
   { id: 'o_cave', type: 'reach', target: 'cave_1', count: 1, text: 'Enter the Hollow Deep', hint: 'The cave mouth is on the hill. Follow the marker on the minimap.', xp: 120 },
   { id: 'o_copper', type: 'gather', target: 'copper|gold', count: 6, text: 'Mine Copper or Gold', hint: 'A Stone Pickaxe or better is needed for copper and gold veins.', xp: 150 },
   { id: 'o_pick2', type: 'craftAny', target: 'pickaxe_copper|pickaxe_gold', count: 1, text: 'Craft a Copper or Gold Pickaxe', hint: 'Better pickaxes reach deeper veins.', xp: 200 },
   { id: 'o_layer2', type: 'reach', target: 'cave_2', count: 1, text: 'Descend to Layer 2', hint: 'Find the descent shaft in the Rootways. Layer 2 opens at level 8.', xp: 300 },
-  { id: 'o_boss', type: 'boss', target: 'any', count: 1, text: 'Defeat the Slime Prince or the Silverback Emperor', hint: 'Bosses appear by chance at their arenas, or can be summoned with a crafted lure.', xp: 600 },
+  { id: 'o_boss', type: 'boss', target: 'any', count: 1, text: 'Defeat the Slime Prince or the Silverback Emperor', hint: 'Bosses roam Dawnreach from time to time (the Prince by day, the Emperor by night), or can be summoned with a crafted lure.', xp: 600 },
   { id: 'o_iron', type: 'gather', target: 'iron', count: 10, text: 'Mine Iron', hint: 'Iron veins run through layers 2 and 3.', xp: 400 },
   { id: 'o_layer4', type: 'reach', target: 'cave_4', count: 1, text: 'Reach the Whispering Depths (Layer 4)', hint: 'Bring Antidotes: the deep layers have hazards of their own.', xp: 900 },
   { id: 'o_emerald', type: 'gather', target: 'emerald', count: 6, text: 'Mine Emerald', hint: 'Emeralds grow in layers 4 and 5.', xp: 1200 },

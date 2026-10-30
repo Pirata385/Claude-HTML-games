@@ -26,7 +26,7 @@ export class Enemy extends Entity {
     this.radius = def.radius * (this.elite ? 1.15 : 1);
     this.height = HEIGHT[def.model] || 1.5;
     this.flying = def.flags.includes('flying');
-    this.wave = !!o.wave; this.ambient = !!o.ambient;
+    this.horde = !!o.horde; this.ambient = !!o.ambient;
     this.kbRes = def.role === 'tank' ? 0.6 : 0;
     this.ai = { state: 'idle', t: 0, cd: 0.5 + Math.random(), phase: Math.random() * 6, hop: 0, aux: 0 };
     this.anim = { t: Math.random() * 10, move: 0, phase: 0, atk: 0, wind: 0, squash: 0 };

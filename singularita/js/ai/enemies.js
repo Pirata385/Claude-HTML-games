@@ -96,12 +96,12 @@ export class Enemies {
     }
     if (e.def.split) for (let k = 0; k < e.def.split.count; k++) {
       const a = (k / e.def.split.count) * Math.PI * 2;
-      const c = this.spawn(e.def.split.into, e.x + Math.cos(a) * 0.8, e.z + Math.sin(a) * 0.8, { level: e.level, wave: e.wave, noIntro: true });
+      const c = this.spawn(e.def.split.into, e.x + Math.cos(a) * 0.8, e.z + Math.sin(a) * 0.8, { level: e.level, horde: e.horde, noIntro: true });
       if (c) { c.ai.hop = 0.1; c.knock(Math.cos(a), Math.sin(a), 6); }
     }
     p.stats.kills++;
     p.stats.killsBy[e.def.id] = (p.stats.killsBy[e.def.id] || 0) + 1;
-    g.bus.emit('kill', { enemy: e, by, wave: e.wave });
+    g.bus.emit('kill', { enemy: e, by });
   }
 
   remove(e) {

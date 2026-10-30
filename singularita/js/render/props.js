@@ -3,6 +3,7 @@ import * as THREE from 'three';
 import { boxesGeometry, litMaterial, unlitMaterial } from './voxel.js';
 import { NODES } from '../data/nodes.js';
 import { MATERIALS } from '../data/materials.js';
+import { occludes } from './occlusion.js';
 
 const B = (x, y, z, w, h, d, c) => [x, y, z, w, h, d, c];
 
@@ -92,21 +93,20 @@ export class NodeVisuals {
   occlude(cx, cz, px, pz) {
     if (!this.buckets.size) return;
     const next = new Set();
-    const dx = px - cx, dz = pz - cz, len2 = dx * dx + dz * dz || 1;
     const b0 = (Math.min(cx, px) - 3) >> 2, b1 = (Math.max(cx, px) + 3) >> 2, c0 = (Math.min(cz, pz) - 3) >> 2, c1 = (Math.max(cz, pz) + 3) >> 2;
     for (let bj = c0; bj <= c1; bj++) for (let bi = b0; bi <= b1; bi++) {
       const list = this.buckets.get(`${bi},${bj}`);
       if (!list) continue;
       for (const i of list) {
         const n = this.slots[i].node;
-        const t = Math.max(0, Math.min(1, ((n.x - cx) * dx + (n.z - cz) * dz) / len2));
-        const qx = cx + dx * t - n.x, qz = cz + dz * t - n.z;
-        if (qx * qx + qz * qz < 2.4 * 2.4 && (n.x - px) ** 2 + (n.z - pz) ** 2 > 1.2) next.add(i);
+        if (occludes(cx, cz, px, pz, n.x, n.z)) next.add(i);
       }
     }
-    for (const i of this.hidden) if (!next.has(i)) { const s = this.slots[i]; this.place(s, s.depleted); }
-    for (const i of next) if (!this.hidden.has(i)) { const s = this.slots[i]; for (const [name, idx] of s.parts) { this.meshes[name].setMatrixAt(idx, ZERO); this.meshes[name].instanceMatrix.needsUpdate = true; } }
+    // Swap the sets first: place() consults this.hidden, so restored trees must already be out of it.
+    const prev = this.hidden;
     this.hidden = next;
+    for (const i of prev) if (!next.has(i)) { const s = this.slots[i]; this.place(s, s.depleted); }
+    for (const i of next) if (!prev.has(i)) { const s = this.slots[i]; for (const [name, idx] of s.parts) { this.meshes[name].setMatrixAt(idx, ZERO); this.meshes[name].instanceMatrix.needsUpdate = true; } }
   }
   matrixFor(n, ox = 0, oz = 0, sy = 1) {
     _p.set(n.x + ox, n.h, n.z + oz);

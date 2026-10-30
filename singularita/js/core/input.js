@@ -17,6 +17,8 @@ export class Input {
     this.onKey = null; // hook for key rebinding
     const kd = (e) => {
       if (this.onKey) { e.preventDefault(); this.onKey(e.code); return; }
+      // Alt frees the mouse so the HUD buttons can be clicked; a click on the view captures it again.
+      if (e.code === 'AltLeft' || e.code === 'AltRight') { e.preventDefault(); this.releasePointer(); return; }
       if (e.target && /INPUT|TEXTAREA|SELECT/.test(e.target.tagName)) return;
       const a = e.code === 'Escape' ? 'escape' : this.map.get(e.code);
       if (!a) return;

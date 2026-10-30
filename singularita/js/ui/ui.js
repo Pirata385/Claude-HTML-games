@@ -44,7 +44,6 @@ export class UI {
     el.zone = h('div', { class: 'zone-name' });
     el.zoneSub = h('div', { class: 'zone-sub' });
     el.clock = h('div', { class: 'clock' });
-    el.wave = h('div', { class: 'wave' });
     el.bbName = h('div', { class: 'bb-name' }); el.bbPhase = h('div', { class: 'bb-phase' });
     el.boss = bar('boss');
     el.bossbar = h('div', { class: 'bossbar', hidden: true }, el.bbName, el.boss.b, el.bbPhase);
@@ -67,7 +66,7 @@ export class UI {
     el.saved = h('div', { class: 'saved' }, 'Saved');
     this.root.append(
       h('div', { class: 'hud-tl' }, h('div', { class: 'pf' }, el.lvl, h('div', { class: 'pf-bars' }, el.name, el.hp.b, el.res.b, el.xp.b)), el.statuses, el.points),
-      h('div', { class: 'hud-tc' }, el.zone, el.zoneSub, h('div', { class: 'tc-row' }, el.clock, el.wave), el.bossbar),
+      h('div', { class: 'hud-tc' }, el.zone, el.zoneSub, h('div', { class: 'tc-row' }, el.clock), el.bossbar),
       h('div', { class: 'hud-tr' }, el.mm,
         h('div', { class: 'hud-buttons' },
           h('button', { class: 'hbtn', title: 'Menu (Tab)', onclick: () => this.openMenu('inventory') }, '☰'),
@@ -111,8 +110,6 @@ export class UI {
       this.banner(`Level ${level}`, unlocks.length ? `Unlocked: ${unlocks.map((u) => u.label).join(', ')}` : '+3 attribute points');
       this.buildHotbar();
     });
-    bus.on('waveStart', ({ idx, total, phase }) => this.banner(phase === 'night' ? `Night wave ${idx + 1}` : `Wave ${idx + 1}`, `${total} creatures approach the island.`, 'wave'));
-    bus.on('waveEnd', ({ cleared }) => { if (cleared) this.toast('Wave cleared!', 'good'); });
     bus.on('phase', ({ phase }) => this.toast(phase === 'night' ? 'Night falls. The Echoes rise.' : 'Dawn breaks over Dawnreach.', 'info'));
     bus.on('bossAppear', ({ def, arena }) => { this.banner(`${def.name} appears!`, `Seek them in the ${arena.name}.`, 'boss'); });
     bus.on('bossEngage', ({ def }) => this.bossIntro(def));
@@ -299,9 +296,6 @@ export class UI {
       const dn = g.dayNight;
       el.clock.textContent = `${dn.phase === 'day' ? '☀ Day' : '☾ Night'} · ${Math.ceil(dn.remaining / 60)} min left`;
     } else el.clock.textContent = `⛏ Layer ${g.zone.layer} · Lv ${ZONES[g.zone.id].band.join('–')}`;
-    const w = g.spawner.wave;
-    el.wave.textContent = w ? `Wave ${w.idx + 1} · ${g.enemies.count((e) => e.wave)} left` : '';
-    el.wave.hidden = !w;
     const t = count(g.profile.inv, 'healing_tonic') + count(g.profile.inv, 'greater_healing_tonic');
     this.tonicSlot.querySelector('.count').textContent = t;
     this.tonicSlot.classList.toggle('locked', !t);

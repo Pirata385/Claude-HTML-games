@@ -1,16 +1,15 @@
-// Wave director configuration per zone. Everything about pacing is tuned here.
+// Spawning configuration per zone. Everything about pacing is tuned here.
 export const WAVES = {
+  // Dawnreach is never quiet: one endless horde, slimes by day and Echoes by night,
+  // at fixed levels. You outgrow the island; the cave is where the challenge grows.
   island: {
     cycle: { dayLen: 720, nightLen: 480 },
-    calm: [40, 70],
-    waveDuration: 80,
+    population: { day: 8, night: 11 },
     spawnInterval: 2.5,
-    budget: { base: 6, perWave: 2, perLevel: 0.12 },
-    // A role may join a wave once this many waves have passed in the current day or night.
-    roleUnlock: { swarm: 0, frontline: 0, ranged: 1, bomber: 2, support: 2, tank: 3 },
-    elite: { base: 0.04, perWave: 0.03, max: 0.3 },
-    ambient: { day: 5, night: 7 },
-    levelFollow: { min: 1, max: 45 },
+    elite: 0.06,
+    levels: { day: [1, 10], night: [4, 14] },
+    // Seconds of island time between roaming bosses.
+    bossCooldown: [480, 840],
     tables: {
       day: [
         { id: 'slime', w: 6 }, { id: 'great_slime', w: 3 }, { id: 'spitter_slime', w: 3 }, { id: 'mender_slime', w: 2 },
@@ -20,8 +19,8 @@ export const WAVES = {
       ],
     },
     bosses: [
-      { id: 'slime_prince', period: 'day', chance: 0.25, pity: 0.1 },
-      { id: 'silverback_emperor', period: 'night', chance: 0.25, pity: 0.1 },
+      { id: 'slime_prince', period: 'day' },
+      { id: 'silverback_emperor', period: 'night' },
     ],
   },
   isle: {

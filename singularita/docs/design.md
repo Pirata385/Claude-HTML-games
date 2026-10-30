@@ -5,7 +5,7 @@ This document records the design of the full game and what Milestone 1 implement
 ## Pillars
 
 1. **Explore, fight, gather, craft, grow, unlock.** Every system feeds the next. Creatures drop materials that recipes need. Gathering needs tools that crafting makes. Levels unlock recipes and deeper places.
-2. **Freedom to choose the route.** Surface waves or cave mining, any unlocked recipe in any order, class changes at the Altar. Level never limits equipment.
+2. **Freedom to choose the route.** Holding the surface or mining the cave, any unlocked recipe in any order, class changes at the Altar. Level never limits equipment.
 3. **Readable danger.** Every heavy attack is telegraphed (ground circles, lines, arcs, beams), and bosses are won by recognising patterns.
 4. **Honest content.** Nothing shown in the game is a placeholder. What is not built yet is simply not in the data.
 
@@ -26,7 +26,7 @@ What the player meets on Dawnreach comes from that story:
 
 | Region | Milestone | Role |
 | --- | --- | --- |
-| Dawnreach (starter isle) | 1 | Base camp, day/night waves, two boss arenas, ruins with Echo Stones, the cave mouth |
+| Dawnreach (starter isle) | 1 | Base camp, the endless day/night horde, two boss arenas, ruins with Echo Stones, the cave mouth |
 | The Hollow Deep, layers 1–7 | 1 | Main material chain from stone to diamond; cave hazards from layer 4; ends at the Sealed Core Gate |
 | Isles of Air, Water, Fire, Earth | 2 | Exclusive materials and sigils. Bosses: Ronin of the East Wind, Allele of the Divine Golem, the Magma Vector, Tears of Poseidon |
 | Dimensions: Endless Dungeon, King Corrupted by Purple Adamite, Mirrored, Twin Slimes, Dragons | 3 | Dungeons with their own rules and the last materials. Bosses: Iron-Hand Jailer, the Adamite King, "You?", the Siamese, Ragnarok the Dragon God |
@@ -47,8 +47,8 @@ What the player meets on Dawnreach comes from that story:
 - **Classes.** Five kits, each with a basic attack, an alternate action, six skills (unlocked at levels 1, 4, 10, 18, 28 and 40), a dodge and its own resource and limitations. The Stardust's Astral is an entity of its own: leash, orbit guard, sentinel post, a damage echo to its bearer, and a break lockout.
 - **Attributes.** Seven, each with soft caps: `f(a) = a·k / (1 + a/S)`. A test checks that every attribute changes some stat for every class.
 - **Levels.** The cap is 300; `xpToNext(L) = 45·L^1.55 + 80`. Death costs 15% of the current level's progress but never a level. The roadmap in the Journal is derived from the data.
-- **Waves.** A role-based director, configured in `js/data/waves.js`. A wave's budget grows with each wave and with the player's level. At least half of it goes to front-line creatures. Ranged, support, bomber and tank roles join in later waves, and the elite chance grows. Caves keep a living population instead, with tremors from layer 4.
-- **Bosses.** Scripted state machines with phases, arena engagement and a leash reset, telegraphs, first-kill uniques, and a spawn chance with a pity timer, plus summon items.
+- **The horde.** Dawnreach has no waves (`js/systems/horde.js`, configured in `js/data/waves.js`). A steady stream keeps the population near a target (8 by day, 11 by night), 1–2 creatures every 2.5 s, out of sight. Levels are fixed per phase (1–10 day, 4–14 night) and the elite chance is a constant 6%, so nothing grows over time. Support and bomber roles only join behind three front-liners. Creatures left far behind wander off, so the horde follows the player. Caves keep a living population too, with tremors from layer 4.
+- **Bosses.** Scripted state machines with phases, arena engagement and a leash reset, telegraphs, first-kill uniques, and a boss clock: one roams the island every 8–14 minutes of island time (the clock pauses while a boss is abroad), respecting its day or night, plus summon items. Bosses have fixed levels.
 - **Optimisation.**
   - Creatures are drawn through one InstancedMesh per rig part, so a crowd costs a handful of draw calls.
   - Creatures run in activity tiers: full within 55 m, 5 Hz to 95 m, frozen beyond. Long-dormant regular creatures are recalled only when the population is over the cap.

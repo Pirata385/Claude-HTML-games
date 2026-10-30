@@ -18,7 +18,6 @@ export class ObjectiveTracker {
       case 'equip': if (ev.type === 'equipped' && ev.slot === o.target && ev.tier >= (o.minTier || 0)) inc = o.count; break;
       case 'kill': if (ev.type === 'kill') inc = 1; break;
       case 'allocate': if (ev.type === 'allocate') inc = 1; break;
-      case 'wave': if (ev.type === 'waveCleared') inc = 1; break;
       case 'reach': if (ev.type === 'zone' && ev.id === o.target) inc = 1; break;
       case 'boss': if (ev.type === 'boss') inc = 1; break;
       case 'lore': if (ev.type === 'lore' && matches(o.target, ev.id)) inc = 1; break;

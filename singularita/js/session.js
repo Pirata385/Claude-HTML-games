@@ -29,7 +29,6 @@ export function installSession(game, { audio }) {
   };
   bus.on('gathered', (e) => progress({ type: 'gathered', material: e.material, n: e.n }));
   bus.on('kill', () => progress({ type: 'kill' }));
-  bus.on('waveEnd', (e) => { if (e.cleared) progress({ type: 'waveCleared' }); });
   bus.on('zoneEnter', ({ id }) => { const layer = game.zone.layer || 0; p.stats.maxLayer = Math.max(p.stats.maxLayer, layer); progress({ type: 'zone', id }); });
   bus.on('bossDefeated', () => progress({ type: 'boss' }));
   bus.on('lore', ({ id }) => progress({ type: 'lore', id }));
@@ -89,7 +88,6 @@ export function installSession(game, { audio }) {
   bus.on('dodge', () => audio.play('dodge'));
   bus.on('jump', () => audio.play('jump'));
   bus.on('levelUp', () => audio.play('levelup'));
-  bus.on('waveStart', () => audio.play('horn'));
   bus.on('itemGained', (e) => { if (e.source !== 'gather') audio.play('pickup'); });
   bus.on('gathered', () => audio.play('pickup'));
   bus.on('died', () => audio.play('death'));
@@ -112,6 +110,7 @@ export function installSession(game, { audio }) {
 
   // First arrival: Lume introduces the island.
   bus.on('started', ({ first }) => {
+    if (!game.input.isTouch) hint('mouse', 'While the mouse steers the camera, press Alt to free it and click the buttons. Tab, C, M and J open the menus directly.');
     if (!first) { game.ui.toast(`Welcome back, ${p.name}.`, 'good'); return; }
     (p.flags ||= {}).metLume = true;
     game.ui.dialog({ title: 'Lume, the Beacon Keeper', portrait: 'lume', text: `${LUME_LINES.first}

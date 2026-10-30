@@ -73,6 +73,7 @@ export class Spawner {
     const g = this.g;
     if (!g.player.alive) return;
     if (g.zone.type === 'island') this.updateIsland(dt);
+    else if (g.zone.type === 'isle') this.updateIsle(dt);
     else this.updateCave(dt);
   }
 
@@ -93,6 +94,9 @@ export class Spawner {
     g.profile.world.bossTimer = this.bossClock.timer;
     if (id) this.spawnBoss(id, false);
   }
+
+  // The isles: their creatures arrive with the isle populations (see updateIsle below).
+  updateIsle() {}
 
   updateCave(dt) {
     const g = this.g;
@@ -143,6 +147,22 @@ export class Spawner {
       if (v.type === 'gas_vent') {
         g.combat.zone({ x: v.x, z: v.z, y, r: v.r, t: 3.5, interval: 0.5, team: 'enemy', color: '#9be15d',
           onTick: (ts, z) => { g.fx.burst(z.x + g.rng.range(-2, 2), y + 0.4, z.z + g.rng.range(-2, 2), 2, { color: '#9be15d', speed: 0.5, up: 1, gravity: -0.5, life: 1.2, size: 0.3 }); for (const t of ts) g.combat.hurt(t, dmg * 0.25, null, { type: 'hazard', status: [{ id: 'poison' }] }); } });
+      } else if (v.type === 'radiance') {
+        // Dawn crystals flare: a blinding burst.
+        g.fx.telegraph({ shape: 'circle', x: v.x, z: v.z, y, r: 3.2, t: 1.0, color: '#ffe9a8' });
+        g.combat.after(1.0, () => {
+          g.fx.burst(v.x, y + 1.2, v.z, 30, { color: '#fff4c8', speed: 6, up: 4, life: 0.6 });
+          g.fx.column(v.x, y, v.z, '#ffe9a8', 16, 0.8);
+          for (const t of g.combat.circle(v.x, v.z, 3.2, 'enemy')) g.combat.hurt(t, dmg, null, { type: 'hazard', status: [{ id: 'blind' }] });
+        });
+      } else if (v.type === 'umbral') {
+        v.t = 0.5;
+        // Dusk pools: standing in one slows you and drains your resource.
+        if (Math.hypot(p.x - v.x, p.z - v.z) < v.r - 0.3) {
+          p.statuses.apply('slow', { dur: 1 });
+          p.res = Math.max(0, p.res - g.stats.resourceMax * 0.05);
+          g.fx.burst(p.x, p.ry + 0.3, p.z, 2, { color: '#8a5aff', speed: 0.6, up: 1.5, life: 0.6, size: 0.14 });
+        }
       } else {
         const fire = v.type === 'heat_vent';
         g.fx.telegraph({ shape: 'circle', x: v.x, z: v.z, y, r: 2.6, t: 0.9, color: fire ? '#ff7a3d' : '#9fd8ff' });

@@ -295,6 +295,9 @@ export class UI {
     if (g.zone.type === 'island') {
       const dn = g.dayNight;
       el.clock.textContent = `${dn.phase === 'day' ? '☀ Day' : '☾ Night'} · ${Math.ceil(dn.remaining / 60)} min left`;
+    } else if (g.zone.type === 'isle') {
+      const tide = g.phenomena?.tidePhase ? ` · Tide ${g.phenomena.tidePhase}` : '';
+      el.clock.textContent = `✦ ${g.zoneDef.subtitle} · Lv ${g.zoneDef.band.join('–')}${tide}`;
     } else el.clock.textContent = `⛏ Layer ${g.zone.layer} · Lv ${ZONES[g.zone.id].band.join('–')}`;
     const t = count(g.profile.inv, 'healing_tonic') + count(g.profile.inv, 'greater_healing_tonic');
     this.tonicSlot.querySelector('.count').textContent = t;

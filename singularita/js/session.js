@@ -92,7 +92,7 @@ export function installSession(game, { audio }) {
   bus.on('gathered', () => audio.play('pickup'));
   bus.on('died', () => audio.play('death'));
   bus.on('bossDefeated', () => audio.play('victory'));
-  bus.on('zoneEnter', () => audio.setAmbient(game.zone.type === 'island' ? 'island' : game.zone.layer));
+  bus.on('zoneEnter', () => audio.setAmbient(game.zone.type === 'island' ? 'island' : game.zone.type === 'isle' ? game.zone.id : game.zone.layer));
 
   // First-time hints: short, shown once per character, never blocking.
   const hint = (id, text) => {
@@ -137,7 +137,7 @@ ${game.input.isTouch ? 'Move with the left side of the screen, look by dragging 
     const pl = game.player;
     audio.listener.x = pl.x; audio.listener.z = pl.z; audio.listener.yaw = game.cam.yaw;
     const bossOn = game.enemies.list.some((e) => e.boss && e.alive && e.group.engaged);
-    audio.setMood(bossOn ? 'boss' : game.zone.type === 'island' ? (game.dayNight.phase === 'day' ? 'island_day' : 'island_night') : `cave${game.zone.layer}`);
+    audio.setMood(bossOn ? 'boss' : game.zone.type === 'island' ? (game.dayNight.phase === 'day' ? 'island_day' : 'island_night') : game.zone.type === 'isle' ? game.zone.id : `cave${game.zone.layer}`);
     let near = 0;
     for (const e of game.enemies.active) if (e.alive && e.dist2(pl) < 400) near++;
     audio.setIntensity(bossOn ? 1 : Math.min(1, near / 6));

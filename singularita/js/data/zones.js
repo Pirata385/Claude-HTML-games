@@ -88,7 +88,8 @@ ZONES.cave_8 = cave(8, {
   enemies: [{ id: 'dawn_sentinel', w: 3, side: 'dawn' }, { id: 'dusk_stalker', w: 4, side: 'dusk' }, { id: 'echo_knight', w: 4 }, { id: 'gem_golem', w: 2 }],
   hazards: ['stalactite', 'radiance', 'umbral'],
   lore: ['lore_dawn_dusk', 'lore_singular_heart'],
-  palette: { floor: '#2a2630', wall: '#3a3448', accent: '#ffe9a8', accent2: '#8a5aff', fog: '#0c0a14', ambient: 0.42, light: '#f0e0ff', glow: 'crystal' },
+  palette: { floor: '#2a2630', wall: '#3a3448', accent: '#ffe9a8', accent2: '#8a5aff', fog: '#0c0a14', ambient: 0.42, light: '#f0e0ff', glow: 'crystal',
+    sides: ['#6a5a3a', '#2e2440'], sideWalls: ['#8a7a5a', '#3a2a5a'], sideGlow: ['#ffe9a8', '#a87aff'] },
 });
 
 // The four elemental isles, reached from the Wayshrine in camp.
@@ -118,7 +119,7 @@ ZONES.isle_fire = isle('fire', {
   enemies: [{ id: 'lava_hound', w: 5 }, { id: 'obsidian_golem', w: 2 }, { id: 'fire_imp', w: 4 }, { id: 'ash_shaman', w: 2 }],
   exclusive: ['obsidian', 'salamander_scale'], phenomena: ['lava', 'eruptions'],
   lore: ['lore_cinder_forge', 'lore_vector'],
-  palette: { sky: '#5a2a2a', horizon: '#ff8a4a', fog: '#4a2a24', sea: '#2a1a1a', ground: '#3a2a26', ash: '#5a4a46', rock: '#2a2228', sun: '#ffb070', hemi: '#ff9a6a', hemiG: '#2a1010' },
+  palette: { sky: '#7a3e34', horizon: '#ffa060', fog: '#7a4434', sea: '#3a2420', ground: '#7a5444', ash: '#8a7a72', rock: '#5a4a4c', sun: '#ffc890', hemi: '#ffb890', hemiG: '#4a2a22' },
 });
 ZONES.isle_earth = isle('earth', {
   name: 'The Rootdeep Mesas', subtitle: 'Isle of Earth', levelReq: 80, band: [80, 105], population: 12,

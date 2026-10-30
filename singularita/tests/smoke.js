@@ -331,6 +331,87 @@ try {
     await page.screenshot({ path: path.join(SHOTS, `touch_${name}.png`) });
     await ctx.close();
   }
+
+  // 8. Milestone 2: the four isles, their phenomena, the Core gate and the Core layer.
+  {
+    const { ctx, page, errors } = await open(`${BASE}/singularita/index.html?quickstart=swordsman&debug`);
+    await waitGame(page);
+    const settle = () => page.evaluate(() => { const g = window.__SG; g.cam.snapBehind(g.player.yaw); for (let i = 0; i < 60; i++) g.render(1 / 30); });
+    for (const id of ['isle_air', 'isle_water', 'isle_fire', 'isle_earth']) {
+      const r = await sim(page, `
+        g.ui.closeDialog && g.ui.closeDialog(); g.godMode = true;
+        g.profile.level = 90; g.recomputeStats();
+        g.enterZone('${id}'); step(60);
+        return { id: g.zone.id, alive: g.player.alive };`);
+      await settle();
+      const stats = await page.evaluate(() => window.__SG.r.stats());
+      await page.screenshot({ path: path.join(SHOTS, `${id}.png`) });
+      check(r.id === id && r.alive, `${id}: loads and plays`);
+      check(stats.calls < 250 && stats.triangles < 400000, `${id}: render budget (calls ${stats.calls}, triangles ${stats.triangles})`);
+    }
+    const ph = await sim(page, `
+      const out = {}, p = g.player;
+      // An updraft vent carries you to its partner.
+      g.enterZone('isle_air');
+      const u = g.zone.updrafts[0];
+      goNear(u.x, u.z); p.grounded = true; step(3);
+      out.flying = !!p.carried;
+      step(30 * 3);
+      out.landed = Math.hypot(p.x - u.to.x, p.z - u.to.z); out.grounded = p.grounded && !p.carried;
+      // The tide: high water floods the sandbars and drags you ashore; pearl beds wait for low water.
+      g.enterZone('isle_water');
+      const z = g.zone, gr = g.grid, F = { WATER: 2, DEEP: 512 };
+      g.profile.playTime = 0; step(20);
+      const bar = z.tidal.find((k) => gr.h[k] === 2 && gr.walkable(k % gr.w, Math.floor(k / gr.w)) && !(gr.flags[k] & F.WATER));
+      goNear((bar % gr.w) + 0.5, Math.floor(bar / gr.w) + 0.5);
+      g.profile.playTime = 62; step(20);
+      out.barFlooded = !!(gr.flags[bar] & F.DEEP);
+      out.dragged = !gr.has(Math.floor(p.x), Math.floor(p.z), F.DEEP) && Math.hypot(p.x - ((bar % gr.w) + 0.5), p.z - (Math.floor(bar / gr.w) + 0.5)) > 0.5;
+      out.waterHigh = g.zone.tideLevel;
+      const pearl = z.nodes.find((n) => n.node === 'pearl_bed');
+      goNear(pearl.x + 1.2, pearl.z); p.yaw = Math.atan2(pearl.x - p.x, pearl.z - p.z);
+      out.pearlHigh = g.interaction.scan()?.label;
+      g.profile.playTime = 0; step(20);
+      goNear(pearl.x + 1.2, pearl.z); p.yaw = Math.atan2(pearl.x - p.x, pearl.z - p.z);
+      out.pearlLow = g.interaction.scan()?.label;
+      // Lava burns.
+      g.enterZone('isle_fire');
+      const lk = g.grid.flags.findIndex((f) => f & 8192);
+      goNear((lk % g.grid.w) + 0.5, Math.floor(lk / g.grid.w) + 0.5); p.grounded = true;
+      g.godMode = false; p.hp = g.stats.maxHp; step(30);
+      out.lavaHurts = p.hp < g.stats.maxHp; out.burning = p.statuses.has('burn');
+      g.godMode = true; p.hp = g.stats.maxHp; p.statuses.clear();
+      return out;`);
+    check(ph.flying && ph.landed < 1.5 && ph.grounded, `air: an updraft carries you to the partner vent (${ph.landed.toFixed(2)} m off)`);
+    check(ph.barFlooded && ph.dragged, `water: high tide floods the sandbar and drags you ashore (level ${ph.waterHigh})`);
+    check(/tide/i.test(ph.pearlHigh || '') && !/tide/i.test(ph.pearlLow || 'x'), `water: pearl beds wait for low tide (${ph.pearlHigh} / ${ph.pearlLow})`);
+    check(ph.lavaHurts && ph.burning, 'fire: lava burns');
+    const core = await sim(page, `
+      const out = {};
+      g.profile.level = 110; g.recomputeStats();
+      for (const s of ['sigil_wind', 'sigil_tide', 'sigil_flame', 'sigil_stone']) g.profile.inv.stacks[s] = 1;
+      g.enterZone('cave_7');
+      const ex = g.zone.exit; goNear(ex.x + 3, ex.z); step(3);
+      g.interaction.readGate();
+      document.querySelector('#dialog .btn.primary').click();
+      out.open = !!g.profile.flags.gateOpen;
+      g.interaction.readGate();
+      await new Promise((r) => setTimeout(r, 1200)); step(3);
+      out.zone = g.zone.id; out.exit = g.zone.exit.type;
+      step(30 * 10);
+      out.alive = g.player.alive; out.enemies = g.enemies.count();
+      return out;`);
+    await settle();
+    await page.screenshot({ path: path.join(SHOTS, 'cave_8.png') });
+    check(core.open && core.zone === 'cave_8' && core.exit === 'heart', `the sigils open the gate to the Core (${core.zone})`);
+    check(core.enemies > 0, `the Core is populated (${core.enemies})`);
+    const horizon = await sim(page, `g.enterZone('island'); step(3); return !!g.view.horizon;`);
+    await settle();
+    await page.screenshot({ path: path.join(SHOTS, 'horizon.png') });
+    check(horizon, 'Dawnreach shows the isles on the horizon');
+    check(!errors.length, `isles: no errors ${errors.slice(0, 3).join(' | ')}`);
+    await ctx.close();
+  }
 } catch (err) {
   failures++;
   console.error('FAIL smoke test crashed:', err);

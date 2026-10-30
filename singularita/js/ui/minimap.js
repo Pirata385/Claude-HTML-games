@@ -6,6 +6,7 @@ const COL = {
   [SURF.SAND]: [226, 206, 150], [SURF.GRASS]: [96, 176, 88], [SURF.FOREST]: [58, 132, 70], [SURF.ROCK]: [140, 143, 150], [SURF.PATH]: [196, 166, 112],
   [SURF.DIRT]: [138, 94, 62], [SURF.BASE]: [190, 172, 140], [SURF.SNOW]: [232, 238, 242], [SURF.ARENA]: [170, 210, 110], [SURF.SEABED]: [38, 92, 150],
   [SURF.FLOOR]: [96, 88, 80], [SURF.WALL]: [24, 22, 26], [SURF.HOT]: [128, 62, 44], [SURF.COLD]: [58, 86, 128],
+  [SURF.LAVA]: [255, 106, 26], [SURF.BASALT]: [58, 50, 54], [SURF.ROOT]: [122, 84, 52], [SURF.CORAL]: [255, 138, 168], [SURF.BRIDGE]: [154, 106, 58],
 };
 
 export class Minimap {
@@ -27,7 +28,7 @@ export class Minimap {
     const cave = zone.type === 'cave';
     for (let j = 0; j < g.d; j++) for (let i = 0; i < g.w; i++) {
       const k = g.idx(i, j);
-      let col = COL[g.surf[k]] || [255, 0, 255];
+      let col = g.flags[k] & F.VOID ? [206, 224, 242] : COL[g.surf[k]] || [255, 0, 255];
       let shade = cave ? 1 : 0.82 + Math.min(0.3, (g.h[k] - 3) * 0.015);
       if (g.flags[k] & F.OBSTACLE && !cave) shade *= 0.8;
       const o = k * 4;
@@ -60,9 +61,15 @@ export class Minimap {
       out.push({ x: z.caveMouth.x, z: z.caveMouth.z, icon: '▼', color: '#f2ece0', label: 'Hollow Deep' });
       const bossAt = g.spawner?.boss && !g.spawner.boss.defeated ? g.spawner.boss.def.arena : null;
       for (const a of Object.values(z.arenas)) out.push({ x: a.x, z: a.z, icon: bossAt === a.id ? '☠' : '◎', color: bossAt === a.id ? '#ff4a3a' : '#c9b48a', label: a.name, always: bossAt === a.id });
+    } else if (z.type === 'isle') {
+      out.push({ x: z.landing.x, z: z.landing.z, icon: '✦', color: '#ffe9a0', label: 'Return stone' });
+      const here = g.spawner?.boss && !g.spawner.boss.defeated;
+      out.push({ x: z.arena.x, z: z.arena.z, icon: here ? '☠' : '◎', color: here ? '#ff4a3a' : '#c9b48a', label: z.arena.name, always: true });
+      for (const u of z.updrafts) out.push({ x: u.x, z: u.z, icon: '↑', color: '#cfefff', label: 'Updraft' });
     } else {
       out.push({ x: z.entry.x, z: z.entry.z, icon: '▲', color: '#9ff0e0', label: 'Stairs up' });
-      out.push({ x: z.exit.x, z: z.exit.z, icon: z.exit.type === 'gate' ? '⛩' : '▼', color: z.exit.type === 'gate' ? '#c48cff' : '#f2ece0', label: z.exit.type === 'gate' ? 'Sealed Core Gate' : 'Way down' });
+      const ex = { gate: ['⛩', '#c48cff', 'Sealed Core Gate'], heart: ['♥', '#ffe9a8', 'The Heart Seal'], shaft: ['▼', '#f2ece0', 'Way down'] }[z.exit.type];
+      out.push({ x: z.exit.x, z: z.exit.z, icon: ex[0], color: ex[1], label: ex[2] });
     }
     for (const p of z.pois) if (p.type === 'lore') out.push({ x: p.x, z: p.z, icon: '◆', color: g.profile.lore.includes(p.id) ? '#8a8494' : '#c48cff', label: 'Echo Stone' });
     return out;

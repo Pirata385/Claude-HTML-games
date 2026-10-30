@@ -11,6 +11,27 @@ const ISLAND_TOP = {
 };
 const DIRT = '#8a5a3a';
 
+// The elemental isles reuse the island surfaces with their own palette, plus their own ground.
+function isleColors(pal) {
+  return {
+    [SURF.SAND]: pal.ash || pal.sand || ISLAND_TOP[SURF.SAND], [SURF.GRASS]: pal.grass || ISLAND_TOP[SURF.GRASS], [SURF.FOREST]: pal.grass || ISLAND_TOP[SURF.FOREST],
+    [SURF.ROCK]: pal.rock || ISLAND_TOP[SURF.ROCK], [SURF.PATH]: pal.ash ? '#6a5048' : ISLAND_TOP[SURF.PATH], [SURF.DIRT]: pal.ground || ISLAND_TOP[SURF.DIRT],
+    [SURF.ARENA]: '#d8d0c0', [SURF.SEABED]: pal.ash ? '#2a1e1c' : ISLAND_TOP[SURF.SEABED],
+    [SURF.LAVA]: '#ff6a1a', [SURF.BASALT]: '#3a3236', [SURF.ROOT]: '#7a5434', [SURF.CORAL]: '#ff8aa8', [SURF.BRIDGE]: '#9a6a3a',
+  };
+}
+
+function isleSide(s, top, pal) {
+  switch (s) {
+    case SURF.GRASS: case SURF.FOREST: return { body: pal.mesa || DIRT, strip: top };
+    case SURF.BRIDGE: return { body: '#7a5232', strip: null };
+    case SURF.ROOT: return { body: '#5a3a22', strip: top };
+    case SURF.LAVA: return { body: '#5a1a10', strip: null };
+    case SURF.PATH: return { body: pal.mesa || pal.ground || DIRT, strip: null };
+    default: return { body: top, strip: null };
+  }
+}
+
 function islandSide(s) {
   switch (s) {
     case SURF.GRASS: case SURF.FOREST: case SURF.ARENA: return { body: DIRT, strip: ISLAND_TOP[s] };
@@ -66,17 +87,22 @@ class QuadBuilder {
 
 // Builds every chunk of a zone. Returns { group, chunks: [{ mesh, cx, cz }] }.
 export function buildTerrain(zone, material) {
-  const g = zone.grid, cave = zone.type === 'cave';
+  const g = zone.grid, cave = zone.type === 'cave', isle = zone.type === 'isle';
   const pal = zone.def.palette;
-  const floorCol = (s) => (s === SURF.HOT ? pal.floor && '#5a3428' : s === SURF.COLD ? '#33465e' : pal.floor);
+  const isleTop = isle ? isleColors(pal) : null;
+  // Split layers: the first half uses the HOT surface, the second the COLD one (dawn and dusk in the Core).
+  const sideFloors = pal.sides || ['#5a3428', '#33465e'], sideWalls = pal.sideWalls || ['#5a3a34', '#3a4a60'];
+  const floorCol = (s) => (s === SURF.HOT ? sideFloors[0] : s === SURF.COLD ? sideFloors[1] : pal.floor);
   const topColor = (i, j) => {
     const k = g.idx(i, j), s = g.surf[k];
     if (cave) return g.flags[k] & F.WALL ? _hex(pal.wall, 0.55) : floorCol(s);
+    if (isle) return isleTop[s] || '#ff00ff';
     return ISLAND_TOP[s] || '#ff00ff';
   };
   const sideStyle = (i, j) => {
     const k = g.idx(i, j), s = g.surf[k];
-    if (cave) return { body: g.flags[k] & F.WALL ? (s === SURF.WALL && zone.split ? (i < g.w / 2 ? '#5a3a34' : '#3a4a60') : pal.wall) : floorCol(s), strip: null };
+    if (cave) return { body: g.flags[k] & F.WALL ? (s === SURF.WALL && zone.split ? (i < g.w / 2 ? sideWalls[0] : sideWalls[1]) : pal.wall) : floorCol(s), strip: null };
+    if (isle) return isleSide(s, isleTop[s], pal);
     return islandSide(s);
   };
   const top = (i, j) => (g.inside(i, j) ? g.top(i, j) : cave ? 999 : g.seaLevel - 7);
@@ -90,9 +116,11 @@ export function buildTerrain(zone, material) {
     for (let j = cz; j < j1; j++) {
       let i = cx;
       while (i < i1) {
+        // The void below the spires has no ground to draw.
+        if (g.flags[g.idx(i, j)] & F.VOID) { i++; continue; }
         const t = top(i, j), col = topColor(i, j);
         let run = 1;
-        while (i + run < i1 && top(i + run, j) === t && topColor(i + run, j) === col) run++;
+        while (i + run < i1 && !(g.flags[g.idx(i + run, j)] & F.VOID) && top(i + run, j) === t && topColor(i + run, j) === col) run++;
         qb.quad([i, t, j + 1], [i + run, t, j + 1], [i + run, t, j], [i, t, j], [0, 1, 0], col);
         i += run;
       }

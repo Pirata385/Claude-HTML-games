@@ -17,7 +17,18 @@ const MODELS = {
   oreCrystal: () => [B(0.15, 1.15, 0.1, 0.35, 0.7, 0.35, '#ffffff'), B(-0.45, 1.3, 0.25, 0.25, 0.5, 0.25, '#ffffff'), B(0.55, 0.75, -0.35, 0.3, 0.45, 0.3, '#ffffff'), B(-0.1, 0.95, -0.5, 0.22, 0.35, 0.22, '#ffffff')],
   stump: () => [B(0, 0.3, 0, 0.75, 0.6, 0.75, '#7a5232'), B(0, 0.61, 0, 0.6, 0.04, 0.6, '#c9a46a')],
   rubble: () => [B(0.2, 0.15, 0, 0.5, 0.3, 0.4, '#7d8088'), B(-0.3, 0.12, 0.2, 0.4, 0.24, 0.35, '#6d7078'), B(0, 0.1, -0.35, 0.3, 0.2, 0.3, '#8e9199')],
+  // Elemental isles.
+  cloudpine: () => [B(0, 1.3, 0, 0.45, 2.6, 0.45, '#8a7a6a'), B(0, 2.3, 0, 2.2, 0.7, 2.2, '#8fc8c0'), B(0, 3.1, 0, 1.6, 0.7, 1.6, '#a8d8d0'), B(0, 3.85, 0, 1.0, 0.6, 1.0, '#c8ece6'), B(0, 4.4, 0, 0.45, 0.5, 0.45, '#f2fbff'), B(0.7, 2.75, 0.4, 0.5, 0.25, 0.5, '#f2fbff')],
+  palm: () => [B(0, 0.6, 0, 0.42, 1.2, 0.42, '#a8845a'), B(0.12, 1.75, 0, 0.38, 1.2, 0.38, '#b0905e'), B(0.28, 2.9, 0, 0.34, 1.2, 0.34, '#a8845a'), B(0.3, 3.6, 0, 0.5, 0.3, 0.5, '#6a8a3a'),
+    B(1.2, 3.45, 0, 1.8, 0.12, 0.6, '#4caf50'), B(-0.6, 3.45, 0, 1.8, 0.12, 0.6, '#45a04a'), B(0.3, 3.45, 0.95, 0.6, 0.12, 1.8, '#4caf50'), B(0.3, 3.45, -0.95, 0.6, 0.12, 1.8, '#45a04a'), B(0.3, 3.3, 0.25, 0.2, 0.2, 0.2, '#7a5a2a'), B(0.5, 3.3, -0.2, 0.2, 0.2, 0.2, '#7a5a2a')],
+  charred: () => [B(0, 1.2, 0, 0.5, 2.4, 0.5, '#2a2224'), B(0.55, 2.2, 0, 0.9, 0.22, 0.22, '#2e2628'), B(-0.4, 1.8, 0.2, 0.7, 0.2, 0.2, '#2e2628'), B(0.95, 2.45, 0, 0.2, 0.5, 0.2, '#2a2224'), B(0, 2.55, 0, 0.3, 0.3, 0.3, '#3a2a26'), B(0.12, 0.7, 0.26, 0.14, 0.14, 0.02, '#ff6a2a'), B(-0.2, 1.5, -0.26, 0.12, 0.12, 0.02, '#ff8a3d')],
+  mossoak: () => [B(0, 1.0, 0, 0.9, 2.0, 0.9, '#5a4a32'), B(0, 2.7, 0, 3.2, 1.5, 3.2, '#4a7a3a'), B(0, 3.7, 0, 2.2, 0.8, 2.2, '#5a8c44'), B(1.4, 2.0, 0.6, 0.3, 0.8, 0.3, '#6a9a4a'), B(-1.2, 1.9, -0.8, 0.3, 1.0, 0.3, '#6a9a4a'), B(0.5, 0.2, 0.6, 0.6, 0.4, 0.4, '#5a4a32')],
+  pearl: () => [B(0, 0.12, 0, 1.1, 0.24, 0.9, '#cbb8a8'), B(0, 0.42, -0.3, 1.1, 0.12, 0.7, '#dccabb'), B(0, 0.32, 0.05, 0.32, 0.3, 0.32, '#f4f0ff'), B(0.35, 0.18, 0.3, 0.18, 0.12, 0.18, '#e8a8c8')],
+  amber: () => [B(0, 0.3, 0, 1.4, 0.6, 0.8, '#6a4a2a'), B(0.5, 0.6, 0.2, 0.5, 0.5, 0.5, '#ffb347'), B(-0.3, 0.75, -0.1, 0.4, 0.6, 0.4, '#ffa020'), B(0.1, 1.0, 0.25, 0.3, 0.3, 0.3, '#ffd080'), B(-0.7, 0.2, 0.3, 0.6, 0.3, 0.3, '#5a3a22')],
 };
+
+// Node models that are trees: they leave stumps and can be hidden when they block the camera.
+const TREES = new Set(['oak', 'pine', 'birch', 'cloudpine', 'palm', 'charred', 'mossoak', 'amber']);
 
 const geoCache = new Map();
 export function propGeometry(name) {
@@ -55,8 +66,8 @@ export class NodeVisuals {
       if (m === 'ore') { mk('oreRock', 'oreRock', n, litMaterial()); mk('oreCrystal', 'oreCrystal', n, unlitMaterial(), false); }
       else mk(m, m, n, litMaterial());
     }
-    const trees = (counts.oak || 0) + (counts.pine || 0) + (counts.birch || 0);
-    const rocks = (counts.boulder || 0) + (counts.ore || 0);
+    let trees = 0, rocks = 0;
+    for (const [m, n] of Object.entries(counts)) { if (TREES.has(m)) trees += n; else rocks += n; }
     mk('stump', 'stump', trees, litMaterial(), false);
     mk('rubble', 'rubble', rocks, litMaterial(), false);
     const used = {};
@@ -69,7 +80,7 @@ export class NodeVisuals {
         slot.dep = ['rubble', next('rubble')];
       } else {
         slot.parts.push([m, next(m)]);
-        slot.dep = m === 'boulder' ? ['rubble', next('rubble')] : ['stump', next('stump')];
+        slot.dep = TREES.has(m) ? ['stump', next('stump')] : ['rubble', next('rubble')];
       }
       this.slots.push(slot);
       // Colour: trees vary a little; ore rock follows the cave; crystals take the material colour.
@@ -85,7 +96,7 @@ export class NodeVisuals {
     for (const mesh of Object.values(this.meshes)) { mesh.instanceMatrix.needsUpdate = true; if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true; mesh.computeBoundingSphere(); }
     // Trees by 4 m bucket, to find the ones standing between the camera and the player.
     this.buckets = new Map();
-    this.slots.forEach((sl, i) => { if (['oak', 'pine', 'birch'].includes(sl.model)) { const k = `${sl.node.i >> 2},${sl.node.j >> 2}`; if (!this.buckets.has(k)) this.buckets.set(k, []); this.buckets.get(k).push(i); } });
+    this.slots.forEach((sl, i) => { if (TREES.has(sl.model) && sl.model !== 'amber') { const k = `${sl.node.i >> 2},${sl.node.j >> 2}`; if (!this.buckets.has(k)) this.buckets.set(k, []); this.buckets.get(k).push(i); } });
     this.hidden = new Set();
   }
 
@@ -172,13 +183,26 @@ export function buildDecor(zone, quality) {
     const geo = boxesGeometry(boxes);
     disposables.push(geo);
     const cols = [pal.accent, pal.accent2 || pal.light, pal.light];
-    inst(geo, unlitMaterial(), zone.decor.glow, (d) => (zone.split ? (d.x < zone.grid.w / 2 ? '#ff7a3d' : '#7fc8ff') : cols[d.c]), () => 1.2);
+    const sideGlow = pal.sideGlow || ['#ff7a3d', '#7fc8ff'];
+    inst(geo, unlitMaterial(), zone.decor.glow, (d) => (zone.split ? (d.x < zone.grid.w / 2 ? sideGlow[0] : sideGlow[1]) : cols[d.c]), () => 1.2);
   }
   if (zone.decor.rails?.length) {
     const geo = boxesGeometry([B(0, 0.05, 0, 1.0, 0.1, 0.3, '#6b4a2e'), B(0.3, 0.14, 0, 0.08, 0.08, 1.0, '#9a948a'), B(-0.3, 0.14, 0, 0.08, 0.08, 1.0, '#9a948a')]);
     disposables.push(geo);
     const g = zone.grid;
     inst(geo, litMaterial(), zone.decor.rails.map((r) => ({ x: r.i + 0.5, z: r.j + 0.5, h: g.h[g.idx(r.i, r.j)] })), () => '#ffffff');
+  }
+  if (zone.decor.chimes?.length) {
+    const geo = boxesGeometry([B(0, 1.6, 0, 0.18, 3.2, 0.18, '#8a7a6a'), B(0, 3.2, 0, 1.4, 0.12, 0.12, '#8a7a6a'), B(0.5, 2.7, 0, 0.08, 0.8, 0.08, '#e8f6ff'), B(-0.5, 2.6, 0, 0.08, 1.0, 0.08, '#cfe8ff'),
+      B(0.2, 2.8, 0, 0.08, 0.6, 0.08, '#ffffff'), B(-0.2, 2.75, 0, 0.08, 0.7, 0.08, '#e8f6ff'), B(0, 0.1, 0, 0.6, 0.2, 0.6, '#b8c0cc')]);
+    disposables.push(geo);
+    inst(geo, litMaterial(), zone.decor.chimes, () => '#ffffff', () => 1, true);
+  }
+  if (zone.decor.coral?.length) {
+    const geo = boxesGeometry([B(0, 0.4, 0, 0.18, 0.8, 0.18, '#ffffff'), B(0.2, 0.6, 0, 0.14, 0.5, 0.14, '#ffffff'), B(-0.18, 0.5, 0.1, 0.14, 0.6, 0.14, '#ffffff'), B(0, 0.85, 0.15, 0.12, 0.3, 0.12, '#ffffff')]);
+    disposables.push(geo);
+    const cols = ['#ff7a9a', '#ffb347', '#b48cff'];
+    inst(geo, litMaterial(), zone.decor.coral, (d) => cols[d.c], () => 1.2);
   }
   return { group, dispose() { group.parent?.remove(group); for (const d of disposables) d.dispose(); } };
 }

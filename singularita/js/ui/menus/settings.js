@@ -43,7 +43,7 @@ function panel(settings, apply, rerender, input) {
       slider('Horizontal sensitivity', s.camera, 'sensX', 0.2, 3, 0.05, (v) => v.toFixed(2)), slider('Vertical sensitivity', s.camera, 'sensY', 0.2, 3, 0.05, (v) => v.toFixed(2)),
       slider('Distance', s.camera, 'distance', 3, 12, 0.5, (v) => `${v} m`), toggle('Invert vertical', s.camera, 'invertY'), toggle('Screen shake', s.camera, 'shake')),
     h('section', {}, h('h4', {}, 'Touch'),
-      slider('Button size', s.touch, 'size', 0.7, 1.4, 0.05), slider('Button opacity', s.touch, 'opacity', 0.3, 1, 0.05), toggle('Left-handed layout', s.touch, 'leftHanded')),
+      slider('Button size', s.touch, 'size', 0.7, 1.4, 0.05), slider('Button opacity', s.touch, 'opacity', 0.3, 1, 0.05), toggle('Left-handed layout', s.touch, 'leftHanded'), toggle('Full screen on phones and tablets', s.touch, 'fullscreen')),
     h('section', {}, h('h4', {}, 'Interface'), toggle('Damage numbers', s.ui, 'damageNumbers'), toggle('Objective hints', s.ui, 'hints')),
     h('section', {}, h('h4', {}, 'Key bindings'), binds, h('button', { class: 'btn small', onclick: () => { s.controls.bindings = { ...DEFAULT_BINDINGS }; apply(); rerender(); } }, 'Reset bindings')));
 }

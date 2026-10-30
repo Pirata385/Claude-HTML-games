@@ -8,12 +8,15 @@ import { TitleScreen } from './ui/screens.js';
 import { installSession } from './session.js';
 import { AudioEngine } from './audio/audio.js';
 import { Input } from './core/input.js';
+import { armAutoFullscreen } from './ui/fullscreen.js';
 
 const storage = (() => { try { const k = '__sg_probe'; localStorage.setItem(k, '1'); localStorage.removeItem(k); return localStorage; } catch { const m = new Map(); return { getItem: (k) => (m.has(k) ? m.get(k) : null), setItem: (k, v) => m.set(k, String(v)), removeItem: (k) => m.delete(k) }; } })();
 const params = new URLSearchParams(location.search);
 const isTouch = matchMedia('(pointer: coarse)').matches || 'ontouchstart' in window;
 const settings = loadSettings(storage, isTouch);
 const store = new SaveStore(storage);
+// Phones and tablets go full screen on the first tap, unless turned off in Settings.
+if (isTouch) armAutoFullscreen(() => settings.touch.fullscreen);
 
 const loading = document.getElementById('loading');
 const fill = document.getElementById('loading-fill');

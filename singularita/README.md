@@ -28,9 +28,12 @@ Open the root `index.html` menu and pick **Singularita**. Progress is saved in t
 | Healing tonic | R | ❤ button |
 | Return to camp | B (6 s channel) | — |
 | Free the mouse (to click the HUD buttons) | Alt | — |
+| Full screen | F11 (browser) | Automatic on the first tap (Settings → Touch), or the ⛶ button |
 | Menus | Tab/I inventory · C crafting · K character · L skills · M map · J journal · Esc | ☰ ⌖ ⚒ buttons |
 
 All key bindings can be changed in Settings.
+
+On phones and tablets the game goes full screen on the first tap; the ⛶ button (HUD and title screen) switches it at any time, and Settings → Touch turns the automatic switch off. Browsers that cannot hide their bars (iPhone Safari) can use **Share → Add to Home Screen**: the game then opens full screen as an app.
 
 ## How it plays
 

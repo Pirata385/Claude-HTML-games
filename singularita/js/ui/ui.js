@@ -12,6 +12,7 @@ import { Minimap } from './minimap.js';
 import { MENUS, MENU_TABS } from './menus/index.js';
 import { TouchControls } from './touch.js';
 import { fmt } from '../core/math.js';
+import { toggleFullscreen } from './fullscreen.js';
 
 const KEY_LABEL = (code) => (code || '').replace(/^Key/, '').replace(/^Digit/, '').replace('ShiftLeft', 'Shift').replace('Space', 'Space');
 
@@ -71,7 +72,8 @@ export class UI {
         h('div', { class: 'hud-buttons' },
           h('button', { class: 'hbtn', title: 'Menu (Tab)', onclick: () => this.openMenu('inventory') }, '☰'),
           h('button', { class: 'hbtn', title: 'Map (M)', onclick: () => this.openMenu('map') }, '⌖'),
-          h('button', { class: 'hbtn', title: 'Crafting (C)', onclick: () => this.openMenu('craft') }, '⚒'))),
+          h('button', { class: 'hbtn', title: 'Crafting (C)', onclick: () => this.openMenu('craft') }, '⚒'),
+          h('button', { class: 'hbtn fs fs-toggle', title: 'Full screen', onclick: () => toggleFullscreen().then((tip) => tip && this.toast(tip, 'info', 7)) }, '⛶'))),
       el.obj,
       h('div', { class: 'hud-bottom' }, el.prompt, el.channel, el.hotbar),
       el.toasts, el.banner, el.cross, el.lockMark, el.death, el.fade, el.saved,

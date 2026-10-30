@@ -16,7 +16,7 @@ const { chromium } = playwright;
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const SHOTS = fs.mkdtempSync(path.join(os.tmpdir(), 'singularita-smoke-'));
-const TYPES = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.json': 'application/json', '.png': 'image/png', '.svg': 'image/svg+xml' };
+const TYPES = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.json': 'application/json', '.webmanifest': 'application/manifest+json', '.png': 'image/png', '.svg': 'image/svg+xml' };
 
 const server = http.createServer((req, res) => {
   const url = decodeURIComponent(req.url.split('?')[0]);
@@ -294,7 +294,25 @@ try {
       const q = b.getBoundingClientRect(), x = q.x + q.width / 2, y = q.y + q.height / 2;
       return { x, y, top: document.elementFromPoint(x, y) === b, title: b.title };
     }));
-    check(hud.length === 3 && hud.every((b) => b.top), `touch ${name}: HUD buttons are on top of the touch layer`);
+    check(hud.length === 4 && hud.every((b) => b.top), `touch ${name}: HUD buttons are on top of the touch layer`);
+    // Full screen: the ⛶ button flips it either way (the first tap may already have entered it).
+    const isFs = () => page.evaluate(() => !!document.fullscreenElement);
+    // Measured before each tap: the layout can shift when the browser bars go away.
+    const tapFs = async () => {
+      const b = await page.evaluate(() => { const q = document.querySelector('#hud .hbtn.fs').getBoundingClientRect(); return { x: q.x + q.width / 2, y: q.y + q.height / 2 }; });
+      await page.touchscreen.tap(b.x, b.y);
+      await page.waitForTimeout(400);
+    };
+    // Let the first-tap automatic full screen (if any) settle before measuring.
+    await page.waitForTimeout(500);
+    const fs0 = await isFs();
+    await tapFs();
+    const fs1 = await isFs();
+    await tapFs();
+    const fs2 = await isFs();
+    check(fs1 !== fs0 && fs2 === fs0, `touch ${name}: the ⛶ button toggles full screen (${fs0} → ${fs1} → ${fs2})`);
+    const setText = await page.evaluate(() => { const g = window.__SG; g.ui.openMenu('settings'); const t = document.getElementById('menu').innerText; g.ui.closeMenu(); return t; });
+    check(/Full screen on phones and tablets/.test(setText), `touch ${name}: full screen can be set in Settings`);
     for (const [prefix, tab] of [['Crafting', 'craft'], ['Menu', 'inventory']]) {
       const b = hud.find((x) => x.title.startsWith(prefix));
       await page.touchscreen.tap(b.x, b.y);

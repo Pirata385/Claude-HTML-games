@@ -5,7 +5,7 @@ import { RIGS, RigInstancer, animate } from '../render/rigs.js';
 import { BEHAVIOR } from './behaviors.js';
 import { FlowField } from './flowField.js';
 import { lineOfSight } from '../world/physics.js';
-import { moveCircle } from '../world/physics.js';
+import { moveCircle, unstick } from '../world/physics.js';
 import { killXp } from '../systems/progression.js';
 import { addStack } from '../systems/inventory.js';
 import { MATERIALS } from '../data/materials.js';
@@ -59,6 +59,7 @@ export class Enemies {
     if (o.noIntro) e.spawnT = 0;
     this.list.push(e);
     this.g.fx.burst(x, e.ry + 0.2, z, 8, { color: def.color, speed: 2, up: 2, life: 0.5 });
+    this.g.bus.emit('spawned', { enemy: e });
     return e;
   }
 
@@ -151,7 +152,8 @@ export class Enemies {
         BEHAVIOR[e.def.behavior](e, step, c);
         if (e.affixes.shielding) { e.ai.aux2 = (e.ai.aux2 || 0) - step; if (e.ai.aux2 <= 0) { e.ai.aux2 = 6; for (const o of this.list) if (o.alive && o !== e && o.dist2(e) < 64) o.shield = o.maxHp * 0.15; g.fx.decal({ shape: 'ring', x: e.x, z: e.z, y: e.ry, r: 8, t: 0.6, fill: false, color: '#7fb3ff' }); } }
       }
-      // Knockback and ground.
+      // Knockback and ground; never left inside rock, trees or the camp.
+      if (!e.flying && !e.boss) unstick(grid, e, F.BASE);
       if (e.kbt > 0) { e.kbt -= step; moveCircle(grid, e, e.kbx * step, e.kbz * step, e.radius * 0.8, 1.05, e.flying, e.boss ? 0 : F.BASE); }
       const gh = grid.height(Math.floor(e.x), Math.floor(e.z));
       e.y = gh;

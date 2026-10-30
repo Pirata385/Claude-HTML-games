@@ -1,5 +1,7 @@
 // Stardust: manifest the Astral and fight beside it. Spirit drains while it is out.
 import { BaseKit, dirOf } from './base.js';
+import { moveCircle } from '../../world/physics.js';
+import { F } from '../../world/grid.js';
 
 export class StardustKit extends BaseKit {
   constructor(g) { super(g, 'stardust'); this.moteCd = 0; }
@@ -76,7 +78,7 @@ export class StardustKit extends BaseKit {
         this.fx.burst(z.x + (Math.random() - 0.5) * s.radius * 1.6, y + 0.5, z.z + (Math.random() - 0.5) * s.radius * 1.6, 1, { color: '#b07bff', speed: 0.5, up: 0.5, gravity: 0, life: 0.5 });
         z.n = (z.n || 0) + 1;
         for (const t of ts) {
-          if (!t.boss) { const dx = z.x - t.x, dz = z.z - t.z, l = Math.hypot(dx, dz); if (l > 0.6) { t.x += (dx / l) * Math.min(l, 5 * 0.1); t.z += (dz / l) * Math.min(l, 5 * 0.1); } }
+          if (!t.boss) { const dx = z.x - t.x, dz = z.z - t.z, l = Math.hypot(dx, dz); if (l > 0.6) moveCircle(this.g.grid, t, (dx / l) * Math.min(l, 0.5), (dz / l) * Math.min(l, 0.5), t.radius * 0.8, 1.05, t.flying, F.BASE); }
           if (z.n % 5 === 0) this.combat.hit(t, { mult: s.dmg, src: 'astral', status: [{ id: 'slow', dur: 1 }], noTraits: true, from: z });
         }
       } });

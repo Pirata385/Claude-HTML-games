@@ -114,8 +114,11 @@ export class SwordsmanKit extends BaseKit {
     this.p.iframes = 0.15 * targets.length + 0.3;
     targets.forEach((t, k) => this.combat.after(k * 0.14, () => {
       if (!t.alive) return;
-      const a = Math.random() * Math.PI * 2;
-      this.p.x = t.x + Math.cos(a) * (t.radius + 0.8); this.p.z = t.z + Math.sin(a) * (t.radius + 0.8);
+      // Appear beside the target on a free spot (or strike from where you stand).
+      for (let tries = 0; tries < 8; tries++) {
+        const a = Math.random() * Math.PI * 2, x = t.x + Math.cos(a) * (t.radius + 0.8), z = t.z + Math.sin(a) * (t.radius + 0.8);
+        if (this.g.grid.walkable(Math.floor(x), Math.floor(z))) { this.p.x = x; this.p.z = z; break; }
+      }
       const yaw = Math.atan2(t.x - this.p.x, t.z - this.p.z);
       this.face(yaw);
       this.play(k % 2 ? 'slash2' : 'slash', 0.12);

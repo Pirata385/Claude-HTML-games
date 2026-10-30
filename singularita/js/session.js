@@ -96,6 +96,20 @@ export function installSession(game, { audio }) {
   bus.on('bossDefeated', () => audio.play('victory'));
   bus.on('zoneEnter', () => audio.setAmbient(game.zone.type === 'island' ? 'island' : game.zone.layer));
 
+  // First-time hints: short, shown once per character, never blocking.
+  const hint = (id, text) => {
+    if (p.hints.includes(id)) return;
+    p.hints.push(id);
+    if (game.settings.ui.hints) game.ui.toast(text, 'info', 7);
+  };
+  bus.on('phase', ({ phase }) => { if (phase === 'night') hint('night', 'Night: the Echoes are tougher than slimes, but their sinew makes better grips. The camp is always safe.'); });
+  bus.on('spawned', ({ enemy }) => { if (enemy.elite && enemy.dist2(game.player) < 1600) hint('elite', `Elites carry an affix (${enemy.tag}). They hit harder and drop more.`); });
+  bus.on('levelUp', () => hint('points', 'Level up! Spend your attribute points in the Character tab (K).'));
+  bus.on('zoneEnter', ({ id }) => {
+    if (id === 'cave_1') hint('cave', 'Each layer has a way down; the minimap marks it once you have seen it. Ores need a good enough pickaxe.');
+    if (id === 'cave_4') hint('hazards', 'From here on the cave fights back: watch the floor for shadows, and carry Antidotes against the gas.');
+  });
+
   // First arrival: Lume introduces the island.
   bus.on('started', ({ first }) => {
     if (!first) { game.ui.toast(`Welcome back, ${p.name}.`, 'good'); return; }

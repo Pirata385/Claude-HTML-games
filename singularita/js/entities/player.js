@@ -1,6 +1,6 @@
 // The player: movement, jumping, dodging and animation. Combat comes from the class kit.
 import { Entity } from './entity.js';
-import { moveCircle, groundAt } from '../world/physics.js';
+import { moveCircle, groundAt, unstick } from '../world/physics.js';
 import { animate } from '../render/rigs.js';
 import { F } from '../world/grid.js';
 import { damp, angleDiff } from '../core/math.js';
@@ -32,6 +32,7 @@ export class Player extends Entity {
   update(dt, g) {
     if (!this.alive) return;
     const { input, cam, grid, stats } = g;
+    if (unstick(grid, this)) { this.y = this.ry = groundAt(grid, this.x, this.z); this.grounded = true; }
     const st = this.statuses;
     this.combatT += dt;
     this.dodgeCd = Math.max(0, this.dodgeCd - dt);

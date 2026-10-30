@@ -202,10 +202,23 @@ try {
       g.ui.altar();
       [...document.querySelectorAll('#dialog .btn')].find((x) => x.textContent === 'Become Mage').click();
       out.mageArmed = g.profile.classId === 'mage' && g.profile.equipment.mage && g.profile.equipment.mage.weapon != null;
+      // Teleports must never leave anyone stuck inside a tree or a wall.
+      const tree = g.zone.nodes.find((n) => n.node.startsWith('tree'));
+      g.player.x = tree.x; g.player.z = tree.z; step(5);
+      const F = 256;
+      out.playerFree = !g.grid.has(Math.floor(g.player.x), Math.floor(g.player.z), F);
+      const e = g.enemies.spawn('zombie_walker', tree.x + 3, tree.z, { level: 1, noIntro: true });
+      e.x = tree.x; e.z = tree.z; step(5);
+      out.enemyFree = !g.grid.has(Math.floor(e.x), Math.floor(e.z), F);
+      // First-time hints are recorded once.
+      g.dayNight.clock = 719.9; step(10);
+      out.hints = g.profile.hints.slice();
       return out;`);
     check(r.split === 2 && r.members === 1 && r.hpFull, `Prince resets whole after a split (${JSON.stringify(r)})`);
     check(r.flashCleared, 'boss hit flash wears off');
     check(r.mageArmed, 'switching class at the Altar arms the new class');
+    check(r.playerFree && r.enemyFree, `nobody stays stuck inside an obstacle (${r.playerFree}, ${r.enemyFree})`);
+    check(r.hints.includes('night'), `first-time hints are shown and recorded (${r.hints.join(',')})`);
     check(!errors.length, `regressions: no errors ${errors.slice(0, 2).join(' | ')}`);
     await ctx.close();
     const t = await open(`${BASE}/singularita/index.html`);

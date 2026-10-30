@@ -45,3 +45,21 @@ export function lineOfSight(grid, ax, ay, az, bx, by, bz) {
   }
   return true;
 }
+
+// Safety net: if an entity ends up inside a blocked cell (after a teleport or a pull),
+// move it to the nearest free cell. Returns true if it moved.
+export function unstick(grid, e, extraMask = 0) {
+  const i0 = Math.floor(e.x), j0 = Math.floor(e.z);
+  const bad = (i, j) => !grid.inside(i, j) || (grid.flags[grid.idx(i, j)] & (BLOCK | extraMask)) !== 0;
+  if (!bad(i0, j0)) return false;
+  for (let r = 1; r <= 5; r++) {
+    let best = null, bd = Infinity;
+    for (let dj = -r; dj <= r; dj++) for (let di = -r; di <= r; di++) {
+      if (Math.max(Math.abs(di), Math.abs(dj)) !== r || bad(i0 + di, j0 + dj)) continue;
+      const d = (i0 + di + 0.5 - e.x) ** 2 + (j0 + dj + 0.5 - e.z) ** 2;
+      if (d < bd) { bd = d; best = [i0 + di, j0 + dj]; }
+    }
+    if (best) { e.x = best[0] + 0.5; e.z = best[1] + 0.5; return true; }
+  }
+  return false;
+}

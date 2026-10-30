@@ -55,7 +55,10 @@ export class AssassinKit extends BaseKit {
     const tx = t.x + Math.sin(back) * r, tz = t.z + Math.cos(back) * r;
     const g = this.g.grid;
     if (g.walkable(Math.floor(tx), Math.floor(tz))) { this.p.x = tx; this.p.z = tz; }
-    else { this.p.x = t.x - Math.sin(this.p.yaw) * r; this.p.z = t.z - Math.cos(this.p.yaw) * r; }
+    else {
+      const fx = t.x - Math.sin(this.p.yaw) * r, fz = t.z - Math.cos(this.p.yaw) * r;
+      if (g.walkable(Math.floor(fx), Math.floor(fz))) { this.p.x = fx; this.p.z = fz; }
+    }
     this.face(Math.atan2(t.x - this.p.x, t.z - this.p.z));
     this.guaranteedBackstab = 1.5;
     this.p.iframes = Math.max(this.p.iframes, 0.2);

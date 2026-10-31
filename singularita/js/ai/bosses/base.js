@@ -59,7 +59,7 @@ export class Boss extends Entity {
       this.leaveT += dt;
       if (this.leaveT > 8) { for (const m of [...this.group.members]) if (m.alive) m.resetFight(); g.bus.emit('bossReset', { def: this.bossDef }); return; }
     } else this.leaveT = 0;
-    const frac = this.group.members.reduce((a, m) => a + Math.max(0, m.hp), 0) / this.group.members.reduce((a, m) => a + m.maxHp, 0);
+    const frac = this.phaseFrac();
     const phases = this.bossDef.phases;
     while (this.phase + 1 < phases.length && frac <= phases[this.phase + 1].at) { this.phase++; this.onPhase(this.phase); g.bus.emit('bossPhase', { def: this.bossDef, phase: phases[this.phase] }); }
     this.cd -= dt;
@@ -75,6 +75,8 @@ export class Boss extends Entity {
     this.group.engaged = false; this.statuses.clear(); this.stunnedBonus = false;
     this.onReset?.();
   }
+  // The health left that drives the phases: the whole group's, by default.
+  phaseFrac() { return this.group.members.reduce((a, m) => a + Math.max(0, m.hp), 0) / this.group.members.reduce((a, m) => a + m.maxHp, 0); }
   onPhase() {}
   think() {}
 

@@ -690,6 +690,49 @@ try {
       check(r.defeated && r.phases.length >= 2, `${boss}: fights through its phases (${(r.phases || []).join(', ')})`);
       check(r.shard === 1 && r.exit && r.home && r.cleared >= 1, `${boss}: gives its Fracture Shard, opens the way home and clears the run`);
     }
+    // The Siamese merge for good when one twin falls, or when both are worn to half; that form must fall.
+    {
+      const m = await sim(page, `
+        g.ui.closeDialog && g.ui.closeDialog();
+        const out = {}, p = g.player;
+        const fresh = async () => {
+          if (g.profile.run) { g.interaction.leaveRun('leave'); await new Promise((r) => setTimeout(r, 1200)); }
+          g.enterZone('island'); step(3); p.yaw = g.zone.spawnYaw ?? Math.PI;
+          g.useConsumable('emblem_twins'); step(3);
+          g.interaction.enterPortal(); await new Promise((r) => setTimeout(r, 1200)); step(3);
+          g.enemies.list.filter((e) => !e.boss).forEach((e) => { e.alive = false; e.dyingT = 0; }); g.spawner.popT = 1e9;
+          const ar = g.zone.arena; goNear(ar.x, ar.z + 5); p.grounded = true; step(30);
+          return g.spawner.boss;
+        };
+        let b = await fresh();
+        // While a ruler is engaged, the dimension sends no more creatures into the fight.
+        g.spawner.popT = 0; step(30 * 20);
+        out.calm = g.enemies.count((e) => !e.boss && e.alive) === 0;
+        const sum = b.members.reduce((a, t) => a + t.maxHp, 0);
+        g.combat.applyRaw(b.members[0], b.members[0].maxHp * 2, 'dmg'); step(10);
+        let u = b.members.filter((x) => x.alive);
+        out.oneFell = { n: u.length, merged: !!u[0]?.merged, half: Math.abs((u[0]?.maxHp || 0) - sum * 0.5) < 2, defeated: b.defeated };
+        g.combat.applyRaw(u[0], u[0].maxHp * 2, 'dmg'); step(10);
+        out.won = b.defeated && (g.profile.inv.stacks.shard_twins || 0) > 0;
+        g.interaction.leaveRun('complete'); await new Promise((r) => setTimeout(r, 1200));
+        b = await fresh();
+        for (const t of b.members.slice()) g.combat.applyRaw(t, t.maxHp * 0.55, 'dmg');
+        step(10);
+        u = b.members.filter((x) => x.alive);
+        out.bothHalf = { n: u.length, merged: !!u[0]?.merged, defeated: b.defeated };
+        // Walk far off: the fight resets and the twins stand apart again, whole.
+        const ar = g.zone.arena;
+        for (let k = 0; k < 30 * 10; k++) { goNear(g.zone.spawn.x, g.zone.spawn.z); step(1); }
+        u = b.members.filter((x) => x.alive);
+        out.reset = { n: u.length, merged: u.some((x) => x.merged), full: u.every((x) => x.hp === x.maxHp), far: Math.hypot(g.zone.spawn.x - ar.x, g.zone.spawn.z - ar.z) > ar.r + 14 };
+        g.interaction.leaveRun('leave'); await new Promise((r) => setTimeout(r, 1200));
+        return out;`);
+      check(m.oneFell.n === 1 && m.oneFell.merged && m.oneFell.half && !m.oneFell.defeated, `siamese: when one twin falls they merge into one, at half their joined health (${JSON.stringify(m.oneFell)})`);
+      check(m.won, 'siamese: bringing down the merged form wins the fight');
+      check(m.calm, 'rulers: no creatures join while a ruler is engaged');
+      check(m.bothHalf.n === 1 && m.bothHalf.merged && !m.bothHalf.defeated, `siamese: both worn to half, they merge (${JSON.stringify(m.bothHalf)})`);
+      check(m.reset.n === 2 && !m.reset.merged && m.reset.full && m.reset.far, `siamese: a reset parts them again, whole (${JSON.stringify(m.reset)})`);
+    }
     check(!errors.length, `rulers: no errors ${errors.slice(0, 3).join(' | ')}`);
     await ctx.close();
   }

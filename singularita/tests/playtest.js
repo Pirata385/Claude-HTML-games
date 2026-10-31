@@ -1,11 +1,12 @@
 // Balance playtests: a bot plays real dimension runs in the browser and reports how they went.
-// It uses the player's own controls (move, aim, attack, skills, dodge, tonics) and reacts to the
-// warnings drawn on the ground after a human-like delay. Puzzles (levers, mirrored plates) are
+// It uses the player's own controls (move, aim, attack, skills, dodge, tonics), reacts to the
+// warnings drawn on the ground after a human-like delay, and rests between fights when hurt. Puzzles (levers, mirrored plates) are
 // solved for it; the fighting, hazards and bosses are played for real.
 // Run from the singularita folder:
 //   node tests/playtest.js [--classes=swordsman,mage] [--dims=dim_twins,dim_king] [--skill=casual|skilled]
 //                          [--offset=0] [--runs=1] [--bosses] [--out=file.json]
-// --offset adds levels above each dimension's entry level; --bosses fights only the rulers.
+// --offset adds levels above each dimension's entry level; --bosses fights only the rulers;
+// --focus keeps hitting the nearest body of a many-bodied boss instead of the healthiest.
 // Other zones (cave_3, isle_air, cave_8...) can be listed in --dims as references: the bot roams them.
 import http from 'node:http';
 import fs from 'node:fs';
@@ -27,6 +28,7 @@ const SKILL = args.skill || 'casual';
 const OFFSET = Number(args.offset || 0);
 const RUNS = Number(args.runs || 1);
 const BOSS_ONLY = !!args.bosses; // skip to each ruler's arena, with its creatures cleared
+const FOCUS = !!args.focus; // against bosses of several bodies, keep hitting the nearest instead of the healthiest
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const TYPES = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.json': 'application/json', '.webmanifest': 'application/manifest+json', '.png': 'image/png', '.svg': 'image/svg+xml' };
@@ -54,8 +56,8 @@ const HOTBAR = {
   stardust: ['sd_gravity', 'sd_sentinel', 'sd_starfall', 'sd_link'],
 };
 const SKILLS = {
-  casual: { reaction: 0.45, notice: 0.75, dodge: 0.6, proj: 0.25, tonicAt: 0.35 },
-  skilled: { reaction: 0.25, notice: 0.95, dodge: 0.9, proj: 0.6, tonicAt: 0.45 },
+  casual: { reaction: 0.45, notice: 0.75, dodge: 0.6, proj: 0.25, tonicAt: 0.35, restAt: 0.4 },
+  skilled: { reaction: 0.25, notice: 0.95, dodge: 0.9, proj: 0.6, tonicAt: 0.45, restAt: 0.6 },
 };
 
 // ---------------------------------------------------------------------------------------- the bot
@@ -254,15 +256,17 @@ function installBot({ hotbars, skill }) {
     const boss = bossMembers().filter((m) => m.engaged || Math.hypot(m.x - p.x, m.z - p.z) < 16);
     if (boss.length) {
       if (near && nd < (melee ? 2.6 : 4)) return near;
+      const byDist = (a, b) => Math.hypot(a.x - p.x, a.z - p.z) - Math.hypot(b.x - p.x, b.z - p.z);
+      if (skill.focus) return boss.sort(byDist)[0];
       // Keep twin halves even: hit the healthier one.
-      return boss.sort((a, b) => b.hp / b.maxHp - a.hp / a.maxHp || Math.hypot(a.x - p.x, a.z - p.z) - Math.hypot(b.x - p.x, b.z - p.z))[0];
+      return boss.sort((a, b) => b.hp / b.maxHp - a.hp / a.maxHp || byDist(a, b))[0];
     }
     if (near && (nd < range || (near.hitT < 2 && nd < range + 6))) return near;
     return null;
   }
 
   // ------------------------------------------------------------------ one frame of play
-  const S = { archT: 0, castT: 0, strafe: 1, strafeT: 0, stuckT: 0, sx: 0, sz: 0, jumpT: 0, kick: null, kickT: 0, readT: 0, lastTonic: -9 };
+  const S = { resting: false, archT: 0, castT: 0, strafe: 1, strafeT: 0, stuckT: 0, sx: 0, sz: 0, jumpT: 0, kick: null, kickT: 0, readT: 0, lastTonic: -9 };
   const down = new Set();
   function setKeys(want) {
     const inp = g.input;
@@ -285,6 +289,8 @@ function installBot({ hotbars, skill }) {
       if (p.hp < g.stats.maxHp * skill.tonicAt && g.consumableCd <= 0 && g.bestTonic() && g.time - S.lastTonic > 1) { want.add('tonic'); S.lastTonic = g.time; M.tonics++; }
       // Keep the Astral out.
       if (cls === 'stardust' && g.astral && !g.astral.manifested && p.res > 40 && Math.floor(g.time * 2) % 2 === 0 && !down.has('alt')) want.add('alt');
+      // Hurt and with nothing near: stop and let health come back, as a player would.
+      if (!target && !bossMembers().some((m) => m.engaged) && p.hp < g.stats.maxHp * skill.restAt) S.resting = true;
       const dz = danger();
       if (dz) {
         move = freeDir(dz);
@@ -292,8 +298,13 @@ function installBot({ hotbars, skill }) {
       } else if (cls === 'mage' && p.res < 18 && (!target || Math.hypot(target.x - p.x, target.z - p.z) > 7)) {
         want.add('alt'); // channel mana, standing still
       } else if (p.corruption > 65 && g.zone.braziers?.length) {
-        const b = g.zone.braziers.slice().sort((a, c) => Math.hypot(a.x - p.x, a.z - p.z) - Math.hypot(c.x - p.x, c.z - p.z))[0];
+        // The brazier that costs the least detour on the way to where we are going.
+        const gx = goal?.x ?? p.x, gz = goal?.z ?? p.z, cost = (b) => Math.hypot(b.x - p.x, b.z - p.z) + Math.hypot(gx - b.x, gz - b.z);
+        const b = g.zone.braziers.slice().sort((a, c) => cost(a) - cost(c))[0];
         if (Math.hypot(b.x - p.x, b.z - p.z) > 1.5) move = towards(b.x, b.z);
+      } else if (S.resting && !target) {
+        // Catching our breath: out of combat, health comes back quickly.
+        if (p.hp > g.stats.maxHp * 0.9) S.resting = false;
       } else if (target) {
         const d = Math.hypot(target.x - p.x, target.z - p.z);
         const want0 = melee ? target.radius + p.radius + REACH[cls] : RANGE[cls];
@@ -399,7 +410,7 @@ async function newPage(cls) {
   page.on('console', (m) => { if (m.type() === 'error') errors.push(m.text()); });
   await page.goto(`${BASE}/singularita/index.html?quickstart=${cls}&debug`);
   await page.waitForFunction(() => window.__SG && window.__SG.zone && document.getElementById('loading').hidden, null, { timeout: 60000 });
-  await page.evaluate(installBot, { hotbars: HOTBAR, skill: SKILLS[SKILL] });
+  await page.evaluate(installBot, { hotbars: HOTBAR, skill: { ...SKILLS[SKILL], focus: FOCUS } });
   return { ctx, page, errors };
 }
 

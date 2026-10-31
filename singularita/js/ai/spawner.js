@@ -146,7 +146,9 @@ export class Spawner {
   updateCave(dt) {
     const g = this.g;
     this.popT -= dt;
-    if (this.popT <= 0) {
+    // A dimension holds its creatures back while its ruler is fighting you.
+    const ruling = g.zone.type === 'dimension' && this.boss?.engaged && !this.boss.defeated;
+    if (this.popT <= 0 && !ruling) {
       this.popT = WAVES.cave.respawnDelay;
       if (g.enemies.count() < this.population()) this.spawnCave();
     }

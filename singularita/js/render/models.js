@@ -168,10 +168,13 @@ export function buildJailerRig() {
   return new RigMesh(rig);
 }
 
+// element: 'fire' or 'ice' for a twin; 'united' for the two merged, crowned with both gems.
 export function buildSiameseRig(element) {
-  const color = element === 'fire' ? '#ff7a5a' : '#7ab8ff';
+  const color = { fire: '#ff7a5a', ice: '#7ab8ff', united: '#c890e0' }[element];
   const rig = RIGS.slime();
-  rig.parts.push({ name: 'crown', parent: 0, pivot: [0, 0.92, 0], boxes: [B(0, 0.1, 0, 0.62, 0.2, 0.62, '#ffcf3a'), B(element === 'fire' ? 0.24 : -0.24, 0.32, 0, 0.14, 0.3, 0.14, element === 'fire' ? '#ff4a3a' : '#9fe0ff'), B(0, 0.3, 0.24, 0.12, 0.26, 0.12, '#ffcf3a')] });
+  const gems = element === 'united' ? [B(0.24, 0.32, 0, 0.14, 0.3, 0.14, '#ff4a3a'), B(-0.24, 0.32, 0, 0.14, 0.3, 0.14, '#9fe0ff')]
+    : [B(element === 'fire' ? 0.24 : -0.24, 0.32, 0, 0.14, 0.3, 0.14, element === 'fire' ? '#ff4a3a' : '#9fe0ff')];
+  rig.parts.push({ name: 'crown', parent: 0, pivot: [0, 0.92, 0], boxes: [B(0, 0.1, 0, 0.62, 0.2, 0.62, '#ffcf3a'), ...gems, B(0, 0.3, 0.24, 0.12, 0.26, 0.12, '#ffcf3a')] });
   return new RigMesh(rig, { tints: { a: color } });
 }
 

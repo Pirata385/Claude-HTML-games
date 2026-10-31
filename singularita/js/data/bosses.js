@@ -139,13 +139,13 @@ export const BOSSES = {
   siamese: {
     id: 'siamese', name: 'The Siamese', title: 'Twin Monarchs of the Gel', zone: 'dim_twins', arena: 'throne', minLevel: 110,
     hp: 1050, dmg: 27, levelOffset: 2, color: '#ff8ab0', model: 'siamese', members: 2,
-    intro: '“We were one prince once.” “We were never one prince.” “Strike us evenly, little one, or we will argue about it forever.”',
+    intro: '“We were one prince once.” “We were never one prince.” “Wear us down, little one, and see what we become.”',
     defeat: '“Together, then.” “Together, at last.”',
-    lore: 'The Slime Prince of Dawnreach had a twin, they say, who melted into the Fracture the night it opened. What came out the other side was two monarchs who share one body and agree on nothing but that you should not be here.',
+    lore: 'The Slime Prince of Dawnreach had a twin, they say, who melted into the Fracture the night it opened. What came out the other side was two monarchs who agree on nothing but that you should not be here, and who remember, when it matters, that they were once one.',
     phases: [
-      { at: 1.0, name: 'Conjoined', desc: 'Fire and ice share one life. Hurt one side much more than the other and the other heals it: keep them even.' },
-      { at: 0.6, name: 'Severed', desc: 'They tear apart and circle you. Each one leaves a trail of its own element.' },
-      { at: 0.3, name: 'Reunion', desc: 'They fuse again and swap elements on every slam.' },
+      { at: 1.0, name: 'Twin Monarchs', desc: 'Fire and ice fight side by side, each with its own life. They slam, spill their element and lob gel at anyone who keeps away.' },
+      { at: 1.0, name: 'United', desc: 'When one falls, or both are worn to half, they merge for good: one slime of fire and ice that swaps elements on every slam. Bring it down to win.' },
+      { at: 0.4, name: 'Boiling Point', desc: 'The united slime boils over: quicker slams that leave fire and ice all around it.' },
     ],
     rewards: [
       { material: 'shard_twins', min: 1, max: 1, chance: 1, once: true },

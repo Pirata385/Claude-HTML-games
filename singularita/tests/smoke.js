@@ -538,6 +538,11 @@ try {
       out.unlocked = g.zone.exit.locked === false;
       g.interaction.descend(); await new Promise((r) => setTimeout(r, 1200)); step(3);
       out.floor2 = g.profile.run?.floor === 2 && g.zone.floor === 2;
+      // A floor's creatures are finite: once its reserve is spent, it falls quiet.
+      let spawned = 0; const off = g.bus.on('spawned', ({ enemy }) => { if (enemy.ambient) spawned++; });
+      for (let k = 0; k < 40; k++) { for (const e of g.enemies.list) if (e.alive && !e.boss && !e.def.keyCarrier) g.combat.applyRaw(e, e.maxHp * 2, 'dmg'); step(30 * 10); }
+      out.quiet = g.enemies.count((e) => e.alive && e.ambient) === 0;
+      out.spawned = spawned; off?.();
       // Leaving by the stair banks the run and brings you home.
       g.zone.exit.locked = false;
       g.interaction.leaveRun('leave'); await new Promise((r) => setTimeout(r, 1200)); step(3);
@@ -547,6 +552,7 @@ try {
     check(r.portal && r.emblemUsed, 'an emblem opens a portal and is used up');
     check(r.inDungeon && r.stairLocked && r.warden, 'the portal starts a run in the Endless Dungeon, stair locked, Warden waiting');
     check(r.unlocked && r.floor2, 'the Warden\'s key opens the stair to floor 2');
+    check(r.quiet && r.spawned > 5, `a floor's creatures run out once its reserve is spent (${r.spawned} came)`);
     check(r.home && r.best === 2, `leaving brings you home and keeps the best floor (${r.best})`);
     for (const dim of ['dim_twins', 'dim_king', 'dim_mirror', 'dim_dragons']) {
       const d = await sim(page, `

@@ -28,7 +28,7 @@ export class Spawner {
     this.g = game;
     this.horde = new Horde(WAVES.island, game.rng);
     this.bossClock = new BossClock(WAVES.island, game.rng, game.profile.world.bossTimer);
-    this.popT = 0; this.tremorT = 150; this.stalT = 3;
+    this.popT = 0; this.tremorT = 150; this.stalT = 3; this.reserve = Infinity;
     this.boss = null; // active scheduled boss group
     game.bus.on('phase', () => this.onPhase());
     game.bus.on('gathered', (e) => this.onGathered(e));
@@ -51,6 +51,9 @@ export class Spawner {
     }
     if (g.zone.type === 'isle') this.spawnGuardian();
     if (g.zone.type === 'dimension') this.spawnDimension();
+    // A run's creatures are finite: each dimension (each floor of the gaol) holds a reserve, then falls quiet.
+    const dw = WAVES.dimension;
+    this.reserve = g.zone.type === 'dimension' ? Math.round(this.population() * (g.zoneDef.rule === 'keys' ? dw.floorReserve : dw.reserve)) : Infinity;
   }
   onZoneExit() {}
 
@@ -148,9 +151,9 @@ export class Spawner {
     this.popT -= dt;
     // A dimension holds its creatures back while its ruler is fighting you.
     const ruling = g.zone.type === 'dimension' && this.boss?.engaged && !this.boss.defeated;
-    if (this.popT <= 0 && !ruling) {
+    if (this.popT <= 0 && !ruling && this.reserve > 0) {
       this.popT = WAVES.cave.respawnDelay;
-      if (g.enemies.count() < this.population()) this.spawnCave();
+      if (g.enemies.count() < this.population() && this.spawnCave()) this.reserve--;
     }
     const def = g.zoneDef, layer = g.zone.layer || 0;
     // Tremors from the fourth layer down.

@@ -27,6 +27,11 @@ export const WAVES = {
     elite: { base: 0.08, perLayer: 0, max: 0.3 },
     respawnDelay: 5,
   },
+  dimension: {
+    // Beyond the first creatures, how many more a run sends, as a share of its population.
+    // The Endless Dungeon counts per floor.
+    reserve: 3, floorReserve: 1.5,
+  },
   cave: {
     // Caves keep a living population instead of horns and waves; deeper layers add tremors.
     tremor: { fromLayer: 4, every: [120, 220], size: [4, 7] },

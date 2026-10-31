@@ -146,6 +146,22 @@ footer { text-align: center; color: var(--muted); font-weight: 500; font-size: 0
       palette: ['#0d1020', '#2b2350', '#4caf6a', '#8a5a3a', '#c48cff'],
       scene: 'singularita',
     },
+    {
+      path: 'pulso-daw/index.html',
+      title: 'Pulso — Estúdio Musical',
+      desc: 'A full music studio in the browser: drum step grid, piano roll, synths with 12 presets, a sampler with mic recording, multiple tracks, mixer, reverb, delay, EQ and compressor, plus WAV and MIDI export. In Portuguese, mouse, keyboard, MIDI and touch.',
+      tags: ['music', 'DAW', 'synth', 'tool', 'mobile'],
+      palette: ['#0d0f13', '#1d2129', '#ff7a45', '#5ad1ff', '#ffd23f'],
+      scene: 'daw',
+    },
+    {
+      path: 'hexel/index.html',
+      title: 'Hexel — Pixels em Hexágonos',
+      desc: 'Turn any photo into hexagons: 10 styles (cubes, gems, beads, halftone…), palettes with dithering, colour controls, presets, before/after comparison and PNG, JPG, WebP or SVG export. Runs locally, in Portuguese, on desktop and mobile.',
+      tags: ['image', 'hexagons', 'tool', 'SVG', 'mobile'],
+      palette: ['#121419', '#ffb020', '#43d1c1', '#7b2f7d', '#f0675a'],
+      scene: 'hex',
+    },
   ];
   // Animation registry: entries for the "Animações" tab (folders under animacoes/).
   const ANIMATIONS = [
@@ -392,6 +408,20 @@ footer { text-align: center; color: var(--muted); font-weight: 500; font-size: 0
       ctx.fillStyle = P[2]; ctx.fillRect(40, 17, 2, 1); ctx.fillRect(42, 16, 1, 1); ctx.fillRect(43, 17, 2, 1); ctx.fillRect(45, 15, 1, 2);
       ctx.fillStyle = P[3]; ctx.fillRect(51, 17, 2, 1); ctx.fillRect(49, 18, 2, 1); ctx.fillRect(56, 19, 1, 3); ctx.fillRect(55, 20, 1, 1);
       ctx.fillStyle = '#fff'; ctx.fillRect(47, 15, 1, 4); ctx.fillRect(46, 16, 3, 2);
+    } else if (g.scene === 'daw') {
+      ctx.fillStyle = P[0]; ctx.fillRect(0, 0, W, H);
+      for (let y = 0; y < H; y += 3) { const k = y / 3 % 12; ctx.fillStyle = [1, 3, 6, 8, 10].includes(k) ? '#14171c' : P[1]; ctx.fillRect(10, y, W - 10, 2); ctx.fillStyle = [1, 3, 6, 8, 10].includes(k) ? '#222' : '#d9dde6'; ctx.fillRect(0, y, 8, 2); }
+      const notes = [[12, 24, 10], [24, 18, 6], [32, 21, 8], [42, 15, 12], [56, 24, 6], [64, 12, 10], [76, 18, 14]];
+      for (const [x, y, w] of notes) { ctx.fillStyle = P[2]; ctx.fillRect(x, y, w, 2); }
+      for (let i = 0; i < 5; i++) { ctx.fillStyle = P[3]; ctx.fillRect(12 + i * 16, 33, 3, 4); ctx.fillStyle = P[4]; ctx.fillRect(20 + i * 16, 35, 3, 2); }
+      ctx.fillStyle = '#fff'; ctx.fillRect(50, 0, 1, H);
+    } else if (g.scene === 'hex') {
+      ctx.fillStyle = P[0]; ctx.fillRect(0, 0, W, H);
+      const hexPx = (cx, cy, c) => { ctx.fillStyle = c; ctx.fillRect(cx - 1, cy - 3, 3, 1); ctx.fillRect(cx - 2, cy - 2, 5, 4); ctx.fillRect(cx - 1, cy + 2, 3, 1); };
+      for (let r = 0; r < 8; r++) for (let q = 0; q < 17; q++) {
+        const cx = 3 + q * 6 + (r % 2) * 3, cy = 3 + r * 5, d = Math.hypot(cx - 60, cy - 20);
+        hexPx(cx, cy, d < 8 ? '#fff3c4' : d < 14 ? P[1] : cy > 28 ? (q % 3 ? '#2a3a7a' : P[2]) : cy > 22 ? P[4] : P[3]);
+      }
     } else if (g.scene === 'fridge') {
       ctx.fillStyle = P[0]; ctx.fillRect(0, 0, W, H);
       ctx.fillStyle = '#efd59c'; for (let x = 0; x < W; x += 6) ctx.fillRect(x, 0, 2, 32);

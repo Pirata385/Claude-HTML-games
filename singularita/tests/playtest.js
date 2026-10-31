@@ -283,7 +283,8 @@ function installBot({ hotbars, skill }) {
     const hp0 = p.hp;
     if (p.alive && !g.inputBlocked) {
       const melee = !!REACH[cls];
-      const target = pickTarget(melee ? 9 : 12);
+      // Just hit by something: look further for whoever did it.
+      const target = pickTarget((melee ? 9 : 12) + (S.alertT > 0 ? 8 : 0));
       if (target) { g.lockTarget = target; } else g.lockTarget = null;
       // Heal.
       if (p.hp < g.stats.maxHp * skill.tonicAt && g.consumableCd <= 0 && g.bestTonic() && g.time - S.lastTonic > 1) { want.add('tonic'); S.lastTonic = g.time; M.tonics++; }
@@ -352,6 +353,8 @@ function installBot({ hotbars, skill }) {
     hurtThisFrame = 0;
     g.update(1 / 30);
     inp.endFrame();
+    S.alertT = Math.max(0, (S.alertT || 0) - 1 / 30);
+    if (hurtThisFrame > 0) { S.alertT = 3; S.resting = false; }
     const lost = hp0 - p.hp - hurtThisFrame;
     if (lost > 0.5 && p.alive) M.taken.other += lost; // burns, poison and other lingering harm
     M.t += 1 / 30;

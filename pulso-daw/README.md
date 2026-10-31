@@ -21,6 +21,7 @@ A complete music studio (DAW) that runs in one self-contained `index.html`, with
   - **Export WAV**: an offline render of 1–8 loops, including effect tails.
   - **Export MIDI**: one track per instrument, with drums on channel 10 using General MIDI notes.
 - A demo song is loaded on first visit.
+- **Audio status button (🔊/🔇)** in the top bar. It turns red when the browser has blocked or paused audio; tap it to re-enable sound and hear a test beep. On iPhone/iPad the app uses the "playback" audio session, so sound plays even with the silent switch on.
 - Works with mouse, keyboard and touch. The layout adapts from wide desktop screens down to phones.
 
 ## Shortcuts

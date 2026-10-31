@@ -96,6 +96,14 @@ What the player meets on Dawnreach comes from that story:
   - **Singularita:** pieces carry `memory: 2` and `collapse`. `systems/memory.js` adds the two remembered traits' modifiers for the piece's slot when stats are computed. Choices are stored per item in the save and are only changed at the Forge.
   - **Collapse:** every 12 hits (8 with a full set) a pull and a burst.
 
+## Patches after Milestone 3
+
+- **Melee trails** (`fx.slash`): the arc is laid flat facing +Z, the way a yaw of 0 faces, so trails show on the side the blow lands.
+- **Night lights:** `nightGlow(sun)` (0 by day, 1 at night) drives the player's lantern on Dawnreach and two lights that follow the nearest bosses.
+- **Cave perception** (`ai/perception.js`, `WAVES.cave.sight`): cave creatures notice the player in a 120° cone up to 13 cells with line of sight, within 3 cells, or when struck. They forget after 6 s out of sight beyond 26 cells. Unaware creatures look about and stroll. Caves hold 6–8 creatures and refill every 12 s.
+- **The Astral** breaks after `astralHits(spi)` blows (4 + SPI/12, up to 20), whatever their damage. Ground zones and `hazard` hits pass through it. Its model is a stand whose arms pivot at the shoulders for punches.
+- **The Mage** is crowd control: bursting bolts, knock-back, freezes, stuns, a blink with sure evasion, a barrier that shatters into frost, and the Arcane Lance (single target, 10× a bolt). Save version 2 swaps Meteor for the Lance on hotbars.
+
 ## Balance
 
 The numbers are held by unit tests in `tests/systems.test.js` and checked in play with the bot in `tests/playtest.js` (`npm run playtest`).

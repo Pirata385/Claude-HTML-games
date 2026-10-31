@@ -25,6 +25,9 @@ export class Renderer {
     this.scene.add(this.sun, this.sun.target);
     this.playerLight = new THREE.PointLight(0xffd8a0, 0, 16, 1.6);
     this.scene.add(this.playerLight);
+    // Lights that follow the nearest bosses at night. Always in the scene (dark by day), so turning
+    // them on never recompiles the materials.
+    this.bossLights = [0, 1].map(() => { const l = new THREE.PointLight(0xffffff, 0, 18, 1.4); this.scene.add(l); return l; });
 
     this.scale = 1;
     this.dynScale = 1;

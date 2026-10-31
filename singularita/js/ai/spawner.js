@@ -152,7 +152,7 @@ export class Spawner {
     // A dimension holds its creatures back while its ruler is fighting you.
     const ruling = g.zone.type === 'dimension' && this.boss?.engaged && !this.boss.defeated;
     if (this.popT <= 0 && !ruling && this.reserve > 0) {
-      this.popT = WAVES.cave.respawnDelay;
+      this.popT = g.zone.type === 'dimension' ? WAVES.dimension.respawnDelay : WAVES.cave.respawnDelay;
       if (g.enemies.count() < this.population() && this.spawnCave()) this.reserve--;
     }
     const def = g.zoneDef, layer = g.zone.layer || 0;

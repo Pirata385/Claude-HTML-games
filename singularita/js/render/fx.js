@@ -92,7 +92,8 @@ export class FX {
     const key = Math.round(arcDeg);
     if (!this.arcGeos.has(key)) {
       const a = (arcDeg * Math.PI) / 180;
-      const g = new THREE.RingGeometry(0.55, 1, 24, 1, Math.PI / 2 - a / 2, a).rotateX(-Math.PI / 2);
+      // The arc is centred on +Y in its own plane; laid flat it must point to +Z, the way a yaw of 0 faces.
+      const g = new THREE.RingGeometry(0.55, 1, 24, 1, Math.PI / 2 - a / 2, a).rotateX(Math.PI / 2);
       this.arcGeos.set(key, g);
     }
     const d = this.decal({ shape: 'circle', x, z, y, r: range, t: life, fill: false, color, alpha: 0.85 });

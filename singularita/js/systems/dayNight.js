@@ -11,3 +11,9 @@ export class DayNight {
   // Seconds left in the current phase.
   get remaining() { return this.phase === 'day' ? this.dayLen - this.clock : this.len - this.clock; }
 }
+
+// How much a lantern is needed, from the sun's height: 0 by day, rising through dusk, 1 at night.
+export function nightGlow(sun) {
+  const t = Math.min(1, Math.max(0, (0.15 - sun) / 0.4));
+  return t * t * (3 - 2 * t);
+}

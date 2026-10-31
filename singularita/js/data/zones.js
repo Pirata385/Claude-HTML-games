@@ -19,7 +19,7 @@ export const ZONES = {
     palette: { sand: '#e8d49a', grass: '#62b85a', forest: '#3f8f4a', rock: '#8c8f96', path: '#b89a6a', dirt: '#8a5a3a', base: '#a08a6a', snow: '#e8eef2' },
   },
   cave_1: cave(1, {
-    name: 'The Rootways', subtitle: 'Hollow Deep — Layer 1', levelReq: 1, band: [2, 8], population: 9,
+    name: 'The Rootways', subtitle: 'Hollow Deep — Layer 1', levelReq: 1, band: [2, 8], population: 6,
     gen: { size: 112, fill: 0.46, steps: 5, wallHeight: 3 },
     nodes: [{ node: 'ore_stone', w: 50 }, { node: 'ore_copper', w: 25 }, { node: 'ore_gold', w: 12 }],
     enemies: [{ id: 'cave_bat', w: 5 }, { id: 'rock_crab', w: 3 }, { id: 'glow_beetle', w: 3 }],
@@ -27,7 +27,7 @@ export const ZONES = {
     palette: { floor: '#4a4038', wall: '#5c5048', accent: '#3fe0c0', fog: '#0f1a1a', ambient: 0.55, light: '#9ff0e0', glow: 'glowcap' },
   }),
   cave_2: cave(2, {
-    name: 'The Copper Galleries', subtitle: 'Hollow Deep — Layer 2', levelReq: 8, band: [8, 15], population: 10,
+    name: 'The Copper Galleries', subtitle: 'Hollow Deep — Layer 2', levelReq: 8, band: [8, 15], population: 7,
     gen: { size: 116, fill: 0.47, steps: 5, wallHeight: 3 },
     nodes: [{ node: 'ore_stone', w: 30 }, { node: 'ore_copper', w: 25 }, { node: 'ore_gold', w: 15 }, { node: 'ore_iron', w: 25 }],
     enemies: [{ id: 'cave_bat', w: 4 }, { id: 'rock_crab', w: 3 }, { id: 'glow_beetle', w: 3 }, { id: 'echo_miner', w: 2 }],
@@ -35,7 +35,7 @@ export const ZONES = {
     palette: { floor: '#4f3e32', wall: '#6a4a36', accent: '#ff9a50', fog: '#1a120c', ambient: 0.5, light: '#ffc08a', glow: 'lantern' },
   }),
   cave_3: cave(3, {
-    name: 'The Dawnforger Ironworks', subtitle: 'Hollow Deep — Layer 3', levelReq: 15, band: [15, 24], population: 11,
+    name: 'The Dawnforger Ironworks', subtitle: 'Hollow Deep — Layer 3', levelReq: 15, band: [15, 24], population: 7,
     gen: { size: 120, fill: 0.45, steps: 4, wallHeight: 3, rails: true },
     nodes: [{ node: 'ore_stone', w: 20 }, { node: 'ore_iron', w: 35 }, { node: 'ore_lead', w: 18 }, { node: 'ore_titanium', w: 18 }],
     enemies: [{ id: 'echo_miner', w: 5 }, { id: 'rock_crab', w: 3 }, { id: 'cave_bat', w: 3 }, { id: 'glow_beetle', w: 2 }],
@@ -43,7 +43,7 @@ export const ZONES = {
     palette: { floor: '#3e3a38', wall: '#55504a', accent: '#ffb347', fog: '#141210', ambient: 0.48, light: '#ffd08a', glow: 'forge' },
   }),
   cave_4: cave(4, {
-    name: 'The Whispering Depths', subtitle: 'Hollow Deep — Layer 4', levelReq: 24, band: [24, 34], population: 12,
+    name: 'The Whispering Depths', subtitle: 'Hollow Deep — Layer 4', levelReq: 24, band: [24, 34], population: 8,
     gen: { size: 124, fill: 0.48, steps: 5, wallHeight: 3 },
     nodes: [{ node: 'ore_stone', w: 15 }, { node: 'ore_lead', w: 25 }, { node: 'ore_titanium', w: 25 }, { node: 'ore_emerald', w: 20 }],
     enemies: [{ id: 'crystal_crawler', w: 5 }, { id: 'burrower', w: 3 }, { id: 'spore_puff', w: 3 }, { id: 'echo_miner', w: 2 }],
@@ -52,7 +52,7 @@ export const ZONES = {
     palette: { floor: '#2e3a34', wall: '#3e4a42', accent: '#b98cff', fog: '#0c1410', ambient: 0.4, light: '#c9a0ff', glow: 'fungus' },
   }),
   cave_5: cave(5, {
-    name: 'The Ember & Rime Rifts', subtitle: 'Hollow Deep — Layer 5', levelReq: 34, band: [34, 46], population: 12,
+    name: 'The Ember & Rime Rifts', subtitle: 'Hollow Deep — Layer 5', levelReq: 34, band: [34, 46], population: 8,
     gen: { size: 128, fill: 0.46, steps: 5, wallHeight: 3, split: true },
     nodes: [{ node: 'ore_stone', w: 15 }, { node: 'ore_emerald', w: 25 }, { node: 'ore_ruby', w: 22, side: 'hot' }, { node: 'ore_sapphire', w: 22, side: 'cold' }],
     enemies: [{ id: 'magma_slug', w: 4, side: 'hot' }, { id: 'rime_wraith', w: 4, side: 'cold' }, { id: 'crystal_crawler', w: 3 }, { id: 'burrower', w: 2 }],
@@ -61,7 +61,7 @@ export const ZONES = {
     palette: { floor: '#3a2c2c', wall: '#4a3838', accent: '#ff6a2a', accent2: '#7fc8ff', fog: '#160c0c', ambient: 0.45, light: '#ffb080', glow: 'rift' },
   }),
   cave_6: cave(6, {
-    name: 'The Prism Caverns', subtitle: 'Hollow Deep — Layer 6', levelReq: 46, band: [46, 58], population: 12,
+    name: 'The Prism Caverns', subtitle: 'Hollow Deep — Layer 6', levelReq: 46, band: [46, 58], population: 8,
     gen: { size: 128, fill: 0.47, steps: 5, wallHeight: 3 },
     nodes: [{ node: 'ore_stone', w: 15 }, { node: 'ore_emerald', w: 10 }, { node: 'ore_ruby', w: 18 }, { node: 'ore_sapphire', w: 18 }, { node: 'ore_diamond', w: 15 }],
     enemies: [{ id: 'gem_golem', w: 3 }, { id: 'lurker', w: 3 }, { id: 'crystal_crawler', w: 3 }, { id: 'rime_wraith', w: 2 }],
@@ -70,7 +70,7 @@ export const ZONES = {
     palette: { floor: '#2a2638', wall: '#3a3450', accent: '#e8d2ff', fog: '#0e0c18', ambient: 0.42, light: '#e0c8ff', glow: 'crystal' },
   }),
   cave_7: cave(7, {
-    name: 'The Diamond Throat', subtitle: 'Hollow Deep — Layer 7', levelReq: 58, band: [58, 75], population: 13,
+    name: 'The Diamond Throat', subtitle: 'Hollow Deep — Layer 7', levelReq: 58, band: [58, 75], population: 8,
     gen: { size: 132, fill: 0.48, steps: 5, wallHeight: 3, gate: true },
     nodes: [{ node: 'ore_stone', w: 10 }, { node: 'ore_ruby', w: 10 }, { node: 'ore_sapphire', w: 10 }, { node: 'ore_diamond', w: 30 }],
     enemies: [{ id: 'gem_golem', w: 3 }, { id: 'lurker', w: 4 }, { id: 'magma_slug', w: 2 }, { id: 'rime_wraith', w: 2 }],
@@ -82,7 +82,7 @@ export const ZONES = {
 
 // The Dawn and Dusk Hollows: the first chamber beyond the Sealed Core Gate.
 ZONES.cave_8 = cave(8, {
-  name: 'The Dawn and Dusk Hollows', subtitle: 'Beyond the Sealed Core Gate', levelReq: 100, band: [100, 125], population: 12,
+  name: 'The Dawn and Dusk Hollows', subtitle: 'Beyond the Sealed Core Gate', levelReq: 100, band: [100, 125], population: 8,
   requires: ['sigil_wind', 'sigil_tide', 'sigil_flame', 'sigil_stone'],
   gen: { size: 128, fill: 0.46, steps: 5, wallHeight: 3, split: true, sides: ['dawn', 'dusk'], heart: true },
   nodes: [{ node: 'ore_stone', w: 10 }, { node: 'ore_diamond', w: 12 }, { node: 'ore_dawndosite', w: 30, side: 'dawn' }, { node: 'ore_escuresite', w: 30, side: 'dusk' }],
@@ -186,7 +186,7 @@ ZONES.dim_dragons = dim('dragons', {
 });
 
 ZONES.cave_9 = cave(9, {
-  name: 'The Singular Heart', subtitle: 'Beyond the Heart Seal', levelReq: 200, band: [200, 220], population: 10, elite: 0.12,
+  name: 'The Singular Heart', subtitle: 'Beyond the Heart Seal', levelReq: 200, band: [200, 220], population: 8, elite: 0.12,
   requires: ['shard_gaol', 'shard_twins', 'shard_crown', 'shard_mirror', 'shard_dragon'],
   gen: { size: 112, fill: 0.45, steps: 5, wallHeight: 3, core: true },
   nodes: [{ node: 'ore_singularita', w: 12 }, { node: 'ore_chromantite', w: 10 }, { node: 'ore_diamond', w: 6 }],

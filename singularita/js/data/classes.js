@@ -24,8 +24,8 @@ export const CLASSES = {
   },
   mage: {
     id: 'mage', name: 'Mage', color: '#6f8dff',
-    tagline: 'Elements, area control and combos.',
-    desc: 'Shapes fire, frost and lightning. Elements combine: chill and shock shatter, burn and chill raise blinding steam. Spells take a moment to cast, mana runs dry and robes stop little.',
+    tagline: 'Crowd control: elements that pin whole packs, and one devastating lance.',
+    desc: 'Bursting bolts, flame that throws foes back, frost that freezes a whole pack and lightning that stuns it. A barrier keeps the Mage alive and shatters into ice; the Arcane Lance ends one foe. Spells take a moment to cast, mana runs dry and robes stop little.',
     resource: { id: 'mana', name: 'Mana', color: '#6fa8ff', max: 120, regen: 9 },
     hp: 85, hpPerLevel: 10, baseDef: 1, moveSpeed: 5.2,
     scaling: { int: 1.0, spi: 0.25 }, growth: ['int', 'rsv'],
@@ -45,7 +45,7 @@ export const CLASSES = {
   stardust: {
     id: 'stardust', name: 'Stardust', color: '#b07bff',
     tagline: 'Manifest your Astral and fight beside it.',
-    desc: 'A Starbearer who calls down their Astral, a constellation spirit unique to them. The Astral fights within a leash, guards, pulls foes together and can be posted as a sentinel. Manifesting drains Spirit, and wounds dealt to the Astral echo back to its bearer.',
+    desc: 'A Starbearer who calls down their Astral, a stand of starlight unique to them. The Astral fights within a leash, guards, pulls foes together and can be posted as a sentinel. It breaks after a number of blows that grows with Spirituality (up to 20), and puddles on the ground pass through it. Manifesting drains Spirit, and wounds dealt to the Astral echo back to its bearer.',
     resource: { id: 'spirit', name: 'Spirit', color: '#c48cff', max: 100, regen: 14, drain: 5 },
     hp: 100, hpPerLevel: 12, baseDef: 3, moveSpeed: 5.4,
     scaling: { spi: 1.0, int: 0.2 }, growth: ['spi', 'res'],

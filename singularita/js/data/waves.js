@@ -31,11 +31,14 @@ export const WAVES = {
     // Beyond the first creatures, how many more a run sends, as a share of its population.
     // The Endless Dungeon counts per floor.
     reserve: 3, floorReserve: 1.5,
+    respawnDelay: 6,
   },
   cave: {
-    // Caves keep a living population instead of horns and waves; deeper layers add tremors.
-    tremor: { fromLayer: 4, every: [120, 220], size: [4, 7] },
+    // Caves keep a small living population instead of horns and waves; deeper layers add tremors.
+    tremor: { fromLayer: 4, every: [150, 260], size: [2, 4] },
     elite: { base: 0.05, perLayer: 0.025, max: 0.3 },
-    respawnDelay: 6,
+    respawnDelay: 12,
+    // Cave creatures only come for you once they notice you (ai/perception.js).
+    sight: { range: 13, cone: 0.5, hearing: 3, forgetDist: 26, forgetAfter: 6 },
   },
 };

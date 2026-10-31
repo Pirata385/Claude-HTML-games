@@ -10,6 +10,9 @@ import { killXp } from '../systems/progression.js';
 import { addStack } from '../systems/inventory.js';
 import { MATERIALS } from '../data/materials.js';
 import { F } from '../world/grid.js';
+import { WAVES } from '../data/waves.js';
+import { notices, forgets } from './perception.js';
+import { angleDiff } from '../core/math.js';
 
 const ACTIVE = 55, REDUCED = 95;
 const RIG_OF = (def) => (def.model === 'zombie' && def.helmet ? 'zombieHelmet' : def.model);
@@ -65,6 +68,30 @@ export class Enemies {
 
   addBoss(b) { this.list.push(b); return b; }
 
+  // Cave creatures: notice by sight, hearing or a blow; forget you when you are long gone.
+  perceive(e, target, c, step) {
+    const g = this.g, SIGHT = WAVES.cave.sight;
+    if (target && !e.aware && notices(e, target, c.los, SIGHT)) {
+      e.aware = true; e.unseenT = 0;
+      g.overlay.text(e.x, e.ry + e.height * e.scale + 0.5, e.z, '!', 'status');
+    } else if (target && e.aware) {
+      e.unseenT = c.los && c.dist <= SIGHT.range ? 0 : (e.unseenT || 0) + step;
+      if (forgets(c.dist, e.unseenT, SIGHT)) { e.aware = false; e.aggro = false; }
+    }
+    if (e.aware && target) return target;
+    // Unaware: it turns its head now and then, and takes a few steps.
+    const a = e.ai;
+    a.idleT = (a.idleT ?? g.rng.range(1, 4)) - step;
+    if (a.idleT <= 0) { a.idleT = g.rng.range(2.5, 6); a.lookYaw = e.yaw + g.rng.range(-2, 2); a.strollT = g.rng.chance(0.4) ? g.rng.range(0.8, 1.8) : 0; }
+    if (a.lookYaw != null) e.yaw += angleDiff(e.yaw, a.lookYaw) * Math.min(1, step * 2);
+    if (a.strollT > 0 && e.speed > 0) {
+      a.strollT -= step;
+      moveCircle(this.ctx.grid, e, Math.sin(e.yaw) * e.speed * 0.35 * step, Math.cos(e.yaw) * e.speed * 0.35 * step, e.radius * 0.8, 1.05, e.flying, F.BASE);
+      e.anim.move = 0.5; e.anim.phase += step * 2;
+    }
+    return null;
+  }
+
   // Death: drops, XP, splits and the death effect.
   kill(e, by = 'player') {
     if (!e.alive) return;
@@ -118,6 +145,7 @@ export class Enemies {
     this.flow.update(dt, grid, p.x, p.z);
     this.active.length = 0;
     const astral = g.astral?.manifested ? g.astral : null;
+    const cave = g.zone.type === 'cave';
     for (let i = this.list.length - 1; i >= 0; i--) {
       const e = this.list[i];
       if (!e.alive) {
@@ -142,11 +170,13 @@ export class Enemies {
       // Targeting: the player, unless veiled; a nearby or posted Astral draws creatures too.
       let target = p.alive && !p.statuses.has('invisible') ? p : null;
       if (astral && !e.statuses.has('taunt') && (!target || astral.dist2(e) < Math.min(9, d2 * 0.5))) target = astral;
-      c.target = target;
       if (target) {
         c.dx = target.x - e.x; c.dz = target.z - e.z; c.dist = Math.hypot(c.dx, c.dz);
         c.los = c.dist < 18 && lineOfSight(grid, e.x, e.ry + 1, e.z, target.x, target.ry + 1, target.z);
       }
+      // In the caves a creature comes for you only once it has noticed you; until then it looks about.
+      if (cave && !e.boss) target = this.perceive(e, target, c, step);
+      c.target = target;
       if (e.boss) { e.update(step, c); }
       else if (!e.statuses.stunned) {
         BEHAVIOR[e.def.behavior](e, step, c);

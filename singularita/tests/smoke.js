@@ -792,6 +792,168 @@ try {
     check(!errors.length, `shape memory: no errors ${errors.slice(0, 3).join(' | ')}`);
     await ctx.close();
   }
+  // 13. Patches: melee trails, night lights, cave sight, the Astral and the Mage.
+  {
+    const { ctx, page, errors } = await open(`${BASE}/singularita/index.html?quickstart=swordsman&debug`);
+    await waitGame(page);
+    // A swing's trail is drawn on the side the blow lands, whichever way you face.
+    const trail = await page.evaluate(() => {
+      const g = window.__SG, out = {};
+      for (const yaw of [0, Math.PI / 2, Math.PI, -Math.PI / 4]) {
+        const d = g.fx.slash(0, 0, 0, yaw, 3, 110, '#ffffff', 0.3);
+        d.mesh.updateMatrixWorld(true);
+        const geo = d.mesh.geometry; geo.computeBoundingBox();
+        const c = geo.boundingBox.getCenter(geo.boundingBox.min.clone()).applyMatrix4(d.mesh.matrixWorld);
+        const dx = c.x - d.mesh.position.x, dz = c.z - d.mesh.position.z;
+        out[yaw.toFixed(2)] = +((dx * Math.sin(yaw) + dz * Math.cos(yaw)) / (Math.hypot(dx, dz) || 1)).toFixed(2);
+        g.fx.release(d);
+      }
+      return out;
+    });
+    check(Object.values(trail).every((v) => v > 0.9), `melee trails are drawn on the side the blow lands (${JSON.stringify(trail)})`);
+    // At night a lantern glows around you, and a light follows each boss nearby.
+    const light = await page.evaluate(() => {
+      const g = window.__SG, p = g.player, dn = g.dayNight, out = {};
+      g.ui.closeDialog && g.ui.closeDialog();
+      const frames = (n) => { for (let i = 0; i < n; i++) g.render(1 / 30); };
+      dn.clock = dn.dayLen + dn.nightLen * 0.5; frames(3);
+      out.lantern = g.r.playerLight.intensity;
+      const b = g.spawner.spawnBoss('silverback_emperor', false);
+      b.x = p.x + 6; b.z = p.z; frames(3);
+      out.bossLit = g.r.bossLights.some((l) => l.intensity > 0 && Math.hypot(l.position.x - b.x, l.position.z - b.z) < 3);
+      dn.clock = dn.dayLen * 0.5; frames(3);
+      out.dayLantern = g.r.playerLight.intensity; out.dayBoss = Math.max(...g.r.bossLights.map((l) => l.intensity));
+      for (const m of g.spawner.boss.members) { m.alive = false; m.dyingT = 0; }
+      g.spawner.boss = null;
+      return out;
+    });
+    check(light.lantern > 8 && light.bossLit, `at night a lantern glows around you and a light follows the boss (${JSON.stringify(light)})`);
+    check(light.dayLantern === 0 && light.dayBoss === 0, 'by day the lanterns are out');
+    // In the caves a creature only comes for you once it notices you: in its sight, close by, or struck.
+    const sight = await sim(page, `
+      const { ENEMIES } = await import('./js/data/enemies.js');
+      const out = {}, p = g.player;
+      g.godMode = true; g.profile.level = 20; g.recomputeStats();
+      g.enterZone('cave_3'); step(3);
+      const clear = () => { for (const e of g.enemies.list) { e.alive = false; e.dyingT = 0; } step(2); };
+      g.spawner.popT = 1e9; clear();
+      const id = g.zoneDef.enemies.map((x) => x.id).find((i) => ENEMIES[i].behavior === 'melee');
+      // A clear, level line of 10 cells from the player, so the creature has an open way in.
+      const G = g.grid, h0 = G.height(Math.floor(p.x), Math.floor(p.z));
+      const clearLine = (a) => { for (let s = 1; s <= 10; s += 0.5) { const i = Math.floor(p.x + Math.sin(a) * s), j = Math.floor(p.z + Math.cos(a) * s); if (!G.walkable(i, j) || Math.abs(G.height(i, j) - h0) > 0.5) return false; } return true; };
+      let a = null;
+      for (let tries = 0; tries < 40 && a == null; tries++) {
+        for (let k = 0; k < 16 && a == null; k++) if (clearLine((k / 16) * Math.PI * 2)) a = (k / 16) * Math.PI * 2;
+        if (a == null) { const n = g.zone.nodes[tries % g.zone.nodes.length]; goNear(n.x + 2, n.z + 2); step(1); }
+      }
+      out.spot = a != null;
+      const fwd = { x: Math.sin(a), z: Math.cos(a) };
+      const put = (e, d, facing) => { e.x = p.x + fwd.x * d; e.z = p.z + fwd.z * d; e.yaw = facing; };
+      const e = g.enemies.spawn(id, p.x + fwd.x * 8, p.z + fwd.z * 8, { level: 18, noIntro: true });
+      e.spawnT = 0;
+      const away = Math.atan2(fwd.x, fwd.z), toward = away + Math.PI;
+      put(e, 8, away);
+      const d0 = Math.hypot(e.x - p.x, e.z - p.z);
+      step(30 * 3);
+      out.d = [+d0.toFixed(1), +Math.hypot(e.x - p.x, e.z - p.z).toFixed(1)];
+      out.calm = !e.aware && Math.hypot(e.x - p.x, e.z - p.z) > d0 - 1;
+      e.yaw = toward; step(30 * 2);
+      out.sees = !!e.aware && Math.hypot(e.x - p.x, e.z - p.z) < d0 - 1;
+      clear();
+      const f = g.enemies.spawn(id, p.x + fwd.x * 8, p.z + fwd.z * 8, { level: 18, noIntro: true });
+      f.spawnT = 0; put(f, 8, away); step(30);
+      g.combat.hit(f, { mult: 0.01 }); step(30 * 2);
+      out.struck = !!f.aware;
+      clear();
+      g.enterZone('island'); step(3);
+      return out;`);
+    check(sight.calm, `cave creatures facing away leave you be (${JSON.stringify(sight)})`);
+    check(sight.sees && sight.struck, 'they come once they see you, or once struck');
+    check(!errors.length, `patches: no errors ${errors.slice(0, 3).join(' | ')}`);
+    await ctx.close();
+  }
+  {
+    // The Stardust's Astral: a stand that breaks after a number of blows, untouched by puddles.
+    const { ctx, page, errors } = await open(`${BASE}/singularita/index.html?quickstart=stardust&debug`);
+    await waitGame(page);
+    const a = await sim(page, `
+      g.ui.closeDialog && g.ui.closeDialog();
+      const out = {}, a = g.astral, p = g.player;
+      g.profile.level = 30; g.profile.attrs.spi = 58; g.recomputeStats();
+      p.res = g.stats.resourceMax; a.manifest(true); step(3);
+      out.max = g.stats.astralHits; out.left0 = a.hitsLeft;
+      for (let k = 0; k < 30; k++) g.combat.hurt(a, 1e6, null, { type: 'hazard' });
+      out.afterHazards = a.hitsLeft; out.upAfterHazards = a.manifested;
+      g.combat.hurt(a, 1e9, null, { type: 'melee' }); p.hp = g.stats.maxHp;
+      out.afterBigBlow = a.hitsLeft; out.upAfterBigBlow = a.manifested;
+      for (let k = 2; k < out.max; k++) g.combat.hurt(a, 1, null, { type: 'aoe' });
+      out.oneLeft = a.manifested && a.hitsLeft === 1;
+      g.combat.hurt(a, 1, null, { type: 'ranged' });
+      out.broken = !a.manifested && a.lockT > 0;
+      // It looks like a stand, and its fists fly when it strikes.
+      a.lockT = 0; p.res = g.stats.resourceMax; a.manifest(true); step(3);
+      out.arms = !!(a.vis.armL && a.vis.armR);
+      const e = g.enemies.spawn('slime', a.x + 1.5, a.z, { level: 30, noIntro: true }); e.spawnT = 0; e.maxHp = e.hp = 1e9;
+      let swing = 0;
+      for (let k = 0; k < 60; k++) { a.command(e); step(1); swing = Math.min(swing, a.vis.armL?.rotation.x ?? 0, a.vis.armR?.rotation.x ?? 0); }
+      out.punches = swing < -0.6;
+      e.alive = false; e.dyingT = 0;
+      return out;`);
+    check(a.left0 === a.max && a.max >= 8 && a.max <= 20, `the Astral's guard grows with Spirituality (${a.max} blows at 58 SPI)`);
+    check(a.afterHazards === a.max && a.upAfterHazards, `puddles and ground hazards pass through the Astral (${JSON.stringify(a)})`);
+    check(a.afterBigBlow === a.max - 1 && a.upAfterBigBlow && a.oneLeft && a.broken, 'each direct blow counts once, however hard; it breaks on the last');
+    check(a.arms && a.punches, 'the Astral is a stand whose fists fly when it strikes');
+    check(!errors.length, `stardust: no errors ${errors.slice(0, 3).join(' | ')}`);
+    await ctx.close();
+  }
+  {
+    // The Mage controls crowds: bursting bolts, freezing frost, a ward, a sure escape and one lance.
+    const { ctx, page, errors } = await open(`${BASE}/singularita/index.html?quickstart=mage&debug`);
+    await waitGame(page);
+    const m = await sim(page, `
+      g.ui.closeDialog && g.ui.closeDialog(); g.godMode = true;
+      const out = {}, p = g.player, kit = p.kit;
+      g.profile.level = 45; g.recomputeStats();
+      for (const e of g.enemies.list) { e.alive = false; e.dyingT = 0; }
+      g.spawner.horde && (g.spawner.horde.update = () => []);
+      const fwd = { x: Math.sin(p.yaw), z: Math.cos(p.yaw) };
+      const pack = [[0, 0], [1.2, 0.4], [-1.1, 0.6]].map(([dx, dz]) => { const e = g.enemies.spawn('slime', p.x + fwd.x * 6 + dx, p.z + fwd.z * 6 + dz, { level: 40, noIntro: true }); e.spawnT = 0; e.maxHp = e.hp = 1e7; e.speed = 0; return e; });
+      const ready = () => { p.res = g.stats.resourceMax; for (const k in kit.cd) kit.cd[k] = 0; kit.boltCd = 0; };
+      const reset = () => { for (const e of pack) { e.hp = e.maxHp; e.statuses.clear(); } };
+      const near = (r) => pack.forEach((e, k) => { const a = (k / 3) * Math.PI * 2; e.x = p.x + Math.cos(a) * r; e.z = p.z + Math.sin(a) * r; });
+      // The bolt bursts over the pack.
+      g.lockTarget = pack[0]; ready(); kit.bolt(); step(30);
+      out.boltHit = pack[0].hp < pack[0].maxHp;
+      out.splash = pack.slice(1).every((e) => e.hp < e.maxHp && e.statuses.has('slow'));
+      const boltDmg = pack[0].maxHp - pack[0].hp;
+      // Frost Nova freezes everything around you.
+      reset(); near(3); ready(); kit.tryCast('mg_nova'); step(2);
+      out.frozen = pack.every((e) => e.statuses.has('freeze'));
+      // The Arcane Lance: one foe, enormous damage.
+      reset(); pack.forEach((e, k) => { e.x = p.x + fwd.x * 8 + k * 0.9; e.z = p.z + fwd.z * 8; });
+      g.lockTarget = pack[0]; ready(); kit.tryCast('mg_lance'); step(45);
+      const lanceDmg = pack[0].maxHp - pack[0].hp;
+      out.lance = +(lanceDmg / Math.max(1, boltDmg)).toFixed(1);
+      out.lanceAlone = pack.slice(1).every((e) => e.hp === e.maxHp);
+      out.lanceStun = pack[0].statuses.has('stun');
+      // Arcane Barrier shields you, and freezes foes around you when it fades.
+      reset(); ready(); kit.tryCast('mg_barrier'); step(2);
+      out.shield = +(p.shield / g.stats.maxHp).toFixed(2);
+      near(3); step(30 * 8.5);
+      out.barrierFreeze = pack.every((e) => e.statuses.has('freeze'));
+      // Blink: a moment when every blow misses.
+      ready(); kit.tryCast('mg_blink'); step(1);
+      out.evade = +p.iframes.toFixed(2);
+      for (const e of pack) { e.alive = false; e.dyingT = 0; }
+      return out;`);
+    check(m.boltHit && m.splash, `the Mage's bolt bursts over the pack and slows it (${JSON.stringify(m)})`);
+    check(m.frozen, 'Frost Nova freezes every foe around you');
+    check(m.lance >= 6 && m.lanceAlone && m.lanceStun, `the Arcane Lance strikes one foe for ${m.lance}× a bolt, and stuns it`);
+    check(m.shield >= 0.3 && m.barrierFreeze, 'Arcane Barrier shields you, then freezes foes around you as it fades');
+    check(m.evade >= 1, 'Blink leaves a moment in which every blow misses');
+    check(!errors.length, `mage: no errors ${errors.slice(0, 3).join(' | ')}`);
+    await ctx.close();
+  }
 } catch (err) {
   failures++;
   console.error('FAIL smoke test crashed:', err);

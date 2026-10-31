@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { ATTRS, computeStats, soft } from '../js/systems/stats.js';
+import { ATTRS, computeStats, soft, astralHits } from '../js/systems/stats.js';
 import { xpToNext, addXp, applyDeathPenalty, killXp, MAX_LEVEL, POINTS_PER_LEVEL } from '../js/systems/progression.js';
 import * as Inv from '../js/systems/inventory.js';
 import { equip, canEquip, equippedDefs, compareItems, bestTool } from '../js/systems/equipment.js';
@@ -9,7 +9,8 @@ import { canGather, gatherDamage, rollYield } from '../js/systems/gathering.js';
 import { newProfile, serialize, deserialize, SaveStore, SAVE_VERSION, exportString, importString, migrate } from '../js/systems/save.js';
 import { DEFAULT_SETTINGS, mergeSettings } from '../js/systems/settings.js';
 import { Horde, BossClock, islandLevel, eliteChance } from '../js/systems/horde.js';
-import { DayNight } from '../js/systems/dayNight.js';
+import { notices, forgets } from '../js/ai/perception.js';
+import { DayNight, nightGlow } from '../js/systems/dayNight.js';
 import { allocate, respec } from '../js/systems/attributes.js';
 import { enemyHp, enemyDmg } from '../js/systems/scaling.js';
 import { runLevel } from '../js/systems/run.js';
@@ -440,4 +441,63 @@ test('elite chance: deeper caves bring more elites; the Heart and the dimensions
   assert.ok(ZONES.cave_9.elite <= 0.15);
   assert.equal(eliteChance(ZONES.dim_twins, { type: 'dimension' }, WAVES), WAVES.isle.elite.base);
   assert.equal(eliteChance(ZONES.dim_dungeon, { type: 'dimension', modifier: 'elite' }, WAVES), 0.35);
+});
+
+test('night glow: none by day, rising through dusk, full at midnight', () => {
+  assert.equal(nightGlow(1), 0);
+  assert.equal(nightGlow(0.3), 0);
+  assert.equal(nightGlow(-1), 1);
+  assert.ok(nightGlow(-0.35) >= 0.95);
+  let last = -1;
+  for (let s = 1; s >= -1; s -= 0.05) { const v = nightGlow(s); assert.ok(v >= last - 1e-9 && v >= 0 && v <= 1, `sun ${s.toFixed(2)}: ${v}`); last = v; }
+  // A real island night is dark the whole way through, not only at midnight.
+  const dn = new DayNight({ dayLen: 600, nightLen: 300 }, 600 + 30);
+  assert.ok(nightGlow(dn.sun) > 0.5);
+});
+
+test('cave sight: a creature notices you in front of it, not behind or through rock', () => {
+  const cfg = WAVES.cave.sight;
+  const e = { x: 0, z: 0, yaw: 0, aggro: false }; // facing +z
+  const at = (x, z) => ({ x, z });
+  assert.equal(notices(e, at(0, 8), true, cfg), true, 'in front, in the open');
+  assert.equal(notices(e, at(0, 8), false, cfg), false, 'in front, behind rock');
+  assert.equal(notices(e, at(0, -8), true, cfg), false, 'behind it');
+  assert.equal(notices(e, at(9, 2), true, cfg), false, 'far to the side');
+  assert.equal(notices(e, at(0, cfg.range + 2), true, cfg), false, 'too far');
+  assert.equal(notices(e, at(0, -(cfg.hearing - 0.5)), false, cfg), true, 'close enough to hear');
+  assert.equal(notices({ ...e, aggro: true }, at(0, -12), false, cfg), true, 'it was struck');
+  // Once roused, it gives up only when you are far away and out of sight for a while.
+  assert.equal(forgets(10, 20, cfg), false);
+  assert.equal(forgets(cfg.forgetDist + 2, 1, cfg), false);
+  assert.equal(forgets(cfg.forgetDist + 2, cfg.forgetAfter + 1, cfg), true);
+});
+
+test('caves are not crowded: smaller populations, slower refills, smaller tremors', () => {
+  for (let n = 1; n <= 9; n++) assert.ok(ZONES[`cave_${n}`].population <= 8, `cave_${n}: ${ZONES[`cave_${n}`].population}`);
+  assert.ok(WAVES.cave.respawnDelay >= 10);
+  assert.ok(WAVES.cave.tremor.size[1] <= 4);
+  assert.equal(WAVES.dimension.respawnDelay, 6, 'dimension runs keep their pace');
+});
+
+test('the Astral breaks after a number of blows that grows with Spirituality, up to 20', () => {
+  assert.ok(astralHits(0) >= 3 && astralHits(0) <= 5);
+  let last = 0;
+  for (let spi = 0; spi <= 600; spi += 10) { const n = astralHits(spi); assert.ok(Number.isInteger(n) && n >= last && n <= 20, `spi ${spi}: ${n}`); last = n; }
+  assert.equal(astralHits(5000), 20);
+  // A Stardust who grows Spirituality reaches the cap around level 100.
+  const p = fresh('stardust'); p.level = 100; p.attrs.spi = 99 * 2; p.attrs.res = 99;
+  const s = computeStats(p, []);
+  assert.equal(s.astralHits, 20);
+  const q = fresh('stardust'); q.level = 20; q.attrs.spi = 19 * 2;
+  assert.ok(computeStats(q, []).astralHits >= 6 && computeStats(q, []).astralHits < 20);
+});
+
+test('saves from before the Mage rework trade Meteor for the Arcane Lance', () => {
+  const old = fresh('mage');
+  old.version = 1;
+  old.hotbars.mage = ['mg_flame', 'mg_meteor', 'mg_chain', 'mg_barrier'];
+  const m = migrate(JSON.parse(JSON.stringify(old)));
+  assert.deepEqual(m.hotbars.mage, ['mg_flame', 'mg_lance', 'mg_chain', 'mg_barrier']);
+  assert.equal(m.version, SAVE_VERSION);
+  assert.ok(SAVE_VERSION >= 2);
 });

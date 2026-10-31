@@ -906,6 +906,54 @@ try {
     check(!errors.length, `stardust: no errors ${errors.slice(0, 3).join(' | ')}`);
     await ctx.close();
   }
+  {
+    // The Mage controls crowds: bursting bolts, freezing frost, a ward, a sure escape and one lance.
+    const { ctx, page, errors } = await open(`${BASE}/singularita/index.html?quickstart=mage&debug`);
+    await waitGame(page);
+    const m = await sim(page, `
+      g.ui.closeDialog && g.ui.closeDialog(); g.godMode = true;
+      const out = {}, p = g.player, kit = p.kit;
+      g.profile.level = 45; g.recomputeStats();
+      for (const e of g.enemies.list) { e.alive = false; e.dyingT = 0; }
+      g.spawner.horde && (g.spawner.horde.update = () => []);
+      const fwd = { x: Math.sin(p.yaw), z: Math.cos(p.yaw) };
+      const pack = [[0, 0], [1.2, 0.4], [-1.1, 0.6]].map(([dx, dz]) => { const e = g.enemies.spawn('slime', p.x + fwd.x * 6 + dx, p.z + fwd.z * 6 + dz, { level: 40, noIntro: true }); e.spawnT = 0; e.maxHp = e.hp = 1e7; e.speed = 0; return e; });
+      const ready = () => { p.res = g.stats.resourceMax; for (const k in kit.cd) kit.cd[k] = 0; kit.boltCd = 0; };
+      const reset = () => { for (const e of pack) { e.hp = e.maxHp; e.statuses.clear(); } };
+      const near = (r) => pack.forEach((e, k) => { const a = (k / 3) * Math.PI * 2; e.x = p.x + Math.cos(a) * r; e.z = p.z + Math.sin(a) * r; });
+      // The bolt bursts over the pack.
+      g.lockTarget = pack[0]; ready(); kit.bolt(); step(30);
+      out.boltHit = pack[0].hp < pack[0].maxHp;
+      out.splash = pack.slice(1).every((e) => e.hp < e.maxHp && e.statuses.has('slow'));
+      const boltDmg = pack[0].maxHp - pack[0].hp;
+      // Frost Nova freezes everything around you.
+      reset(); near(3); ready(); kit.tryCast('mg_nova'); step(2);
+      out.frozen = pack.every((e) => e.statuses.has('freeze'));
+      // The Arcane Lance: one foe, enormous damage.
+      reset(); pack.forEach((e, k) => { e.x = p.x + fwd.x * 8 + k * 0.9; e.z = p.z + fwd.z * 8; });
+      g.lockTarget = pack[0]; ready(); kit.tryCast('mg_lance'); step(45);
+      const lanceDmg = pack[0].maxHp - pack[0].hp;
+      out.lance = +(lanceDmg / Math.max(1, boltDmg)).toFixed(1);
+      out.lanceAlone = pack.slice(1).every((e) => e.hp === e.maxHp);
+      out.lanceStun = pack[0].statuses.has('stun');
+      // Arcane Barrier shields you, and freezes foes around you when it fades.
+      reset(); ready(); kit.tryCast('mg_barrier'); step(2);
+      out.shield = +(p.shield / g.stats.maxHp).toFixed(2);
+      near(3); step(30 * 8.5);
+      out.barrierFreeze = pack.every((e) => e.statuses.has('freeze'));
+      // Blink: a moment when every blow misses.
+      ready(); kit.tryCast('mg_blink'); step(1);
+      out.evade = +p.iframes.toFixed(2);
+      for (const e of pack) { e.alive = false; e.dyingT = 0; }
+      return out;`);
+    check(m.boltHit && m.splash, `the Mage's bolt bursts over the pack and slows it (${JSON.stringify(m)})`);
+    check(m.frozen, 'Frost Nova freezes every foe around you');
+    check(m.lance >= 6 && m.lanceAlone && m.lanceStun, `the Arcane Lance strikes one foe for ${m.lance}× a bolt, and stuns it`);
+    check(m.shield >= 0.3 && m.barrierFreeze, 'Arcane Barrier shields you, then freezes foes around you as it fades');
+    check(m.evade >= 1, 'Blink leaves a moment in which every blow misses');
+    check(!errors.length, `mage: no errors ${errors.slice(0, 3).join(' | ')}`);
+    await ctx.close();
+  }
 } catch (err) {
   failures++;
   console.error('FAIL smoke test crashed:', err);

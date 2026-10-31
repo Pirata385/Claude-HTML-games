@@ -51,7 +51,7 @@ const ENTRY = { dim_dungeon: 100, dim_twins: 110, dim_king: 125, dim_mirror: 140
 const HOTBAR = {
   swordsman: ['sw_sunder', 'sw_earth', 'sw_dance', 'sw_warcry'],
   archer: ['ar_volley', 'ar_blast', 'ar_rain', 'ar_hawk'],
-  mage: ['mg_flame', 'mg_chain', 'mg_barrier', 'mg_meteor'],
+  mage: ['mg_flame', 'mg_nova', 'mg_barrier', 'mg_lance'],
   assassin: ['as_fan', 'as_venom', 'as_exec', 'as_dashcut'],
   stardust: ['sd_gravity', 'sd_sentinel', 'sd_starfall', 'sd_link'],
 };
@@ -332,7 +332,9 @@ function installBot({ hotbars, skill }) {
         }
         if (d < (melee ? 5 : 13) && g.time - S.castT > 0.35) {
           const hb = g.profile.hotbars[cls];
-          for (let k = 0; k < 4; k++) if (hb[k] && kit.canCast(hb[k]) === null && !down.has(`skill${k + 1}`)) { want.add(`skill${k + 1}`); S.castT = g.time; break; }
+          // Skills centred on the player (Frost Nova, Whirlwind...) only when foes are close.
+          const closeOnly = { mg_nova: 4.5, sw_whirl: 3.5 };
+          for (let k = 0; k < 4; k++) if (hb[k] && kit.canCast(hb[k]) === null && !down.has(`skill${k + 1}`) && !(closeOnly[hb[k]] && d > closeOnly[hb[k]])) { want.add(`skill${k + 1}`); S.castT = g.time; break; }
         }
       }
       // Unstick: if walking but not getting anywhere, jump and try a side step.

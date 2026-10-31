@@ -75,7 +75,7 @@ On phones and tablets the game goes full screen on the first tap; the ⛶ button
 | --- | --- | --- | --- |
 | Swordsman | Stamina | Three-hit combos, guard and a 0.25 s perfect parry, Lunge, Whirlwind, Sunder, War Cry, Earthsplitter, Blade Dance | No ranged options |
 | Archer | Focus | Hold to charge (a full charge pierces), Steady Aim, Volley, Roll Shot, Pinning Arrow, Blast Arrow, Arrow Rain, Hawk Eye | Fragile; weaker at point blank |
-| Mage | Mana | Homing bolts, Channel, fire, frost and lightning that combine (shatter and steam), Blink, Barrier, Meteor | Cast times, low health, mana |
+| Mage | Mana | **Crowd control.** Homing bolts that burst over the pack and slow it, Channel, Flame Burst that throws foes back, Frost Nova that freezes a whole pack, Chain Lightning that stuns, Blink with a moment of sure evasion, an Arcane Barrier that shatters into ice, and the **Arcane Lance**, one enormous blow to a single foe | Cast times, low health, mana |
 | Assassin | Energy | Fast stabs, double damage from behind, Mark, Shadowstep, Smoke Veil, Fan of Knives, Venom Edge, Execution, Dash Cut | Lowest health, weak against crowds |
 | Stardust | Spirit | Manifests an **Astral**, a stand of starlight generated from your character's seed. It fights inside a leash, guards in orbit, can be posted as a Sentinel, and casts Comet Dive, Gravity Well, Starfall and Constellation Link | Spirit drains while the Astral is out. It breaks after a number of blows (4, plus one per 12 Spirituality, up to 20) whatever their strength; puddles on the ground pass through it. 30% of its wounds echo to you, and if it breaks it cannot return for 6 s |
 

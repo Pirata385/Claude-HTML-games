@@ -491,3 +491,13 @@ test('the Astral breaks after a number of blows that grows with Spirituality, up
   const q = fresh('stardust'); q.level = 20; q.attrs.spi = 19 * 2;
   assert.ok(computeStats(q, []).astralHits >= 6 && computeStats(q, []).astralHits < 20);
 });
+
+test('saves from before the Mage rework trade Meteor for the Arcane Lance', () => {
+  const old = fresh('mage');
+  old.version = 1;
+  old.hotbars.mage = ['mg_flame', 'mg_meteor', 'mg_chain', 'mg_barrier'];
+  const m = migrate(JSON.parse(JSON.stringify(old)));
+  assert.deepEqual(m.hotbars.mage, ['mg_flame', 'mg_lance', 'mg_chain', 'mg_barrier']);
+  assert.equal(m.version, SAVE_VERSION);
+  assert.ok(SAVE_VERSION >= 2);
+});

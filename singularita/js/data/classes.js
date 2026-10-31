@@ -24,8 +24,8 @@ export const CLASSES = {
   },
   mage: {
     id: 'mage', name: 'Mage', color: '#6f8dff',
-    tagline: 'Elements, area control and combos.',
-    desc: 'Shapes fire, frost and lightning. Elements combine: chill and shock shatter, burn and chill raise blinding steam. Spells take a moment to cast, mana runs dry and robes stop little.',
+    tagline: 'Crowd control: elements that pin whole packs, and one devastating lance.',
+    desc: 'Bursting bolts, flame that throws foes back, frost that freezes a whole pack and lightning that stuns it. A barrier keeps the Mage alive and shatters into ice; the Arcane Lance ends one foe. Spells take a moment to cast, mana runs dry and robes stop little.',
     resource: { id: 'mana', name: 'Mana', color: '#6fa8ff', max: 120, regen: 9 },
     hp: 85, hpPerLevel: 10, baseDef: 1, moveSpeed: 5.2,
     scaling: { int: 1.0, spi: 0.25 }, growth: ['int', 'rsv'],

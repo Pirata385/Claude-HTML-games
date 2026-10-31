@@ -178,7 +178,7 @@ export class Combat {
       this.g.overlay.text(target.x, target.ry + 2.2, target.z, 'Steam!', 'status');
       this.g.fx.burst(target.x, target.ry + 1, target.z, 12, { color: '#e8eef2', speed: 2, up: 2, gravity: -1, life: 1 });
     }
-    if (target.boss && (id === 'stun' || id === 'root')) o = { ...o, dur: (o.dur ?? STATUS[id].duration) * 0.35 };
+    if (target.boss && (id === 'stun' || id === 'root' || id === 'freeze')) o = { ...o, dur: (o.dur ?? STATUS[id].duration) * 0.35 };
     if (id === 'taunt') o = { ...o, src: 'player' };
     if (id === 'marked') o = { ...o, src: 'player' };
     const potency = this.g.stats.statusPotency;

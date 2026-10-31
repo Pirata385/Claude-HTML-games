@@ -305,3 +305,20 @@ test('findSources explains where a material comes from', () => {
   assert.ok(iron.some((s) => s.zone === 'cave_2' && s.how.includes('Pickaxe')));
   assert.ok(findSources('slime_gel').some((s) => s.how.includes('Slime')));
 });
+
+test('the Mage controls crowds: bursting bolts, freezing frost, a ward to survive and one focused strike', () => {
+  const kit = skillsOf('mage');
+  const bolt = kit.find((s) => s.kind === 'basic');
+  assert.ok(bolt.splash >= 2 && bolt.splashDmg > 0 && bolt.splashDmg < 1, 'the basic bolt bursts over an area');
+  assert.ok(SKILLS.mg_flame.radius && SKILLS.mg_nova.radius && SKILLS.mg_chain.bounces, 'area and chaining skills');
+  assert.ok(SKILLS.mg_nova.freeze >= 1.5, 'Frost Nova freezes on the first cast');
+  assert.ok(SKILLS.mg_chain.stun > 0, 'Chain Lightning stuns');
+  assert.ok(SKILLS.mg_barrier.shield >= 0.3 && SKILLS.mg_barrier.pulse, 'Arcane Barrier shields, then freezes foes around you');
+  assert.ok(SKILLS.mg_blink.evade >= 1, 'Blink grants a moment of sure evasion');
+  // The last skill is a single, devastating blow.
+  const last = kit.filter((s) => s.kind !== 'basic' && s.kind !== 'alt').sort((a, b) => b.unlock - a.unlock)[0];
+  assert.equal(last.id, 'mg_lance');
+  assert.ok(last.dmg >= 8 && !last.radius && !last.bounces, 'focused on one target');
+  assert.equal(SKILLS.mg_meteor, undefined);
+  assert.match(CLASSES.mage.tagline, /crowd|control/i);
+});

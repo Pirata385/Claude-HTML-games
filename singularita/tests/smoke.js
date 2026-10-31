@@ -811,6 +811,24 @@ try {
       return out;
     });
     check(Object.values(trail).every((v) => v > 0.9), `melee trails are drawn on the side the blow lands (${JSON.stringify(trail)})`);
+    // At night a lantern glows around you, and a light follows each boss nearby.
+    const light = await page.evaluate(() => {
+      const g = window.__SG, p = g.player, dn = g.dayNight, out = {};
+      g.ui.closeDialog && g.ui.closeDialog();
+      const frames = (n) => { for (let i = 0; i < n; i++) g.render(1 / 30); };
+      dn.clock = dn.dayLen + dn.nightLen * 0.5; frames(3);
+      out.lantern = g.r.playerLight.intensity;
+      const b = g.spawner.spawnBoss('silverback_emperor', false);
+      b.x = p.x + 6; b.z = p.z; frames(3);
+      out.bossLit = g.r.bossLights.some((l) => l.intensity > 0 && Math.hypot(l.position.x - b.x, l.position.z - b.z) < 3);
+      dn.clock = dn.dayLen * 0.5; frames(3);
+      out.dayLantern = g.r.playerLight.intensity; out.dayBoss = Math.max(...g.r.bossLights.map((l) => l.intensity));
+      for (const m of g.spawner.boss.members) { m.alive = false; m.dyingT = 0; }
+      g.spawner.boss = null;
+      return out;
+    });
+    check(light.lantern > 8 && light.bossLit, `at night a lantern glows around you and a light follows the boss (${JSON.stringify(light)})`);
+    check(light.dayLantern === 0 && light.dayBoss === 0, 'by day the lanterns are out');
     check(!errors.length, `patches: no errors ${errors.slice(0, 3).join(' | ')}`);
     await ctx.close();
   }

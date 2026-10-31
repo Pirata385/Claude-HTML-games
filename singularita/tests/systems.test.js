@@ -9,7 +9,7 @@ import { canGather, gatherDamage, rollYield } from '../js/systems/gathering.js';
 import { newProfile, serialize, deserialize, SaveStore, SAVE_VERSION, exportString, importString, migrate } from '../js/systems/save.js';
 import { DEFAULT_SETTINGS, mergeSettings } from '../js/systems/settings.js';
 import { Horde, BossClock, islandLevel, eliteChance } from '../js/systems/horde.js';
-import { DayNight } from '../js/systems/dayNight.js';
+import { DayNight, nightGlow } from '../js/systems/dayNight.js';
 import { allocate, respec } from '../js/systems/attributes.js';
 import { enemyHp, enemyDmg } from '../js/systems/scaling.js';
 import { runLevel } from '../js/systems/run.js';
@@ -440,4 +440,16 @@ test('elite chance: deeper caves bring more elites; the Heart and the dimensions
   assert.ok(ZONES.cave_9.elite <= 0.15);
   assert.equal(eliteChance(ZONES.dim_twins, { type: 'dimension' }, WAVES), WAVES.isle.elite.base);
   assert.equal(eliteChance(ZONES.dim_dungeon, { type: 'dimension', modifier: 'elite' }, WAVES), 0.35);
+});
+
+test('night glow: none by day, rising through dusk, full at midnight', () => {
+  assert.equal(nightGlow(1), 0);
+  assert.equal(nightGlow(0.3), 0);
+  assert.equal(nightGlow(-1), 1);
+  assert.ok(nightGlow(-0.35) >= 0.95);
+  let last = -1;
+  for (let s = 1; s >= -1; s -= 0.05) { const v = nightGlow(s); assert.ok(v >= last - 1e-9 && v >= 0 && v <= 1, `sun ${s.toFixed(2)}: ${v}`); last = v; }
+  // A real island night is dark the whole way through, not only at midnight.
+  const dn = new DayNight({ dayLen: 600, nightLen: 300 }, 600 + 30);
+  assert.ok(nightGlow(dn.sun) > 0.5);
 });

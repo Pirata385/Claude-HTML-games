@@ -10,7 +10,7 @@ import { generateZone } from './world/gen/index.js';
 import { placeWayshrine } from './world/gen/island.js';
 import { isWalled } from './world/grid.js';
 import { Player } from './entities/player.js';
-import { DayNight } from './systems/dayNight.js';
+import { DayNight, nightGlow } from './systems/dayNight.js';
 import { computeStats } from './systems/stats.js';
 import { withMemory } from './systems/memory.js';
 import { equippedDefs, equippedIn } from './systems/equipment.js';
@@ -121,6 +121,7 @@ export class Game {
     if (this.zone.type === 'island') {
       const dir = applyDayPalette(this.r, this.sky, this.dayNight.sun, this.dayNight.progress, this.dayNight.phase);
       this.r.sun.position.set(this.player.x + dir.x * 80, this.player.y + dir.y * 80, this.player.z + dir.z * 80);
+      this.nightLights(nightGlow(this.dayNight.sun));
     } else if (this.zone.type === 'isle' || this.zone.render === 'isle') {
       // The same fixed afternoon sun the isle sky shows.
       this.r.sun.position.set(this.player.x + 36, this.player.y + 60, this.player.z + 28);
@@ -128,11 +129,26 @@ export class Game {
       this.r.sun.position.set(this.player.x + 20, this.player.y + 60, this.player.z + 10);
     }
     this.r.sun.target.position.set(this.player.x, this.player.y, this.player.z);
+    if (this.zone.type !== 'island') for (const l of this.r.bossLights) l.intensity = 0;
     // The lantern light sits between the player and the camera, so the visible side is lit.
     const f = this.cam.forward;
     this.r.playerLight.position.set(this.player.x - f.x * 1.5, this.player.ry + 3, this.player.z - f.z * 1.5);
     this.sky.follow(this.r.camera);
     this.r.render();
+  }
+
+  // At night the player carries a lantern, and the nearest bosses glow in their own colour.
+  nightLights(glow) {
+    const r = this.r, p = this.player;
+    r.playerLight.color.set(0xffd8a0);
+    r.playerLight.intensity = glow * 22;
+    r.playerLight.distance = 24;
+    const bosses = glow > 0 ? this.enemies.list.filter((e) => e.boss && e.alive && e.dist2(p) < 60 * 60).sort((a, b) => a.dist2(p) - b.dist2(p)) : [];
+    r.bossLights.forEach((l, k) => {
+      const b = bosses[k];
+      l.intensity = b ? glow * 26 : 0;
+      if (b) { l.color.set(b.bossDef.color); l.position.set(b.x, b.ry + 3 + (b.yOff || 0), b.z); }
+    });
   }
 
   frame(dt) {

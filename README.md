@@ -17,12 +17,19 @@ A collection of self-contained browser games. Open **`index.html`** at the repos
 | Peões & Perdição | [`chess-roguelike/`](chess-roguelike/) | A dark chess roguelike with 3D pieces drawn as fine pixel art, playable in isometric or top-down view (in Portuguese): a permadeath army, branching maps, piece mutations, amulets and three bosses. |
 | Última Barricada (Last Barricade) | [`ultima-barricada/`](ultima-barricada/) | A zombie-survival RTS in isometric voxel pixel art, in Portuguese and English: scavenge seeded procedural cities, build and upgrade a base on a grid, manage food, ammo and fuel, and hold off ever larger night hordes. Endless with a score; mouse, keyboard and touch. |
 | Singularita — The Broken Isles | [`singularita/`](singularita/) | A third-person 3D voxel RPG of exploration, combat and crafting: a seeded starter island with an endless day/night horde, a seven-layer cave from wood to diamond, five distinct classes, crafting with filters, four elemental isles with their own phenomena and guardians, five dimensions played as runs opened by crafted Emblems, eleven bosses, Chromantite and shape-shifting Singularita gear, saves; mouse, keyboard and touch (full screen on phones). |
+
+## Apps
+
+The **Apps** tab holds tools rather than games. Each app has its own folder at the repository root, like a game.
+
+| App | Folder | Description |
+| --- | --- | --- |
 | Pulso — Estúdio Musical | [`pulso-daw/`](pulso-daw/) | A browser DAW (in Portuguese): drum step grid with four kits, piano roll, a two-oscillator synth with 12 presets, a sampler with built-in and recorded samples, multiple tracks, mixer, reverb, delay, EQ and compressor, plus WAV/MIDI export and project save files; mouse, keyboard, MIDI and touch. |
 | Hexel — Pixels em Hexágonos | [`hexel/`](hexel/) | An image tool (in Portuguese) that turns the pixels of your photos into hexagons: 10 styles, palettes with dithering, colour controls, presets, before/after comparison and PNG/JPG/WebP/SVG export, all processed locally on desktop or mobile. |
 
 ## Animações
 
-The menu has a second tab, **Animações**, for animations rather than games. They live under [`animacoes/`](animacoes/), one folder each.
+The menu has a third tab, **Animações**, for animations rather than games. They live under [`animacoes/`](animacoes/), one folder each.
 
 | Animation | Folder | Description |
 | --- | --- | --- |
@@ -34,11 +41,11 @@ The menu has a second tab, **Animações**, for animations rather than games. Th
 ## Structure
 
 ```
-index.html                      menu with Jogos and Animações tabs (GAMES and ANIMATIONS registries)
+index.html                      menu with Jogos, Apps and Animações tabs (GAMES, APPS and ANIMATIONS registries)
 README.md                       this file
 CLAUDE.md                       instructions for AI assistants working in this repo
-<game-folder>/
-  index.html                    the game (self-contained: HTML, CSS and JS)
+<game-or-app-folder>/
+  index.html                    the game or app (self-contained: HTML, CSS and JS)
   README.md                     the game's own documentation
   tests/                        optional automated tests for the game's logic
 animacoes/
@@ -59,5 +66,7 @@ Open `index.html` directly in a modern browser, or serve the repository root wit
 1. Create a new folder named after the game, with an `index.html` entry point and a `README.md`.
 2. Add an entry to the `GAMES` array in the root `index.html` so it appears on the menu.
 3. Add a row to the **Games** table above.
+
+To add an app, follow the same steps but register it in the `APPS` array instead of `GAMES` and add a row to the **Apps** table.
 
 To add an animation, follow the same steps inside `animacoes/`, register it in the `ANIMATIONS` array instead of `GAMES`, and add it to the **Animações** tables (here and in `animacoes/README.md`).

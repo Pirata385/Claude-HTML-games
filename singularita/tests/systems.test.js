@@ -9,6 +9,7 @@ import { canGather, gatherDamage, rollYield } from '../js/systems/gathering.js';
 import { newProfile, serialize, deserialize, SaveStore, SAVE_VERSION, exportString, importString, migrate } from '../js/systems/save.js';
 import { DEFAULT_SETTINGS, mergeSettings } from '../js/systems/settings.js';
 import { Horde, BossClock, islandLevel, eliteChance } from '../js/systems/horde.js';
+import { notices, forgets } from '../js/ai/perception.js';
 import { DayNight, nightGlow } from '../js/systems/dayNight.js';
 import { allocate, respec } from '../js/systems/attributes.js';
 import { enemyHp, enemyDmg } from '../js/systems/scaling.js';
@@ -452,4 +453,28 @@ test('night glow: none by day, rising through dusk, full at midnight', () => {
   // A real island night is dark the whole way through, not only at midnight.
   const dn = new DayNight({ dayLen: 600, nightLen: 300 }, 600 + 30);
   assert.ok(nightGlow(dn.sun) > 0.5);
+});
+
+test('cave sight: a creature notices you in front of it, not behind or through rock', () => {
+  const cfg = WAVES.cave.sight;
+  const e = { x: 0, z: 0, yaw: 0, aggro: false }; // facing +z
+  const at = (x, z) => ({ x, z });
+  assert.equal(notices(e, at(0, 8), true, cfg), true, 'in front, in the open');
+  assert.equal(notices(e, at(0, 8), false, cfg), false, 'in front, behind rock');
+  assert.equal(notices(e, at(0, -8), true, cfg), false, 'behind it');
+  assert.equal(notices(e, at(9, 2), true, cfg), false, 'far to the side');
+  assert.equal(notices(e, at(0, cfg.range + 2), true, cfg), false, 'too far');
+  assert.equal(notices(e, at(0, -(cfg.hearing - 0.5)), false, cfg), true, 'close enough to hear');
+  assert.equal(notices({ ...e, aggro: true }, at(0, -12), false, cfg), true, 'it was struck');
+  // Once roused, it gives up only when you are far away and out of sight for a while.
+  assert.equal(forgets(10, 20, cfg), false);
+  assert.equal(forgets(cfg.forgetDist + 2, 1, cfg), false);
+  assert.equal(forgets(cfg.forgetDist + 2, cfg.forgetAfter + 1, cfg), true);
+});
+
+test('caves are not crowded: smaller populations, slower refills, smaller tremors', () => {
+  for (let n = 1; n <= 9; n++) assert.ok(ZONES[`cave_${n}`].population <= 8, `cave_${n}: ${ZONES[`cave_${n}`].population}`);
+  assert.ok(WAVES.cave.respawnDelay >= 10);
+  assert.ok(WAVES.cave.tremor.size[1] <= 4);
+  assert.equal(WAVES.dimension.respawnDelay, 6, 'dimension runs keep their pace');
 });

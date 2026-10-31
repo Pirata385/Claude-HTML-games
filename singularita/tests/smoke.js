@@ -829,6 +829,46 @@ try {
     });
     check(light.lantern > 8 && light.bossLit, `at night a lantern glows around you and a light follows the boss (${JSON.stringify(light)})`);
     check(light.dayLantern === 0 && light.dayBoss === 0, 'by day the lanterns are out');
+    // In the caves a creature only comes for you once it notices you: in its sight, close by, or struck.
+    const sight = await sim(page, `
+      const { ENEMIES } = await import('./js/data/enemies.js');
+      const out = {}, p = g.player;
+      g.godMode = true; g.profile.level = 20; g.recomputeStats();
+      g.enterZone('cave_3'); step(3);
+      const clear = () => { for (const e of g.enemies.list) { e.alive = false; e.dyingT = 0; } step(2); };
+      g.spawner.popT = 1e9; clear();
+      const id = g.zoneDef.enemies.map((x) => x.id).find((i) => ENEMIES[i].behavior === 'melee');
+      // A clear, level line of 10 cells from the player, so the creature has an open way in.
+      const G = g.grid, h0 = G.height(Math.floor(p.x), Math.floor(p.z));
+      const clearLine = (a) => { for (let s = 1; s <= 10; s += 0.5) { const i = Math.floor(p.x + Math.sin(a) * s), j = Math.floor(p.z + Math.cos(a) * s); if (!G.walkable(i, j) || Math.abs(G.height(i, j) - h0) > 0.5) return false; } return true; };
+      let a = null;
+      for (let tries = 0; tries < 40 && a == null; tries++) {
+        for (let k = 0; k < 16 && a == null; k++) if (clearLine((k / 16) * Math.PI * 2)) a = (k / 16) * Math.PI * 2;
+        if (a == null) { const n = g.zone.nodes[tries % g.zone.nodes.length]; goNear(n.x + 2, n.z + 2); step(1); }
+      }
+      out.spot = a != null;
+      const fwd = { x: Math.sin(a), z: Math.cos(a) };
+      const put = (e, d, facing) => { e.x = p.x + fwd.x * d; e.z = p.z + fwd.z * d; e.yaw = facing; };
+      const e = g.enemies.spawn(id, p.x + fwd.x * 8, p.z + fwd.z * 8, { level: 18, noIntro: true });
+      e.spawnT = 0;
+      const away = Math.atan2(fwd.x, fwd.z), toward = away + Math.PI;
+      put(e, 8, away);
+      const d0 = Math.hypot(e.x - p.x, e.z - p.z);
+      step(30 * 3);
+      out.d = [+d0.toFixed(1), +Math.hypot(e.x - p.x, e.z - p.z).toFixed(1)];
+      out.calm = !e.aware && Math.hypot(e.x - p.x, e.z - p.z) > d0 - 1;
+      e.yaw = toward; step(30 * 2);
+      out.sees = !!e.aware && Math.hypot(e.x - p.x, e.z - p.z) < d0 - 1;
+      clear();
+      const f = g.enemies.spawn(id, p.x + fwd.x * 8, p.z + fwd.z * 8, { level: 18, noIntro: true });
+      f.spawnT = 0; put(f, 8, away); step(30);
+      g.combat.hit(f, { mult: 0.01 }); step(30 * 2);
+      out.struck = !!f.aware;
+      clear();
+      g.enterZone('island'); step(3);
+      return out;`);
+    check(sight.calm, `cave creatures facing away leave you be (${JSON.stringify(sight)})`);
+    check(sight.sees && sight.struck, 'they come once they see you, or once struck');
     check(!errors.length, `patches: no errors ${errors.slice(0, 3).join(' | ')}`);
     await ctx.close();
   }

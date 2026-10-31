@@ -46,7 +46,7 @@ const browser = await chromium.launch({ args: ['--use-gl=angle', '--use-angle=sw
 // What a player brings to each dimension: its entry level, plus the gear and skills of that level.
 const ENTRY = { dim_dungeon: 100, dim_twins: 110, dim_king: 125, dim_mirror: 140, dim_dragons: 160, cave_9: 200,
   // Reference zones from earlier milestones, at a level a player meets them.
-  cave_2: 10, cave_3: 18, cave_5: 40, cave_7: 66, isle_air: 75, isle_fire: 90, cave_8: 105,
+  cave_1: 3, cave_2: 10, cave_3: 18, cave_4: 28, cave_5: 40, cave_6: 52, cave_7: 66, isle_air: 75, isle_fire: 90, cave_8: 105,
   'boss:slime_prince': 8, 'boss:silverback_emperor': 14 };
 const HOTBAR = {
   swordsman: ['sw_sunder', 'sw_earth', 'sw_dance', 'sw_warcry'],

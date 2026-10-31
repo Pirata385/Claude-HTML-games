@@ -281,7 +281,7 @@ kbd { font: 11px var(--mono); background: var(--panel2); border: 1px solid var(-
       <kbd>← →</kbd><span>Mover seleção pela grade</span>
       <kbd>Alt ↑ ↓</kbd><span>Trocar de faixa</span>
     </div>
-    <p class="hint" style="margin:0"><b>Sem som?</b> Toque no botão 🔇/🔊 da barra superior: ele ativa o áudio e toca um bipe de teste. Confira também o volume do aparelho e os fones Bluetooth.</p>
+    <p class="hint" style="margin:0"><b>Sem som?</b> Toque no botão 🔇/🔊 da barra superior: ele ativa o áudio e toca um bipe de teste direto no alto-falante. Se nem o bipe tocar, confira o volume de mídia e se o site não está silenciado no Chrome (⋮ › Configurações › Configurações do site › Som). Antes de tocar, o Pulso pré-renderiza os sons do loop (a porcentagem aparece no visor) para que até celulares mais simples deem conta.</p>
     <p class="hint" style="margin:0">O projeto é salvo automaticamente neste navegador. Use “Arquivo” para salvar um .json com suas amostras, exportar WAV ou MIDI.</p>
   </div>
 </dialog>
@@ -458,12 +458,22 @@ class Engine {
     const c = this.ctx;
     n = { in: c.createGain(), drive: c.createWaveShaper(), post: c.createGain(), filt: c.createBiquadFilter(), vol: c.createGain(), mute: c.createGain(), pan: c.createStereoPanner(), rev: c.createGain(), dly: c.createGain(), an: c.createAnalyser(), lastDrive: -1 };
     n.drive.oversample = '2x'; n.an.fftSize = 256;
-    n.in.connect(n.drive); n.drive.connect(n.post); n.post.connect(n.filt); n.filt.connect(n.vol); n.vol.connect(n.mute); n.mute.connect(n.pan);
+    n.in.connect(n.vol); n.route = 0; n.vol.connect(n.mute); n.mute.connect(n.pan);
     n.pan.connect(this.bus); n.pan.connect(n.rev); n.rev.connect(this.revIn); n.pan.connect(n.dly); n.dly.connect(this.dlyIn); n.pan.connect(n.an);
     this.nodes.set(t.id, n); return n;
   }
   updateTrack(t, P) {
     const n = this.node(t), anySolo = P.tracks.some((x) => x.solo), audible = !t.mute && (!anySolo || t.solo);
+    // Distortion and filter are only wired in while in use: an idle 2x-oversampled
+    // WaveShaper and a wide-open filter still cost CPU on every track.
+    const wd = t.drive > 0.001, wf = Math.abs(t.filt) > 0.01, route = (wd ? 1 : 0) + (wf ? 2 : 0);
+    if (n.route !== route) {
+      for (const x of [n.in, n.drive, n.post, n.filt]) try { x.disconnect(); } catch {}
+      let last = n.in;
+      if (wd) { last.connect(n.drive); n.drive.connect(n.post); last = n.post; }
+      if (wf) { last.connect(n.filt); last = n.filt; }
+      last.connect(n.vol); n.route = route;
+    }
     if (n.lastDrive !== t.drive) { n.drive.curve = driveCurve(t.drive); n.lastDrive = t.drive; }
     this.set(n.post.gain, 1 / (1 + t.drive * 2.2));
     const f = t.filt;
@@ -746,7 +756,7 @@ function ensureAudio() {
   if (!ctx) {
     // iOS: "playback" makes Web Audio play even with the silent switch on (Safari 16.4+).
     try { if (navigator.audioSession) navigator.audioSession.type = 'playback'; } catch {}
-    ctx = new (window.AudioContext || window.webkitAudioContext)({ latencyHint: 'interactive' });
+    ctx = new (window.AudioContext || window.webkitAudioContext)({ latencyHint: MOBILE ? 'balanced' : 'interactive' });
     E = new Engine(ctx); syncEngine();
     ctx.onstatechange = updAudioBtn;
   }
@@ -779,17 +789,103 @@ function testBeep() {
   unlockAudio();
   const t = ctx.currentTime + 0.03, o = ctx.createOscillator(), g = ctx.createGain();
   o.frequency.value = 880; g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.4, t + 0.01); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.35);
-  o.connect(g); g.connect(E.master); o.start(t); o.stop(t + 0.4);
-  setTimeout(() => toast(ctx.state === 'running' ? '🔊 Áudio ativo. Se não ouviu o bipe, confira o volume do aparelho/fones.' : '🔇 O navegador ainda bloqueia o áudio — toque na tela de novo.', 3500), 400);
+  o.connect(g); g.connect(ctx.destination); o.start(t); o.stop(t + 0.4); // straight to the speaker, bypassing mixer and effects
+  setTimeout(() => toast(ctx.state === 'running' ? '🔊 Áudio ativo. Sem bipe? Veja o volume de mídia e, no Chrome, ⋮ › Configurações › Configurações do site › Som.' : '🔇 O navegador ainda bloqueia o áudio — toque na tela de novo.', 5000), 400);
 }
 function syncEngine() { if (E) E.sync(P); }
-function scheduleStep(eng, s, t, sd) {
+/* ---------------- render cache ----------------
+   Synthesising every voice in real time (6 oscillators per hi-hat, FM pianos, pads…)
+   can need more CPU than a phone has, and then live audio drops out or goes silent.
+   So every drum hit and synth note is rendered once, offline, into a small buffer,
+   and playback just plays buffers. Until a buffer is ready, the live synth is used. */
+const MOBILE = matchMedia('(pointer: coarse)').matches || /Android|Mobi/i.test(navigator.userAgent);
+const VC = { map: new Map(), samples: 0, LIMIT: MOBILE ? 16e6 : 40e6, queue: [], queued: new Set(), running: 0, done: 0, total: 0 };
+function vcGet(key) { const b = VC.map.get(key); if (b) { VC.map.delete(key); VC.map.set(key, b); } return b; }
+function vcPut(key, buf) {
+  VC.map.set(key, buf); VC.samples += buf.length;
+  while (VC.samples > VC.LIMIT && VC.map.size > 1) { const [k, b] = VC.map.entries().next().value; VC.map.delete(k); VC.samples -= b.length; }
+}
+function vcRequest(key, seconds, fn) {
+  if (!ctx || VC.map.has(key) || VC.queued.has(key)) return;
+  VC.queued.add(key); VC.queue.push({ key, seconds, fn }); VC.total++;
+  while (VC.queue.length > 300) VC.queued.delete(VC.queue.shift().key);
+  vcPump();
+}
+function vcPump() {
+  while (VC.running < 2 && VC.queue.length) {
+    const job = VC.queue.shift(); VC.running++;
+    renderClip(job.seconds, job.fn).then((b) => vcPut(job.key, b), (e) => console.warn('render', e))
+      .finally(() => { VC.queued.delete(job.key); VC.running--; VC.done++; vcPump(); });
+  }
+}
+async function renderClip(seconds, fn) {
+  const sr = ctx.sampleRate, len = Math.max(256, Math.ceil(seconds * sr)), oc = new OfflineAudioContext(1, len, sr);
+  fn({ ctx: oc, chokes: new Map(), offline: true }, oc.destination);
+  const buf = await oc.startRendering(), d = buf.getChannelData(0);
+  let end = d.length; while (end > 256 && Math.abs(d[end - 1]) < 1e-4) end--;
+  if (end > d.length - 512) return buf;
+  const out = ctx.createBuffer(1, end, sr); out.copyToChannel(d.subarray(0, end), 0); return out;
+}
+const drumKey = (tr, r) => `D|${tr.kit}|${r.snd}|${r.tune}|${(+r.decay).toFixed(3)}`;
+function drumReq(tr, r) {
+  const key = drumKey(tr, r), K = (KITS[tr.kit] || KITS['808'])[1], kit = tr.kit, row = Object.assign({}, r, { vol: 1 });
+  vcRequest(key, (r.snd === 'crash' ? 1.8 : r.snd === 'hatO' ? 0.6 : 0.9) * r.decay * K.decay + 0.25, (e, d) => playDrum(e, d, { id: '_', kit }, row, 0, 1));
+  return key;
+}
+const noteKey = (ik, midi, dur) => `S|${ik}|${midi}|${Math.round(dur * 1000)}`;
+function noteReq(tr, ik, midi, dur) {
+  const key = noteKey(ik, midi, dur), inst = Object.assign({}, tr.inst);
+  vcRequest(key, dur + Math.max(0.01, inst.r) * 1.7 + 0.08, (e, d) => synthVoice(e, d, inst, midi, 0, 1, dur));
+  return key;
+}
+function playBuf(eng, out, buf, t, gain) {
+  const c = eng.ctx, s = c.createBufferSource(), g = c.createGain();
+  s.buffer = buf; g.gain.value = gain; s.connect(g); g.connect(out); s.start(t); return g;
+}
+function playDrumFast(eng, out, tr, r, t, v) {
+  if (r.snd === 'sample') return playDrum(eng, out, tr, r, t, v);
+  const buf = vcGet(drumKey(tr, r));
+  if (!buf) { drumReq(tr, r); return playDrum(eng, out, tr, r, t, v); }
+  const g = playBuf(eng, out, buf, t, v * r.vol);
+  if (r.snd === 'hatC' || r.snd === 'hatO') {
+    const prev = eng.chokes.get(tr.id);
+    if (prev && prev.t < t) { prev.g.gain.cancelScheduledValues(t); prev.g.gain.setTargetAtTime(0, t, 0.008); }
+    if (r.snd === 'hatO') eng.chokes.set(tr.id, { g, t }); else eng.chokes.delete(tr.id);
+  }
+}
+function playNoteFast(eng, out, tr, ik, midi, t, dur, vel) {
+  if (tr.kind !== 'synth') return playNote(eng, out, tr, midi, t, dur, vel);
+  const buf = vcGet(noteKey(ik, midi, dur));
+  if (!buf) { noteReq(tr, ik, midi, dur); return playNote(eng, out, tr, midi, t, dur, vel); }
+  playBuf(eng, out, buf, t, vel);
+}
+// Queue every sound the current loop needs; returns how many are still being rendered.
+function warmCache() {
+  if (!ctx) return 0;
+  const sd = stepDur(), T = totalSteps();
+  for (const tr of P.tracks) {
+    if (tr.kind === 'drums') { for (const r of tr.rows) if (r.snd !== 'sample' && r.steps.slice(0, T).some((v) => v > 0) && !VC.map.has(drumKey(tr, r))) drumReq(tr, r); }
+    else if (tr.kind === 'synth') { const ik = JSON.stringify(tr.inst); for (const n of tr.notes) if (n.s < T && !VC.map.has(noteKey(ik, n.p, n.l * sd))) noteReq(tr, ik, n.p, n.l * sd); }
+  }
+  return VC.queue.length + VC.running;
+}
+function waitCache(ms, onTick) {
+  return new Promise((res) => { const t0 = performance.now(), start = VC.done; (function chk() { const left = VC.queue.length + VC.running; onTick && onTick(VC.done - start, VC.done - start + left); if (!left || performance.now() - t0 > ms) res(); else setTimeout(chk, 60); })(); });
+}
+
+function scheduleStep(eng, s, t, sd, fast) {
   const anySolo = P.tracks.some((x) => x.solo);
   for (const tr of P.tracks) {
     if (tr.mute || (anySolo && !tr.solo)) continue;
     const out = eng.node(tr).in;
-    if (tr.kind === 'drums') { for (const r of tr.rows) { const v = r.steps[s]; if (v > 0 && !r.mute) playDrum(eng, out, tr, r, t, v); } }
-    else for (const n of tr.notes) if (n.s >= s && n.s < s + 1) playNote(eng, out, tr, n.p, t + (n.s - s) * sd, n.l * sd, n.v);
+    if (tr.kind === 'drums') { for (const r of tr.rows) { const v = r.steps[s]; if (v > 0 && !r.mute) (fast ? playDrumFast : playDrum)(eng, out, tr, r, t, v); } continue; }
+    let ik = null;
+    for (const n of tr.notes) {
+      if (!(n.s >= s && n.s < s + 1)) continue;
+      const nt = t + (n.s - s) * sd, dur = n.l * sd;
+      if (fast) { if (ik === null) ik = JSON.stringify(tr.inst); playNoteFast(eng, out, tr, ik, n.p, nt, dur, n.v); }
+      else playNote(eng, out, tr, n.p, nt, dur, n.v);
+    }
   }
 }
 function swingOffset(s, sd) { return s % 2 ? P.swing * sd * 0.66 : 0; }
@@ -800,18 +896,24 @@ function metroClick(t, accent) {
 }
 function schedTick() {
   const sd = stepDur(), T = totalSteps();
-  while (Seq.next < ctx.currentTime + 0.12) {
+  while (Seq.next < ctx.currentTime + (MOBILE ? 0.25 : 0.12)) {
     Seq.step %= T;
     const s = Seq.step, t = Seq.next + swingOffset(s, sd);
-    scheduleStep(E, s, t, sd);
+    scheduleStep(E, s, t, sd, true);
     if (P.metro && s % 4 === 0) metroClick(Seq.next, s % 16 === 0);
     Seq.marks.push({ s, t: Seq.next, sd }); if (Seq.marks.length > 96) Seq.marks.splice(0, 32);
     Seq.next += sd; Seq.step = s + 1;
   }
 }
-function play() {
-  unlockAudio(); if (Seq.playing) return;
+async function play() {
+  unlockAudio(); if (Seq.playing || Seq.starting) return;
   setTimeout(() => { if (ctx.state !== 'running') toast('🔇 O navegador bloqueou o som. Toque em 🔇 na barra superior para ativar.', 4000); }, 600);
+  // Render the loop's sounds first, so the phone only has to play back buffers.
+  if (warmCache() > 6) {
+    Seq.starting = true; $('#bPlay').textContent = '⏳';
+    await waitCache(MOBILE ? 8000 : 2500, (d, t) => { $('#pos').textContent = Math.round((d / Math.max(1, t)) * 100) + '%'; });
+    Seq.starting = false; updPos(Seq.step);
+  }
   Seq.playing = true; Seq.next = ctx.currentTime + 0.05; Seq.marks = [];
   schedTick(); Seq.timer = setInterval(schedTick, 25);
   $('#bPlay').classList.add('on'); $('#bPlay').textContent = '❚❚';
@@ -1609,19 +1711,20 @@ $('#bMidi').onclick = async () => {
 const tdBuf = new Float32Array(256);
 let meterVals = new Map(), lastStep = -1;
 function peakOf(an) { an.getFloatTimeDomainData(tdBuf); let m = 0; for (let i = 0; i < tdBuf.length; i++) { const v = Math.abs(tdBuf[i]); if (v > m) m = v; } return m; }
+let frameN = 0; const masterBuf = new Float32Array(2048);
 function frame() {
   requestAnimationFrame(frame);
   const pos = posNow();
   if (pos !== null) { const s = Math.floor(pos); if (s !== lastStep) { lastStep = s; updPos(s); stepPlayhead(s); } PR.dirty = true; }
   if (PR.dirty && PR.host && !$('#vEditor').hidden) { PR.dirty = false; PR.draw(); }
-  if (!E) return;
+  if (!E || (++frameN & 1)) return; // meters and visualiser at half the frame rate
   // meters
   const trEls = $$('.trk');
   for (const t of P.tracks) {
     const n = E.nodes.get(t.id); if (!n) continue;
     const pk = peakOf(n.an), prev = meterVals.get(t.id) || 0, v = Math.max(pk, prev * 0.88); meterVals.set(t.id, v);
   }
-  { const an = E.analyser, b = new Float32Array(an.fftSize); an.getFloatTimeDomainData(b); let m = 0; for (let i = 0; i < b.length; i += 2) m = Math.max(m, Math.abs(b[i])); meterVals.set('__master', Math.max(m, (meterVals.get('__master') || 0) * 0.88)); }
+  { const an = E.analyser, b = masterBuf; an.getFloatTimeDomainData(b); let m = 0; for (let i = 0; i < b.length; i += 2) m = Math.max(m, Math.abs(b[i])); meterVals.set('__master', Math.max(m, (meterVals.get('__master') || 0) * 0.88)); }
   const w = (v) => Math.min(100, Math.sqrt(v) * 100) + '%';
   for (const el of trEls) { const i = el.querySelector('.meter i'); if (i) i.style.width = w(meterVals.get(el.dataset.id) || 0); }
   if (!$('#vMixer').hidden) for (const [id, a, b] of mixMeters) { const v = w(meterVals.get(id) || 0); a.style.height = v; b.style.height = v; }
@@ -1656,7 +1759,7 @@ async function boot() {
   else demoProject();
   renderAll(); commit();
   requestAnimationFrame(frame);
-  $('#bUnlock').onclick = () => { unlockAudio(); $('#unlock').remove(); };
+  $('#bUnlock').onclick = () => { unlockAudio(); $('#unlock').remove(); setTimeout(warmCache, 30); };
   if (!saved) $('#unlock').querySelector('p').textContent += ' Uma música de demonstração já está carregada — aperte ▶ para ouvir.';
 }
 // Browsers only allow audio to start from "activation" events; on touch screens pointerdown is NOT one,

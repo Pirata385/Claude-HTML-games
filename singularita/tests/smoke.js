@@ -792,6 +792,28 @@ try {
     check(!errors.length, `shape memory: no errors ${errors.slice(0, 3).join(' | ')}`);
     await ctx.close();
   }
+  // 13. Patches: melee trails, night lights, cave sight, the Astral and the Mage.
+  {
+    const { ctx, page, errors } = await open(`${BASE}/singularita/index.html?quickstart=swordsman&debug`);
+    await waitGame(page);
+    // A swing's trail is drawn on the side the blow lands, whichever way you face.
+    const trail = await page.evaluate(() => {
+      const g = window.__SG, out = {};
+      for (const yaw of [0, Math.PI / 2, Math.PI, -Math.PI / 4]) {
+        const d = g.fx.slash(0, 0, 0, yaw, 3, 110, '#ffffff', 0.3);
+        d.mesh.updateMatrixWorld(true);
+        const geo = d.mesh.geometry; geo.computeBoundingBox();
+        const c = geo.boundingBox.getCenter(geo.boundingBox.min.clone()).applyMatrix4(d.mesh.matrixWorld);
+        const dx = c.x - d.mesh.position.x, dz = c.z - d.mesh.position.z;
+        out[yaw.toFixed(2)] = +((dx * Math.sin(yaw) + dz * Math.cos(yaw)) / (Math.hypot(dx, dz) || 1)).toFixed(2);
+        g.fx.release(d);
+      }
+      return out;
+    });
+    check(Object.values(trail).every((v) => v > 0.9), `melee trails are drawn on the side the blow lands (${JSON.stringify(trail)})`);
+    check(!errors.length, `patches: no errors ${errors.slice(0, 3).join(' | ')}`);
+    await ctx.close();
+  }
 } catch (err) {
   failures++;
   console.error('FAIL smoke test crashed:', err);

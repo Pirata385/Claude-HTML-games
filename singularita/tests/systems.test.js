@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { ATTRS, computeStats, soft } from '../js/systems/stats.js';
+import { ATTRS, computeStats, soft, astralHits } from '../js/systems/stats.js';
 import { xpToNext, addXp, applyDeathPenalty, killXp, MAX_LEVEL, POINTS_PER_LEVEL } from '../js/systems/progression.js';
 import * as Inv from '../js/systems/inventory.js';
 import { equip, canEquip, equippedDefs, compareItems, bestTool } from '../js/systems/equipment.js';
@@ -477,4 +477,17 @@ test('caves are not crowded: smaller populations, slower refills, smaller tremor
   assert.ok(WAVES.cave.respawnDelay >= 10);
   assert.ok(WAVES.cave.tremor.size[1] <= 4);
   assert.equal(WAVES.dimension.respawnDelay, 6, 'dimension runs keep their pace');
+});
+
+test('the Astral breaks after a number of blows that grows with Spirituality, up to 20', () => {
+  assert.ok(astralHits(0) >= 3 && astralHits(0) <= 5);
+  let last = 0;
+  for (let spi = 0; spi <= 600; spi += 10) { const n = astralHits(spi); assert.ok(Number.isInteger(n) && n >= last && n <= 20, `spi ${spi}: ${n}`); last = n; }
+  assert.equal(astralHits(5000), 20);
+  // A Stardust who grows Spirituality reaches the cap around level 100.
+  const p = fresh('stardust'); p.level = 100; p.attrs.spi = 99 * 2; p.attrs.res = 99;
+  const s = computeStats(p, []);
+  assert.equal(s.astralHits, 20);
+  const q = fresh('stardust'); q.level = 20; q.attrs.spi = 19 * 2;
+  assert.ok(computeStats(q, []).astralHits >= 6 && computeStats(q, []).astralHits < 20);
 });

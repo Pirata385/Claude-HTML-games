@@ -1,5 +1,7 @@
-// The Stardust's Astral: a constellation spirit that fights within a leash of its bearer,
-// can orbit as a guard or be posted as a sentinel. Wounds it takes partly echo to the player.
+// The Stardust's Astral: a constellation spirit, a stand that fights within a leash of its bearer,
+// can orbit as a guard or be posted as a sentinel. It breaks after a number of blows (more with
+// Spirituality, up to 20), whatever their strength; ground hazards pass through it. A share of each
+// wound echoes to the bearer.
 import { Entity } from './entity.js';
 import { buildAstral } from '../render/models.js';
 import { angleDiff } from '../core/math.js';
@@ -9,6 +11,7 @@ export class Astral extends Entity {
     super({ team: 'player', radius: 0.5, height: 2.2, scale: 1 });
     this.g = game;
     this.manifested = false;
+    this.hp = 0; // filled on its first manifestation
     this.lockT = 0;
     this.target = null; this.commandT = 0;
     this.strikeT = 0; this.combo = 0;
@@ -29,7 +32,8 @@ export class Astral extends Entity {
     this.manifested = on;
     this.alive = on;
     if (on) {
-      this.maxHp = Math.round(this.g.stats.maxHp * 0.4);
+      // Its health is counted in blows.
+      this.maxHp = this.g.stats.astralHits;
       if (this.hp <= 0 || this.hp > this.maxHp) this.hp = this.maxHp;
       const p = this.g.player;
       this.x = p.x - Math.sin(p.yaw) * 1.2; this.z = p.z - Math.cos(p.yaw) * 1.2; this.ry = p.ry + 0.4;
@@ -39,13 +43,17 @@ export class Astral extends Entity {
     this.vis.group.visible = on;
   }
 
+  get hitsLeft() { return this.manifested ? this.hp : 0; }
+
   takeDamage(amount, source, opts = {}) {
     if (!this.manifested) return 'none';
+    // Puddles, vents and falling rock pass through it: only blows and skills count.
+    if (opts.type === 'hazard') return 'none';
     const def = this.post ? 1.3 : 1;
     const dmg = Math.round(amount / def * (100 / (100 + this.g.stats.def)));
-    this.hp -= dmg;
+    this.hp -= 1;
     this.flash = 1;
-    this.g.overlay.text(this.x, this.ry + 2.2, this.z, `-${dmg}`, 'hurt');
+    this.g.overlay.text(this.x, this.ry + 2.2, this.z, this.hp > 0 ? `◆ ${this.hp}` : '◆ 0', 'hurt');
     // A share of the wound echoes back to the bearer.
     const echo = dmg * 0.3;
     if (echo >= 1) { const p = this.g.player; p.hp = Math.max(1, p.hp - echo); p.flash = 0.6; }
@@ -103,6 +111,8 @@ export class Astral extends Entity {
           g.combat.hit(t, { mult, src: 'astral', knock: this.combo === 2 ? 0.8 : 0.1, from: this });
           g.fx.slash(this.x, this.ry + 1, this.z, Math.atan2(t.x - this.x, t.z - this.z), 1.9, 120, '#' + this.vis.color.getHexString(), 0.12);
           g.bus.emit('sfx', { id: 'astralHit' });
+          // A fist flies: left, right, left.
+          this.punch = 1; this.punchArm = this.combo % 2;
           this.combo = (this.combo + 1) % 3;
           this.strikeT = commanded ? 0.26 / g.stats.attackSpeed : 0.85;
         }
@@ -120,12 +130,17 @@ export class Astral extends Entity {
     void spi;
   }
 
-  render() {
+  render(dt = 1 / 60) {
     const g = this.g;
     const gh = g.grid.height(Math.floor(this.x), Math.floor(this.z));
     this.ry += (gh + 0.35 + Math.sin(g.time * 2.4) * 0.12 - this.ry) * 0.2;
     this.vis.group.position.set(this.x, this.ry, this.z);
     this.vis.group.rotation.y = this.yaw;
+    // Arms: a guard pose at rest, the striking fist thrown forward.
+    this.punch = Math.max(0, (this.punch || 0) - dt * 7);
+    const rest = -0.35 + Math.sin(g.time * 2.4) * 0.05, thrust = -1.55 * Math.sin(Math.min(1, this.punch) * Math.PI * 0.5);
+    this.vis.armL.rotation.x = rest + (this.punchArm === 0 ? thrust : 0);
+    this.vis.armR.rotation.x = rest + (this.punchArm === 1 ? thrust : 0);
     const s = 1 + this.flash * 0.15;
     this.vis.group.scale.set(s, s, s);
   }

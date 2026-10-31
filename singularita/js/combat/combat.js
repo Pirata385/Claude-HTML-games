@@ -300,7 +300,8 @@ export class Combat {
       const z = this.zones[i];
       z.age += dt; z.tick -= dt;
       if (z.follow) { z.x = z.follow.x; z.z = z.follow.z; z.decal.mesh.position.set(z.x, z.follow.ry + 0.06, z.z); }
-      if (z.tick <= 0) { z.tick = z.interval; z.onTick?.(z.team ? this.circle(z.x, z.z, z.r, z.team) : [], z); }
+      // Pools on the ground never touch the Stardust's Astral: it floats over them.
+      if (z.tick <= 0) { z.tick = z.interval; z.onTick?.(z.team ? this.circle(z.x, z.z, z.r, z.team).filter((t) => t !== g.astral) : [], z); }
       if (z.age >= z.t) { g.fx.release(z.decal); this.zones.splice(i, 1); z.onEnd?.(z); }
     }
     // Projectiles.

@@ -872,6 +872,40 @@ try {
     check(!errors.length, `patches: no errors ${errors.slice(0, 3).join(' | ')}`);
     await ctx.close();
   }
+  {
+    // The Stardust's Astral: a stand that breaks after a number of blows, untouched by puddles.
+    const { ctx, page, errors } = await open(`${BASE}/singularita/index.html?quickstart=stardust&debug`);
+    await waitGame(page);
+    const a = await sim(page, `
+      g.ui.closeDialog && g.ui.closeDialog();
+      const out = {}, a = g.astral, p = g.player;
+      g.profile.level = 30; g.profile.attrs.spi = 58; g.recomputeStats();
+      p.res = g.stats.resourceMax; a.manifest(true); step(3);
+      out.max = g.stats.astralHits; out.left0 = a.hitsLeft;
+      for (let k = 0; k < 30; k++) g.combat.hurt(a, 1e6, null, { type: 'hazard' });
+      out.afterHazards = a.hitsLeft; out.upAfterHazards = a.manifested;
+      g.combat.hurt(a, 1e9, null, { type: 'melee' }); p.hp = g.stats.maxHp;
+      out.afterBigBlow = a.hitsLeft; out.upAfterBigBlow = a.manifested;
+      for (let k = 2; k < out.max; k++) g.combat.hurt(a, 1, null, { type: 'aoe' });
+      out.oneLeft = a.manifested && a.hitsLeft === 1;
+      g.combat.hurt(a, 1, null, { type: 'ranged' });
+      out.broken = !a.manifested && a.lockT > 0;
+      // It looks like a stand, and its fists fly when it strikes.
+      a.lockT = 0; p.res = g.stats.resourceMax; a.manifest(true); step(3);
+      out.arms = !!(a.vis.armL && a.vis.armR);
+      const e = g.enemies.spawn('slime', a.x + 1.5, a.z, { level: 30, noIntro: true }); e.spawnT = 0; e.maxHp = e.hp = 1e9;
+      let swing = 0;
+      for (let k = 0; k < 60; k++) { a.command(e); step(1); swing = Math.min(swing, a.vis.armL?.rotation.x ?? 0, a.vis.armR?.rotation.x ?? 0); }
+      out.punches = swing < -0.6;
+      e.alive = false; e.dyingT = 0;
+      return out;`);
+    check(a.left0 === a.max && a.max >= 8 && a.max <= 20, `the Astral's guard grows with Spirituality (${a.max} blows at 58 SPI)`);
+    check(a.afterHazards === a.max && a.upAfterHazards, `puddles and ground hazards pass through the Astral (${JSON.stringify(a)})`);
+    check(a.afterBigBlow === a.max - 1 && a.upAfterBigBlow && a.oneLeft && a.broken, 'each direct blow counts once, however hard; it breaks on the last');
+    check(a.arms && a.punches, 'the Astral is a stand whose fists fly when it strikes');
+    check(!errors.length, `stardust: no errors ${errors.slice(0, 3).join(' | ')}`);
+    await ctx.close();
+  }
 } catch (err) {
   failures++;
   console.error('FAIL smoke test crashed:', err);

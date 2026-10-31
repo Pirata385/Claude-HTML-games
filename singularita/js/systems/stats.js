@@ -15,6 +15,9 @@ export const ATTR_INFO = {
 // a·k / (1 + a/S): linear at first, flattening past S.
 export const soft = (a, k, S) => (a * k) / (1 + a / S);
 
+// Blows the Stardust's Astral takes before it breaks: four, and one more per 12 Spirituality, up to 20.
+export const astralHits = (spi) => Math.min(20, 4 + Math.floor(Math.max(0, spi) / 12));
+
 // Total attributes: allocated points + free class growth (+1 to each growth attribute every 2 levels) + gear.
 export function totalAttrs(profile, gear) {
   const cls = CLASSES[profile.classId];
@@ -68,6 +71,7 @@ export function computeStats(profile, gear) {
     accuracy: Math.min(0.85, soft(a.dex, 0.006, 150)),
     spiPower: 1 + soft(a.spi, 0.015, 300),
     leash: 6 + Math.min(6, soft(a.spi, 0.04, 150)),
+    astralHits: astralHits(a.spi),
     statusPotency: 1 + soft(a.spi, 0.006, 250),
     statusRes: Math.min(0.7, soft(a.spi, 0.004, 250) + v('statusRes')),
     healMult: 1 + soft(a.spi, 0.004, 250) + v('healBonus'),

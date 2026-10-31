@@ -238,28 +238,48 @@ export function buildLumeRig() {
 
 // The Astral: a constellation figure unique to each character seed. Stars are generated
 // from the seed on a humanoid frame and joined by faint lines.
+// The Stardust's Astral: a stand. A floating warrior of starlight, crested helm and glowing eyes,
+// broad plated shoulders and heavy fists, its body thinning to a wisp. Constellation stars mark it.
+// The arms are their own groups, pivoting at the shoulder, so its fists can fly.
 export function buildAstral(seed) {
   const rng = makeRng(seed);
   const group = new THREE.Group();
   const hue = rng.range(0.62, 0.88);
   const col = new THREE.Color().setHSL(hue, 0.85, 0.72);
-  const frame = [[0, 2.1], [0, 1.6], [0.5, 1.45], [-0.5, 1.45], [0.75, 1.0], [-0.75, 1.0], [0, 1.0], [0.25, 0.4], [-0.25, 0.4], [0.3, -0.1], [-0.3, -0.1]];
-  const stars = frame.map(([x, y]) => [x + rng.range(-0.12, 0.12), y + rng.range(-0.1, 0.1), rng.range(-0.15, 0.15)]);
-  for (let i = 0; i < 6; i++) stars.push([rng.range(-0.9, 0.9), rng.range(0.2, 2.3), rng.range(-0.3, 0.3)]);
-  const boxes = stars.map(([x, y, z], i) => B(x, y, z, i < 2 ? 0.22 : 0.13, i < 2 ? 0.22 : 0.13, i < 2 ? 0.22 : 0.13, '#' + col.getHexString()));
-  boxes.push(B(0.08, 2.12, 0.12, 0.05, 0.05, 0.02, '#ffffff'), B(-0.08, 2.12, 0.12, 0.05, 0.05, 0.02, '#ffffff'));
-  const starGeo = boxesGeometry(boxes);
-  group.add(new THREE.Mesh(starGeo, unlitMaterial()));
-  const links = [[0, 1], [1, 2], [1, 3], [2, 4], [3, 5], [1, 6], [6, 7], [6, 8], [7, 9], [8, 10]];
+  const hex = (h, s, l) => '#' + new THREE.Color().setHSL(((h % 1) + 1) % 1, s, l).getHexString();
+  const body = hex(hue, 0.7, 0.62), plate = hex(hue + 0.06, 0.55, 0.4), dark = hex(hue, 0.5, 0.16), wisp = hex(hue, 0.8, 0.45), gold = '#ffd166';
+  const torso = [
+    // A wisp instead of legs.
+    B(0, 0.42, -0.1, 0.12, 0.18, 0.1, wisp), B(0, 0.6, -0.06, 0.22, 0.2, 0.16, wisp), B(0, 0.8, -0.02, 0.32, 0.22, 0.22, body),
+    B(0, 1.02, 0, 0.42, 0.24, 0.26, dark), B(0, 1.26, 0, 0.5, 0.3, 0.3, body),
+    B(0, 1.6, 0, 0.78, 0.46, 0.4, body), B(0, 1.62, 0.21, 0.5, 0.32, 0.04, plate), B(0, 1.64, 0.235, 0.12, 0.12, 0.02, '#ffffff'),
+    B(0.52, 1.84, 0, 0.36, 0.22, 0.44, plate), B(-0.52, 1.84, 0, 0.36, 0.22, 0.44, plate),
+    B(0, 1.9, 0, 0.18, 0.12, 0.18, body),
+    // The helm: a visor, two eyes, a crest and fins.
+    B(0, 2.08, 0, 0.36, 0.34, 0.36, body), B(0, 2.08, 0.185, 0.28, 0.12, 0.02, dark),
+    B(0.075, 2.09, 0.2, 0.06, 0.04, 0.02, '#ffffff'), B(-0.075, 2.09, 0.2, 0.06, 0.04, 0.02, '#ffffff'),
+    B(0, 2.33, -0.02, 0.08, 0.2, 0.38, gold), B(0.2, 2.16, -0.05, 0.04, 0.18, 0.2, plate), B(-0.2, 2.16, -0.05, 0.04, 0.18, 0.2, plate),
+  ];
+  // Constellation stars across the chest and shoulders, different for every Starbearer.
+  const stars = [[0, 1.64], [0.3, 1.78], [-0.3, 1.78], [0.18, 1.42], [-0.18, 1.42], [0, 1.22]].map(([x, y]) => [x + rng.range(-0.05, 0.05), y + rng.range(-0.05, 0.05), 0.22]);
+  for (const [x, y, z] of stars) torso.push(B(x, y, z, 0.07, 0.07, 0.02, '#ffffff'));
+  const torsoGeo = boxesGeometry(torso);
+  const mat = unlitMaterial();
+  group.add(new THREE.Mesh(torsoGeo, mat));
+  const links = [[0, 1], [0, 2], [0, 3], [0, 4], [3, 5], [4, 5]];
   const pts = [];
   for (const [a, b] of links) pts.push(...stars[a], ...stars[b]);
   const lineGeo = new THREE.BufferGeometry();
   lineGeo.setAttribute('position', new THREE.Float32BufferAttribute(pts, 3));
-  const lineMat = new THREE.LineBasicMaterial({ color: col, transparent: true, opacity: 0.6 });
+  const lineMat = new THREE.LineBasicMaterial({ color: col, transparent: true, opacity: 0.8 });
   group.add(new THREE.LineSegments(lineGeo, lineMat));
+  // Arms: upper arm, a plated forearm and a heavy fist, hanging from the shoulder.
+  const armGeo = boxesGeometry([B(0, -0.22, 0, 0.22, 0.42, 0.24, body), B(0, -0.58, 0.02, 0.22, 0.34, 0.24, plate),
+    B(0, -0.84, 0.04, 0.3, 0.26, 0.3, plate), B(0, -0.84, 0.2, 0.26, 0.06, 0.02, gold)]);
+  const arm = (side) => { const a = new THREE.Group(); a.position.set(0.52 * side, 1.78, 0); a.add(new THREE.Mesh(armGeo, mat)); group.add(a); return a; };
+  const armL = arm(1), armR = arm(-1);
   // A soft body of light.
-  const auraGeo = boxesGeometry([B(0, 1.15, 0, 0.7, 1.9, 0.3, '#' + col.clone().multiplyScalar(0.12).getHexString())]);
-  const aura = new THREE.Mesh(auraGeo, glowMaterial());
-  group.add(aura);
-  return { group, color: col, dispose() { starGeo.dispose(); lineGeo.dispose(); lineMat.dispose(); auraGeo.dispose(); group.parent?.remove(group); } };
+  const auraGeo = boxesGeometry([B(0, 1.3, 0, 1.0, 2.0, 0.5, '#' + col.clone().multiplyScalar(0.12).getHexString())]);
+  group.add(new THREE.Mesh(auraGeo, glowMaterial()));
+  return { group, color: col, armL, armR, dispose() { torsoGeo.dispose(); armGeo.dispose(); lineGeo.dispose(); lineMat.dispose(); auraGeo.dispose(); group.parent?.remove(group); } };
 }

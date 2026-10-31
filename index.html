@@ -62,11 +62,13 @@ footer { text-align: center; color: var(--muted); font-weight: 500; font-size: 0
   </header>
   <div class="tabs" role="tablist">
     <button class="tab" role="tab" id="tab-jogos" aria-controls="games" aria-selected="true">Jogos</button>
+    <button class="tab" role="tab" id="tab-apps" aria-controls="apps" aria-selected="false">Apps</button>
     <button class="tab" role="tab" id="tab-animacoes" aria-controls="animations" aria-selected="false">Animações</button>
   </div>
   <nav class="grid" id="games" role="tabpanel" aria-labelledby="tab-jogos"></nav>
+  <nav class="grid" id="apps" role="tabpanel" aria-labelledby="tab-apps" hidden></nav>
   <nav class="grid" id="animations" role="tabpanel" aria-labelledby="tab-animacoes" hidden></nav>
-  <footer>Each game and animation lives in its own folder with its code and assets.</footer>
+  <footer>Each game, app and animation lives in its own folder with its code and assets.</footer>
 </main>
 <!-- ============================== JS ============================== -->
 <script>
@@ -146,6 +148,9 @@ footer { text-align: center; color: var(--muted); font-weight: 500; font-size: 0
       palette: ['#0d1020', '#2b2350', '#4caf6a', '#8a5a3a', '#c48cff'],
       scene: 'singularita',
     },
+  ];
+  // App registry: entries for the "Apps" tab (tools rather than games; each in its own root folder).
+  const APPS = [
     {
       path: 'pulso-daw/index.html',
       title: 'Pulso — Estúdio Musical',
@@ -212,9 +217,10 @@ footer { text-align: center; color: var(--muted); font-weight: 500; font-size: 0
     }
   }
   addCards(document.getElementById('games'), GAMES, '▶ Play');
+  addCards(document.getElementById('apps'), APPS, '▶ Abrir');
   addCards(document.getElementById('animations'), ANIMATIONS, '▶ Assistir');
-  // Tabs: "Jogos" and "Animações". The hash (#animacoes) keeps the tab when coming back from a page.
-  const tabs = { jogos: document.getElementById('tab-jogos'), animacoes: document.getElementById('tab-animacoes') };
+  // Tabs: "Jogos", "Apps" and "Animações". The hash (#apps, #animacoes) keeps the tab when coming back from a page.
+  const tabs = { jogos: document.getElementById('tab-jogos'), apps: document.getElementById('tab-apps'), animacoes: document.getElementById('tab-animacoes') };
   function showTab(name) {
     for (const [key, btn] of Object.entries(tabs)) {
       btn.setAttribute('aria-selected', String(key === name));
@@ -222,8 +228,10 @@ footer { text-align: center; color: var(--muted); font-weight: 500; font-size: 0
     }
   }
   tabs.jogos.onclick = () => { showTab('jogos'); history.replaceState(null, '', location.pathname); };
+  tabs.apps.onclick = () => { showTab('apps'); history.replaceState(null, '', '#apps'); };
   tabs.animacoes.onclick = () => { showTab('animacoes'); history.replaceState(null, '', '#animacoes'); };
-  showTab(location.hash === '#animacoes' ? 'animacoes' : 'jogos');
+  const fromHash = location.hash.slice(1);
+  showTab(fromHash in tabs ? fromHash : 'jogos');
   // Tiny procedural pixel-art banner for each card.
   function drawArt(cv, g) {
     const ctx = cv.getContext('2d'), W = cv.width, H = cv.height, P = g.palette;

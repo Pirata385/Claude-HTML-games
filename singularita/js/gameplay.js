@@ -5,6 +5,7 @@ import { Combat } from './combat/combat.js';
 import { Enemies } from './ai/enemies.js';
 import { Spawner } from './ai/spawner.js';
 import { Phenomena } from './world/phenomena.js';
+import { DimensionRules } from './world/dimrules.js';
 import { Astral } from './entities/astral.js';
 import { makeKit } from './combat/kits/index.js';
 import { addXp, applyDeathPenalty, xpToNext } from './systems/progression.js';
@@ -12,6 +13,7 @@ import { count, takeStack } from './systems/inventory.js';
 import { CONSUMABLES } from './data/consumables.js';
 import { defaultHotbar } from './data/skills.js';
 import { unlocksAt } from './data/unlocks.js';
+import { endRun } from './systems/run.js';
 
 export function installGameplay(game) {
   const r = game.r;
@@ -21,6 +23,7 @@ export function installGameplay(game) {
   game.enemies = new Enemies(game);
   game.spawner = new Spawner(game);
   game.phenomena = new Phenomena(game);
+  game.dimRules = new DimensionRules(game);
   game.lockTarget = null;
   game.stopT = 0;
   game.consumableCd = 0;
@@ -72,6 +75,10 @@ export function installGameplay(game) {
       const why = game.spawner.trySummon(e.summon);
       if (why) return game.ui?.toast(why, 'warn');
     }
+    if (e.portal) {
+      const why = game.interaction.openPortal(e.portal);
+      if (why) return game.ui?.toast(why, 'warn');
+    }
     if (e.heal) game.combat.healPlayer(game.stats.maxHp * e.heal * game.stats.tonicPotency);
     if (e.resource) p.res = Math.min(game.stats.resourceMax, p.res + game.stats.resourceMax * e.resource * game.stats.tonicPotency);
     if (e.cure) for (const s of e.cure) p.statuses.remove(s);
@@ -100,6 +107,8 @@ export function installGameplay(game) {
     const bed = game.zone.type === 'island' ? null : null;
     void bed;
     const z = (gz) => gz.base.stations.bed;
+    // Dying in a dimension ends the run; the dimension casts you out.
+    if (game.profile.run) { endRun(game.profile, 'fail'); game.ui?.toast('The dimension casts you out. The run is over.', 'warn', 5); }
     game.enterZone('island', null);
     const b = z(game.zone);
     p.x = b.x + 1.5; p.z = b.z + 1.5;
@@ -134,8 +143,10 @@ export function installGameplay(game) {
       g.astral?.manifest(false);
       g.spawner.onZoneExit();
       g.phenomena.onZoneExit();
+      g.dimRules.onZoneExit();
+      g.portal = null; g.portalOut = null;
     },
-    onZoneEnter(g) { g.spawner.onZoneEnter(); g.phenomena.onZoneEnter(); },
+    onZoneEnter(g) { g.dimRules.onZoneEnter(); g.spawner.onZoneEnter(); g.phenomena.onZoneEnter(); },
     update(dt, g) {
       const p = g.player, inp = g.input;
       g.consumableCd = Math.max(0, g.consumableCd - dt);
@@ -167,10 +178,12 @@ export function installGameplay(game) {
       g.combat.update(dt);
       g.spawner.update(dt);
       g.phenomena.update(dt);
+      g.dimRules.update(dt);
       g.fx.update(dt);
     },
     render(dt, g) {
       g.enemies.render(dt);
+      g.dimRules.render(dt);
       g.overlay.draw(dt);
     },
   });

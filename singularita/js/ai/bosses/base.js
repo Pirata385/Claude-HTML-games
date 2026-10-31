@@ -5,7 +5,7 @@ import { moveCircle } from '../../world/physics.js';
 import { animate } from '../../render/rigs.js';
 import { angleDiff } from '../../core/math.js';
 import { addStack, addItem } from '../../systems/inventory.js';
-import { MATERIALS, SIGILS } from '../../data/materials.js';
+import { MATERIALS, SIGILS, SHARDS } from '../../data/materials.js';
 import { rollRewards } from '../../systems/rewards.js';
 import { ITEMS } from '../../data/items.js';
 
@@ -59,19 +59,24 @@ export class Boss extends Entity {
       this.leaveT += dt;
       if (this.leaveT > 8) { for (const m of [...this.group.members]) if (m.alive) m.resetFight(); g.bus.emit('bossReset', { def: this.bossDef }); return; }
     } else this.leaveT = 0;
-    const frac = this.group.members.reduce((a, m) => a + Math.max(0, m.hp), 0) / this.group.members.reduce((a, m) => a + m.maxHp, 0);
+    const frac = this.phaseFrac();
     const phases = this.bossDef.phases;
     while (this.phase + 1 < phases.length && frac <= phases[this.phase + 1].at) { this.phase++; this.onPhase(this.phase); g.bus.emit('bossPhase', { def: this.bossDef, phase: phases[this.phase] }); }
     this.cd -= dt;
     if (this.atkDur > 0) { this.atkT += dt; this.anim.atk = Math.min(1, this.atkT / this.atkDur); if (this.atkT >= this.atkDur) { this.atkDur = 0; this.anim.atk = 0; } }
     if (this.statuses.stunned) { this.anim.wind = 0; return; }
     this.think(dt, c);
+    // Bosses hold their arena: they never chase you out of it.
+    const ax = this.x - this.arena.x, az = this.z - this.arena.z, d = Math.hypot(ax, az), rmax = this.arena.r - this.radius * 0.5;
+    if (d > rmax) { this.x = this.arena.x + (ax / d) * rmax; this.z = this.arena.z + (az / d) * rmax; }
   }
   resetFight() {
     this.hp = this.maxHp; this.x = this.arena.x; this.z = this.arena.z; this.state = 'idle'; this.cd = 2; this.phase = 0; this.leaveT = 0;
     this.group.engaged = false; this.statuses.clear(); this.stunnedBonus = false;
     this.onReset?.();
   }
+  // The health left that drives the phases: the whole group's, by default.
+  phaseFrac() { return this.group.members.reduce((a, m) => a + Math.max(0, m.hp), 0) / this.group.members.reduce((a, m) => a + m.maxHp, 0); }
   onPhase() {}
   think() {}
 
@@ -89,6 +94,7 @@ export class Boss extends Entity {
         addStack(p.inv, r.material, r.n); loot.push(`${r.n} ${MATERIALS[r.material].name}`);
         g.bus.emit('itemGained', { id: r.material, n: r.n, source: 'boss' });
         if (SIGILS.includes(r.material)) g.bus.emit('sigil', { id: r.material });
+        if (SHARDS.includes(r.material)) g.bus.emit('shard', { id: r.material });
       } else { addItem(p.inv, r.item); loot.push(ITEMS[r.item].name); }
     }
     g.grantXp(def.xp * (1 + 0.08 * this.level), this);

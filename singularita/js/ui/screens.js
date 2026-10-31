@@ -5,6 +5,7 @@ import { skillsOf } from '../data/skills.js';
 import { ZONES } from '../data/zones.js';
 import { newProfile, importString, SLOT_COUNT } from '../systems/save.js';
 import { openSettings } from './menus/settings.js';
+import { toggleFullscreen, isStandalone } from './fullscreen.js';
 
 export class TitleScreen {
   constructor(root, ctx) { this.root = root; this.ctx = ctx; }
@@ -30,6 +31,7 @@ export class TitleScreen {
         slots.some(Boolean) && h('button', { class: 'btn big', onclick: () => this.slots() }, 'Load Game'),
         h('button', { class: 'btn', onclick: () => openSettings(this.ctx, null) }, 'Settings'),
         h('button', { class: 'btn ghost', onclick: () => this.importView() }, 'Import a save code'),
+        this.ctx.input?.isTouch && !isStandalone() && h('button', { class: 'btn ghost fs-toggle', onclick: () => toggleFullscreen().then((tip) => { if (tip) alert(tip); }) }, '⛶ Full screen'),
       ),
       h('p', { class: 'title-foot' }, 'Milestone 1 — Dawnreach and the Hollow Deep. Your progress is saved in this browser.'),
     );

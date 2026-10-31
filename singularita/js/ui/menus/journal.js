@@ -30,7 +30,9 @@ export function journalTab(g, root, opts, rerender) {
     for (const b of Object.values(BOSSES)) {
       const n = p.stats.bosses[b.id] || 0;
       const sigil = b.rewards.find((r) => r.once)?.material;
-      const where = b.zone && b.zone !== 'island'
+      const where = ZONES[b.zone]?.type === 'dimension'
+        ? `Rules ${ZONES[b.zone].name}, at the end of every run there. ${(p.inv.stacks[sigil] || 0) ? `✦ You carry the ${MATERIALS[sigil].name}.` : `Keeps the ${MATERIALS[sigil].name}.`}`
+        : b.zone && b.zone !== 'island'
         ? `Guards ${ZONES[b.zone].name} (${ZONES[b.zone].subtitle}) from level ${b.minLevel}, and returns 10 minutes after each defeat. ${(p.inv.stacks[sigil] || 0) ? `✦ You carry the ${MATERIALS[sigil].name}.` : `Keeps the ${MATERIALS[sigil].name}.`}`
         : `Roams Dawnreach ${b.period === 'day' ? 'by day' : 'by night'}, in the ${b.arena === 'glade' ? 'Sunlit Glade' : 'Bone Ridge Crater'}, from level ${b.minLevel}.`;
       body.append(h('div', { class: 'boss-entry' }, h('h4', {}, b.name, h('small', {}, ` · ${b.title}`)),

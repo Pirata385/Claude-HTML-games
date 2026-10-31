@@ -8,12 +8,16 @@ import { TitleScreen } from './ui/screens.js';
 import { installSession } from './session.js';
 import { AudioEngine } from './audio/audio.js';
 import { Input } from './core/input.js';
+import { armAutoFullscreen } from './ui/fullscreen.js';
+import { ZONES } from './data/zones.js';
 
 const storage = (() => { try { const k = '__sg_probe'; localStorage.setItem(k, '1'); localStorage.removeItem(k); return localStorage; } catch { const m = new Map(); return { getItem: (k) => (m.has(k) ? m.get(k) : null), setItem: (k, v) => m.set(k, String(v)), removeItem: (k) => m.delete(k) }; } })();
 const params = new URLSearchParams(location.search);
 const isTouch = matchMedia('(pointer: coarse)').matches || 'ontouchstart' in window;
 const settings = loadSettings(storage, isTouch);
 const store = new SaveStore(storage);
+// Phones and tablets go full screen on the first tap, unless turned off in Settings.
+if (isTouch) armAutoFullscreen(() => settings.touch.fullscreen);
 
 const loading = document.getElementById('loading');
 const fill = document.getElementById('loading-fill');
@@ -42,7 +46,9 @@ async function startGame(profile) {
   getZone('island');
   setLoading(0.5, 'Lighting the beacon…');
   await nextFrame();
-  if (profile.zone !== 'island') getZone(profile.zone);
+  // A save made inside a dimension resumes the run; a dimension with no run returns to camp.
+  if (ZONES[profile.zone]?.type === 'dimension' && !profile.run) { profile.zone = 'island'; profile.pos = null; }
+  if (profile.zone !== 'island') getZone(profile.zone, profile.run);
   setLoading(0.8, 'Waking the creatures…');
   await nextFrame();
   game = new Game({ renderer, settings, store, profile, input, hooks: { saveSettings: () => saveSettings(storage, settings), quitToTitle } });

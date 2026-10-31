@@ -5,6 +5,7 @@ import { BOSSES } from '../../data/bosses.js';
 import { MATERIALS } from '../../data/materials.js';
 import { count } from '../../systems/inventory.js';
 import { canEnter } from '../../systems/travel.js';
+import { CONSUMABLES } from '../../data/consumables.js';
 
 export function mapTab(g, root) {
   const cv = h('canvas', { class: 'fullmap', width: 720, height: 720 });
@@ -14,12 +15,14 @@ export function mapTab(g, root) {
     const gate = canEnter(p, z.id);
     const locked = !gate.ok;
     const why = locked ? (p.level < z.levelReq ? ' (locked)' : ' (sealed)') : '';
-    const guardian = z.type === 'isle' ? Object.values(BOSSES).find((b) => b.zone === z.id) : null;
+    const guardian = z.type === 'isle' || z.type === 'dimension' ? Object.values(BOSSES).find((b) => b.zone === z.id) : null;
+    const rec = p.dims?.[z.id];
     const sigil = guardian?.rewards.find((r) => r.once)?.material;
     const effects = [...(z.hazards || []), ...(z.phenomena || [])];
     return h('li', { class: `${visited ? 'visited' : ''}${locked ? ' locked' : ''}${g.zone.id === z.id ? ' here' : ''}` },
       h('b', {}, z.name), h('small', {}, `${z.subtitle} · from Lv ${z.levelReq}${why}${g.zone.id === z.id ? ' · you are here' : visited ? ' · visited' : ''}`),
-      guardian ? h('small', {}, `${count(p.inv, sigil) ? '✦' : '·'} ${guardian.name} keeps the ${MATERIALS[sigil].name}${z.type === 'isle' ? '. Sail from the Wayshrine in camp.' : ''}`) : null,
+      guardian ? h('small', {}, `${count(p.inv, sigil) ? '✦' : '·'} ${guardian.name} keeps the ${MATERIALS[sigil].name}${z.type === 'isle' ? '. Sail from the Wayshrine in camp.' : '.'}`) : null,
+      z.type === 'dimension' ? h('small', {}, `Opened with the ${CONSUMABLES[z.emblem].name}.${rec ? ` Runs ${rec.runs}, cleared ${rec.cleared}${z.rule === 'keys' ? `, deepest floor ${rec.bestFloor}` : ''}.` : ''}`) : null,
       z.requires && locked ? h('small', {}, 'Below the Diamond Throat. The four sigils of the isles open the way.') : null,
       effects.length ? h('small', { class: 'hz' }, `Hazards: ${effects.map((x) => HAZARDS[x].name).join(', ')}`) : null);
   });

@@ -171,8 +171,8 @@ export class AudioEngine {
     if (!this.started) return;
     const { lp, g } = this.amb, t = this.ctx.currentTime;
     // Island and isles: surf and wind (the spires are all wind). Caves: a low rumble that deepens with depth.
-    const conf = kind === 'island' ? { f: 520, v: 0.25 } : kind === 'isle_air' ? { f: 900, v: 0.3 } : String(kind).startsWith('isle') ? { f: 460, v: 0.25 }
-      : { f: 110 + Math.max(0, 8 - (kind || 1)) * 15, v: 0.35 };
+    const conf = kind === 'island' ? { f: 520, v: 0.25 } : kind === 'isle_air' || kind === 'dim_dragons' ? { f: 900, v: 0.3 } : String(kind).startsWith('isle') ? { f: 460, v: 0.25 }
+      : typeof kind === 'number' ? { f: 110 + Math.max(0, 8 - kind) * 15, v: 0.35 } : { f: 160, v: 0.3 };
     lp.frequency.setTargetAtTime(conf.f, t, 0.5);
     g.gain.setTargetAtTime(conf.v, t, 0.8);
   }
@@ -229,5 +229,12 @@ const MOODS = {
   isle_water: { root: 60, bpm: 78, scale: [0, 2, 4, 7, 9, 11], prog: [0, -3, 5, -1], pad: 'sine', lead: 'triangle', density: 0.3, bass: true },
   isle_fire: { root: 52, bpm: 104, scale: PHRYG, prog: [0, 1, -2, 1], pad: 'sawtooth', lead: 'square', density: 0.3, bass: true },
   isle_earth: { root: 55, bpm: 70, scale: DORIAN, prog: [0, -2, 3, -5], pad: 'triangle', lead: 'triangle', density: 0.24, bass: true },
+  // The dimensions: a gaol's slow march, a lilting duet, a crooked court, a mirrored canon, a dragon's chant.
+  dim_dungeon: { root: 43, bpm: 66, scale: MINOR, prog: [0, -2, 1, -2], pad: 'sawtooth', lead: 'square', density: 0.12, bass: true },
+  dim_twins: { root: 62, bpm: 96, scale: [0, 2, 4, 7, 9], prog: [0, 0, 5, 5], pad: 'triangle', lead: 'triangle', density: 0.32, bass: true },
+  dim_king: { root: 46, bpm: 72, scale: PHRYG, prog: [0, 1, 6, 1], pad: 'sawtooth', lead: 'sine', density: 0.16, bass: true },
+  dim_mirror: { root: 57, bpm: 80, scale: [0, 2, 3, 6, 7, 9, 10], prog: [0, -1, 0, 1], pad: 'sine', lead: 'triangle', density: 0.22, bass: false },
+  dim_dragons: { root: 45, bpm: 88, scale: DORIAN, prog: [0, 5, 3, -2], pad: 'sawtooth', lead: 'square', density: 0.3, bass: true },
+  cave9: { root: 48, bpm: 54, scale: [0, 2, 4, 6, 8, 10], prog: [0, 2, 4, 2], pad: 'sine', lead: 'sine', density: 0.14, bass: true },
   boss: { root: 50, bpm: 132, scale: PHRYG, prog: [0, 1, 0, -2], pad: 'sawtooth', lead: 'square', density: 0.5, bass: true },
 };

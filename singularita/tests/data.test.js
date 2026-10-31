@@ -17,15 +17,15 @@ import { OBJECTIVES } from '../js/data/objectives.js';
 import { buildUnlocks } from '../js/data/unlocks.js';
 import { findSources } from '../js/data/sources.js';
 
-test('content stops at tier 8: Chromantite and Singularita belong to Milestone 3', () => {
-  for (const m of Object.values(MATERIALS)) assert.ok(m.tier <= 8, m.id);
-  for (const it of Object.values(ITEMS)) assert.ok(it.tier <= 8, it.id);
+test('content stops at tier 10: Singularita is the last tier', () => {
+  for (const m of Object.values(MATERIALS)) assert.ok(m.tier <= 10, m.id);
+  for (const it of Object.values(ITEMS)) assert.ok(it.tier <= 10, it.id);
 });
 
 test('main material chain follows the required order', () => {
   const order = MAIN_MATERIALS.map((id) => MATERIALS[id].tier);
   for (let i = 1; i < order.length; i++) assert.ok(order[i] >= order[i - 1]);
-  assert.deepEqual(MAIN_MATERIALS, ['wood', 'stone', 'copper', 'gold', 'iron', 'lead', 'titanium', 'emerald', 'ruby', 'sapphire', 'diamond', 'dawndosite', 'escuresite']);
+  assert.deepEqual(MAIN_MATERIALS, ['wood', 'stone', 'copper', 'gold', 'iron', 'lead', 'titanium', 'emerald', 'ruby', 'sapphire', 'diamond', 'dawndosite', 'escuresite', 'chromantite', 'singularita']);
   for (let t = 1; t < TIER_RECIPE_LEVEL.length; t++) assert.ok(TIER_RECIPE_LEVEL[t] > TIER_RECIPE_LEVEL[t - 1]);
 });
 
@@ -81,14 +81,16 @@ test('every recipe input can be obtained at or below the recipe level', () => {
   }
 });
 
-test('progression sim: from bare hands the pickaxe chain reaches tier 8 by its recipe level', () => {
+test('progression sim: from bare hands the pickaxe chain reaches Singularita by its recipe level', () => {
   // Greedy player: at each level, mine everything minable in reachable zones, craft the best pickaxe.
-  // Zones behind sigils open once every sigil's boss is within reach.
+  // Zones behind sigils or shards open once their bosses are within reach; dimensions open once
+  // their emblem can be crafted.
   let pickTier = -1; // hands
   const have = new Set(['wood', 'slime_gel', 'zombie_sinew']);
-  const open = (z, L) => z.levelReq <= L && (z.requires || []).every((id) => have.has(id));
-  for (let L = 1; L <= 120; L++) {
-    for (const b of Object.values(BOSSES)) if (b.minLevel <= L && ZONES[b.zone || 'island'].levelReq <= L) for (const r of b.rewards) if (r.material) have.add(r.material);
+  const emblemReady = (z, L) => { const r = RECIPES[`craft_${z.emblem}`]; return r.level <= L && Object.keys(r.inputs).every((id) => have.has(id)); };
+  const open = (z, L) => z.levelReq <= L && (z.requires || []).every((id) => have.has(id)) && (z.type !== 'dimension' || emblemReady(z, L));
+  for (let L = 1; L <= 300; L++) {
+    for (const b of Object.values(BOSSES)) if (b.minLevel <= L && open(ZONES[b.zone || 'island'], L)) for (const r of b.rewards) if (r.material) have.add(r.material);
     for (const z of ZONE_ORDER.map((id) => ZONES[id]).filter((z) => open(z, L))) {
       for (const n of z.nodes) {
         const nd = NODES[n.node];
@@ -102,8 +104,85 @@ test('progression sim: from bare hands the pickaxe chain reaches tier 8 by its r
       if (Object.keys(r.inputs).every((id) => have.has(id))) pickTier = Math.max(pickTier, it.tier);
     }
   }
-  assert.ok(have.has('diamond') && have.has('dawndosite') && have.has('escuresite'), 'every main material reachable');
-  assert.ok(pickTier >= 8, `best pickaxe tier ${pickTier}`);
+  for (const id of MAIN_MATERIALS) assert.ok(have.has(id), `${id} reachable`);
+  assert.ok(pickTier >= 10, `best pickaxe tier ${pickTier}`);
+});
+
+const DIMENSIONS = () => Object.values(ZONES).filter((z) => z.type === 'dimension');
+const MAIN_WORLD_BOSS_MATS = new Set(Object.values(BOSSES).filter((b) => ['island', 'isle'].includes(ZONES[b.zone || 'island'].type)).flatMap((b) => b.rewards.map((r) => r.material)).filter(Boolean));
+
+test('five dimensions, each opened by its own craftable emblem made from main-world boss materials', () => {
+  const dims = DIMENSIONS();
+  assert.equal(dims.length, 5);
+  const emblems = new Set();
+  for (const z of dims) {
+    const em = CONSUMABLES[z.emblem];
+    assert.ok(em && em.effect.portal === z.id, `${z.id} emblem`);
+    emblems.add(z.emblem);
+    const r = RECIPES[`craft_${z.emblem}`];
+    assert.ok(r, `${z.emblem} recipe`);
+    assert.ok(Object.keys(r.inputs).some((id) => MAIN_WORLD_BOSS_MATS.has(id)), `${z.emblem} uses a main-world boss material`);
+    assert.ok(r.level >= z.levelReq - 5 && r.level <= z.levelReq, `${z.emblem} recipe at ${r.level} for ${z.levelReq}`);
+  }
+  assert.equal(emblems.size, 5);
+});
+
+test('each dimension has its own rule, look, creatures, boss, exclusive material and lore', () => {
+  const rules = new Set(), kinds = new Set();
+  for (const z of DIMENSIONS()) {
+    assert.ok(z.rule && z.ruleDesc, `${z.id} rule`); rules.add(z.rule);
+    kinds.add(z.gen.kind);
+    assert.ok(z.palette && z.enemies.length >= 3, z.id);
+    const boss = BOSSES[z.boss];
+    assert.ok(boss && boss.zone === z.id && boss.phases.length >= 3 && boss.intro && boss.defeat && boss.lore, `${z.id} boss`);
+    assert.ok(z.exclusive.length >= 1, z.id);
+    for (const m of z.exclusive) {
+      const zonesWith = findSources(m).map((s) => s.zone);
+      assert.ok(zonesWith.length && zonesWith.every((id) => id === z.id), `${m} only in ${z.id}: ${zonesWith}`);
+    }
+    assert.ok(z.lore.length >= 2, `${z.id} lore`);
+    for (const e of z.enemies) assert.ok(ENEMIES[e.id].family !== 'slime' || z.id === 'dim_twins', `${z.id} has its own creatures`);
+  }
+  assert.equal(rules.size, 5, 'five different rules');
+  assert.equal(kinds.size, 5, 'five different layouts');
+});
+
+test('the five dimension bosses from the brief are present, each with a Fracture Shard', () => {
+  const names = Object.values(BOSSES).map((b) => b.name);
+  for (const n of ['The Iron-Hand Jailer', 'The Adamite King', 'You?', 'The Siamese', 'Ragnarok, the Dragon God']) assert.ok(names.includes(n), n);
+  const shards = Object.values(MATERIALS).filter((m) => m.kind === 'key' && m.id.startsWith('shard_')).map((m) => m.id);
+  assert.equal(shards.length, 5);
+  for (const id of shards) {
+    const b = Object.values(BOSSES).find((x) => x.rewards.some((r) => r.material === id && r.once));
+    assert.ok(b && ZONES[b.zone].type === 'dimension', id);
+  }
+  assert.deepEqual([...ZONES.cave_9.requires].sort(), [...shards].sort());
+  assert.ok(ZONES.cave_9.levelReq >= 200);
+});
+
+test('Singularita is indispensable for the last two tiers, and the last tier is built on it', () => {
+  for (const r of Object.values(RECIPES)) {
+    const it = r.output.item && ITEMS[r.output.item];
+    if (!it || it.tier < 9 || !it.material) continue;
+    assert.ok(r.inputs.singularita || r.inputs.singularita_shard, `${r.id} needs Singularita`);
+    if (it.tier === 10) assert.equal(it.material, 'singularita');
+  }
+  for (const cls of CLASS_IDS) for (const slot of ['weapon', 'armor', 'accessory']) {
+    const it = ITEMS[`${cls}_${slot}_singularita`];
+    assert.equal(it.memory, 2, `${it.id} remembers two traits`);
+    assert.ok(it.collapse, `${it.id} collapses`);
+  }
+  assert.ok(TRAITS.chromatic && TRAITS.singular, 'new traits');
+});
+
+test('tier 9 and 10 gear draws on at least two dimensions', () => {
+  const dimOf = (m) => DIMENSIONS().find((z) => z.exclusive.includes(m))?.id;
+  for (const r of Object.values(RECIPES)) {
+    const it = r.output.item && ITEMS[r.output.item];
+    if (!it || it.tier < 9 || it.kind === 'tool' || !it.material) continue;
+    const dims = new Set(Object.keys(r.inputs).map(dimOf).filter(Boolean));
+    assert.ok(dims.size >= 2, `${r.id} uses ${[...dims]}`);
+  }
 });
 
 test('four elemental isles, each with exclusive materials found nowhere else', () => {
@@ -179,9 +258,9 @@ test('day spawns are mostly slimes and night spawns mostly zombies', () => {
   assert.ok(sum(night, (e) => ENEMIES[e.id].family === 'zombie') / sum(night, () => true) >= 0.8);
 });
 
-test('cave layers: 8 layers, increasing access levels, hazards from layer 4', () => {
+test('cave layers: 9 layers, increasing access levels, hazards from layer 4', () => {
   const caves = ZONE_ORDER.filter((id) => ZONES[id].type === 'cave').map((id) => ZONES[id]);
-  assert.equal(caves.length, 8);
+  assert.equal(caves.length, 9);
   for (let i = 1; i < caves.length; i++) assert.ok(caves[i].levelReq > caves[i - 1].levelReq);
   caves.forEach((c, i) => assert.equal(c.hazards.length > 0, i >= 3, c.id));
 });

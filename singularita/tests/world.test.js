@@ -2,7 +2,9 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { ZoneGrid, F } from '../js/world/grid.js';
 import { generateZone, zoneSeed, WORLD_SEED, GEN_VERSION } from '../js/world/gen/index.js';
-import { validateIsland, validateCave, validateIsle } from '../js/world/gen/validate.js';
+import { validateIsland, validateCave, validateIsle, validateDimension } from '../js/world/gen/validate.js';
+import { generateDimension } from '../js/world/gen/dimensions.js';
+import { runSeed } from '../js/systems/run.js';
 import { placeWayshrine } from '../js/world/gen/island.js';
 import { applyTide, TIDE } from '../js/world/tide.js';
 import { NODES } from '../js/data/nodes.js';
@@ -145,7 +147,7 @@ for (const id of ZONE_ORDER.filter((x) => ZONES[x].type === 'cave')) {
     assert.deepEqual(v.errors, []);
     assert.ok(z.nodes.length >= 30, `${id} nodes ${z.nodes.length}`);
     assert.ok(z.entry && z.exit);
-    assert.equal(z.exit.type, ZONES[id].gen.heart ? 'heart' : ZONES[id].gen.gate ? 'gate' : 'shaft');
+    assert.equal(z.exit.type, ZONES[id].gen.core ? 'core' : ZONES[id].gen.heart ? 'heart' : ZONES[id].gen.gate ? 'gate' : 'shaft');
     assert.equal(z.pois.filter((p) => p.type === 'lore').length, ZONES[id].lore.length);
     const hz = ZONES[id].hazards;
     if (hz.includes('gas_vent')) assert.ok(z.hazards.some((h) => h.type === 'gas_vent'));
@@ -159,6 +161,87 @@ test('split rift layer keeps ruby on the hot side and sapphire on the cold side'
     if (n.node === 'ore_ruby') assert.equal(z.sideOf(n.i), 'hot');
     if (n.node === 'ore_sapphire') assert.equal(z.sideOf(n.i), 'cold');
   }
+});
+
+const DIMS = ['dim_dungeon', 'dim_twins', 'dim_king', 'dim_mirror', 'dim_dragons'];
+const reachable = (z, extraOpen) => {
+  const g = z.grid, open = new Set(extraOpen || []);
+  const [si, sj] = g.cellAt(z.spawn.x, z.spawn.z);
+  return g.bfs(si, sj, { passable: (i, j, pi, pj) => (g.walkable(i, j) || open.has(g.idx(i, j))) && g.height(i, j) - g.height(pi, pj) <= 1 });
+};
+
+for (const id of DIMS) {
+  test(`${id}: every run's layout passes the design rules`, () => {
+    const layouts = new Set();
+    for (let n = 0; n < 6; n++) {
+      const z = generateDimension(id, { seed: runSeed(id, n), floor: id === 'dim_dungeon' ? 1 + n * 2 : 1 });
+      assert.deepEqual(validateDimension(z).errors, [], `${id} run ${n}`);
+      assert.ok(z.spawn && z.entry && z.nodes.length >= 6, `${id} run ${n}: ${z.nodes.length} nodes`);
+      layouts.add(z.grid.hashCode());
+    }
+    assert.ok(layouts.size >= 5, 'runs differ');
+  });
+}
+
+test('the Endless Dungeon: a locked stair and a Warden on every floor, the Jailer every fifth', () => {
+  const f1 = generateDimension('dim_dungeon', { seed: runSeed('dim_dungeon', 0), floor: 1 });
+  assert.equal(f1.exit.type, 'stair');
+  assert.ok(f1.warden && !f1.arena, 'a warden and no boss on floor 1');
+  assert.equal(f1.pois.filter((p) => p.type === 'lore').length, 2);
+  const f5 = generateDimension('dim_dungeon', { seed: runSeed('dim_dungeon', 0), floor: 5 });
+  assert.ok(f5.arena && f5.arena.boss === 'iron_jailer' && !f5.warden);
+  assert.ok(f5.nodes.some((n) => n.node === 'ore_chromantite'), 'chromantite from floor 5');
+  assert.ok(!f1.nodes.some((n) => n.node === 'ore_chromantite'));
+});
+
+test('the Twin Slimes: every gate is opened by a lever in the other lane', () => {
+  const z = generateDimension('dim_twins', { seed: runSeed('dim_twins', 1) });
+  assert.ok(z.gates.length >= 4);
+  for (const gate of z.gates) {
+    const lever = z.levers.find((l) => l.gate === gate.id);
+    assert.ok(lever && lever.lane !== gate.lane, `${gate.id} lever in the other lane`);
+  }
+  const [ai, aj] = z.grid.cellAt(z.arena.x, z.arena.z);
+  assert.equal(reachable(z)[z.grid.idx(ai, aj)], -1, 'closed gates bar the way');
+  assert.ok(reachable(z, z.gates.flatMap((gt) => gt.cells))[z.grid.idx(ai, aj)] >= 0, 'open gates lead to the throne');
+});
+
+test('the Corrupted King: corrupted ground, cleansing braziers, rooms in a row', () => {
+  const z = generateDimension('dim_king', { seed: runSeed('dim_king', 2) });
+  let corrupt = 0;
+  for (let k = 0; k < z.grid.flags.length; k++) if (z.grid.flags[k] & F.CORRUPT) corrupt++;
+  assert.ok(corrupt > 200, `corrupt ${corrupt}`);
+  assert.ok(z.braziers.length >= 4);
+  assert.deepEqual(z.rooms.map((r) => r.name), ['Gatehouse', 'Courtyard', 'Great Hall', 'Throne Room']);
+});
+
+test('the Mirrored: a glass line splits the halves, plates come in mirrored pairs, and the reflection can reach its plates', () => {
+  const z = generateDimension('dim_mirror', { seed: runSeed('dim_mirror', 3) });
+  const g = z.grid, N = g.w;
+  assert.ok(z.plates.length >= 3);
+  for (const pl of z.plates) {
+    assert.equal(pl.left.i + pl.right.i, N - 1, 'mirrored');
+    assert.equal(pl.left.j, pl.right.j);
+  }
+  // With the gates still shut, there is no walking over to the reflection's side.
+  const d = reachable(z);
+  const firstRight = z.plates[0].right;
+  assert.equal(d[g.idx(firstRight.i, firstRight.j)], -1, 'you cannot walk to the reflection\'s side');
+  for (const pl of z.plates) assert.ok(z.reflectionReach[g.idx(pl.right.i, pl.right.j)] >= 0, 'the reflection can get there');
+});
+
+test('the Dragons\' Roost climbs high above the void to the summit', () => {
+  const z = generateDimension('dim_dragons', { seed: runSeed('dim_dragons', 4) });
+  const g = z.grid;
+  let voids = 0;
+  for (let k = 0; k < g.flags.length; k++) if (g.flags[k] & F.VOID) voids++;
+  assert.ok(voids > g.flags.length * 0.3);
+  assert.ok(z.arena.h - z.landing.h >= 20, `climb ${z.arena.h - z.landing.h}`);
+  assert.ok(z.rocks.length >= 6 && z.nests.length >= 2);
+});
+
+test('the Singular Heart ends at the heart of Singularita', () => {
+  assert.equal(gen('cave_9').exit.type, 'core');
 });
 
 test('snapshot: the world stays the same between versions', () => {
@@ -181,4 +264,10 @@ const SNAPSHOT = {
   isle_fire: 3261711635,
   isle_earth: 1606759553,
   cave_8: 1470528535,
+  dim_dungeon: 3338211100,
+  dim_twins: 4190279646,
+  dim_king: 4209598902,
+  dim_mirror: 2559964178,
+  dim_dragons: 2075933498,
+  cave_9: 487881930,
 };

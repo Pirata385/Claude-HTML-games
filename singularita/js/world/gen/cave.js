@@ -78,13 +78,13 @@ function tryCave(def, seed) {
     }
   };
   if (!open(ek % N, Math.floor(ek / N), 2)) clearAround(ek, 3);
-  clearAround(xk, def.gen.gate || def.gen.heart ? 5 : 3);
+  clearAround(xk, def.gen.gate || def.gen.heart || def.gen.core ? 5 : 3);
   // Recompute after clearing.
   dFromEntry = g.bfs(ek % N, Math.floor(ek / N), { maxStep: 1 });
   diameter = 0;
   for (let k = 0; k < dFromEntry.length; k++) diameter = Math.max(diameter, dFromEntry[k]);
   const entry = { i: ek % N, j: Math.floor(ek / N), type: 'stairs' };
-  const exit = { i: xk % N, j: Math.floor(xk / N), type: def.gen.heart ? 'heart' : def.gen.gate ? 'gate' : 'shaft' };
+  const exit = { i: xk % N, j: Math.floor(xk / N), type: def.gen.core ? 'core' : def.gen.heart ? 'heart' : def.gen.gate ? 'gate' : 'shaft' };
   for (const p of [entry, exit]) { p.x = p.i + 0.5; p.z = p.j + 0.5; p.h = g.h[g.idx(p.i, p.j)]; }
   if (dFromEntry[g.idx(exit.i, exit.j)] < diameter * 0.6) return null;
 

@@ -1,13 +1,14 @@
 // Inventory and equipment, with comparisons against what is equipped.
 import { h, clear } from '../dom.js';
 import { ITEMS } from '../../data/items.js';
-import { MATERIALS } from '../../data/materials.js';
+import { MATERIALS, TRAITS } from '../../data/materials.js';
 import { CONSUMABLES } from '../../data/consumables.js';
 import { RARITY } from '../../data/materials.js';
 import { CLASSES } from '../../data/classes.js';
 import { SLOTS, equip, unequip, equippedIn, isEquipped, bestTool, canEquip, loadout } from '../../systems/equipment.js';
 import { findItem } from '../../systems/inventory.js';
 import { findSources } from '../../data/sources.js';
+import { MEMORY_TRAITS, memoryOf, setMemory, withMemory } from '../../systems/memory.js';
 import { rarityColor, statLines, compareLines, itemHeader } from './common.js';
 
 const SLOT_NAMES = { weapon: 'Weapon', armor: 'Armour', acc1: 'Accessory', acc2: 'Accessory' };
@@ -16,6 +17,23 @@ export function inventoryTab(g, root, opts, rerender) {
   const p = g.profile;
   const state = (g.ui.invState ||= { tab: 'gear', sel: null, sort: 'tier' });
   const detail = h('div', { class: 'detail' });
+  // Singularita's shape memory: two traits of lower materials, chosen at the Forge.
+  const memoryPanel = (def) => {
+    const cur = memoryOf(p, def), picks = [...cur];
+    const atForge = g.isAtForge();
+    const names = (list) => list.map((t) => TRAITS[t].name).join(' and ');
+    const sel = (n) => h('select', { onchange: (e) => { picks[n] = e.target.value; } }, MEMORY_TRAITS.map((t) => h('option', { value: t, selected: picks[n] === t }, TRAITS[t].name)));
+    return h('div', { class: 'memory' }, h('h4', {}, 'Shape memory'),
+      h('p', { class: 'muted small' }, `It remembers ${names(cur)}: ${cur.map((t) => TRAITS[t].desc).join(' ')} ${atForge ? 'Choose what it should remember.' : 'Change it at the Forge.'}`),
+      h('div', { class: 'row' }, sel(0), sel(1),
+        h('button', { class: 'btn', disabled: !atForge, onclick: () => {
+          const r = setMemory(p, def, picks);
+          if (!r.ok) { g.ui.toast(r.reason, 'warn'); return; }
+          g.onGearChanged(def);
+          g.ui.toast(`It remembers ${names(picks)} now.`, 'good');
+          rerender();
+        } }, 'Remember')));
+  };
   const showItem = (uid) => {
     const inst = findItem(p.inv, uid);
     if (!inst) return;
@@ -24,7 +42,8 @@ export function inventoryTab(g, root, opts, rerender) {
     const cur = def.kind === 'gear' ? equippedIn(p, slot) : def.kind === 'tool' ? bestTool(p.inv, def.tool) : null;
     const eq = isEquipped(p, uid);
     const ce = canEquip(p, def);
-    clear(detail).append(itemHeader(def), statLines(def),
+    clear(detail).append(itemHeader(def), statLines(def.memory ? withMemory(p, [def])[0] : def),
+      def.memory ? memoryPanel(def) : null,
       def.kind === 'gear' ? h('div', {}, h('h4', {}, eq ? 'Equipped' : `Compared with ${cur ? cur.name : 'nothing'}`), eq ? null : compareLines(def, cur)) : null,
       h('p', { class: 'flavour' }, def.desc),
       def.kind === 'gear' ? h('div', { class: 'row' },

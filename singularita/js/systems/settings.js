@@ -16,7 +16,7 @@ export const DEFAULT_SETTINGS = {
   graphics: { preset: 'medium', ...GRAPHICS_PRESETS.medium, dynamicRes: true, fov: 62 },
   camera: { sensX: 1, sensY: 1, invertY: false, distance: 6.5, shake: true },
   controls: { bindings: { ...DEFAULT_BINDINGS } },
-  touch: { size: 1, opacity: 0.8, leftHanded: false },
+  touch: { size: 1, opacity: 0.8, leftHanded: false, fullscreen: true },
   ui: { damageNumbers: true, hints: true },
 };
 

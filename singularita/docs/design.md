@@ -1,6 +1,6 @@
 # Singularita — design
 
-This document records the design of the full game and what Milestones 1 and 2 implement. The original brief (in Portuguese) asked for a 3D web RPG in the progression-and-crafting genre. Hades, Genshin Impact and Minecraft were to inform the art direction only, never the mechanics.
+This document records the design of the full game, which Milestones 1 to 3 implement. The original brief (in Portuguese) asked for a 3D web RPG in the progression-and-crafting genre. Hades, Genshin Impact and Minecraft were to inform the art direction only, never the mechanics.
 
 ## Pillars
 
@@ -76,6 +76,38 @@ What the player meets on Dawnreach comes from that story:
 - **Populations.** Isles and caves keep a living population at their zone's fixed band; elites have a constant chance. Guardians are resident: one spawns on entry unless it fell less than 600 s of play time ago (`world.guardians`).
 - **Rewards.** `systems/rewards.js` rolls boss loot; `once` rewards (the sigils) are skipped when already carried.
 - **Objectives.** `reach` accepts alternatives (`a|b`). New types: `sigil` (progress follows the sigils carried) and `gate`.
+
+## Systems (Milestone 3)
+
+- **Emblems and runs.** An Emblem is a consumable whose effect opens a portal in front of the player. Using it is refused inside a dimension, in water or arenas, or when the dimension's level is not reached.
+  - Entering starts a run (`systems/run.js`): the run seed comes from `WORLD_SEED`, the dimension and the run counter; the start position is remembered; the dimension's zone state is reset.
+  - `getZone` keeps only the current dimension zone, generated from the run seed (and floor).
+  - Runs end with `complete` (the ruler fell), `leave` (the way back or a stair out) or `fail` (death, recall). Records are kept per dimension: runs, clears, best floor.
+- **Dimension generators** (`js/world/gen/dimensions.js`). Every layout is checked by `validateDimension` over many seeds; gates count as open.
+  - **floors:** random rooms, a spanning tree of corridors, a far stair room or the Jailer's block.
+  - **lanes:** two lanes, gel gates and the levers that open them.
+  - **castle:** four rooms in a row with corruption blobs and braziers.
+  - **mirror:** chambers mirrored across a glass line, plates and right-only walls, plus the reflection's own reachability map.
+  - **peaks:** a spiral of plateaus joined by ramps whose height follows each cell's projection along the link.
+- **Rules** (`js/world/dimrules.js`): twin pairs and revivals; the corruption meter; the Reflection (mirrored target, own collision, plates); dragon breath with rock shelter, and nests. Keys, stairs and levers live in `interact.js`.
+- **Rulers.** They are scripted bosses in their arenas. The Jailer appears on boss floors and his level follows the run. Each ruler's `once` reward is its Fracture Shard; its fall opens a portal home.
+- **Tiers 9 and 10.**
+  - **Chromantite:** its stats `chromatic` and `afflictedBonus` cycle afflictions and reward them.
+  - **Singularita:** pieces carry `memory: 2` and `collapse`. `systems/memory.js` adds the two remembered traits' modifiers for the piece's slot when stats are computed. Choices are stored per item in the save and are only changed at the Forge.
+  - **Collapse:** every 12 hits (8 with a full set) a pull and a burst.
+
+## Balance
+
+The numbers are held by unit tests in `tests/systems.test.js` and checked in play with the bot in `tests/playtest.js` (`npm run playtest`).
+
+- **Scaling.** Past level 100 the tiers are far apart (100, 180, 240), so creature health grows at 60% of the level there (`hpLevel` in `systems/scaling.js`). Damage keeps its curve: armour and health from the tiers already keep up with it.
+- **Creatures** are tested against a Swordsman who just reached the zone, at the level the zone spawns them. Hits to kill (counting frontal armour, since most blows land in front): common creatures 12 at most, frontliners 16, heavies 30. Hits to die: 16, 11 and 8, because dimension creatures come in packs. Their experience is about a tenth of their base health, a few dozen kills per level.
+- **Dimension levels** sit about eight levels above each emblem's level; the Endless Dungeon adds four per floor. A run's creatures are finite (`WAVES.dimension`): after the first ones, a reserve of three times the population (one and a half per gaol floor), then quiet. That leaves room to rest, and one emblem cannot be farmed forever. The Singular Heart spawns at 200 to 220, with fewer elites than its depth would give.
+- **Rulers** take 150 to 320 hits, each harder than the one before, and kill in no fewer than about seven blows. A ruler is worth one to two and a half levels; an isle guardian, who returns every ten minutes, at most one and a half.
+- **Bosses hold their arenas.** They never follow the player out, so kiting does not drag a fight past the leash and reset it. While a ruler is engaged, its dimension sends no more creatures into the fight.
+- **The Siamese** are two twins with their own lives. When one falls, or both are worn to half, they merge for good into one slime with half their joined health; a reset parts them again. Either way of fighting them (one at a time, or evenly) costs about the same, and their gel globs reach players who keep their distance.
+- **Warnings.** Boss attacks that hurt have a tell a player can read: a telegraph on the ground, a filling ring, or a wind-up arc. "You?" takes aim with a visible line before its volley.
+- **Playtests** (bot, after tuning; it rests between fights when hurt). A careless player at each dimension's entry level wins about half of the ruler fights, and a careful one ten levels higher wins most. For reference, the careless bot beats the Slime Prince at its level and loses to the Silverback. The Stardust is the slowest class against bosses (its Astral breaks in lingering hazards), but it often survives where others fall.
 
 ## Extending (next milestones)
 

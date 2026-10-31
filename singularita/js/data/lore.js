@@ -57,6 +57,32 @@ export const LORE = {
     'Here Singularita remembered two endings: a morning that never ended and a night that never began. Both grew into stone. The Dawnforgers called them Dawndosite and Escuresite and forged with them, until they understood what they were holding.' },
   lore_singular_heart: { zone: 'cave_8', title: 'The Singular Heart', text:
     'A second door, older than the first, with five keyholes that are not quite holes: shapes folded out of the world. The dimensions torn open by the Fracture hold its keys. Beyond it, something hums the shape of every possible thing.' },
+
+  // The dimensions -------------------------------------------------------------
+  lore_gaol: { zone: 'dim_dungeon', title: 'The Gaol That Grows', text:
+    'The Dawnforgers kept their debtors under the Ironworks. When the Fracture folded the prison away, it kept the rule it was built on: no one leaves. So it grows. Every floor you clear, it builds another underneath.' },
+  lore_keys: { zone: 'dim_dungeon', title: 'Ring of Keys', text:
+    'A warden\'s log, scratched into a cell wall: "Day nine thousand. The keys still fit. The doors still open onto more doors. The Jailer says this is what freedom looks like from his side."' },
+  lore_twin_birth: { zone: 'dim_twins', title: 'The Other Prince', text:
+    'Royal gel always comes in pairs, the coolant-masters wrote, because a slime will not set alone. The prince of Dawnreach was the half that stayed. This is the half that fell.' },
+  lore_twin_lanes: { zone: 'dim_twins', title: 'Two Roads', text:
+    'Every hall here has a twin, and every door is opened from the other side. The gel remembers that it was once poured from one vat, and it does not forgive being split.' },
+  lore_crown: { zone: 'dim_king', title: 'The Crown That Failed', text:
+    'The king asked the smiths for a crown that would make him every king who had ever been. Singularita tried. For one instant he was all of them. Then the crown broke, and Purple Adamite grew in the crack, and he was only one: the worst of them.' },
+  lore_court: { zone: 'dim_king', title: 'The Kneeling Court', text:
+    'His courtiers knelt when the crystal reached them, and they are kneeling still. Break the adamite that grows through them and some of them sigh.' },
+  lore_glass: { zone: 'dim_mirror', title: 'The Mirrored', text:
+    'Singularita remembers every shape it could have been. The Mirrored is where it keeps the shapes that were almost you.' },
+  lore_plates: { zone: 'dim_mirror', title: 'Both Sides', text:
+    'A note in a careful hand, written twice, the second copy reversed: "The doors here open only when both of you agree. Your reflection is stubborn. Clear its way."' },
+  lore_roost: { zone: 'dim_dragons', title: 'The First Smiths', text:
+    'Before the Dawnforgers there were dragons, and dragons were smiths. They forged the bones of the world in their breath. When the world broke they took their mountain and their fire somewhere the break could not reach.' },
+  lore_twilight: { zone: 'dim_dragons', title: 'Twilight', text:
+    'The dragons have a word for the end of the world. It is the same as their word for evening. They do not think either one is permanent.' },
+  lore_heart: { zone: 'cave_9', title: 'The Singular Heart', text:
+    'At the bottom of everything, Singularita grows like coral: slowly, in every colour at once, humming. It is not angry about the Fracture. It is only trying to remember which shape it was before.' },
+  lore_choice: { zone: 'cave_9', title: 'What It Asks', text:
+    'Hold a piece of it and it asks you, without words, what it should be. A blade. A shield. A ring. Whatever you answer, it remembers that you asked it nicely.' },
 };
 
 // Lume, the beacon-keeper construct at the base.
@@ -73,4 +99,6 @@ export const LUME_LINES = {
   gateHint: 'You found the gate. Four sigils… four isles. The Wayshrine by the beacon can carry you to their shores, once you are strong enough.',
   isleHint: 'The Wayshrine hums for you now. Wind, Tide, Flame and Stone: each isle keeps a guardian, and each guardian keeps a sigil.',
   sigilsHint: 'Four sigils. The gate will know them. Whatever lies below has waited a long time for someone to open it.',
+  emblemHint: 'The bosses of this world leave more than loot: their essences fold into Emblems at the Forge. An Emblem opens a door to one of the dimensions the Fracture made. Each has a ruler, and each ruler holds a piece of the Fracture itself.',
+  heartHint: 'Five pieces of the Fracture, humming against each other. The Heart Seal will know them. I think this is where Singularita sleeps.',
 };

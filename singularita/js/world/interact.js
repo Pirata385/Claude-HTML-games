@@ -1,13 +1,14 @@
 // World interaction: gathering resource nodes, camp stations, cave stairs and shafts,
 // Echo Stones, the Wayshrine and the isles, the Sealed Core Gate and the recall channel.
 import { NODES } from '../data/nodes.js';
-import { MATERIALS } from '../data/materials.js';
+import { MATERIALS, SHARDS } from '../data/materials.js';
 import { ZONES } from '../data/zones.js';
 import { LORE, LUME_LINES } from '../data/lore.js';
 import { canGather, gatherDamage, rollYield } from '../systems/gathering.js';
 import { gatherXp } from '../systems/progression.js';
 import { addStack } from '../systems/inventory.js';
 import { canEnter, isleList, openGate, ownedSigils } from '../systems/travel.js';
+import { startRun, nextFloor, endRun } from '../systems/run.js';
 import { F } from './grid.js';
 
 const REACH = 2.6, NODE_REACH = 1.9;
@@ -22,6 +23,18 @@ export class Interaction {
     this.focus = null;
     this.recall = null;
     game.bus.on('playerHurt', () => { if (this.recall) { this.recall = null; game.ui?.toast('Recall interrupted.', 'warn'); } });
+    // The Warden's key unlocks the stair; a fallen ruler opens the way out.
+    game.bus.on('kill', ({ enemy }) => {
+      const z = game.zone;
+      if (game.profile.run) game.profile.run.kills++;
+      if (enemy.def.keyCarrier && z.exit?.locked) this.unlockStair('You take the Warden\'s key. The stair is open.');
+    });
+    game.bus.on('bossDefeated', ({ def }) => {
+      const z = game.zone;
+      if (z.type !== 'dimension' || def.zone !== z.id) return;
+      if (z.exit?.locked) this.unlockStair('The Jailer\'s keys are yours. The stair is open, and a portal leads home.');
+      this.openExitPortal();
+    });
     game.bus.on('playerDeath', () => { this.recall = null; });
   }
 
@@ -53,6 +66,10 @@ export class Interaction {
       if (w) add({ id: 'wayshrine', x: w.x, z: w.z, r: 3, label: 'The Wayshrine', act: () => this.wayshrine() });
     } else if (z.type === 'isle') {
       add({ id: 'return', x: z.landing.x, z: z.landing.z, r: 3, label: 'Return to Dawnreach', act: () => this.travel('island') });
+    } else if (z.type === 'dimension') {
+      add({ id: 'back', x: z.entry.x, z: z.entry.z, r: 2.6, label: 'The way back (ends the run)', act: () => this.confirmLeave() });
+      if (z.exit?.type === 'stair') add({ id: 'stair', x: z.exit.x, z: z.exit.z, r: 2.8, label: () => (z.exit.locked ? 'Locked stair: the Warden has the key' : `Stair to floor ${g.profile.run.floor + 1}`), act: () => this.stair() });
+      for (const l of z.levers || []) add({ id: l.id, x: l.x, z: l.z, r: 2.2, label: () => (l.pulled ? 'Lever (pulled)' : 'Pull the lever'), act: () => this.pullLever(l) });
     } else {
       const layer = z.layer;
       add({ id: 'up', x: z.entry.x, z: z.entry.z, r: 2.8, label: layer === 1 ? 'Climb back to Dawnreach' : `Climb to ${ZONES[`cave_${layer - 1}`].name}`, act: () => this.travel(layer === 1 ? 'island' : `cave_${layer - 1}`, 'fromBelow') });
@@ -62,10 +79,103 @@ export class Interaction {
       } else if (z.exit.type === 'gate') {
         add({ id: 'gate', x: z.exit.x, z: z.exit.z, r: 4.5, label: () => (g.profile.flags?.gateOpen ? 'Enter the Core' : 'The Sealed Core Gate'), act: () => this.readGate() });
       } else {
-        add({ id: 'heart', x: z.exit.x, z: z.exit.z, r: 4.5, label: 'The Heart Seal', act: () => this.readHeart() });
+        add({ id: 'heart', x: z.exit.x, z: z.exit.z, r: 4.5, label: z.exit.type === 'core' ? 'The Singular Heart' : 'The Heart Seal', act: () => this.readHeart() });
       }
     }
     for (const p of z.pois) if (p.type === 'lore') add({ id: `lore:${p.id}`, x: p.x, z: p.z, label: () => (g.profile.lore.includes(p.id) ? 'Echo Stone (read)' : 'Read the Echo Stone'), act: () => this.readLore(p.id) });
+  }
+
+  // ------------------------------------------------------------------ portals and dimension runs
+  // An Emblem opens a portal in front of you. Returns why it cannot, or null.
+  openPortal(dimId) {
+    const g = this.g, p = g.player;
+    if (g.zone.type === 'dimension') return 'Portals cannot be opened inside a dimension.';
+    const gate = canEnter(g.profile, dimId);
+    if (!gate.ok) return gate.reason;
+    if (g.spawner.boss?.engaged) return 'Not while a boss is upon you.';
+    const x = p.x + Math.sin(p.yaw) * 3, z = p.z + Math.cos(p.yaw) * 3;
+    const i = Math.floor(x), j = Math.floor(z);
+    if (!g.grid.walkable(i, j) || g.grid.has(i, j, F.ARENA | F.WATER)) return 'There is no room for a portal there. Face open ground.';
+    this.closePortal();
+    g.portal = { dim: dimId, x: i + 0.5, z: j + 0.5, y: g.grid.height(i, j), t: 60 };
+    g.view.setPortal(g.portal, ZONES[dimId].palette.accent || '#c48cff');
+    this.items.push({ id: 'portal', x: g.portal.x, z: g.portal.z, r: 2.4, label: `Enter ${ZONES[dimId].name}`, act: () => this.enterPortal() });
+    g.ui.toast(`A portal to ${ZONES[dimId].name} opens. It will stay for a minute.`, 'good');
+    g.bus.emit('sfx', { id: 'portal' });
+    return null;
+  }
+  closePortal() {
+    const g = this.g;
+    g.portal = null;
+    g.view?.setPortal(null);
+    this.items = this.items.filter((it) => it.id !== 'portal');
+  }
+  enterPortal() {
+    const g = this.g, P = g.portal;
+    if (!P) return;
+    const from = { zone: g.zone.id, x: P.x, z: P.z };
+    this.closePortal();
+    startRun(g.profile, P.dim, from);
+    g.ui.fadeTravel(() => { g.enterZone(P.dim); g.save('dimension'); });
+  }
+  // The exit portal at a fallen ruler's feet.
+  openExitPortal() {
+    const g = this.g, a = g.zone.arena;
+    g.portalOut = { x: a.x, z: a.z, y: a.h };
+    g.view.setPortal(g.portalOut, '#ffe9a8');
+    this.items.push({ id: 'exitPortal', x: a.x, z: a.z, r: 2.6, label: 'Step through the portal home', act: () => this.leaveRun('complete') });
+  }
+  unlockStair(msg) {
+    const g = this.g;
+    g.zone.exit.locked = false;
+    g.view.rebuildStructures?.();
+    g.ui.toast(msg, 'good', 5);
+    g.fx.column(g.zone.exit.x, g.zone.exit.h, g.zone.exit.z, '#ffcf6a', 20, 0.8);
+    g.bus.emit('sfx', { id: 'unlock' });
+  }
+  stair() {
+    const g = this.g;
+    if (g.zone.exit.locked) { g.ui.toast('The stair is locked. The Gaol Warden carries the key.', 'warn'); g.bus.emit('sfx', { id: 'denied' }); return; }
+    const run = g.profile.run;
+    g.ui.dialog({ title: `Floor ${run.floor}`, portrait: 'echo', text: `The stair goes down to floor ${run.floor + 1}. ${(run.floor + 1) % 5 === 0 ? 'The Iron-Hand Jailer waits on the next floor.' : 'The gaol grows harder with every floor.'} You can also climb out now and keep everything you found. Your deepest floor is remembered.`,
+      buttons: [{ label: `Descend to floor ${run.floor + 1}`, primary: true, action: () => this.descend() }, { label: 'Leave with your loot', action: () => this.leaveRun('leave') }, { label: 'Not yet' }] });
+  }
+  descend() {
+    const g = this.g;
+    if (!g.profile.run || g.zone.exit?.locked) return;
+    nextFloor(g.profile.run);
+    g.ui.fadeTravel(() => { g.enterZone(g.zone.id); g.save('floor'); });
+  }
+  confirmLeave() {
+    const g = this.g;
+    g.ui.dialog({ title: 'The way back', portrait: 'echo', text: 'Step back through and this run ends here. You keep everything you found, but the dimension forgets the way you came.',
+      buttons: [{ label: 'Leave the dimension', primary: true, action: () => this.leaveRun('leave') }, { label: 'Stay' }] });
+  }
+  // Ends the run and returns to where the portal was opened.
+  leaveRun(outcome) {
+    const g = this.g;
+    const sum = endRun(g.profile, outcome);
+    if (!sum) return;
+    const back = sum.returnTo && ZONES[sum.returnTo.zone]?.type !== 'dimension' ? sum.returnTo : { zone: 'island' };
+    g.ui.fadeTravel(() => {
+      g.enterZone(back.zone, back.x != null ? { x: back.x, z: back.z } : null);
+      g.save('run');
+      const def = ZONES[sum.dim];
+      g.ui.toast(outcome === 'complete' ? `${def.name} cleared.` : def.rule === 'keys' ? `You climb out of floor ${sum.floor} of the Endless Dungeon.` : `You leave ${def.name}.`, 'good', 5);
+    });
+  }
+  // Twin Slimes: a lever opens a gate in the other lane.
+  pullLever(l) {
+    const g = this.g, z = g.zone;
+    if (l.pulled) return;
+    l.pulled = true;
+    const gate = z.gates.find((gt) => gt.id === l.gate);
+    gate.open = true;
+    for (const k of gate.cells) z.grid.flags[k] &= ~F.OBSTACLE;
+    g.enemies.flow.valid = false;
+    g.view.rebuildStructures?.();
+    g.ui.toast(`Somewhere in the ${gate.lane} lane, a gate of gel melts away.`, 'good');
+    g.bus.emit('sfx', { id: 'unlock' });
   }
 
   // Arrival points when moving between zones.
@@ -118,6 +228,8 @@ export class Interaction {
     else if (ownedSigils(p).length === 4 && !p.flags.gateOpen) text = LUME_LINES.sigilsHint;
     else if (p.level >= 66 && !p.flags.gateOpen && !Object.keys(p.zones).some((id) => id.startsWith('isle_'))) text = LUME_LINES.isleHint;
     else if (p.lore.includes('lore_seal') && !p.flags.gateOpen) text = LUME_LINES.gateHint;
+    else if (SHARDS.every((s) => (p.inv.stacks[s] || 0) > 0) && !p.zones.cave_9) text = LUME_LINES.heartHint;
+    else if (p.level >= 100 && p.flags.gateOpen && !Object.keys(p.dims || {}).length) text = LUME_LINES.emblemHint;
     else if (p.level >= 3 && !p.zones.cave_1) text = LUME_LINES.caveHint;
     else if (g.dayNight.phase === 'night') text = LUME_LINES.night;
     else text = LUME_LINES.greet[Math.floor(g.time) % LUME_LINES.greet.length] + ' ' + LUME_LINES.day;
@@ -178,8 +290,20 @@ export class Interaction {
   }
 
   readHeart() {
-    const g = this.g;
-    g.ui.dialog({ title: 'The Heart Seal', portrait: 'echo', text: 'A second seal, older than the gate and woven of both lights at once. Dawnstone and duskstone meet here and refuse each other. It does not answer yet: whatever sleeps beyond it is not ready to wake, and neither are you.' });
+    const g = this.g, p = g.profile;
+    // In the Singular Heart itself, the heart is the end of the road.
+    if (g.zone.exit.type === 'core') {
+      this.learn('lore_choice', false);
+      g.ui.dialog({ title: 'The Singular Heart', portrait: 'echo', text: 'Singularita grows here like coral, in every colour at once, humming the shape of every possible thing. It does not want anything from you. If you mine it and bring it to the Forge, it will become whatever you ask, and remember two other shapes besides.' });
+      return;
+    }
+    const have = SHARDS.filter((s) => (p.inv.stacks[s] || 0) > 0);
+    if (have.length === SHARDS.length) {
+      g.ui.dialog({ title: 'The Heart Seal', portrait: 'echo', text: 'The five shards hum against each other and against the seal. The seal remembers being one piece, and opens.',
+        buttons: [{ label: 'Enter the Singular Heart', primary: true, action: () => this.travel('cave_9') }, { label: 'Not yet' }] });
+      return;
+    }
+    g.ui.dialog({ title: 'The Heart Seal', portrait: 'echo', text: `A second seal, older than the gate and woven of both lights at once, with five keyholes that are not quite holes. Its keys are the Fracture Shards held by the rulers of the five dimensions; Emblems crafted at the Forge open the way to them.${have.length ? `\n\nYou carry ${have.length} of the five shards.` : ''}` });
   }
 
   // Nearest interactable or resource node in reach.
@@ -253,12 +377,15 @@ export class Interaction {
       g.zone.nodes.forEach((n, i) => { const at = st.nodes[n.id]; if (at && at <= g.profile.playTime) { delete st.nodes[n.id]; g.view.nodes.setDepleted(i, false); } });
       for (const [k, v] of this.nodeHp) if (g.time - v.t > 10) this.nodeHp.delete(k);
     }
+    // An unused portal fades after a minute.
+    if (g.portal && (g.portal.t -= dt) <= 0) { this.closePortal(); g.ui.toast('The portal closes.', 'warn'); }
     // Recall channel.
     if (this.recall) {
       this.recall.t += dt;
       if (Math.hypot(p.x - this.recall.x, p.z - this.recall.z) > 1.2) { this.recall = null; g.ui.toast('Recall cancelled: you moved.', 'warn'); }
       else if (this.recall.t >= this.recall.dur) {
         this.recall = null;
+        if (g.profile.run) endRun(g.profile, 'fail');
         g.ui.fadeTravel(() => { g.enterZone('island', null); g.save('recall'); });
       }
     }

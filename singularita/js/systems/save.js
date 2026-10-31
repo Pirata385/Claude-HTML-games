@@ -17,6 +17,7 @@ export function newProfile({ name, classId, slot, seed }) {
     zone: 'island', pos: null,
     zones: {},
     world: { clock: 150, bossTimer: 360, bossesSeen: {}, guardians: {} },
+    run: null, dims: {}, memory: {},
     objectives: { index: 0, progress: 0 },
     lore: [],
     stats: { kills: 0, killsBy: {}, crafted: {}, gathered: {}, bosses: {}, deaths: 0, maxLayer: 0, waves: 0 },

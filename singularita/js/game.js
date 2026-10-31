@@ -8,15 +8,24 @@ import { ZoneView } from './render/zoneView.js';
 import { buildPlayerRig } from './render/models.js';
 import { generateZone } from './world/gen/index.js';
 import { placeWayshrine } from './world/gen/island.js';
+import { isWalled } from './world/grid.js';
 import { Player } from './entities/player.js';
 import { DayNight } from './systems/dayNight.js';
 import { computeStats } from './systems/stats.js';
+import { withMemory } from './systems/memory.js';
 import { equippedDefs, equippedIn } from './systems/equipment.js';
 import { WAVES } from './data/waves.js';
 import { ZONES } from './data/zones.js';
 
 const zoneCache = new Map();
-export function getZone(id) {
+// Dimensions are generated for the current run (and floor); only the latest one is kept.
+let dimension = null;
+export function getZone(id, run = null) {
+  if (ZONES[id]?.type === 'dimension') {
+    const key = `${id}:${run?.seed}:${run?.floor}`;
+    if (dimension?.key !== key) dimension = { key, zone: generateZone(id, { seed: run?.seed, floor: run?.floor || 1 }) };
+    return dimension.zone;
+  }
   if (!zoneCache.has(id)) {
     const z = generateZone(id);
     if (z.type === 'island') placeWayshrine(z);
@@ -51,10 +60,10 @@ export class Game {
   }
 
   get grid() { return this.zone.grid; }
-  getZone(id) { return getZone(id); }
+  getZone(id) { return getZone(id, this.profile.run); }
 
   recomputeStats() {
-    this.stats = computeStats(this.profile, equippedDefs(this.profile));
+    this.stats = computeStats(this.profile, withMemory(this.profile, equippedDefs(this.profile)));
     this.player.maxHp = this.stats.maxHp;
     this.player.level = this.profile.level;
     if (this.player.hp > this.player.maxHp) this.player.hp = this.player.maxHp;
@@ -70,7 +79,7 @@ export class Game {
   enterZone(zoneId, arrival = null) {
     for (const s of this.systems) s.onZoneExit?.(this);
     if (this.view) { this.view.dispose(); this.view = null; }
-    this.zone = getZone(zoneId);
+    this.zone = getZone(zoneId, this.profile.run);
     this.zoneDef = ZONES[zoneId];
     this.profile.zone = zoneId;
     this.profile.zones[zoneId] ||= { nodes: {}, fog: null };
@@ -82,7 +91,7 @@ export class Game {
     this.player.grounded = true;
     this.player.yaw = arrival?.yaw ?? this.zone.spawnYaw ?? Math.PI;
     this.cam.snapBehind(this.player.yaw);
-    this.cam.pitch = this.zone.type === 'cave' ? 0.55 : 0.42;
+    this.cam.pitch = isWalled(this.zone) ? 0.55 : 0.42;
     for (const s of this.systems) s.onZoneEnter?.(this);
     this.bus.emit('zoneEnter', { id: zoneId, def: this.zoneDef });
   }
@@ -104,7 +113,7 @@ export class Game {
 
   render(dt) {
     const target = this.lockTarget?.alive ? this.lockTarget : null;
-    this.cam.update(dt, this.player, this.input, this.grid, target, !!this.player.kit?.animState?.aim, this.input.lastDevice === 'touch', this.zone.type === 'cave');
+    this.cam.update(dt, this.player, this.input, this.grid, target, !!this.player.kit?.animState?.aim, this.input.lastDevice === 'touch', isWalled(this.zone));
     this.player.render(dt);
     for (const s of this.systems) s.render?.(dt, this);
     const camPos = this.r.camera.position;
@@ -112,7 +121,7 @@ export class Game {
     if (this.zone.type === 'island') {
       const dir = applyDayPalette(this.r, this.sky, this.dayNight.sun, this.dayNight.progress, this.dayNight.phase);
       this.r.sun.position.set(this.player.x + dir.x * 80, this.player.y + dir.y * 80, this.player.z + dir.z * 80);
-    } else if (this.zone.type === 'isle') {
+    } else if (this.zone.type === 'isle' || this.zone.render === 'isle') {
       // The same fixed afternoon sun the isle sky shows.
       this.r.sun.position.set(this.player.x + 36, this.player.y + 60, this.player.z + 28);
     } else {

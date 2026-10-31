@@ -14,6 +14,17 @@ export const CONSUMABLES = {
     desc: 'Returns every attribute point you have spent, so you can place them again. Use it from the Character tab.' },
   royal_bait: { id: 'royal_bait', name: 'Royal Jelly Bait', rarity: 'rare', icon: '♛', color: '#ffd166', effect: { summon: 'slime_prince' }, cd: 0,
     desc: 'Sweet enough to offend royalty. Use it in the Sunlit Glade by day to summon the Slime Prince.' },
+  // Emblems: using one opens a portal to its dimension, in front of you, for a minute.
+  emblem_dungeon: { id: 'emblem_dungeon', name: 'Iron Key Emblem', rarity: 'legendary', icon: '⚿', color: '#9a9aa8', effect: { portal: 'dim_dungeon' }, cd: 0,
+    desc: 'A key that fits no lock in this world. Use it to open a portal to the Endless Dungeon.' },
+  emblem_twins: { id: 'emblem_twins', name: 'Twin Gel Emblem', rarity: 'legendary', icon: '❦', color: '#ff9ac8', effect: { portal: 'dim_twins' }, cd: 0,
+    desc: 'Two drops of royal gel that refuse to stay apart. Use it to open a portal to the Twin Slimes.' },
+  emblem_king: { id: 'emblem_king', name: 'Amethyst Crown Emblem', rarity: 'legendary', icon: '♔', color: '#9a4ae0', effect: { portal: 'dim_king' }, cd: 0,
+    desc: 'A little crown that whispers about a bigger one. Use it to open a portal to the Corrupted King.' },
+  emblem_mirror: { id: 'emblem_mirror', name: 'Looking-Glass Emblem', rarity: 'legendary', icon: '◐', color: '#e8f8ff', effect: { portal: 'dim_mirror' }, cd: 0,
+    desc: 'A glass in which you are a moment late. Use it to open a portal to the Mirrored.' },
+  emblem_dragons: { id: 'emblem_dragons', name: 'Dragonfire Emblem', rarity: 'legendary', icon: '♨', color: '#ff6a2a', effect: { portal: 'dim_dragons' }, cd: 0,
+    desc: 'A scale-shaped ember that never cools. Use it to open a portal to the Dragons\' Roost.' },
   echo_horn: { id: 'echo_horn', name: 'Echo Horn', rarity: 'rare', icon: '♪', color: '#d8dde6', effect: { summon: 'silverback_emperor' }, cd: 0,
     desc: 'A miner\'s shift horn. Blow it in Bone Ridge Crater at night and the Emperor answers.' },
 };

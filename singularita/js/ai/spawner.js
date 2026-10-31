@@ -1,7 +1,8 @@
 // Spawning: the endless island horde by day and night, the roaming bosses,
 // cave and isle populations, the isle guardians, tremors and cave hazards.
-import { Horde, BossClock } from '../systems/horde.js';
+import { Horde, BossClock, eliteChance } from '../systems/horde.js';
 import { ENEMIES } from '../data/enemies.js';
+import { runLevel } from '../systems/run.js';
 import { WAVES } from '../data/waves.js';
 import { BOSSES } from '../data/bosses.js';
 import { NODES } from '../data/nodes.js';
@@ -13,22 +14,28 @@ import { Ronin } from './bosses/ronin.js';
 import { Tears } from './bosses/tears.js';
 import { MagmaVector } from './bosses/magmaVector.js';
 import { AlleleGolem } from './bosses/alleleGolem.js';
+import { IronJailer } from './bosses/jailer.js';
+import { Siamese } from './bosses/siamese.js';
+import { AdamiteKing } from './bosses/adamiteKing.js';
+import { MirrorSelf } from './bosses/mirrorSelf.js';
+import { Ragnarok } from './bosses/ragnarok.js';
 
-const BOSS_CLASS = { slime_prince: SlimePrince, silverback_emperor: Silverback, ronin_east_wind: Ronin, tears_of_poseidon: Tears, magma_vector: MagmaVector, allele_golem: AlleleGolem };
+const BOSS_CLASS = { slime_prince: SlimePrince, silverback_emperor: Silverback, ronin_east_wind: Ronin, tears_of_poseidon: Tears, magma_vector: MagmaVector, allele_golem: AlleleGolem,
+  iron_jailer: IronJailer, siamese: Siamese, adamite_king: AdamiteKing, you: MirrorSelf, ragnarok: Ragnarok };
 
 export class Spawner {
   constructor(game) {
     this.g = game;
     this.horde = new Horde(WAVES.island, game.rng);
     this.bossClock = new BossClock(WAVES.island, game.rng, game.profile.world.bossTimer);
-    this.popT = 0; this.tremorT = 150; this.stalT = 3;
+    this.popT = 0; this.tremorT = 150; this.stalT = 3; this.reserve = Infinity;
     this.boss = null; // active scheduled boss group
     game.bus.on('phase', () => this.onPhase());
     game.bus.on('gathered', (e) => this.onGathered(e));
     game.bus.on('bossDefeated', ({ def }) => {
       this.boss = null;
       // Isle guardians come back to their arenas a while after each defeat.
-      if (def.zone && def.zone !== 'island') (game.profile.world.guardians ||= {})[def.id] = game.profile.playTime + def.respawn;
+      if (def.respawn && def.zone && def.zone.startsWith('isle_')) (game.profile.world.guardians ||= {})[def.id] = game.profile.playTime + def.respawn;
     });
   }
 
@@ -37,18 +44,27 @@ export class Spawner {
     this.vents = (g.zone.hazards || []).filter((h) => h.type !== 'stalactite').map((h) => ({ ...h, t: h.phase }));
     this.tremorT = g.rng.range(...WAVES.cave.tremor.every);
     this.boss = null;
-    if (g.zone.type === 'cave' || g.zone.type === 'isle') {
-      // Start each layer and isle partly populated, away from the way in.
+    if (g.zone.type === 'cave' || g.zone.type === 'isle' || g.zone.type === 'dimension') {
+      // Start each layer, isle and dimension partly populated, away from the way in.
       const n = Math.round(this.population() * 0.6);
       for (let k = 0; k < n; k++) this.spawnCave(18, 50);
     }
     if (g.zone.type === 'isle') this.spawnGuardian();
+    if (g.zone.type === 'dimension') this.spawnDimension();
+    // A run's creatures are finite: each dimension (each floor of the gaol) holds a reserve, then falls quiet.
+    const dw = WAVES.dimension;
+    this.reserve = g.zone.type === 'dimension' ? Math.round(this.population() * (g.zoneDef.rule === 'keys' ? dw.floorReserve : dw.reserve)) : Infinity;
   }
   onZoneExit() {}
 
-  population() { const z = this.g.zoneDef; return Math.min(this.g.enemies.cap - 4, (z.population || 10)); }
+  population() { const z = this.g.zoneDef; return Math.min(this.g.enemies.cap - 4, Math.round((z.population || 10) * (this.g.zone.modifier === 'swarm' ? 1.5 : 1))); }
 
-  caveLevel() { const b = this.g.zoneDef.band; return this.g.rng.int(b[0], b[1]); }
+  caveLevel() {
+    const g = this.g;
+    if (g.zone.type === 'dimension' && g.profile.run) return Math.min(300, runLevel(g.zoneDef, g.profile.run) + g.rng.int(-2, 2));
+    const b = g.zoneDef.band;
+    return g.rng.int(b[0], b[1]);
+  }
 
   // A walkable, reachable spot at a distance from the player, preferably out of view.
   findSpot(minD, maxD) {
@@ -73,9 +89,7 @@ export class Spawner {
     const side = g.zone.sideOf?.(Math.floor(spot.x));
     const table = z.enemies.filter((e) => !e.side || e.side === side);
     const pick = id || g.rng.weighted(table).id;
-    const el = g.zone.type === 'isle' ? WAVES.isle.elite : WAVES.cave.elite;
-    const eliteChance = Math.min(el.max, el.base + el.perLayer * (g.zone.layer || 0));
-    return g.enemies.spawn(pick, spot.x, spot.z, { level: this.caveLevel(), elite: g.rng.chance(eliteChance), ambient: true });
+    return g.enemies.spawn(pick, spot.x, spot.z, { level: this.caveLevel(), elite: g.rng.chance(eliteChance(z, g.zone, WAVES)), ambient: true });
   }
 
   update(dt) {
@@ -114,6 +128,16 @@ export class Spawner {
     }
   }
 
+  // A dimension run: the Warden with the key, or the ruler in its arena.
+  spawnDimension() {
+    const g = this.g, z = g.zone;
+    if (z.warden) {
+      const e = g.enemies.spawn('jail_warden', z.warden.x, z.warden.z, { level: this.caveLevel() + 2, summoned: true });
+      if (e) g.ui?.toast('A Gaol Warden holds the key to this floor\'s stair.', 'info', 5);
+    }
+    if (z.arena && BOSS_CLASS[z.arena.boss]) this.spawnBoss(z.arena.boss, false);
+  }
+
   // Each isle's guardian waits in its arena unless it fell recently.
   spawnGuardian() {
     const g = this.g;
@@ -125,11 +149,13 @@ export class Spawner {
   updateCave(dt) {
     const g = this.g;
     this.popT -= dt;
-    if (this.popT <= 0) {
+    // A dimension holds its creatures back while its ruler is fighting you.
+    const ruling = g.zone.type === 'dimension' && this.boss?.engaged && !this.boss.defeated;
+    if (this.popT <= 0 && !ruling && this.reserve > 0) {
       this.popT = WAVES.cave.respawnDelay;
-      if (g.enemies.count() < this.population()) this.spawnCave();
+      if (g.enemies.count() < this.population() && this.spawnCave()) this.reserve--;
     }
-    const def = g.zoneDef, layer = g.zone.layer;
+    const def = g.zoneDef, layer = g.zone.layer || 0;
     // Tremors from the fourth layer down.
     if (layer >= WAVES.cave.tremor.fromLayer) {
       this.tremorT -= dt;
@@ -144,7 +170,7 @@ export class Spawner {
     }
     const p = g.player, grid = g.grid;
     // Falling stalactites inside marked areas.
-    if (def.hazards.includes('stalactite') && grid.has(Math.floor(p.x), Math.floor(p.z), F.HAZARD)) {
+    if ((def.hazards.includes('stalactite') || g.zone.modifier === 'traps') && grid.has(Math.floor(p.x), Math.floor(p.z), F.HAZARD)) {
       this.stalT -= dt;
       if (this.stalT <= 0) {
         this.stalT = g.rng.range(2.5, 5);
@@ -229,8 +255,8 @@ export class Spawner {
     const g = this.g;
     const def = BOSSES[id];
     const arena = g.zone.arenas ? g.zone.arenas[def.arena] : g.zone.arena;
-    // Bosses have fixed levels, like the creatures of their island.
-    const level = def.minLevel + def.levelOffset;
+    // Bosses have fixed levels, like the creatures of their island; the Jailer grows with the gaol.
+    const level = g.zone.type === 'dimension' && g.profile.run ? Math.min(300, runLevel(g.zoneDef, g.profile.run) + def.levelOffset) : def.minLevel + def.levelOffset;
     const b = new BOSS_CLASS[id](g, level, arena);
     g.enemies.addBoss(b);
     this.boss = b.group;

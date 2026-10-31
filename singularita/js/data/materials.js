@@ -1,4 +1,4 @@
-// Materials of Milestone 1. Main materials form the progression chain;
+// Materials. Main materials form the progression chain, from Wood to Singularita;
 // drops come from creatures and bosses and are needed by recipes.
 
 export const RARITY = {
@@ -7,10 +7,11 @@ export const RARITY = {
   rare: { name: 'Rare', color: '#57a8ff', rank: 2 },
   epic: { name: 'Epic', color: '#c07bff', rank: 3 },
   legendary: { name: 'Legendary', color: '#ffb347', rank: 4 },
+  singular: { name: 'Singular', color: '#f4e8ff', rank: 5 },
 };
 
 // Recipe level for each main tier (index = tier).
-export const TIER_RECIPE_LEVEL = [1, 3, 8, 16, 26, 38, 50, 64, 100];
+export const TIER_RECIPE_LEVEL = [1, 3, 8, 16, 26, 38, 50, 64, 100, 180, 240];
 
 // Material traits: what crafting with a material does beyond raw numbers.
 export const TRAITS = {
@@ -27,6 +28,8 @@ export const TRAITS = {
   prismatic: { name: 'Prismatic', desc: 'More critical hits. Critical hits split projectiles or release a shockwave.' },
   radiant: { name: 'Radiant', desc: 'Hits may blind foes and every kill restores health; armour wards off afflictions and strengthens healing.' },
   umbral: { name: 'Umbral', desc: 'Critical hits drink the life of their target and strike far harder; armour quickens your dodge.' },
+  chromatic: { name: 'Chromatic', desc: 'Hits cycle through burn, chill, shock and poison, and strike afflicted foes harder; armour shrugs afflictions off.' },
+  singular: { name: 'Singular', desc: 'Remembers the shapes of other materials: choose two of their traits at the Forge and change them whenever you like. Every twelfth hit collapses into a small singularity.' },
 };
 
 const M = (id, o) => ({ id, ...o });
@@ -60,6 +63,11 @@ export const MATERIALS = {
     desc: 'Singularita\'s memory of a morning that never ended. It glows warm in the hand and hums when the sun rises somewhere far above.' }),
   escuresite: M('escuresite', { name: 'Escuresite', tier: 8, kind: 'main', rarity: 'legendary', trait: 'umbral', color: '#6a3aa8',
     desc: 'Singularita\'s memory of a night with no dawn. It drinks lamplight, and shadows lean toward it.' }),
+
+  chromantite: M('chromantite', { name: 'Chromantite', tier: 9, kind: 'main', rarity: 'legendary', trait: 'chromatic', color: '#ff7ad8',
+    desc: 'Ore from the folds between dimensions. Its colour changes depending on which world it last remembered. It is never the same colour twice.' }),
+  singularita: M('singularita', { name: 'Singularita', tier: 10, kind: 'main', rarity: 'singular', trait: 'singular', color: '#f4e8ff',
+    desc: 'The matter that broke Vael. It remembers every shape it could have been, and if you ask it kindly, it will be one of them for you.' }),
 
   // Elemental isles (exclusive) ----------------------------------------------
   skyglass: M('skyglass', { name: 'Skyglass', tier: 7, kind: 'isle', rarity: 'rare', color: '#bfe6ff',
@@ -107,6 +115,30 @@ export const MATERIALS = {
   allele_seed: M('allele_seed', { name: 'Allele Seed', tier: 7, kind: 'boss', rarity: 'epic', color: '#8ad06a',
     desc: 'A seed of the Divine Golem. Plant it and it would grow a different creature every time.' }),
 
+  // Dimensions (exclusive) -----------------------------------------------------
+  gaol_iron: M('gaol_iron', { name: 'Gaol Iron', tier: 9, kind: 'dimension', rarity: 'epic', color: '#8a8a96',
+    desc: 'Iron from the bars of the Endless Dungeon. No lock forged from it has ever been opened from the inside.' }),
+  twin_gel: M('twin_gel', { name: 'Twin Gel', tier: 9, kind: 'dimension', rarity: 'epic', color: '#ff9ac8',
+    desc: 'Gel that only sets when two drops of it touch. Split it and both halves keep trying to meet.' }),
+  purple_adamite: M('purple_adamite', { name: 'Purple Adamite', tier: 9, kind: 'dimension', rarity: 'epic', color: '#9a4ae0',
+    desc: 'The crystal that corrupted a king. Cut and cleansed it is the hardest stone there is; raw, it whispers.' }),
+  specular_glass: M('specular_glass', { name: 'Specular Glass', tier: 9, kind: 'dimension', rarity: 'epic', color: '#e8f8ff',
+    desc: 'Glass from the Mirrored dimension. Your reflection in it blinks a moment after you do.' }),
+  dragon_scale: M('dragon_scale', { name: 'Dragon Scale', tier: 9, kind: 'dimension', rarity: 'epic', color: '#c84a2a',
+    desc: 'A scale shed in the Dragons\' Roost. It is warm on one side and cold on the other, like the gods who wore them.' }),
+  singularita_shard: M('singularita_shard', { name: 'Singularita Shard', tier: 9, kind: 'boss', rarity: 'legendary', color: '#e8d8ff',
+    desc: 'A splinter of Singularita, carried out of the dimensions by those who ruled them. Every Chromantite forge needs one.' }),
+  jailer_chain: M('jailer_chain', { name: "Jailer's Chain", tier: 9, kind: 'boss', rarity: 'epic', color: '#b8b8c8',
+    desc: 'A link from the Iron-Hand Jailer\'s chain. It tightens around anything that tries to leave.' }),
+  siamese_heart: M('siamese_heart', { name: 'Siamese Heart', tier: 9, kind: 'boss', rarity: 'epic', color: '#ff8ab0',
+    desc: 'Two hearts in one gel, beating in turn.' }),
+  adamite_crown_shard: M('adamite_crown_shard', { name: 'Adamite Crown Shard', tier: 9, kind: 'boss', rarity: 'epic', color: '#b46aff',
+    desc: 'A point of the Adamite King\'s crown. It still wants a head to wear it.' }),
+  mirror_self: M('mirror_self', { name: 'Mirrored Self', tier: 9, kind: 'boss', rarity: 'epic', color: '#d8eeff',
+    desc: 'What is left of the one in the glass: a sliver that looks like you from every angle.' }),
+  ragnarok_ember: M('ragnarok_ember', { name: "Ragnarok's Ember", tier: 9, kind: 'boss', rarity: 'legendary', color: '#ff6a2a',
+    desc: 'An ember of the Dragon God. It has been burning since before Vael had a sky.' }),
+
   // Sigils: key items that open the Sealed Core Gate --------------------------
   sigil_wind: M('sigil_wind', { name: 'Sigil of Wind', tier: 7, kind: 'key', rarity: 'legendary', color: '#9fe0ff',
     desc: 'One of the four keys to the Sealed Core Gate, kept by the Ronin of the East Wind.' }),
@@ -118,6 +150,18 @@ export const MATERIALS = {
     desc: 'One of the four keys to the Sealed Core Gate, grown inside the Allele of the Divine Golem.' }),
 };
 export const SIGILS = ['sigil_wind', 'sigil_tide', 'sigil_flame', 'sigil_stone'];
+
+// Fracture Shards: one from each dimension's ruler; all five open the Heart Seal.
+const shard = (id, name, color, from) => M(id, { name, tier: 9, kind: 'key', rarity: 'singular', color,
+  desc: `A piece of the Fracture itself, held by ${from}. With all five, the Heart Seal at the bottom of the Dawn and Dusk Hollows will open.` });
+Object.assign(MATERIALS, {
+  shard_gaol: shard('shard_gaol', 'Fracture Shard of the Gaol', '#9a9aa8', 'the Iron-Hand Jailer'),
+  shard_twins: shard('shard_twins', 'Fracture Shard of the Twins', '#ff9ac8', 'the Siamese'),
+  shard_crown: shard('shard_crown', 'Fracture Shard of the Crown', '#9a4ae0', 'the Adamite King'),
+  shard_mirror: shard('shard_mirror', 'Fracture Shard of the Mirror', '#e8f8ff', 'the one in the glass'),
+  shard_dragon: shard('shard_dragon', 'Fracture Shard of the Dragon', '#ff6a2a', 'Ragnarok, the Dragon God'),
+});
+export const SHARDS = ['shard_gaol', 'shard_twins', 'shard_crown', 'shard_mirror', 'shard_dragon'];
 
 export const MAIN_MATERIALS = Object.values(MATERIALS)
   .filter((m) => m.kind === 'main')

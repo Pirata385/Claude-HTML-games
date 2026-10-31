@@ -16,7 +16,7 @@ const { chromium } = playwright;
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const SHOTS = fs.mkdtempSync(path.join(os.tmpdir(), 'singularita-smoke-'));
-const TYPES = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.json': 'application/json', '.png': 'image/png', '.svg': 'image/svg+xml' };
+const TYPES = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.json': 'application/json', '.webmanifest': 'application/manifest+json', '.png': 'image/png', '.svg': 'image/svg+xml' };
 
 const server = http.createServer((req, res) => {
   const url = decodeURIComponent(req.url.split('?')[0]);
@@ -263,7 +263,7 @@ try {
       for (let k = 0; k < 5; k++) g.enemies.spawn(['slime', 'zombie_walker', 'great_slime', 'zombie_runner', 'mender_slime'][k], p.x - 2 + k, p.z + 3 + (k % 2) * 2, { level: 8, noIntro: true });
       if (g.profile.classId === 'stardust') tap('alt');
       const hb = g.profile.hotbars[g.profile.classId];
-      for (let t = 0; t < 40; t++) { hold('attack', 8); if (t % 5 === 0) for (let s = 1; s <= 4; s++) tap('skill' + s); }
+      for (let t = 0; t < 60; t++) { hold('attack', 8); if (t % 5 === 0) for (let s = 1; s <= 4; s++) tap('skill' + s); }
       return { kills, used: [...used], hp: p.hp > 0 };`);
     check(r.kills >= 2 && r.used.length >= 4, `${cls}: fights (kills ${r.kills}, skills ${r.used.join(',')})`);
     check(!errors.length, `${cls}: no errors ${errors.slice(0, 2).join(' | ')}`);
@@ -294,7 +294,25 @@ try {
       const q = b.getBoundingClientRect(), x = q.x + q.width / 2, y = q.y + q.height / 2;
       return { x, y, top: document.elementFromPoint(x, y) === b, title: b.title };
     }));
-    check(hud.length === 3 && hud.every((b) => b.top), `touch ${name}: HUD buttons are on top of the touch layer`);
+    check(hud.length === 4 && hud.every((b) => b.top), `touch ${name}: HUD buttons are on top of the touch layer`);
+    // Full screen: the ⛶ button flips it either way (the first tap may already have entered it).
+    const isFs = () => page.evaluate(() => !!document.fullscreenElement);
+    // Measured before each tap: the layout can shift when the browser bars go away.
+    const tapFs = async () => {
+      const b = await page.evaluate(() => { const q = document.querySelector('#hud .hbtn.fs').getBoundingClientRect(); return { x: q.x + q.width / 2, y: q.y + q.height / 2 }; });
+      await page.touchscreen.tap(b.x, b.y);
+      await page.waitForTimeout(400);
+    };
+    // Let the first-tap automatic full screen (if any) settle before measuring.
+    await page.waitForTimeout(500);
+    const fs0 = await isFs();
+    await tapFs();
+    const fs1 = await isFs();
+    await tapFs();
+    const fs2 = await isFs();
+    check(fs1 !== fs0 && fs2 === fs0, `touch ${name}: the ⛶ button toggles full screen (${fs0} → ${fs1} → ${fs2})`);
+    const setText = await page.evaluate(() => { const g = window.__SG; g.ui.openMenu('settings'); const t = document.getElementById('menu').innerText; g.ui.closeMenu(); return t; });
+    check(/Full screen on phones and tablets/.test(setText), `touch ${name}: full screen can be set in Settings`);
     for (const [prefix, tab] of [['Crafting', 'craft'], ['Menu', 'inventory']]) {
       const b = hud.find((x) => x.title.startsWith(prefix));
       await page.touchscreen.tap(b.x, b.y);
@@ -491,6 +509,287 @@ try {
       check(r.sigil === 1 && r.returns && r.sigilAfter === 1, `${id}: the sigil comes once (${r.sigil} then ${r.sigilAfter}) and the guardian returns`);
     }
     check(!errors.length, `creatures and guardians: no errors ${errors.slice(0, 3).join(' | ')}`);
+    await ctx.close();
+  }
+
+  // 10. Milestone 3: emblems, portals and dimension runs.
+  {
+    const { ctx, page, errors } = await open(`${BASE}/singularita/index.html?quickstart=swordsman&debug`);
+    await waitGame(page);
+    const settle = () => page.evaluate(() => { const g = window.__SG; clearTimeout(g.ui.combatDialog); g.ui.closeDialog && g.ui.closeDialog(); g.cam.snapBehind(g.player.yaw); for (let i = 0; i < 90; i++) g.render(1 / 30); });
+    const r = await sim(page, `
+      g.ui.closeDialog && g.ui.closeDialog(); g.godMode = true;
+      g.profile.level = 200; g.recomputeStats();
+      const out = {}, p = g.player;
+      // An emblem opens a portal in front of you; stepping through starts a run.
+      for (const id of ['emblem_dungeon', 'emblem_twins', 'emblem_king', 'emblem_mirror', 'emblem_dragons']) g.profile.inv.stacks[id] = 2;
+      const home = { x: p.x, z: p.z };
+      g.useConsumable('emblem_dungeon'); step(3);
+      out.portal = !!g.portal && g.portal.dim === 'dim_dungeon';
+      out.emblemUsed = g.profile.inv.stacks.emblem_dungeon === 1;
+      g.interaction.enterPortal(); await new Promise((r) => setTimeout(r, 1200)); step(3);
+      out.inDungeon = g.zone.id === 'dim_dungeon' && !!g.profile.run && g.profile.run.floor === 1;
+      out.stairLocked = g.zone.exit.locked === true;
+      out.warden = g.enemies.list.some((e) => e.alive && e.def.keyCarrier);
+      // The Warden carries the key; with it, the stair leads down.
+      const w = g.enemies.list.find((e) => e.alive && e.def.keyCarrier);
+      if (w) g.combat.applyRaw(w, w.maxHp * 2, 'dmg');
+      step(10);
+      out.unlocked = g.zone.exit.locked === false;
+      g.interaction.descend(); await new Promise((r) => setTimeout(r, 1200)); step(3);
+      out.floor2 = g.profile.run?.floor === 2 && g.zone.floor === 2;
+      // A floor's creatures are finite: once its reserve is spent, it falls quiet.
+      let spawned = 0; const off = g.bus.on('spawned', ({ enemy }) => { if (enemy.ambient) spawned++; });
+      for (let k = 0; k < 40; k++) { for (const e of g.enemies.list) if (e.alive && !e.boss && !e.def.keyCarrier) g.combat.applyRaw(e, e.maxHp * 2, 'dmg'); step(30 * 10); }
+      out.quiet = g.enemies.count((e) => e.alive && e.ambient) === 0;
+      out.spawned = spawned; off?.();
+      // Leaving by the stair banks the run and brings you home.
+      g.zone.exit.locked = false;
+      g.interaction.leaveRun('leave'); await new Promise((r) => setTimeout(r, 1200)); step(3);
+      out.home = g.zone.id === 'island' && Math.hypot(p.x - home.x, p.z - home.z) < 6 && !g.profile.run;
+      out.best = g.profile.dims.dim_dungeon.bestFloor;
+      return out;`);
+    check(r.portal && r.emblemUsed, 'an emblem opens a portal and is used up');
+    check(r.inDungeon && r.stairLocked && r.warden, 'the portal starts a run in the Endless Dungeon, stair locked, Warden waiting');
+    check(r.unlocked && r.floor2, 'the Warden\'s key opens the stair to floor 2');
+    check(r.quiet && r.spawned > 5, `a floor's creatures run out once its reserve is spent (${r.spawned} came)`);
+    check(r.home && r.best === 2, `leaving brings you home and keeps the best floor (${r.best})`);
+    for (const dim of ['dim_twins', 'dim_king', 'dim_mirror', 'dim_dragons']) {
+      const d = await sim(page, `
+        const out = {};
+        g.useConsumable('${dim.replace('dim_', 'emblem_')}'); step(3);
+        g.interaction.enterPortal(); await new Promise((r) => setTimeout(r, 1200)); step(30 * 3);
+        out.zone = g.zone.id; out.enemies = g.enemies.count(); out.alive = g.player.alive;
+        if ('${dim}' === 'dim_twins') {
+          const lever = g.zone.levers[0], gate = g.zone.gates.find((x) => x.id === lever.gate);
+          g.interaction.pullLever(lever); step(3);
+          out.gateOpen = gate.open && !g.grid.has(gate.cells[0] % g.grid.w, Math.floor(gate.cells[0] / g.grid.w), 256);
+        }
+        return out;`);
+      await settle();
+      await page.screenshot({ path: path.join(SHOTS, `${dim}.png`) });
+      check(d.zone === dim && d.alive && d.enemies > 0, `${dim}: the portal leads there and it is populated (${d.enemies})`);
+      if (dim === 'dim_twins') check(d.gateOpen, 'twins: a lever opens a gate in the other lane');
+      // Dying ends the run.
+      const f = await sim(page, `g.godMode = false; g.combat.hurt(g.player, 1e9, null, { type: 'hazard' }); step(30 * 2); const dead = !g.player.alive; g.respawn(); step(3); g.godMode = true; g.ui.closeDialog && g.ui.closeDialog(); document.querySelector('.death')?.setAttribute('hidden', ''); return { dead, zone: g.zone.id, run: g.profile.run };`);
+      check(f.dead && f.zone === 'island' && !f.run, `${dim}: dying ends the run`);
+    }
+    // Each dimension's own rule.
+    const rules = await sim(page, `
+      const out = {}, p = g.player;
+      const enter = async (dim) => { g.useConsumable(dim.replace('dim_', 'emblem_')); step(3); g.interaction.enterPortal(); await new Promise((r) => setTimeout(r, 1200)); step(3); };
+      const leave = async () => { g.interaction.leaveRun('leave'); await new Promise((r) => setTimeout(r, 1200)); step(3); };
+      // Twins: kill one of a pair alone and it comes back; kill both together and they stay down.
+      await enter('dim_twins');
+      g.enemies.clear(); g.spawner.boss = null; g.spawner.popT = 1e9;
+      const a = g.enemies.spawn('twin_slime', p.x + 4, p.z, { level: 115, noIntro: true });
+      const b = a && g.dimRules.twinOf(a);
+      out.paired = !!b && g.dimRules.twinOf(b) === a;
+      g.combat.applyRaw(a, a.maxHp * 2, 'dmg'); step(30 * 4);
+      out.revived = g.enemies.list.filter((e) => e.alive && e.def.id === 'twin_slime').length === 2;
+      const [c1, c2] = g.enemies.list.filter((e) => e.alive && e.def.id === 'twin_slime');
+      g.combat.applyRaw(c1, c1.maxHp * 2, 'dmg'); g.combat.applyRaw(c2, c2.maxHp * 2, 'dmg'); step(30 * 4);
+      out.stayDown = g.enemies.list.filter((e) => e.alive && e.def.id === 'twin_slime').length === 0;
+      await leave();
+      // King: corrupted ground fills the meter; a brazier cleanses it.
+      await enter('dim_king');
+      const gr = g.grid;
+      const ck = gr.flags.findIndex((f, k) => (f & 32768) && gr.walkable(k % gr.w, Math.floor(k / gr.w)));
+      goNear((ck % gr.w) + 0.5, Math.floor(ck / gr.w) + 0.5); step(30 * 4);
+      out.corrupted = p.corruption > 30;
+      const br = g.zone.braziers[0]; goNear(br.x + 1.5, br.z); step(30 * 3);
+      out.cleansed = p.corruption < 5;
+      await leave();
+      // Mirrored: the reflection follows your mirrored steps; both on the plates open the gate.
+      await enter('dim_mirror');
+      const z = g.zone, N = gr.w, pl = z.plates[0];
+      out.reflection = !!g.dimRules.reflection;
+      goNear(pl.left.x, pl.left.z); step(30 * 4);
+      const rf = g.dimRules.reflection;
+      out.mirrored = rf && Math.abs(rf.x - (g.grid.w - p.x)) < 1.2 && Math.abs(rf.z - p.z) < 1.2;
+      out.gate = z.gates.find((x) => x.id === pl.gate).open;
+      await leave();
+      // Roost: the breath burns the open plateau, but not behind a rock.
+      await enter('dim_dragons');
+      g.enemies.clear(); g.spawner.boss = null; g.spawner.popT = 1e9; g.dimRules.breathT = 1e9;
+      g.godMode = false;
+      const rock = g.zone.rocks[0];
+      p.hp = g.stats.maxHp; goNear(rock.x - 2.5, rock.z); g.dimRules.breathAt(rock.x + 12, rock.z); step(30 * 3);
+      out.sheltered = p.hp === g.stats.maxHp;
+      p.hp = g.stats.maxHp; goNear(rock.x - 2.5, rock.z); g.dimRules.breathAt(rock.x - 2.5, rock.z + 12); step(30 * 3);
+      out.burned = p.alive && p.hp < g.stats.maxHp;
+      g.godMode = true; p.hp = g.stats.maxHp;
+      await leave();
+      // The five Fracture Shards open the Heart Seal into the Singular Heart.
+      for (const s of ['shard_gaol', 'shard_twins', 'shard_crown', 'shard_mirror', 'shard_dragon']) g.profile.inv.stacks[s] = 1;
+      g.profile.flags.gateOpen = true; g.profile.level = 220;
+      g.enterZone('cave_8'); step(3);
+      g.interaction.readHeart();
+      document.querySelector('#dialog .btn.primary').click();
+      await new Promise((r) => setTimeout(r, 1200)); step(30 * 2);
+      out.heart = g.zone.id === 'cave_9' && g.zone.exit.type === 'core' && g.zone.nodes.some((n) => n.node === 'ore_singularita');
+      return out;`);
+    check(rules.paired && rules.revived && rules.stayDown, `twins: a lone kill revives, a pair kill stays down (${JSON.stringify(rules)})`);
+    check(rules.corrupted && rules.cleansed, 'king: corruption builds on adamite and a brazier cleanses it');
+    check(rules.reflection && rules.mirrored && rules.gate, 'mirrored: the reflection mirrors you, and both plates open the gate');
+    check(rules.sheltered && rules.burned, 'roost: dragon breath burns the open, not behind a rock');
+    check(rules.heart, 'the five shards open the Heart Seal into the Singular Heart, where Singularita grows');
+    await settle();
+    await page.screenshot({ path: path.join(SHOTS, 'cave_9.png') });
+    check(!errors.length, `dimensions: no errors ${errors.slice(0, 3).join(' | ')}`);
+    await ctx.close();
+  }
+
+  // 11. Milestone 3: the five rulers of the dimensions.
+  {
+    const { ctx, page, errors } = await open(`${BASE}/singularita/index.html?quickstart=swordsman&debug`);
+    await waitGame(page);
+    const settle = () => page.evaluate(() => { const g = window.__SG; clearTimeout(g.ui.combatDialog); g.ui.closeDialog && g.ui.closeDialog(); g.cam.snapBehind(g.player.yaw); for (let i = 0; i < 90; i++) g.render(1 / 30); });
+    await sim(page, `g.ui.closeDialog && g.ui.closeDialog(); g.godMode = true; g.profile.level = 220; g.recomputeStats(); for (const id of ['emblem_dungeon', 'emblem_twins', 'emblem_king', 'emblem_mirror', 'emblem_dragons']) g.profile.inv.stacks[id] = 3; return 1;`);
+    for (const [dim, boss, shard] of [['dim_dungeon', 'iron_jailer', 'shard_gaol'], ['dim_twins', 'siamese', 'shard_twins'], ['dim_king', 'adamite_king', 'shard_crown'], ['dim_mirror', 'you', 'shard_mirror'], ['dim_dragons', 'ragnarok', 'shard_dragon']]) {
+      const a = await sim(page, `
+        g.ui.closeDialog && g.ui.closeDialog();
+        const out = {}, p = g.player;
+        delete g.profile.inv.stacks['${shard}'];
+        // Open each portal from the camp's arrival point, facing open ground.
+        g.enterZone('island'); step(3); p.yaw = g.zone.spawnYaw ?? Math.PI;
+        g.useConsumable('${dim.replace('dim_', 'emblem_')}'); step(3);
+        out.portal = !!g.portal;
+        g.interaction.enterPortal(); await new Promise((r) => setTimeout(r, 1200)); step(3);
+        // The Jailer waits on the fifth floor.
+        if ('${dim}' === 'dim_dungeon') { g.profile.run.floor = 5; g.enterZone('dim_dungeon'); step(3); }
+        const boss = g.spawner.boss;
+        out.present = !!boss && boss.def.id === '${boss}';
+        if (!boss) return out;
+        g.enemies.list.filter((e) => !e.boss).forEach((e) => { e.alive = false; e.dyingT = 0; }); g.spawner.popT = 1e9;
+        const ar = g.zone.arena; goNear(ar.x, ar.z + 5); p.grounded = true; p.yaw = Math.PI; step(30 * 3);
+        out.engaged = boss.engaged;
+        // Step just outside the arena: the ruler keeps to its arena instead of following you out.
+        const fx = ar.x + ar.r + 6, fz = ar.z;
+        if (g.grid.walkable(Math.floor(fx), Math.floor(fz))) {
+          let far = 0;
+          for (let k = 0; k < 30 * 4; k++) { goNear(fx, fz); step(1); for (const m of boss.members) far = Math.max(far, Math.hypot(m.x - ar.x, m.z - ar.z) - ar.r); }
+          out.staysIn = far <= 0.5;
+          goNear(ar.x, ar.z + 5); step(3);
+        } else out.staysIn = true;
+        return out;`);
+      await settle();
+      await page.screenshot({ path: path.join(SHOTS, `ruler_${boss}.png`) });
+      check(a.present && a.engaged, `${boss}: rules its dimension and engages (${JSON.stringify(a)})`);
+      check(a.staysIn, `${boss}: keeps to its arena when you step out`);
+      if (!a.present) { await sim(page, `g.interaction.leaveRun('leave'); await new Promise((r) => setTimeout(r, 1200)); return 1;`); continue; }
+      const r = await sim(page, `
+        const out = {}, p = g.player, boss = g.spawner.boss;
+        const phases = []; g.bus.on('bossPhase', (e) => { if (e.def.id === '${boss}' && !phases.includes(e.phase.name)) phases.push(e.phase.name); });
+        for (let k = 0; k < 120 && boss.members.some((m) => m.alive); k++) {
+          for (const m of boss.members) if (m.alive) g.combat.applyRaw(m, m.maxHp * 0.03, 'dmg');
+          step(12); p.hp = g.stats.maxHp; p.corruption = 0;
+        }
+        out.defeated = boss.defeated; out.phases = phases;
+        out.shard = g.profile.inv.stacks['${shard}'] || 0;
+        out.exit = !!g.portalOut;
+        step(30 * 2); g.ui.closeDialog && g.ui.closeDialog();
+        g.interaction.leaveRun('complete'); await new Promise((r) => setTimeout(r, 1200)); step(3);
+        out.home = g.zone.type !== 'dimension' && !g.profile.run;
+        out.cleared = g.profile.dims['${dim}'].cleared;
+        return out;`);
+      check(r.defeated && r.phases.length >= 2, `${boss}: fights through its phases (${(r.phases || []).join(', ')})`);
+      check(r.shard === 1 && r.exit && r.home && r.cleared >= 1, `${boss}: gives its Fracture Shard, opens the way home and clears the run`);
+    }
+    // The Siamese merge for good when one twin falls, or when both are worn to half; that form must fall.
+    {
+      const m = await sim(page, `
+        g.ui.closeDialog && g.ui.closeDialog();
+        const out = {}, p = g.player;
+        const fresh = async () => {
+          if (g.profile.run) { g.interaction.leaveRun('leave'); await new Promise((r) => setTimeout(r, 1200)); }
+          g.enterZone('island'); step(3); p.yaw = g.zone.spawnYaw ?? Math.PI;
+          g.useConsumable('emblem_twins'); step(3);
+          g.interaction.enterPortal(); await new Promise((r) => setTimeout(r, 1200)); step(3);
+          g.enemies.list.filter((e) => !e.boss).forEach((e) => { e.alive = false; e.dyingT = 0; }); g.spawner.popT = 1e9;
+          const ar = g.zone.arena; goNear(ar.x, ar.z + 5); p.grounded = true; step(30);
+          return g.spawner.boss;
+        };
+        let b = await fresh();
+        // While a ruler is engaged, the dimension sends no more creatures into the fight.
+        g.spawner.popT = 0; step(30 * 20);
+        out.calm = g.enemies.count((e) => !e.boss && e.alive) === 0;
+        const sum = b.members.reduce((a, t) => a + t.maxHp, 0);
+        g.combat.applyRaw(b.members[0], b.members[0].maxHp * 2, 'dmg'); step(10);
+        let u = b.members.filter((x) => x.alive);
+        out.oneFell = { n: u.length, merged: !!u[0]?.merged, half: Math.abs((u[0]?.maxHp || 0) - sum * 0.5) < 2, defeated: b.defeated };
+        g.combat.applyRaw(u[0], u[0].maxHp * 2, 'dmg'); step(10);
+        out.won = b.defeated && (g.profile.inv.stacks.shard_twins || 0) > 0;
+        g.interaction.leaveRun('complete'); await new Promise((r) => setTimeout(r, 1200));
+        b = await fresh();
+        for (const t of b.members.slice()) g.combat.applyRaw(t, t.maxHp * 0.55, 'dmg');
+        step(10);
+        u = b.members.filter((x) => x.alive);
+        out.bothHalf = { n: u.length, merged: !!u[0]?.merged, defeated: b.defeated };
+        // Walk far off: the fight resets and the twins stand apart again, whole.
+        const ar = g.zone.arena;
+        for (let k = 0; k < 30 * 10; k++) { goNear(g.zone.spawn.x, g.zone.spawn.z); step(1); }
+        u = b.members.filter((x) => x.alive);
+        out.reset = { n: u.length, merged: u.some((x) => x.merged), full: u.every((x) => x.hp === x.maxHp), far: Math.hypot(g.zone.spawn.x - ar.x, g.zone.spawn.z - ar.z) > ar.r + 14 };
+        g.interaction.leaveRun('leave'); await new Promise((r) => setTimeout(r, 1200));
+        return out;`);
+      check(m.oneFell.n === 1 && m.oneFell.merged && m.oneFell.half && !m.oneFell.defeated, `siamese: when one twin falls they merge into one, at half their joined health (${JSON.stringify(m.oneFell)})`);
+      check(m.won, 'siamese: bringing down the merged form wins the fight');
+      check(m.calm, 'rulers: no creatures join while a ruler is engaged');
+      check(m.bothHalf.n === 1 && m.bothHalf.merged && !m.bothHalf.defeated, `siamese: both worn to half, they merge (${JSON.stringify(m.bothHalf)})`);
+      check(m.reset.n === 2 && !m.reset.merged && m.reset.full && m.reset.far, `siamese: a reset parts them again, whole (${JSON.stringify(m.reset)})`);
+    }
+    check(!errors.length, `rulers: no errors ${errors.slice(0, 3).join(' | ')}`);
+    await ctx.close();
+  }
+
+  // 12. Milestone 3: Singularita's shape memory, the Collapse and Chromantite.
+  {
+    const { ctx, page, errors } = await open(`${BASE}/singularita/index.html?quickstart=swordsman&debug`);
+    await waitGame(page);
+    const r = await page.evaluate(async () => {
+      const g = window.__SG, p = g.player, out = {};
+      g.ui.closeDialog && g.ui.closeDialog(); g.godMode = true;
+      g.profile.level = 260; g.recomputeStats();
+      // A Singularita blade, at the Forge.
+      const f = g.zone.base.stations.forge;
+      p.x = f.x + 1.5; p.z = f.z + 1.5;
+      const uid = g.profile.inv.nextUid++;
+      g.profile.inv.items.push({ uid, id: 'swordsman_weapon_singularita' });
+      g.ui.openMenu('inventory');
+      [...document.querySelectorAll('#menu .cell')].find((c) => c.textContent.includes('Singularita'))?.click();
+      const sel = [...document.querySelectorAll('#menu .memory select')];
+      out.panel = sel.length === 2;
+      document.querySelector('#menu .btn.primary')?.click(); // Equip
+      [...document.querySelectorAll('#menu .cell')].find((c) => c.textContent.includes('Singularita'))?.click();
+      const sel2 = [...document.querySelectorAll('#menu .memory select')];
+      sel2[0].value = 'ember'; sel2[0].dispatchEvent(new Event('change'));
+      sel2[1].value = 'rime'; sel2[1].dispatchEvent(new Event('change'));
+      document.querySelector('#menu .memory .btn').click();
+      out.memory = g.profile.memory.swordsman_weapon_singularita?.join(',');
+      out.burn = g.stats.burnChance > 0 && g.stats.chillChance > 0;
+      out.collapse = g.stats.collapse;
+      g.ui.closeMenu();
+      // Twelve hits make a Collapse.
+      let collapses = 0; const orig = g.combat.collapseAt.bind(g.combat); g.combat.collapseAt = (...a) => { collapses++; return orig(...a); };
+      const e = g.enemies.spawn('gel_knight', p.x + 2, p.z, { level: 200, noIntro: true });
+      e.hp = e.maxHp = 1e9;
+      for (let k = 0; k < 13; k++) g.combat.hit(e, { mult: 1, from: p });
+      out.collapses = collapses;
+      // A Chromantite blade colours its hits in turn.
+      g.profile.memory = {};
+      const uid2 = g.profile.inv.nextUid++;
+      g.profile.inv.items.push({ uid: uid2, id: 'swordsman_weapon_chromantite' });
+      g.profile.equipment.swordsman.weapon = uid2; g.recomputeStats();
+      e.statuses.clear();
+      for (let k = 0; k < 40; k++) g.combat.hit(e, { mult: 1, from: p });
+      out.chroma = ['burn', 'chill', 'poison'].filter((id) => e.statuses.has(id)).length;
+      return out;
+    });
+    check(r.panel && r.memory === 'ember,rime' && r.burn, `Singularita remembers what you choose at the Forge (${r.memory})`);
+    check(r.collapse >= 1 && r.collapses === 1, `every twelfth hit collapses (${r.collapses})`);
+    check(r.chroma >= 2, `Chromantite hits cycle through afflictions (${r.chroma} kinds)`);
+    check(!errors.length, `shape memory: no errors ${errors.slice(0, 3).join(' | ')}`);
     await ctx.close();
   }
 } catch (err) {

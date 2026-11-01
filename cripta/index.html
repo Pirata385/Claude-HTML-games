@@ -1,0 +1,1030 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0f1117">
+<title>Cripta — Embaralhador de Imagens</title>
+<style>
+:root {
+  --bg: #0e1016; --panel: #161922; --panel2: #1d212c; --line: #2a2f3c; --text: #eceef4; --muted: #949bb0;
+  --accent: #8b7bff; --accent-ink: #fff; --ok: #3ddc97; --warn: #ffbe3d; --bad: #ff5d6c;
+  --check1: #171a22; --check2: #1d2029; --r: 12px;
+  --font: system-ui, -apple-system, "Segoe UI", Roboto, Ubuntu, sans-serif; --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+}
+:root[data-theme="light"] {
+  --bg: #f1f2f6; --panel: #ffffff; --panel2: #f4f5f9; --line: #dfe2ea; --text: #1a1d26; --muted: #5f6578;
+  --check1: #e6e8ee; --check2: #f3f4f8; --accent: #6b5bf0;
+}
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text); font: 14px/1.45 var(--font); -webkit-tap-highlight-color: transparent; }
+button, input, select, textarea { font: inherit; color: inherit; }
+button { cursor: pointer; }
+#app { display: flex; flex-direction: column; height: 100vh; height: 100dvh; }
+
+/* header */
+header { display: flex; align-items: center; gap: 10px; padding: 10px 14px; padding-top: max(10px, env(safe-area-inset-top)); border-bottom: 1px solid var(--line); background: var(--panel); flex: none; }
+.brand { display: flex; align-items: center; gap: 9px; font-weight: 800; letter-spacing: .02em; color: var(--text); text-decoration: none; font-size: 16px; }
+.brand svg { width: 26px; height: 26px; }
+.tabs { display: flex; gap: 4px; background: var(--panel2); border: 1px solid var(--line); padding: 3px; border-radius: 11px; margin: 0 auto; }
+.tabs button { border: 0; background: none; padding: 7px 14px; border-radius: 8px; color: var(--muted); font-weight: 600; white-space: nowrap; }
+.tabs button.on { background: var(--accent); color: var(--accent-ink); }
+.icon-btn { width: 36px; height: 36px; border-radius: 10px; border: 1px solid var(--line); background: var(--panel2); display: grid; place-items: center; flex: none; }
+.icon-btn:hover { border-color: var(--accent); }
+
+/* layout */
+main { flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr) 390px; }
+.viewer { position: relative; min-height: 0; display: flex; flex-direction: column; border-right: 1px solid var(--line); }
+.vbar { display: flex; align-items: center; gap: 8px; padding: 8px 12px; flex: none; }
+.vbar .info { margin-left: auto; color: var(--muted); font-size: 12.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.stage { flex: 1; min-height: 0; overflow: auto; display: grid; place-items: center; padding: 14px;
+  background-color: var(--check1);
+  background-image: linear-gradient(45deg, var(--check2) 25%, transparent 25%, transparent 75%, var(--check2) 75%), linear-gradient(45deg, var(--check2) 25%, transparent 25%, transparent 75%, var(--check2) 75%);
+  background-size: 22px 22px; background-position: 0 0, 11px 11px; }
+.frame { position: relative; box-shadow: 0 8px 30px rgba(0,0,0,.35); }
+.frame canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+.frame.px canvas { image-rendering: pixelated; }
+#cvTop { clip-path: inset(0 calc(100% - var(--split, 50%)) 0 0); }
+.splitLine { position: absolute; top: 0; bottom: 0; left: var(--split, 50%); width: 2px; margin-left: -1px; background: #fff; box-shadow: 0 0 6px rgba(0,0,0,.6); pointer-events: none; }
+.splitRange { position: absolute; left: 14px; right: 14px; bottom: 14px; accent-color: #fff; }
+.busy { position: absolute; top: 56px; right: 14px; display: flex; gap: 8px; align-items: center; padding: 6px 12px; border-radius: 99px; background: var(--panel); border: 1px solid var(--line); font-size: 12.5px; }
+.spin { width: 14px; height: 14px; border-radius: 50%; border: 2px solid var(--line); border-top-color: var(--accent); animation: spin .7s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.empty { display: grid; place-items: center; text-align: center; padding: 24px; }
+.empty .box { max-width: 380px; padding: 30px 24px; border: 2px dashed var(--line); border-radius: 18px; background: color-mix(in srgb, var(--panel) 85%, transparent); }
+.empty h2 { margin: 10px 0 6px; font-size: 19px; }
+.empty p { margin: 0 0 16px; color: var(--muted); }
+
+.panel { overflow-y: auto; padding: 14px; display: flex; flex-direction: column; gap: 12px; padding-bottom: max(18px, env(safe-area-inset-bottom)); }
+.card { background: var(--panel); border: 1px solid var(--line); border-radius: var(--r); padding: 14px; display: flex; flex-direction: column; gap: 10px; }
+.card h3 { margin: 0; font-size: 13px; letter-spacing: .05em; text-transform: uppercase; color: var(--muted); display: flex; align-items: center; gap: 8px; }
+.card h3 .num { width: 20px; height: 20px; border-radius: 50%; background: var(--panel2); border: 1px solid var(--line); display: grid; place-items: center; font-size: 11px; color: var(--text); }
+.row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.row > .btn.grow, .grow { flex: 1; }
+.btn { display: inline-flex; align-items: center; justify-content: center; gap: 7px; min-height: 38px; padding: 8px 13px; border-radius: 10px; border: 1px solid var(--line); background: var(--panel2); font-weight: 600; white-space: nowrap; }
+.btn:hover { border-color: var(--accent); }
+.btn:disabled { opacity: .45; cursor: default; border-color: var(--line); }
+.btn.primary { background: var(--accent); border-color: transparent; color: var(--accent-ink); }
+.btn.primary:hover { filter: brightness(1.08); }
+.btn.sm { min-height: 32px; padding: 5px 10px; font-size: 13px; }
+.file { display: flex; gap: 12px; align-items: center; }
+.file canvas { width: 64px; height: 64px; border-radius: 9px; object-fit: cover; background: var(--panel2); border: 1px solid var(--line); flex: none; }
+.file .meta { flex: 1; min-width: 0; }
+.file .meta b { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.file .meta span { color: var(--muted); font-size: 12.5px; }
+.presets { display: grid; grid-template-columns: repeat(5, 1fr); gap: 7px; }
+.preset { border: 1px solid var(--line); background: var(--panel2); border-radius: 10px; padding: 5px 4px 6px; display: flex; flex-direction: column; align-items: center; gap: 5px; font-size: 11.5px; white-space: nowrap; min-width: 0; font-weight: 600; color: var(--muted); }
+.preset canvas { width: 100%; aspect-ratio: 1; border-radius: 6px; image-rendering: pixelated; display: block; }
+.preset.on { border-color: var(--accent); color: var(--text); box-shadow: 0 0 0 1px var(--accent) inset; }
+.hint { color: var(--muted); font-size: 12.5px; margin: 0; }
+.field { display: flex; flex-direction: column; gap: 5px; }
+.field label { font-size: 12.5px; color: var(--muted); }
+.inp { display: flex; align-items: stretch; border: 1px solid var(--line); border-radius: 10px; background: var(--panel2); overflow: hidden; }
+.inp:focus-within { border-color: var(--accent); }
+.inp input, .inp textarea { flex: 1; min-width: 0; border: 0; background: none; padding: 9px 11px; outline: none; }
+.inp textarea { resize: vertical; min-height: 74px; font: 12px/1.4 var(--mono); word-break: break-all; }
+.inp input.mono { font-family: var(--mono); letter-spacing: .03em; }
+.inp button { border: 0; border-left: 1px solid var(--line); background: none; padding: 0 12px; color: var(--muted); }
+.inp button:hover { color: var(--text); }
+details.adv > summary { cursor: pointer; list-style: none; font-weight: 600; font-size: 13px; color: var(--muted); display: flex; align-items: center; gap: 6px; user-select: none; }
+details.adv > summary::-webkit-details-marker { display: none; }
+details.adv > summary::before { content: "▸"; transition: transform .15s; }
+details.adv[open] > summary::before { transform: rotate(90deg); }
+.opts { display: flex; flex-direction: column; gap: 2px; margin-top: 10px; }
+.opt { display: flex; align-items: center; gap: 10px; padding: 7px 4px; border-radius: 8px; cursor: pointer; }
+.opt:hover { background: var(--panel2); }
+.opt input[type=checkbox] { width: 18px; height: 18px; accent-color: var(--accent); flex: none; }
+.opt .t { flex: 1; }
+.opt .t b { display: block; font-size: 13.5px; font-weight: 600; }
+.opt .t span { font-size: 12px; color: var(--muted); }
+.opt select { background: var(--panel2); border: 1px solid var(--line); border-radius: 7px; padding: 3px 4px; }
+.optgroup { font-size: 11px; text-transform: uppercase; letter-spacing: .07em; color: var(--muted); margin: 8px 4px 2px; }
+.rounds { display: flex; align-items: center; gap: 10px; padding: 8px 4px 0; }
+.rounds input { flex: 1; accent-color: var(--accent); }
+.check { display: flex; gap: 9px; align-items: flex-start; font-size: 13px; cursor: pointer; }
+.check input { width: 17px; height: 17px; margin-top: 1px; accent-color: var(--accent); flex: none; }
+.check span small { display: block; color: var(--muted); font-size: 12px; }
+.keybox { background: var(--panel2); border: 1px solid var(--line); border-radius: 10px; padding: 9px 11px; }
+.keybox span { font: 12px/1.45 var(--mono); word-break: break-all; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; color: var(--muted); user-select: all; }
+.actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.status { display: flex; gap: 9px; align-items: flex-start; padding: 9px 11px; border-radius: 10px; font-size: 13px; background: var(--panel2); border: 1px solid var(--line); }
+.status.ok { border-color: color-mix(in srgb, var(--ok) 55%, var(--line)); }
+.status.warn { border-color: color-mix(in srgb, var(--warn) 55%, var(--line)); }
+.status.bad { border-color: color-mix(in srgb, var(--bad) 55%, var(--line)); }
+.badge { display: inline-flex; align-items: center; gap: 5px; font-size: 11.5px; padding: 2px 8px; border-radius: 99px; background: color-mix(in srgb, var(--ok) 18%, transparent); color: var(--ok); font-weight: 600; }
+.seg { display: inline-flex; background: var(--panel2); border: 1px solid var(--line); border-radius: 9px; padding: 2px; gap: 2px; }
+.seg button { border: 0; background: none; padding: 5px 11px; border-radius: 7px; font-size: 13px; color: var(--muted); font-weight: 600; }
+.seg button.on { background: var(--panel); color: var(--text); box-shadow: 0 1px 3px rgba(0,0,0,.25); }
+
+/* history */
+.history { grid-column: 1 / -1; overflow-y: auto; padding: 18px; }
+.history .top { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; max-width: 1100px; margin: 0 auto 14px; }
+.history h2 { margin: 0; font-size: 18px; }
+.hgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 12px; max-width: 1100px; margin: 0 auto; }
+.hitem { background: var(--panel); border: 1px solid var(--line); border-radius: var(--r); padding: 12px; display: flex; flex-direction: column; gap: 10px; }
+.hitem .file img { width: 64px; height: 64px; border-radius: 9px; object-fit: cover; image-rendering: pixelated; flex: none; border: 1px solid var(--line); }
+.hempty { text-align: center; color: var(--muted); padding: 50px 20px; }
+
+dialog { background: var(--panel); color: var(--text); border: 1px solid var(--line); border-radius: 16px; padding: 0; width: min(560px, calc(100vw - 24px)); max-height: calc(100dvh - 24px); }
+dialog::backdrop { background: rgba(0,0,0,.55); }
+.dh { display: flex; align-items: center; padding: 14px 16px; border-bottom: 1px solid var(--line); font-weight: 800; font-size: 16px; }
+.dh .icon-btn { margin-left: auto; }
+.db { padding: 14px 16px 18px; overflow-y: auto; max-height: calc(100dvh - 100px); display: flex; flex-direction: column; gap: 10px; }
+.db h4 { margin: 6px 0 0; font-size: 12px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); }
+.db ul { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 4px; }
+.db p { margin: 0; }
+#toast { position: fixed; left: 50%; bottom: max(22px, env(safe-area-inset-bottom)); transform: translate(-50%, 16px); opacity: 0; transition: .2s; background: var(--text); color: var(--bg); padding: 9px 16px; border-radius: 99px; font-weight: 600; pointer-events: none; z-index: 60; max-width: calc(100vw - 30px); text-align: center; }
+#toast.show { opacity: 1; transform: translate(-50%, 0); }
+#drop { position: fixed; inset: 0; z-index: 50; display: none; place-items: center; background: rgba(10,10,20,.75); color: #fff; font-size: 21px; font-weight: 700; border: 4px dashed var(--accent); }
+#drop.show { display: grid; }
+.banner { margin: 10px 14px 0; padding: 10px 12px; border-radius: 10px; border: 1px solid color-mix(in srgb, var(--bad) 60%, var(--line)); background: color-mix(in srgb, var(--bad) 10%, var(--panel)); font-size: 13px; }
+
+@media (max-width: 880px) {
+  body { overflow: auto; }
+  #app { height: auto; min-height: 100dvh; }
+  header { flex-wrap: wrap; }
+  .tabs { order: 3; width: 100%; margin: 0; }
+  .tabs button { flex: 1; padding: 8px 6px; }
+  .brand { margin-right: auto; }
+  main { display: flex; flex-direction: column; }
+  .viewer { border-right: 0; border-bottom: 1px solid var(--line); height: 48vh; height: 48dvh; flex: none; }
+  .panel { overflow: visible; }
+  .presets { grid-template-columns: repeat(5, 1fr); }
+  .lbl-d { display: none; }
+}
+</style>
+</head>
+<body>
+<div id="app">
+  <header>
+    <a class="brand" href="../index.html#apps" title="Voltar ao menu">
+      <svg viewBox="0 0 32 32" aria-hidden="true"><rect x="3" y="3" width="26" height="26" rx="7" fill="#8b7bff"/><g fill="#fff"><rect x="8" y="8" width="5" height="5" rx="1"/><rect x="19" y="8" width="5" height="5" rx="1" opacity=".55"/><rect x="13.5" y="13.5" width="5" height="5" rx="1" opacity=".8"/><rect x="8" y="19" width="5" height="5" rx="1" opacity=".4"/><rect x="19" y="19" width="5" height="5" rx="1"/></g></svg>
+      Cripta
+    </a>
+    <nav class="tabs" role="tablist">
+      <button data-tab="enc" class="on">🔒 Embaralhar</button>
+      <button data-tab="dec">🔓 Desembaralhar</button>
+      <button data-tab="hist">🕘 Histórico</button>
+    </nav>
+    <button class="icon-btn" id="bTheme" title="Tema claro/escuro">🌓</button>
+    <button class="icon-btn" id="bHelp" title="Como funciona">?</button>
+  </header>
+  <div class="banner" id="fpBanner" hidden>⚠️ Seu navegador está alterando os pixels lidos das imagens (proteção contra fingerprinting, comum no Brave, Firefox com “resistFingerprinting” e alguns bloqueadores). O embaralhamento não poderá ser desfeito com perfeição. Desative a proteção para este site.</div>
+
+  <main id="mainEnc">
+    <section class="viewer">
+      <div class="vbar">
+        <div class="seg" id="encView"><button data-v="before">Original</button><button data-v="after" class="on">Embaralhada</button><button data-v="split">Comparar</button></div>
+        <button class="btn sm" id="encZoom" title="Tamanho real / ajustar">1:1</button>
+        <span class="info" id="encInfo"></span>
+      </div>
+      <div class="stage" id="encStage"></div>
+      <div class="busy" id="encBusy" hidden><div class="spin"></div><span>Embaralhando…</span></div>
+    </section>
+    <aside class="panel">
+      <div class="card">
+        <h3><span class="num">1</span>Imagem</h3>
+        <div id="encFile"></div>
+      </div>
+      <div class="card">
+        <h3><span class="num">2</span>Estilo</h3>
+        <div class="presets" id="presets"></div>
+        <p class="hint" id="presetDesc"></p>
+        <details class="adv" id="adv">
+          <summary>Opções avançadas</summary>
+          <div class="opts" id="opts"></div>
+        </details>
+      </div>
+      <div class="card">
+        <h3><span class="num">3</span>Chave</h3>
+        <div class="field">
+          <label for="seed">Semente (qualquer texto — a mesma semente gera sempre o mesmo resultado)</label>
+          <div class="inp"><input id="seed" class="mono" autocomplete="off" spellcheck="false"><button id="seedNew" title="Gerar nova semente">🎲</button></div>
+        </div>
+        <div class="field">
+          <label for="pw">Senha (opcional, nunca é salva na chave)</label>
+          <div class="inp"><input id="pw" type="password" autocomplete="new-password" placeholder="Sem senha"><button id="pwEye" title="Mostrar/ocultar">👁</button></div>
+        </div>
+        <label class="check"><input type="checkbox" id="embed"><span>Embutir a chave no arquivo PNG<small>O arquivo se desembaralha sozinho na outra aba. Sem senha, qualquer pessoa com o arquivo consegue ver a imagem.</small></span></label>
+      </div>
+      <div class="card" id="encOut">
+        <h3><span class="num">4</span>Resultado</h3>
+        <div class="keybox" title="Chave completa (clique para selecionar)"><span id="keyBox">—</span></div>
+        <div class="actions">
+          <button class="btn primary" id="dlImg">⬇ Imagem PNG</button>
+          <button class="btn" id="copyKey">📋 Copiar chave</button>
+          <button class="btn" id="dlKey">⬇ Chave .txt</button>
+          <button class="btn" id="dlBoth">⬇ Ambos</button>
+        </div>
+        <div class="row">
+          <button class="btn grow" id="toDec">🔓 Testar na aba Desembaralhar →</button>
+          <button class="btn" id="share" hidden title="Compartilhar">📤</button>
+        </div>
+        <p class="hint" id="encStatus"></p>
+      </div>
+    </aside>
+  </main>
+
+  <main id="mainDec" hidden>
+    <section class="viewer">
+      <div class="vbar">
+        <div class="seg" id="decView"><button data-v="before">Embaralhada</button><button data-v="after" class="on">Restaurada</button><button data-v="split">Comparar</button></div>
+        <button class="btn sm" id="decZoom" title="Tamanho real / ajustar">1:1</button>
+        <span class="info" id="decInfo"></span>
+      </div>
+      <div class="stage" id="decStage"></div>
+      <div class="busy" id="decBusy" hidden><div class="spin"></div><span>Desembaralhando…</span></div>
+    </section>
+    <aside class="panel">
+      <div class="card">
+        <h3><span class="num">1</span>Imagem embaralhada</h3>
+        <div id="decFile"></div>
+      </div>
+      <div class="card">
+        <h3><span class="num">2</span>Chave</h3>
+        <div class="inp"><textarea id="keyIn" spellcheck="false" placeholder="Cole aqui a chave (começa com CRIPTA1.)"></textarea></div>
+        <div class="row">
+          <button class="btn sm" id="pasteKey">📋 Colar</button>
+          <button class="btn sm" id="openKey">📂 Abrir .txt</button>
+          <span class="grow"></span>
+          <span id="keyBadge"></span>
+        </div>
+        <div class="field" id="decPwBox" hidden>
+          <label for="decPw">Esta chave exige senha</label>
+          <div class="inp"><input id="decPw" type="password" autocomplete="off" placeholder="Senha"><button id="decPwEye" title="Mostrar/ocultar">👁</button></div>
+        </div>
+        <p class="hint" id="keyInfo"></p>
+      </div>
+      <div class="card">
+        <h3><span class="num">3</span>Restaurar</h3>
+        <button class="btn primary" id="decGo">🔓 Desembaralhar</button>
+        <div id="decStatus"></div>
+        <div class="actions">
+          <button class="btn" id="dlRestored" disabled>⬇ Baixar PNG</button>
+          <button class="btn" id="copyRestored" disabled>📋 Copiar imagem</button>
+        </div>
+      </div>
+    </aside>
+  </main>
+
+  <main id="mainHist" hidden>
+    <section class="history">
+      <div class="top">
+        <h2>Histórico neste aparelho</h2>
+        <span class="grow"></span>
+        <label class="check" style="align-items:center"><input type="checkbox" id="histOn"><span>Guardar chaves</span></label>
+        <button class="btn sm" id="histClear">🗑 Limpar</button>
+      </div>
+      <div class="hgrid" id="hgrid"></div>
+    </section>
+  </main>
+</div>
+
+<div id="drop">Solte a imagem aqui</div>
+<input type="file" id="fileEnc" accept="image/*" hidden>
+<input type="file" id="camEnc" accept="image/*" capture="environment" hidden>
+<input type="file" id="fileDec" accept="image/*" hidden>
+<input type="file" id="fileKey" accept=".txt,.cripta,text/plain" hidden>
+<dialog id="dlgHelp">
+  <div class="dh">Como o Cripta funciona <button class="icon-btn" data-close>✕</button></div>
+  <div class="db">
+    <p>O Cripta embaralha os pixels e as cores de uma imagem de forma <b>determinística</b>: a mesma imagem, semente, senha e estilo produzem sempre o mesmo resultado, e a chave gerada permite desfazer tudo — pixel por pixel, sem perda.</p>
+    <h4>Passo a passo</h4>
+    <ul>
+      <li>Em <b>Embaralhar</b>, escolha uma imagem, um estilo e (se quiser) uma senha.</li>
+      <li>Baixe a imagem <b>PNG</b> e guarde a <b>chave</b> (copie, baixe o .txt ou embuta no próprio PNG).</li>
+      <li>Em <b>Desembaralhar</b>, envie a imagem embaralhada, cole a chave (e a senha) e pronto.</li>
+    </ul>
+    <h4>Importante</h4>
+    <ul>
+      <li>Envie a imagem como <b>arquivo/documento</b>. Apps como WhatsApp e Instagram recomprimem fotos e destroem os pixels embaralhados. O estilo <b>Mosaico</b> é o que melhor sobrevive a isso.</li>
+      <li>A senha nunca é guardada: sem ela, a chave sozinha não desfaz a imagem.</li>
+      <li>Imagens com transparência são achatadas sobre fundo branco.</li>
+      <li>Tudo acontece no seu aparelho; nada é enviado para servidores.</li>
+      <li>É uma ferramenta de privacidade e diversão, não criptografia auditada. Para segredos sérios, use Ruído ou Fortaleza com uma senha forte.</li>
+    </ul>
+    <h4>Estilos</h4>
+    <ul>
+      <li><b>Ruído</b>: cada pixel vai para um lugar aleatório e as cores são cifradas.</li>
+      <li><b>Mosaico</b>: a imagem vira um quebra-cabeça de peças giradas.</li>
+      <li><b>Glitch</b>: linhas e colunas trocadas e deslizadas, cores remapeadas.</li>
+      <li><b>Cores</b>: efeito psicodélico, só as cores mudam.</li>
+      <li><b>Fortaleza</b>: tudo junto, com difusão e duas rodadas.</li>
+    </ul>
+    <h4>Atalhos</h4>
+    <ul><li><b>Ctrl+V</b> cola imagem ou chave · <b>Ctrl+S</b> baixa o resultado · <b>1 / 2 / 3</b> trocam de aba</li></ul>
+  </div>
+</dialog>
+<div id="toast"></div>
+
+<!-- Shared core: runs both in a Web Worker and on the main thread (fallback + previews). -->
+<script type="text/x-cripta-core" id="core">
+'use strict';
+/* ---- SHA-256 (pure JS, so keys behave identically on every browser and on file://) ---- */
+const SHA_K = new Uint32Array(64), SHA_H = new Uint32Array(8);
+(function () {
+  const primes = []; for (let n = 2; primes.length < 64; n++) { let p = true; for (let d = 2; d * d <= n; d++) if (n % d === 0) { p = false; break; } if (p) primes.push(n); }
+  const frac = (x) => ((x - Math.floor(x)) * 4294967296) >>> 0;
+  for (let i = 0; i < 64; i++) SHA_K[i] = frac(Math.cbrt(primes[i]));
+  for (let i = 0; i < 8; i++) SHA_H[i] = frac(Math.sqrt(primes[i]));
+})();
+function sha256(msg) {
+  const l = msg.length, n = ((l + 9 + 63) >> 6) << 6, buf = new Uint8Array(n);
+  buf.set(msg); buf[l] = 0x80;
+  const dv = new DataView(buf.buffer); dv.setUint32(n - 4, (l * 8) >>> 0); dv.setUint32(n - 8, Math.floor((l * 8) / 4294967296));
+  const H = Uint32Array.from(SHA_H), w = new Uint32Array(64);
+  for (let o = 0; o < n; o += 64) {
+    for (let i = 0; i < 16; i++) w[i] = dv.getUint32(o + i * 4);
+    for (let i = 16; i < 64; i++) {
+      const x = w[i - 15], y = w[i - 2];
+      const s0 = ((x >>> 7) | (x << 25)) ^ ((x >>> 18) | (x << 14)) ^ (x >>> 3), s1 = ((y >>> 17) | (y << 15)) ^ ((y >>> 19) | (y << 13)) ^ (y >>> 10);
+      w[i] = (w[i - 16] + s0 + w[i - 7] + s1) | 0;
+    }
+    let a = H[0], b = H[1], c = H[2], d = H[3], e = H[4], f = H[5], g = H[6], h = H[7];
+    for (let i = 0; i < 64; i++) {
+      const S1 = ((e >>> 6) | (e << 26)) ^ ((e >>> 11) | (e << 21)) ^ ((e >>> 25) | (e << 7)), ch = (e & f) ^ (~e & g);
+      const t1 = (h + S1 + ch + SHA_K[i] + w[i]) | 0;
+      const S0 = ((a >>> 2) | (a << 30)) ^ ((a >>> 13) | (a << 19)) ^ ((a >>> 22) | (a << 10)), mj = (a & b) ^ (a & c) ^ (b & c);
+      h = g; g = f; f = e; e = (d + t1) | 0; d = c; c = b; b = a; a = (t1 + ((S0 + mj) | 0)) | 0;
+    }
+    H[0] += a; H[1] += b; H[2] += c; H[3] += d; H[4] += e; H[5] += f; H[6] += g; H[7] += h;
+  }
+  const out = new Uint8Array(32), ov = new DataView(out.buffer); for (let i = 0; i < 8; i++) ov.setUint32(i * 4, H[i]); return out;
+}
+const utf8 = (s) => new TextEncoder().encode(s);
+function cat(...arrs) { let n = 0; for (const a of arrs) n += a.length; const o = new Uint8Array(n); let p = 0; for (const a of arrs) { o.set(a, p); p += a.length; } return o; }
+// Master key from seed + password. A password is stretched (20 000 rounds) to slow down guessing.
+function deriveMaster(seed, pw) {
+  let h = sha256(utf8('cripta-v1\u0000' + seed + '\u0000' + (pw || '')));
+  if (pw) { const p = utf8(pw); for (let i = 0; i < 20000; i++) h = sha256(cat(h, p)); }
+  return h;
+}
+/* ---- xoshiro128** PRNG, seeded per operation from the master key ---- */
+function rngFor(master, round, op) {
+  const d = sha256(cat(master, new Uint8Array([round & 255, op & 255, 0x5a]))), v = new DataView(d.buffer);
+  let a = v.getUint32(0), b = v.getUint32(4), c = v.getUint32(8), e = v.getUint32(12);
+  if (!(a | b | c | e)) a = 1;
+  return function () {
+    const r = Math.imul(b, 5), res = Math.imul((r << 7) | (r >>> 25), 9) >>> 0, t = b << 9;
+    c ^= a; e ^= b; b ^= c; a ^= e; c ^= t; e = (e << 11) | (e >>> 21);
+    return res;
+  };
+}
+const below = (rng, n) => Math.floor((rng() / 4294967296) * n);
+function permutation(n, rng) {
+  const p = new Uint32Array(n); for (let i = 0; i < n; i++) p[i] = i;
+  for (let i = n - 1; i > 0; i--) { const j = below(rng, i + 1), t = p[i]; p[i] = p[j]; p[j] = t; }
+  return p;
+}
+/* ---- operations. Each one is an exact bijection; `inv` applies its inverse. ---- */
+function opShuffle(px, rng, inv) { // every pixel to a random place
+  const N = px.length, p = permutation(N, rng), o = new Uint32Array(N);
+  if (!inv) for (let i = 0; i < N; i++) o[p[i]] = px[i]; else for (let i = 0; i < N; i++) o[i] = px[p[i]];
+  return o;
+}
+function opBlocks(px, w, h, b, rot, rng, inv) { // shuffle b×b tiles (optionally rotated/flipped); leftover edge pixels are shuffled too
+  const cols = Math.floor(w / b), rows = Math.floor(h / b), T = cols * rows, o = new Uint32Array(px.length);
+  const perm = permutation(T, rng), ks = new Uint8Array(T);
+  if (rot) for (let t = 0; t < T; t++) ks[t] = rng() & 7;
+  const tabs = [];
+  for (let k = 0; k < 8; k++) {
+    const tb = new Int32Array(b * b);
+    for (let y = 0; y < b; y++) for (let x = 0; x < b; x++) {
+      let X = (k & 4) ? b - 1 - x : x, Y = y, mx, my;
+      switch (k & 3) { case 0: mx = X; my = Y; break; case 1: mx = b - 1 - Y; my = X; break; case 2: mx = b - 1 - X; my = b - 1 - Y; break; default: mx = Y; my = b - 1 - X; }
+      tb[y * b + x] = my * w + mx;
+    }
+    tabs.push(tb);
+  }
+  for (let t = 0; t < T; t++) {
+    const s0 = Math.floor(t / cols) * b * w + (t % cols) * b, d = perm[t], d0 = Math.floor(d / cols) * b * w + (d % cols) * b, tb = tabs[ks[t]];
+    for (let y = 0, q = 0; y < b; y++) { const sr = s0 + y * w; for (let x = 0; x < b; x++, q++) { if (!inv) o[d0 + tb[q]] = px[sr + x]; else o[sr + x] = px[d0 + tb[q]]; } }
+  }
+  const rem = [];
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) if (x >= cols * b || y >= rows * b) rem.push(y * w + x);
+  if (rem.length) {
+    const p2 = permutation(rem.length, rng);
+    for (let i = 0; i < rem.length; i++) { if (!inv) o[rem[p2[i]]] = px[rem[i]]; else o[rem[i]] = px[rem[p2[i]]]; }
+  }
+  return o;
+}
+function opRowsCols(px, w, h, rng, inv) { // swap whole rows, then whole columns
+  const pr = permutation(h, rng), pc = permutation(w, rng), t = new Uint32Array(px.length), o = new Uint32Array(px.length);
+  if (!inv) {
+    for (let y = 0; y < h; y++) t.set(px.subarray(y * w, y * w + w), pr[y] * w);
+    for (let y = 0; y < h; y++) { const r = y * w; for (let x = 0; x < w; x++) o[r + pc[x]] = t[r + x]; }
+  } else {
+    for (let y = 0; y < h; y++) { const r = y * w; for (let x = 0; x < w; x++) t[r + x] = px[r + pc[x]]; }
+    for (let y = 0; y < h; y++) o.set(t.subarray(pr[y] * w, pr[y] * w + w), y * w);
+  }
+  return o;
+}
+function opSlide(px, w, h, rng, inv) { // cyclic shift of every row, then of every column
+  const ro = new Uint32Array(h), co = new Uint32Array(w);
+  for (let y = 0; y < h; y++) ro[y] = below(rng, w);
+  for (let x = 0; x < w; x++) co[x] = below(rng, h);
+  const t = new Uint32Array(px.length), o = new Uint32Array(px.length);
+  if (!inv) {
+    for (let y = 0; y < h; y++) { const r = y * w, s = ro[y]; for (let x = 0; x < w; x++) t[r + ((x + s) % w)] = px[r + x]; }
+    for (let x = 0; x < w; x++) { const s = co[x]; for (let y = 0; y < h; y++) o[((y + s) % h) * w + x] = t[y * w + x]; }
+  } else {
+    for (let x = 0; x < w; x++) { const s = co[x]; for (let y = 0; y < h; y++) t[y * w + x] = px[((y + s) % h) * w + x]; }
+    for (let y = 0; y < h; y++) { const r = y * w, s = ro[y]; for (let x = 0; x < w; x++) o[r + x] = t[r + ((x + s) % w)]; }
+  }
+  return o;
+}
+const CPERM = [[0, 1, 2], [0, 2, 1], [1, 0, 2], [1, 2, 0], [2, 0, 1], [2, 1, 0]];
+function opChannels(d, rng, inv) { // per-pixel random swap of R, G and B
+  const n = d.length;
+  for (let i = 0; i < n; i += 4) {
+    const P = CPERM[rng() % 6], a = d[i], b = d[i + 1], c = d[i + 2];
+    if (!inv) { const s = [a, b, c]; d[i] = s[P[0]]; d[i + 1] = s[P[1]]; d[i + 2] = s[P[2]]; }
+    else { const s = [0, 0, 0]; s[P[0]] = a; s[P[1]] = b; s[P[2]] = c; d[i] = s[0]; d[i + 1] = s[1]; d[i + 2] = s[2]; }
+  }
+}
+function opRemap(d, rng, inv) { // a secret 256-entry colour table per channel
+  const T = [0, 1, 2].map(() => { const p = permutation(256, rng), t = new Uint8Array(256); if (!inv) t.set(p); else for (let i = 0; i < 256; i++) t[p[i]] = i; return t; });
+  for (let i = 0; i < d.length; i += 4) { d[i] = T[0][d[i]]; d[i + 1] = T[1][d[i + 1]]; d[i + 2] = T[2][d[i + 2]]; }
+}
+function opInvert(d) { for (let i = 0; i < d.length; i += 4) { d[i] = 255 - d[i]; d[i + 1] = 255 - d[i + 1]; d[i + 2] = 255 - d[i + 2]; } }
+function opXor(d, rng) { // keystream cipher (its own inverse)
+  for (let i = 0; i < d.length; i += 4) { const r = rng(); d[i] ^= r & 255; d[i + 1] ^= (r >>> 8) & 255; d[i + 2] ^= (r >>> 16) & 255; }
+}
+function opDiffuse(d, rng, inv) { // each byte depends on all previous ones (avalanche)
+  let prev = 0;
+  for (let i = 0; i < d.length; i += 4) {
+    const r = rng();
+    for (let c = 0; c < 3; c++) {
+      const k = (r >>> (c * 8)) & 255, j = i + c;
+      if (!inv) { const v = (d[j] + prev + k) & 255; d[j] = v; prev = v; }
+      else { const v = d[j]; d[j] = (v - prev - k) & 255; prev = v; }
+    }
+  }
+}
+// spec = { o: [["B",16,1],["P"],["X"],…], r: rounds }
+function runPipeline(buf, w, h, spec, master, inverse) {
+  let px = new Uint32Array(buf);
+  const steps = [];
+  for (let r = 0; r < spec.r; r++) spec.o.forEach((op, i) => steps.push([r, i, op]));
+  if (inverse) steps.reverse();
+  for (const [r, i, op] of steps) {
+    const rng = rngFor(master, r, i), d = () => new Uint8Array(px.buffer);
+    switch (op[0]) {
+      case 'P': px = opShuffle(px, rng, inverse); break;
+      case 'B': px = opBlocks(px, w, h, op[1], op[2], rng, inverse); break;
+      case 'R': px = opRowsCols(px, w, h, rng, inverse); break;
+      case 'S': px = opSlide(px, w, h, rng, inverse); break;
+      case 'C': opChannels(d(), rng, inverse); break;
+      case 'M': opRemap(d(), rng, inverse); break;
+      case 'I': opInvert(d()); break;
+      case 'X': opXor(d(), rng); break;
+      case 'D': opDiffuse(d(), rng, inverse); break;
+      default: throw new Error('operação desconhecida: ' + op[0]);
+    }
+  }
+  return px.buffer;
+}
+/* ---- CRC-32 (verifies a restored image is bit-exact; also used for PNG chunks) ---- */
+const CRC_T = new Uint32Array(256);
+for (let n = 0; n < 256; n++) { let c = n; for (let k = 0; k < 8; k++) c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1; CRC_T[n] = c >>> 0; }
+function crc32(bytes, step) { // step 4 = only R,G,B of RGBA data
+  let c = 0xffffffff;
+  if (step === 4) { for (let i = 0; i < bytes.length; i += 4) { c = CRC_T[(c ^ bytes[i]) & 255] ^ (c >>> 8); c = CRC_T[(c ^ bytes[i + 1]) & 255] ^ (c >>> 8); c = CRC_T[(c ^ bytes[i + 2]) & 255] ^ (c >>> 8); } }
+  else for (let i = 0; i < bytes.length; i++) c = CRC_T[(c ^ bytes[i]) & 255] ^ (c >>> 8);
+  return (c ^ 0xffffffff) >>> 0;
+}
+function runJob(m) {
+  const t0 = Date.now();
+  const master = deriveMaster(m.seed, m.pw);
+  const crcIn = crc32(new Uint8Array(m.buf), 4);
+  const out = runPipeline(m.buf, m.w, m.h, m.spec, master, m.inverse);
+  return { buf: out, crcIn, crcOut: crc32(new Uint8Array(out), 4), ms: Date.now() - t0 };
+}
+</script>
+
+<script>
+'use strict';
+const $ = (s, r = document) => r.querySelector(s);
+const $$ = (s, r = document) => [...r.querySelectorAll(s)];
+const LS = { get(k, d) { try { const v = localStorage.getItem(k); return v == null ? d : JSON.parse(v); } catch { return d; } }, set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); return true; } catch { return false; } } };
+function toast(m, ms = 2400) { const t = $('#toast'); t.textContent = m; t.classList.add('show'); clearTimeout(toast.t); toast.t = setTimeout(() => t.classList.remove('show'), ms); }
+const CORE_SRC = $('#core').textContent;
+const Core = new Function(CORE_SRC + '\nreturn { runJob, runPipeline, deriveMaster, crc32, sha256 };')();
+const MAX_PX = /Android|iPhone|iPad|Mobi/i.test(navigator.userAgent) ? 16e6 : 36e6;
+
+/* =====================================================================
+   Worker (falls back to the main thread if workers are unavailable)
+   ===================================================================== */
+let worker = null, jobId = 0; const pending = new Map();
+try {
+  const url = URL.createObjectURL(new Blob([CORE_SRC + '\nself.onmessage=(e)=>{const m=e.data;try{const r=runJob(m);self.postMessage(Object.assign({id:m.id},r),[r.buf]);}catch(err){self.postMessage({id:m.id,error:String(err&&err.message||err)});}};'], { type: 'text/javascript' }));
+  worker = new Worker(url);
+  worker.onmessage = (e) => { const p = pending.get(e.data.id); if (!p) return; pending.delete(e.data.id); e.data.error ? p.rej(new Error(e.data.error)) : p.res(e.data); };
+  worker.onerror = (e) => { console.warn('worker indisponível, usando a thread principal', e); worker = null; for (const [id, p] of pending) { pending.delete(id); runLocal(p.msg).then(p.res, p.rej); } e.preventDefault && e.preventDefault(); };
+} catch (e) { worker = null; }
+function runLocal(msg) { return new Promise((res, rej) => setTimeout(() => { try { res(Core.runJob(msg)); } catch (err) { rej(err); } }, 20)); }
+function runJob(msg) {
+  msg.id = ++jobId;
+  if (!worker) return runLocal(msg);
+  return new Promise((res, rej) => { pending.set(msg.id, { res, rej, msg }); worker.postMessage(msg, [msg.buf]); });
+}
+
+/* =====================================================================
+   Presets & options
+   ===================================================================== */
+const OPTS = [
+  { group: 'Posição dos pixels' },
+  { k: 'B', name: 'Blocos', desc: 'Troca peças quadradas de lugar', extra: 'bsize' },
+  { k: 'rot', name: '↳ Girar e espelhar blocos', desc: 'Cada peça ganha rotação aleatória', dep: 'B' },
+  { k: 'R', name: 'Linhas e colunas', desc: 'Embaralha linhas inteiras e colunas inteiras' },
+  { k: 'S', name: 'Deslizar', desc: 'Desloca cada linha e coluna em círculo' },
+  { k: 'P', name: 'Pixels', desc: 'Cada pixel vai para um lugar aleatório' },
+  { group: 'Cores' },
+  { k: 'C', name: 'Trocar canais', desc: 'Mistura R, G e B em cada pixel' },
+  { k: 'M', name: 'Remapear cores', desc: 'Tabela secreta de cores por canal' },
+  { k: 'I', name: 'Inverter', desc: 'Negativo das cores' },
+  { k: 'X', name: 'Cifrar cores', desc: 'Fluxo pseudoaleatório (XOR) — vira ruído' },
+  { k: 'D', name: 'Difusão', desc: 'Cada cor depende de todas as anteriores' },
+];
+const BASE_OPT = { B: 0, bsize: 16, rot: 0, R: 0, S: 0, P: 0, C: 0, M: 0, I: 0, X: 0, D: 0, rounds: 1 };
+const PRESETS = [
+  { id: 'noise', name: 'Ruído', desc: 'Cada pixel vai para um lugar aleatório e as cores são cifradas. Resultado: estática pura.', opt: { P: 1, X: 1 } },
+  { id: 'mosaic', name: 'Mosaico', desc: 'Um quebra-cabeça de peças giradas. Sem mudar cores, é o que melhor aguenta recompressão.', opt: { B: 1, bsize: 32, rot: 1 } },
+  { id: 'glitch', name: 'Glitch', desc: 'Linhas e colunas trocadas e deslizadas, com cores remapeadas.', opt: { R: 1, S: 1, M: 1 } },
+  { id: 'psy', name: 'Cores', desc: 'Psicodélico: só as cores mudam. As formas continuam visíveis, as cores ficam irreconhecíveis.', opt: { M: 1, C: 1 } },
+  { id: 'fort', name: 'Fortaleza', desc: 'Máxima mistura: blocos, pixels, cifra de cores e difusão, em 2 rodadas.', opt: { B: 1, bsize: 8, rot: 1, P: 1, X: 1, D: 1, rounds: 2 } },
+];
+function specFrom(o) {
+  const ops = [];
+  if (o.B) ops.push(['B', +o.bsize, o.rot ? 1 : 0]);
+  for (const k of ['R', 'S', 'P', 'C', 'M', 'I', 'X', 'D']) if (o[k]) ops.push([k]);
+  return { o: ops, r: Math.max(1, Math.min(4, +o.rounds || 1)) };
+}
+function describeSpec(spec) {
+  const names = { B: 'blocos', R: 'linhas/colunas', S: 'deslizar', P: 'pixels', C: 'canais', M: 'remapear', I: 'inverter', X: 'cifra', D: 'difusão' };
+  return spec.o.map((o) => names[o[0]] + (o[0] === 'B' ? ` ${o[1]}px${o[2] ? '↻' : ''}` : '')).join(' · ') + (spec.r > 1 ? ` · ${spec.r} rodadas` : '');
+}
+function randomSeed() { const A = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789', b = crypto.getRandomValues(new Uint8Array(16)); let s = ''; for (let i = 0; i < 16; i++) { if (i && i % 4 === 0) s += '-'; s += A[b[i] % A.length]; } return s; }
+
+/* =====================================================================
+   Keys: "CRIPTA1." + base64url(JSON)
+   ===================================================================== */
+const b64u = { enc: (s) => { const b = new TextEncoder().encode(s); let t = ''; for (const x of b) t += String.fromCharCode(x); return btoa(t).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, ''); },
+  dec: (s) => { s = s.replace(/-/g, '+').replace(/_/g, '/'); while (s.length % 4) s += '='; const t = atob(s), b = new Uint8Array(t.length); for (let i = 0; i < t.length; i++) b[i] = t.charCodeAt(i); return new TextDecoder().decode(b); } };
+const hex8 = (n) => (n >>> 0).toString(16).padStart(8, '0');
+function makeKey(o) { return 'CRIPTA1.' + b64u.enc(JSON.stringify(o)); }
+function parseKey(text) {
+  const m = String(text || '').replace(/\s+/g, '').match(/CRIPTA1\.([A-Za-z0-9_-]+)/);
+  if (!m) return null;
+  try {
+    const k = JSON.parse(b64u.dec(m[1]));
+    if (k.v !== 1 || typeof k.s !== 'string' || !Array.isArray(k.o) || !k.w || !k.h) return null;
+    k.raw = m[0]; return k;
+  } catch { return null; }
+}
+
+/* =====================================================================
+   Image helpers
+   ===================================================================== */
+function loadImage(blob) {
+  return new Promise((res, rej) => { const u = URL.createObjectURL(blob), i = new Image(); i.onload = () => { URL.revokeObjectURL(u); res(i); }; i.onerror = () => { URL.revokeObjectURL(u); rej(new Error('img')); }; i.src = u; });
+}
+// Original images: drawn as the browser shows them (EXIF orientation), transparency flattened on white, downscaled if huge.
+async function decodeOriginal(blob) {
+  const img = await loadImage(blob);
+  let w = img.naturalWidth, h = img.naturalHeight, scaled = false;
+  if (w * h > MAX_PX) { const f = Math.sqrt(MAX_PX / (w * h)); w = Math.floor(w * f); h = Math.floor(h * f); scaled = true; }
+  const c = document.createElement('canvas'); c.width = w; c.height = h;
+  const x = c.getContext('2d', { willReadFrequently: true }); x.drawImage(img, 0, 0, w, h);
+  const d = x.getImageData(0, 0, w, h).data; let alpha = false;
+  for (let i = 3; i < d.length; i += 4) if (d[i] !== 255) { alpha = true; const a = d[i] / 255; d[i - 3] = Math.round(d[i - 3] * a + 255 * (1 - a)); d[i - 2] = Math.round(d[i - 2] * a + 255 * (1 - a)); d[i - 1] = Math.round(d[i - 1] * a + 255 * (1 - a)); d[i] = 255; }
+  return { data: d, w, h, alpha, scaled, ow: img.naturalWidth, oh: img.naturalHeight };
+}
+// Scrambled images: read the exact stored values (no colour management, no premultiplication).
+async function decodeExact(blob) {
+  let src;
+  try { src = await createImageBitmap(blob, { colorSpaceConversion: 'none', premultiplyAlpha: 'none' }); } catch { src = await loadImage(blob); }
+  const w = src.width || src.naturalWidth, h = src.height || src.naturalHeight;
+  const c = document.createElement('canvas'); c.width = w; c.height = h;
+  const x = c.getContext('2d', { willReadFrequently: true }); x.drawImage(src, 0, 0);
+  if (src.close) src.close();
+  return { data: x.getImageData(0, 0, w, h).data, w, h };
+}
+function toCanvas(data, w, h) { const c = document.createElement('canvas'); c.width = w; c.height = h; c.getContext('2d').putImageData(new ImageData(new Uint8ClampedArray(data.buffer ? data.buffer.slice(0) : data), w, h), 0, 0); return c; }
+function pngBlob(data, w, h) { return new Promise((res) => toCanvas(data, w, h).toBlob(res, 'image/png')); }
+// PNG tEXt chunk with the key, so a file can carry its own key.
+async function pngWithText(blob, keyword, text) {
+  const b = new Uint8Array(await blob.arrayBuffer()), body = new TextEncoder().encode(keyword + '\u0000' + text);
+  const chunk = new Uint8Array(12 + body.length), dv = new DataView(chunk.buffer);
+  dv.setUint32(0, body.length); chunk.set([0x74, 0x45, 0x58, 0x74], 4); chunk.set(body, 8);
+  dv.setUint32(8 + body.length, Core.crc32(chunk.subarray(4, 8 + body.length)));
+  const end = b.length - 12; // IEND
+  return new Blob([b.subarray(0, end), chunk, b.subarray(end)], { type: 'image/png' });
+}
+async function readPngText(blob, keyword) {
+  const b = new Uint8Array(await blob.arrayBuffer());
+  if (b.length < 8 || b[0] !== 0x89 || b[1] !== 0x50) return null;
+  const dv = new DataView(b.buffer); let p = 8;
+  while (p + 12 <= b.length) {
+    const len = dv.getUint32(p), type = String.fromCharCode(b[p + 4], b[p + 5], b[p + 6], b[p + 7]);
+    if (type === 'tEXt') { const s = new TextDecoder('latin1').decode(b.subarray(p + 8, p + 8 + len)), z = s.indexOf('\u0000'); if (s.slice(0, z) === keyword) return s.slice(z + 1); }
+    if (type === 'IEND') break; p += 12 + len;
+  }
+  return null;
+}
+function download(blob, name) { const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name.normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^\w .()-]+/g, '-'); document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 5000); }
+async function copyText(t, msg = 'Copiado!') { try { await navigator.clipboard.writeText(t); toast(msg); } catch { const ta = document.createElement('textarea'); ta.value = t; document.body.appendChild(ta); ta.select(); try { document.execCommand('copy'); toast(msg); } catch { toast('Não consegui copiar — selecione e copie manualmente.'); } ta.remove(); } }
+const baseName = (n) => (n || 'imagem').replace(/\.[^.]+$/, '').slice(0, 50);
+function thumbURL(data, w, h, size = 72) { const c = toCanvas(data, w, h), t = document.createElement('canvas'), f = size / Math.max(w, h); t.width = Math.max(1, Math.round(w * f)); t.height = Math.max(1, Math.round(h * f)); const x = t.getContext('2d'); x.imageSmoothingEnabled = false; x.drawImage(c, 0, 0, t.width, t.height); return t.toDataURL('image/png'); }
+
+/* =====================================================================
+   Viewer (fit, 1:1, before/after/split)
+   ===================================================================== */
+function makeViewer(stage, segEl, zoomBtn) {
+  const V = { stage, mode: 'after', actual: false, before: null, after: null, w: 0, h: 0, empty: null };
+  const frame = document.createElement('div'); frame.className = 'frame';
+  const cvA = document.createElement('canvas'), cvB = document.createElement('canvas'); cvB.id = stage.id === 'encStage' ? 'cvTop' : 'cvTop2';
+  cvB.style.clipPath = 'inset(0 calc(100% - var(--split, 50%)) 0 0)';
+  const line = document.createElement('div'); line.className = 'splitLine';
+  frame.append(cvA, cvB, line);
+  const range = document.createElement('input'); range.type = 'range'; range.min = 0; range.max = 100; range.value = 50; range.className = 'splitRange'; range.setAttribute('aria-label', 'Divisão');
+  range.oninput = () => frame.style.setProperty('--split', range.value + '%');
+  stage.parentElement.appendChild(range);
+  V.set = (before, after, w, h) => {
+    V.before = before; V.after = after; V.w = w; V.h = h;
+    for (const c of [cvA, cvB]) { c.width = w; c.height = h; }
+    V.draw();
+  };
+  V.draw = () => {
+    const has = !!(V.before || V.after);
+    stage.innerHTML = '';
+    if (!has) { if (V.empty) stage.appendChild(V.empty); range.hidden = true; zoomBtn.disabled = true; return; }
+    zoomBtn.disabled = false; stage.appendChild(frame);
+    const mainImg = V.mode === 'before' ? V.before || V.after : V.after || V.before;
+    const put = (c, d) => d && c.getContext('2d').putImageData(new ImageData(new Uint8ClampedArray(d), V.w, V.h), 0, 0);
+    const split = V.mode === 'split' && V.before && V.after;
+    put(cvA, split ? V.after : mainImg); cvB.hidden = !split; line.hidden = !split; range.hidden = !split;
+    if (split) put(cvB, V.before);
+    V.fit();
+  };
+  V.fit = () => {
+    if (!V.w) return;
+    const r = stage.getBoundingClientRect(), pad = 28;
+    let s = V.actual ? 1 : Math.min((r.width - pad) / V.w, (r.height - pad) / V.h, 8);
+    s = Math.max(s, 0.02);
+    frame.style.width = Math.round(V.w * s) + 'px'; frame.style.height = Math.round(V.h * s) + 'px';
+    frame.classList.toggle('px', s >= 2 || V.actual);
+    stage.style.placeItems = V.actual ? 'start' : 'center';
+    zoomBtn.textContent = V.actual ? 'Ajustar' : '1:1';
+  };
+  segEl.onclick = (e) => { const v = e.target.dataset.v; if (!v) return; V.mode = v; $$('button', segEl).forEach((b) => b.classList.toggle('on', b.dataset.v === v)); V.draw(); };
+  zoomBtn.onclick = () => { V.actual = !V.actual; V.fit(); };
+  V.setMode = (v) => { V.mode = v; $$('button', segEl).forEach((b) => b.classList.toggle('on', b.dataset.v === v)); };
+  new ResizeObserver(() => V.fit()).observe(stage);
+  return V;
+}
+function emptyBox(title, text, buttons) {
+  const d = document.createElement('div'); d.className = 'empty';
+  d.innerHTML = `<div class="box"><svg viewBox="0 0 32 32" width="52" height="52" aria-hidden="true"><rect x="3" y="3" width="26" height="26" rx="7" fill="none" stroke="currentColor" stroke-width="1.6" opacity=".5"/><path d="M16 10v12M10 16h12" stroke="#8b7bff" stroke-width="2.4" stroke-linecap="round"/></svg><h2></h2><p></p><div class="row" style="justify-content:center"></div></div>`;
+  d.querySelector('h2').textContent = title; d.querySelector('p').textContent = text;
+  for (const [label, fn, primary] of buttons) { const b = document.createElement('button'); b.className = 'btn' + (primary ? ' primary' : ''); b.textContent = label; b.onclick = fn; d.querySelector('.row').appendChild(b); }
+  return d;
+}
+
+/* =====================================================================
+   Scramble tab
+   ===================================================================== */
+const enc = { img: null, name: '', opt: Object.assign({}, BASE_OPT, PRESETS[1].opt), preset: 'mosaic', result: null, req: 0, used: false };
+const saved = LS.get('cripta.enc', null);
+if (saved) { enc.opt = Object.assign({}, BASE_OPT, saved.opt); enc.preset = saved.preset; $('#embed').checked = !!saved.embed; }
+const encV = makeViewer($('#encStage'), $('#encView'), $('#encZoom'));
+encV.empty = emptyBox('Escolha uma imagem', 'Arraste e solte, cole (Ctrl+V) ou escolha um arquivo. Tudo é processado no seu aparelho.', [['📂 Escolher imagem', () => $('#fileEnc').click(), true], ['🖼️ Exemplo', () => loadSample()]]);
+encV.draw();
+function saveEnc() { LS.set('cripta.enc', { opt: enc.opt, preset: enc.preset, embed: $('#embed').checked }); }
+
+function renderEncFile() {
+  const box = $('#encFile'); box.innerHTML = '';
+  if (!enc.img) {
+    const r = document.createElement('div'); r.className = 'row';
+    r.innerHTML = '<button class="btn primary grow" id="pickEnc">📂 Escolher imagem</button><button class="btn" id="camEnc2" title="Tirar foto">📷</button><button class="btn" id="sampleEnc">Exemplo</button>';
+    box.appendChild(r);
+    $('#pickEnc').onclick = () => $('#fileEnc').click(); $('#camEnc2').onclick = () => $('#camEnc').click(); $('#sampleEnc').onclick = loadSample;
+    return;
+  }
+  const f = document.createElement('div'); f.className = 'file';
+  const c = toCanvas(enc.img.data, enc.img.w, enc.img.h); c.title = enc.name;
+  const meta = document.createElement('div'); meta.className = 'meta';
+  meta.innerHTML = `<b></b><span>${enc.img.w} × ${enc.img.h} px${enc.img.scaled ? ` · reduzida de ${enc.img.ow}×${enc.img.oh}` : ''}${enc.img.alpha ? ' · transparência → branco' : ''}</span>`;
+  meta.querySelector('b').textContent = enc.name;
+  const b = document.createElement('button'); b.className = 'btn sm'; b.textContent = 'Trocar'; b.onclick = () => $('#fileEnc').click();
+  f.append(c, meta, b); box.appendChild(f);
+}
+async function setEncImage(blob, name) {
+  if (!blob || !/^image\//.test(blob.type || 'image/')) { toast('Esse arquivo não parece ser uma imagem.'); return; }
+  try {
+    $('#encBusy').hidden = false;
+    const img = await decodeOriginal(blob);
+    enc.img = img; enc.name = name || 'imagem'; enc.result = null; enc.used = false;
+    if (img.scaled) toast(`Imagem grande: reduzida para ${img.w}×${img.h} px.`, 3500);
+    renderEncFile(); encV.set(img.data, null, img.w, img.h); scheduleEnc(0);
+  } catch (e) { console.error(e); toast('Não consegui abrir essa imagem.'); $('#encBusy').hidden = true; }
+}
+function loadSample() {
+  const W = 960, H = 640, c = document.createElement('canvas'); c.width = W; c.height = H; const x = c.getContext('2d');
+  const g = x.createLinearGradient(0, 0, W, H); g.addColorStop(0, '#20124d'); g.addColorStop(0.5, '#8b3a8f'); g.addColorStop(1, '#ffb86b'); x.fillStyle = g; x.fillRect(0, 0, W, H);
+  x.fillStyle = '#ffe9a8'; x.beginPath(); x.arc(660, 250, 120, 0, 7); x.fill();
+  x.fillStyle = '#2b1640'; x.beginPath(); x.moveTo(0, H); for (let i = 0; i <= W; i += 8) x.lineTo(i, 470 + Math.sin(i * 0.012) * 50 + Math.sin(i * 0.031) * 18); x.lineTo(W, H); x.fill();
+  x.fillStyle = '#fff'; x.font = '800 92px system-ui, sans-serif'; x.fillText('SEGREDO', 70, 170);
+  x.font = '600 30px system-ui, sans-serif'; x.fillStyle = 'rgba(255,255,255,.85)'; x.fillText('Embaralhe-me com o Cripta 🔒', 74, 220);
+  for (let i = 0; i < 6; i++) { x.fillStyle = ['#43d1c1', '#ff5d8f', '#ffd23f', '#8b7bff', '#3ddc97', '#5ad1ff'][i]; x.fillRect(74 + i * 70, 300, 56, 56); }
+  c.toBlob((b) => setEncImage(b, 'exemplo.png'), 'image/png');
+}
+// presets & options UI
+function buildPresets() {
+  const P = $('#presets'); P.innerHTML = '';
+  const sample = presetSample();
+  for (const pr of PRESETS) {
+    const b = document.createElement('button'); b.className = 'preset'; b.dataset.id = pr.id; b.title = pr.desc;
+    const cv = document.createElement('canvas'); cv.width = sample.w; cv.height = sample.h;
+    const spec = specFrom(Object.assign({}, BASE_OPT, pr.opt));
+    spec.o = spec.o.map((o) => (o[0] === 'B' ? ['B', Math.max(4, Math.round(o[1] / 4)), o[2]] : o)); // scaled to the tiny preview
+    const out = Core.runPipeline(sample.data.slice().buffer, sample.w, sample.h, spec, Core.deriveMaster('preview', ''), false);
+    cv.getContext('2d').putImageData(new ImageData(new Uint8ClampedArray(out), sample.w, sample.h), 0, 0);
+    b.append(cv, document.createTextNode(pr.name));
+    b.onclick = () => { enc.preset = pr.id; enc.opt = Object.assign({}, BASE_OPT, pr.opt); syncOpts(); saveEnc(); scheduleEnc(); };
+    P.appendChild(b);
+  }
+}
+function presetSample() {
+  const w = 48, h = 48, c = document.createElement('canvas'); c.width = w; c.height = h; const x = c.getContext('2d');
+  const g = x.createLinearGradient(0, 0, w, h); g.addColorStop(0, '#3b2a8f'); g.addColorStop(1, '#ff9b6b'); x.fillStyle = g; x.fillRect(0, 0, w, h);
+  x.fillStyle = '#ffe9a8'; x.beginPath(); x.arc(32, 16, 9, 0, 7); x.fill(); x.fillStyle = '#21123a'; x.fillRect(0, 34, w, 14); x.fillStyle = '#43d1c1'; x.fillRect(6, 8, 10, 10);
+  return { data: x.getImageData(0, 0, w, h).data, w, h };
+}
+function buildOpts() {
+  const box = $('#opts'); box.innerHTML = '';
+  for (const o of OPTS) {
+    if (o.group) { const g = document.createElement('div'); g.className = 'optgroup'; g.textContent = o.group; box.appendChild(g); continue; }
+    const l = document.createElement('label'); l.className = 'opt'; l.dataset.k = o.k;
+    l.innerHTML = `<input type="checkbox"><span class="t"><b></b><span></span></span>`;
+    l.querySelector('b').textContent = o.name; l.querySelector('.t span').textContent = o.desc;
+    const cb = l.querySelector('input'); cb.onchange = () => { enc.opt[o.k] = cb.checked ? 1 : 0; afterOptEdit(); };
+    if (o.extra === 'bsize') {
+      const s = document.createElement('select'); s.title = 'Tamanho do bloco';
+      for (const v of [4, 8, 16, 32, 64, 128]) { const op = document.createElement('option'); op.value = v; op.textContent = v + ' px'; s.appendChild(op); }
+      s.onclick = (e) => e.stopPropagation(); s.onchange = () => { enc.opt.bsize = +s.value; afterOptEdit(); };
+      l.appendChild(s);
+    }
+    box.appendChild(l);
+  }
+  const r = document.createElement('div'); r.className = 'rounds';
+  r.innerHTML = '<span style="font-size:13px;font-weight:600">Rodadas</span><input type="range" min="1" max="4" step="1" id="rounds"><b id="roundsV" style="width:16px;text-align:right"></b>';
+  box.appendChild(r);
+  $('#rounds').oninput = () => { enc.opt.rounds = +$('#rounds').value; $('#roundsV').textContent = enc.opt.rounds; };
+  $('#rounds').onchange = afterOptEdit;
+  const reset = document.createElement('p'); reset.className = 'hint'; reset.style.marginTop = '8px'; reset.textContent = 'Operações de posição rodam antes das de cor. Mais rodadas = mais mistura (e mais lento).'; box.appendChild(reset);
+}
+function afterOptEdit() {
+  const match = PRESETS.find((p) => JSON.stringify(specFrom(Object.assign({}, BASE_OPT, p.opt))) === JSON.stringify(specFrom(enc.opt)));
+  enc.preset = match ? match.id : 'custom'; syncOpts(); saveEnc(); scheduleEnc();
+}
+function syncOpts() {
+  $$('.preset').forEach((b) => b.classList.toggle('on', b.dataset.id === enc.preset));
+  const pr = PRESETS.find((p) => p.id === enc.preset);
+  $('#presetDesc').textContent = pr ? pr.desc : 'Personalizado: ' + (describeSpec(specFrom(enc.opt)) || 'nenhuma operação');
+  for (const l of $$('.opt')) {
+    const k = l.dataset.k, on = !!enc.opt[k]; l.querySelector('input').checked = on;
+    const s = l.querySelector('select'); if (s) { s.value = enc.opt.bsize; s.disabled = !enc.opt.B; }
+    if (k === 'rot') { l.style.opacity = enc.opt.B ? 1 : 0.45; l.querySelector('input').disabled = !enc.opt.B; }
+  }
+  $('#rounds').value = enc.opt.rounds; $('#roundsV').textContent = enc.opt.rounds;
+}
+// scramble run (debounced, newest wins)
+let encT = 0;
+function scheduleEnc(delay = 220) { clearTimeout(encT); encT = setTimeout(runEnc, delay); }
+async function runEnc() {
+  if (!enc.img) return;
+  const spec = specFrom(enc.opt), seed = $('#seed').value.trim();
+  if (!spec.o.length) { enc.result = null; encV.set(enc.img.data, null, enc.img.w, enc.img.h); renderEncOut('Ative ao menos uma operação.'); return; }
+  if (!seed) { renderEncOut('Digite uma semente.'); return; }
+  const my = ++enc.req; $('#encBusy').hidden = false;
+  try {
+    const pw = $('#pw').value, img = enc.img;
+    const r = await runJob({ cmd: 'run', buf: img.data.slice().buffer, w: img.w, h: img.h, spec, seed, pw, inverse: false });
+    if (my !== enc.req) return;
+    const key = makeKey({ v: 1, s: seed, o: spec.o, r: spec.r, w: img.w, h: img.h, p: pw ? 1 : 0, a: hex8(r.crcIn), b: hex8(r.crcOut), n: baseName(enc.name) });
+    enc.result = { data: new Uint8ClampedArray(r.buf), key, spec, pw: !!pw, ms: r.ms, blob: null };
+    enc.used = false;
+    encV.set(img.data, enc.result.data, img.w, img.h);
+    renderEncOut();
+  } catch (e) { console.error(e); if (my === enc.req) renderEncOut('Falhou: ' + e.message); }
+  if (my === enc.req) $('#encBusy').hidden = true;
+}
+function renderEncOut(msg) {
+  const R = enc.result, has = !!R && !msg;
+  for (const id of ['dlImg', 'copyKey', 'dlKey', 'dlBoth', 'toDec', 'share']) $('#' + id).disabled = !has;
+  $('#keyBox').textContent = has ? R.key : '—';
+  $('#encStatus').textContent = msg || (has ? `${describeSpec(R.spec)} · ${R.ms} ms${R.pw ? ' · 🔑 com senha' : ''}` : 'Escolha uma imagem para começar.');
+  $('#encInfo').textContent = enc.img ? `${enc.name} · ${enc.img.w}×${enc.img.h}` : '';
+}
+async function resultBlob() {
+  const R = enc.result; if (R.blob) return R.blob;
+  let b = await pngBlob(R.data, enc.img.w, enc.img.h);
+  if ($('#embed').checked) b = await pngWithText(b, 'cripta', R.key);
+  R.blob = b; return b;
+}
+const keyTxt = () => `Chave do Cripta — "${enc.name}" (${enc.img.w}×${enc.img.h} px)\nAbra o Cripta → Desembaralhar, envie a imagem embaralhada e cole a chave abaixo.${enc.result.pw ? '\nEsta chave também exige a senha usada (ela não fica salva aqui).' : ''}\n\n${enc.result.key}\n`;
+function markUsed() { if (enc.used) return; enc.used = true; addHistory(); }
+$('#dlImg').onclick = async () => { download(await resultBlob(), baseName(enc.name) + '-embaralhada.png'); markUsed(); toast($('#embed').checked ? 'PNG baixado (com a chave embutida)' : 'PNG baixado — guarde também a chave!'); };
+$('#copyKey').onclick = () => { copyText(enc.result.key, 'Chave copiada!'); markUsed(); };
+$('#dlKey').onclick = () => { download(new Blob([keyTxt()], { type: 'text/plain' }), baseName(enc.name) + '-chave.txt'); markUsed(); };
+$('#dlBoth').onclick = async () => { download(await resultBlob(), baseName(enc.name) + '-embaralhada.png'); setTimeout(() => download(new Blob([keyTxt()], { type: 'text/plain' }), baseName(enc.name) + '-chave.txt'), 400); markUsed(); };
+$('#share').hidden = !(navigator.canShare && navigator.share);
+$('#share').onclick = async () => {
+  try {
+    const f = new File([await resultBlob()], baseName(enc.name) + '-embaralhada.png', { type: 'image/png' }), k = new File([keyTxt()], baseName(enc.name) + '-chave.txt', { type: 'text/plain' });
+    const files = navigator.canShare({ files: [f, k] }) ? [f, k] : [f];
+    await navigator.share({ files, title: 'Imagem embaralhada (Cripta)', text: files.length === 1 ? enc.result.key : undefined }); markUsed();
+  } catch (e) { if (e.name !== 'AbortError') toast('Não foi possível compartilhar.'); }
+};
+$('#toDec').onclick = async () => {
+  markUsed();
+  const R = enc.result;
+  dec.img = { data: R.data.slice(), w: enc.img.w, h: enc.img.h }; dec.name = baseName(enc.name) + '-embaralhada.png'; dec.fromPng = false;
+  $('#keyIn').value = R.key; $('#decPw').value = $('#pw').value; dec.result = null;
+  showTab('dec'); renderDecFile(); onKeyInput(); decV.set(dec.img.data, null, dec.img.w, dec.img.h); runDec();
+};
+$('#seed').value = randomSeed();
+$('#seed').oninput = () => scheduleEnc(350);
+$('#seedNew').onclick = () => { $('#seed').value = randomSeed(); scheduleEnc(0); };
+$('#pw').oninput = () => scheduleEnc(500);
+const eye = (btn, inp) => (btn.onclick = () => { inp.type = inp.type === 'password' ? 'text' : 'password'; });
+eye($('#pwEye'), $('#pw')); eye($('#decPwEye'), $('#decPw'));
+$('#embed').onchange = () => { if (enc.result) enc.result.blob = null; saveEnc(); };
+$('#fileEnc').onchange = (e) => { const f = e.target.files[0]; e.target.value = ''; if (f) setEncImage(f, f.name); };
+$('#camEnc').onchange = (e) => { const f = e.target.files[0]; e.target.value = ''; if (f) setEncImage(f, 'foto.jpg'); };
+
+/* =====================================================================
+   Unscramble tab
+   ===================================================================== */
+const dec = { img: null, name: '', key: null, result: null, fromPng: false, req: 0 };
+const decV = makeViewer($('#decStage'), $('#decView'), $('#decZoom'));
+decV.empty = emptyBox('Envie a imagem embaralhada', 'Use o PNG baixado do Cripta (sem recompressão). Se a chave estiver embutida, ela é lida automaticamente.', [['📂 Escolher imagem', () => $('#fileDec').click(), true]]);
+decV.draw();
+function renderDecFile() {
+  const box = $('#decFile'); box.innerHTML = '';
+  if (!dec.img) { const b = document.createElement('button'); b.className = 'btn primary'; b.textContent = '📂 Escolher imagem embaralhada'; b.onclick = () => $('#fileDec').click(); box.appendChild(b); return; }
+  const f = document.createElement('div'); f.className = 'file';
+  const c = toCanvas(dec.img.data, dec.img.w, dec.img.h);
+  const meta = document.createElement('div'); meta.className = 'meta'; meta.innerHTML = `<b></b><span>${dec.img.w} × ${dec.img.h} px</span>`; meta.querySelector('b').textContent = dec.name;
+  const b = document.createElement('button'); b.className = 'btn sm'; b.textContent = 'Trocar'; b.onclick = () => $('#fileDec').click();
+  f.append(c, meta, b); box.appendChild(f);
+}
+async function setDecImage(blob, name) {
+  if (!blob || !/^image\//.test(blob.type || 'image/')) { toast('Esse arquivo não parece ser uma imagem.'); return; }
+  try {
+    $('#decBusy').hidden = false;
+    const [img, txt] = await Promise.all([decodeExact(blob), readPngText(blob, 'cripta')]);
+    dec.img = img; dec.name = name || 'imagem'; dec.result = null; dec.fromPng = false;
+    if (txt && parseKey(txt)) { $('#keyIn').value = txt; dec.fromPng = true; toast('🔑 Chave encontrada dentro do PNG'); }
+    if (/jpe?g|webp|heic/i.test(blob.type)) toast('Atenção: imagens JPG/WebP perdem detalhes; a restauração pode sair imperfeita.', 4000);
+    renderDecFile(); onKeyInput(); decV.setMode('before'); decV.set(img.data, null, img.w, img.h);
+    $('#decBusy').hidden = true;
+    if (dec.key) runDec(); // asks for the password if the key needs one
+  } catch (e) { console.error(e); toast('Não consegui abrir essa imagem.'); $('#decBusy').hidden = true; }
+}
+function onKeyInput() {
+  const k = parseKey($('#keyIn').value); dec.key = k;
+  $('#decPwBox').hidden = !(k && k.p);
+  $('#keyBadge').innerHTML = k ? `<span class="badge">✓ chave válida${dec.fromPng ? ' (do PNG)' : ''}</span>` : '';
+  let info = '';
+  if (!$('#keyIn').value.trim()) info = 'A chave chega pelo .txt, pelo texto copiado ou embutida no próprio PNG.';
+  else if (!k) info = '⚠️ Isso não parece uma chave do Cripta.';
+  else { info = `${k.w}×${k.h} px · ${describeSpec({ o: k.o, r: k.r || 1 })}`; if (dec.img && (dec.img.w !== k.w || dec.img.h !== k.h)) info += ` · ⚠️ a imagem enviada tem ${dec.img.w}×${dec.img.h}`; }
+  $('#keyInfo').textContent = info;
+  $('#decGo').disabled = !(k && dec.img);
+}
+function setDecStatus(kind, html) { $('#decStatus').innerHTML = html ? `<div class="status ${kind}">${html}</div>` : ''; }
+async function runDec() {
+  const k = dec.key; if (!k || !dec.img) return;
+  if (dec.img.w !== k.w || dec.img.h !== k.h) { setDecStatus('bad', `❌ Esta chave é de uma imagem ${k.w}×${k.h}, mas a enviada tem ${dec.img.w}×${dec.img.h}. Confira se é o arquivo certo (sem redimensionar).`); return; }
+  const pw = $('#decPw').value;
+  if (k.p && !pw) { setDecStatus('warn', '🔑 Digite a senha para desembaralhar.'); $('#decPw').focus(); return; }
+  const my = ++dec.req; $('#decBusy').hidden = false; setDecStatus('', '');
+  try {
+    const r = await runJob({ cmd: 'run', buf: dec.img.data.slice().buffer, w: k.w, h: k.h, spec: { o: k.o, r: k.r || 1 }, seed: k.s, pw: k.p ? pw : '', inverse: true });
+    if (my !== dec.req) return;
+    dec.result = { data: new Uint8ClampedArray(r.buf), name: (k.n || baseName(dec.name).replace(/-embaralhada$/, '')) + '-restaurada.png' };
+    const inOk = hex8(r.crcIn) === k.b, outOk = hex8(r.crcOut) === k.a;
+    if (outOk) setDecStatus('ok', `✅ Restaurada com perfeição — pixel por pixel idêntica à original. <span class="hint">(${r.ms} ms)</span>`);
+    else if (inOk && k.p) setDecStatus('bad', '❌ Senha incorreta. A imagem é a certa, mas a senha não confere.');
+    else if (inOk) setDecStatus('bad', '❌ O resultado não confere com a original. A chave foi alterada?');
+    else setDecStatus('warn', '⚠️ A imagem enviada não é idêntica à embaralhada original (foi comprimida, editada ou é outro arquivo). O resultado é aproximado.');
+    decV.setMode(outOk || !inOk ? 'after' : 'before'); decV.set(dec.img.data, dec.result.data, k.w, k.h);
+    $('#dlRestored').disabled = false; $('#copyRestored').disabled = !(window.ClipboardItem && navigator.clipboard && navigator.clipboard.write);
+    $('#decInfo').textContent = `${dec.name} · ${k.w}×${k.h}`;
+  } catch (e) { console.error(e); if (my === dec.req) setDecStatus('bad', 'Falhou: ' + e.message); }
+  if (my === dec.req) $('#decBusy').hidden = true;
+}
+$('#keyIn').oninput = () => { dec.fromPng = false; onKeyInput(); dec.result = null; $('#dlRestored').disabled = true; setDecStatus('', ''); };
+$('#decGo').onclick = runDec;
+$('#decPw').onkeydown = (e) => { if (e.key === 'Enter') runDec(); };
+$('#pasteKey').onclick = async () => { try { const t = await navigator.clipboard.readText(); $('#keyIn').value = t; $('#keyIn').oninput(); if (dec.key && dec.img) runDec(); } catch { toast('Permissão negada — cole com Ctrl+V / toque longo.'); $('#keyIn').focus(); } };
+$('#openKey').onclick = () => $('#fileKey').click();
+$('#fileKey').onchange = async (e) => { const f = e.target.files[0]; e.target.value = ''; if (!f) return; $('#keyIn').value = await f.text(); $('#keyIn').oninput(); if (!dec.key) toast('Nenhuma chave encontrada nesse arquivo.'); else if (dec.img) runDec(); };
+$('#fileDec').onchange = (e) => { const f = e.target.files[0]; e.target.value = ''; if (f) setDecImage(f, f.name); };
+$('#dlRestored').onclick = async () => { download(await pngBlob(dec.result.data, dec.key.w, dec.key.h), dec.result.name); };
+$('#copyRestored').onclick = async () => { try { await navigator.clipboard.write([new ClipboardItem({ 'image/png': pngBlob(dec.result.data, dec.key.w, dec.key.h) })]); toast('Imagem copiada!'); } catch { toast('Não consegui copiar a imagem.'); } };
+
+/* =====================================================================
+   History (keys only — never passwords or original images)
+   ===================================================================== */
+function addHistory() {
+  if (!$('#histOn').checked || !enc.result) return;
+  const list = LS.get('cripta.hist', []).filter((h) => h.key !== enc.result.key);
+  list.unshift({ key: enc.result.key, name: enc.name, w: enc.img.w, h: enc.img.h, t: Date.now(), d: describeSpec(enc.result.spec), pw: enc.result.pw, th: thumbURL(enc.result.data, enc.img.w, enc.img.h) });
+  while (list.length > 30) list.pop();
+  if (!LS.set('cripta.hist', list)) { list.length = Math.min(list.length, 10); LS.set('cripta.hist', list); }
+}
+function renderHistory() {
+  const g = $('#hgrid'), list = LS.get('cripta.hist', []); g.innerHTML = '';
+  if (!list.length) { g.innerHTML = '<div class="hempty" style="grid-column:1/-1">Nada por aqui ainda. As chaves que você copiar ou baixar aparecem aqui (só neste aparelho).</div>'; return; }
+  for (const h of list) {
+    const it = document.createElement('div'); it.className = 'hitem';
+    it.innerHTML = `<div class="file"><img alt=""><div class="meta"><b></b><span></span></div></div><div class="row"><button class="btn sm grow" data-a="use">🔓 Usar</button><button class="btn sm" data-a="copy">📋</button><button class="btn sm" data-a="txt" title="Baixar .txt">⬇</button><button class="btn sm" data-a="del" title="Excluir">🗑</button></div>`;
+    it.querySelector('img').src = h.th; it.querySelector('b').textContent = h.name;
+    it.querySelector('.meta span').textContent = `${h.w}×${h.h} · ${new Date(h.t).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' })}${h.pw ? ' · 🔑' : ''}\n`;
+    const sm = document.createElement('span'); sm.style.display = 'block'; sm.textContent = h.d; it.querySelector('.meta').appendChild(sm);
+    it.onclick = (e) => {
+      const a = e.target.dataset.a; if (!a) return;
+      if (a === 'use') { $('#keyIn').value = h.key; showTab('dec'); dec.fromPng = false; onKeyInput(); toast('Chave carregada — agora envie a imagem embaralhada.'); if (dec.img) runDec(); }
+      else if (a === 'copy') copyText(h.key, 'Chave copiada!');
+      else if (a === 'txt') download(new Blob([`Chave do Cripta — "${h.name}" (${h.w}×${h.h} px)\n\n${h.key}\n`], { type: 'text/plain' }), baseName(h.name) + '-chave.txt');
+      else if (a === 'del') { LS.set('cripta.hist', LS.get('cripta.hist', []).filter((x) => x.key !== h.key)); renderHistory(); }
+    };
+    g.appendChild(it);
+  }
+}
+$('#histOn').checked = LS.get('cripta.histOn', true);
+$('#histOn').onchange = () => LS.set('cripta.histOn', $('#histOn').checked);
+$('#histClear').onclick = () => { if (confirm('Apagar todo o histórico de chaves deste aparelho?')) { LS.set('cripta.hist', []); renderHistory(); } };
+
+/* =====================================================================
+   Tabs, global input, boot
+   ===================================================================== */
+let tab = 'enc';
+function showTab(t) {
+  tab = t; $$('.tabs button').forEach((b) => b.classList.toggle('on', b.dataset.tab === t));
+  $('#mainEnc').hidden = t !== 'enc'; $('#mainDec').hidden = t !== 'dec'; $('#mainHist').hidden = t !== 'hist';
+  if (t === 'hist') renderHistory();
+  history.replaceState(null, '', '#' + t);
+  requestAnimationFrame(() => { encV.fit(); decV.fit(); });
+}
+$$('.tabs button').forEach((b) => (b.onclick = () => showTab(b.dataset.tab)));
+let depth = 0;
+addEventListener('dragenter', (e) => { if ([...(e.dataTransfer?.types || [])].includes('Files')) { depth++; $('#drop').classList.add('show'); $('#drop').textContent = tab === 'dec' ? 'Solte a imagem embaralhada ou o .txt da chave' : 'Solte a imagem para embaralhar'; e.preventDefault(); } });
+addEventListener('dragover', (e) => e.preventDefault());
+addEventListener('dragleave', () => { if (--depth <= 0) { depth = 0; $('#drop').classList.remove('show'); } });
+addEventListener('drop', async (e) => {
+  e.preventDefault(); depth = 0; $('#drop').classList.remove('show');
+  const files = [...(e.dataTransfer?.files || [])];
+  const img = files.find((f) => /^image\//.test(f.type)), txt = files.find((f) => /text|\.txt$|\.cripta$/i.test(f.type + f.name));
+  if (txt && tab !== 'enc') { $('#keyIn').value = await txt.text(); $('#keyIn').oninput(); }
+  if (img) { if (tab === 'enc' || tab === 'hist') { showTab('enc'); setEncImage(img, img.name); } else setDecImage(img, img.name); }
+  else if (!txt) toast('Solte um arquivo de imagem.');
+});
+addEventListener('paste', (e) => {
+  if (e.target.closest && e.target.closest('input, textarea')) return;
+  const items = [...(e.clipboardData?.items || [])], it = items.find((i) => i.type.startsWith('image/'));
+  if (it) { e.preventDefault(); const f = it.getAsFile(); if (tab === 'dec') setDecImage(f, 'colada.png'); else { showTab('enc'); setEncImage(f, 'colada.png'); } return; }
+  const text = e.clipboardData?.getData('text') || '';
+  if (parseKey(text)) { e.preventDefault(); showTab('dec'); $('#keyIn').value = text; $('#keyIn').oninput(); if (dec.img) runDec(); toast('Chave colada'); }
+});
+addEventListener('keydown', (e) => {
+  const tag = (e.target.tagName || '').toLowerCase(); if (tag === 'input' || tag === 'textarea' || tag === 'select') return;
+  if (document.querySelector('dialog[open]')) return;
+  if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') { e.preventDefault(); if (tab === 'enc' && enc.result) $('#dlImg').click(); else if (tab === 'dec' && dec.result) $('#dlRestored').click(); return; }
+  if (e.ctrlKey || e.metaKey || e.altKey) return;
+  if (e.key === '1') showTab('enc'); else if (e.key === '2') showTab('dec'); else if (e.key === '3') showTab('hist'); else if (e.key === '?') $('#dlgHelp').showModal();
+});
+$('#bHelp').onclick = () => $('#dlgHelp').showModal();
+$$('[data-close]').forEach((b) => (b.onclick = () => b.closest('dialog').close()));
+$$('dialog').forEach((d) => d.addEventListener('click', (e) => { if (e.target === d) d.close(); }));
+function setTheme(t) { document.documentElement.dataset.theme = t; LS.set('cripta.theme', t); }
+$('#bTheme').onclick = () => setTheme(document.documentElement.dataset.theme === 'light' ? 'dark' : 'light');
+setTheme(LS.get('cripta.theme', matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark'));
+// Canvas read-back check: anti-fingerprinting noise would make results irreversible.
+(function selfTest() {
+  try {
+    const c = document.createElement('canvas'); c.width = 16; c.height = 16; const x = c.getContext('2d', { willReadFrequently: true });
+    const d = new ImageData(16, 16); for (let i = 0; i < d.data.length; i++) d.data[i] = i % 4 === 3 ? 255 : (i * 37 + 11) & 255;
+    x.putImageData(d, 0, 0); const r = x.getImageData(0, 0, 16, 16).data;
+    for (let i = 0; i < r.length; i++) if (r[i] !== d.data[i]) { $('#fpBanner').hidden = false; break; }
+  } catch {}
+})();
+buildPresets(); buildOpts(); syncOpts(); renderEncFile(); renderEncOut(); renderDecFile(); onKeyInput();
+const h0 = location.hash.slice(1); if (['enc', 'dec', 'hist'].includes(h0)) showTab(h0);
+</script>
+</body>
+</html>

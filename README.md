@@ -24,7 +24,7 @@ The **Apps** tab holds tools rather than games. Each app has its own folder at t
 
 | App | Folder | Description |
 | --- | --- | --- |
-| Pulso — Estúdio Musical | [`pulso-daw/`](pulso-daw/) | A browser DAW (in Portuguese): drum step grid with four kits, piano roll, a two-oscillator synth with 12 presets, a sampler with built-in and recorded samples, multiple tracks, mixer, reverb, delay, EQ and compressor, plus WAV/MIDI export and project save files; mouse, keyboard, MIDI and touch. |
+| Cripta — Embaralhador de Imagens | [`cripta/`](cripta/) | A deterministic image scrambler (in Portuguese): shuffles pixels, tiles, rows and colours from a seed and an optional password, and restores the image pixel-perfect from the key (copied, saved as .txt or embedded in the PNG). Five styles, advanced options, verification and local history, on desktop and mobile. |
 | Hexel — Pixels em Hexágonos | [`hexel/`](hexel/) | An image tool (in Portuguese) that turns the pixels of your photos into hexagons: 10 styles, palettes with dithering, colour controls, presets, before/after comparison and PNG/JPG/WebP/SVG export, all processed locally on desktop or mobile. |
 
 ## Animações

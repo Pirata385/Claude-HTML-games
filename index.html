@@ -152,12 +152,12 @@ footer { text-align: center; color: var(--muted); font-weight: 500; font-size: 0
   // App registry: entries for the "Apps" tab (tools rather than games; each in its own root folder).
   const APPS = [
     {
-      path: 'pulso-daw/index.html',
-      title: 'Pulso — Estúdio Musical',
-      desc: 'A full music studio in the browser: drum step grid, piano roll, synths with 12 presets, a sampler with mic recording, multiple tracks, mixer, reverb, delay, EQ and compressor, plus WAV and MIDI export. In Portuguese, mouse, keyboard, MIDI and touch.',
-      tags: ['music', 'DAW', 'synth', 'tool', 'mobile'],
-      palette: ['#0d0f13', '#1d2129', '#ff7a45', '#5ad1ff', '#ffd23f'],
-      scene: 'daw',
+      path: 'cripta/index.html',
+      title: 'Cripta — Embaralhador de Imagens',
+      desc: 'Scramble any image deterministically: shuffled pixels, tiles and colours from a seed and an optional password, then restore it pixel-perfect with the key (copy, .txt or embedded in the PNG). Five styles, advanced options and local history. Runs locally, in Portuguese, on desktop and mobile.',
+      tags: ['image', 'privacy', 'tool', 'mobile'],
+      palette: ['#0e1016', '#8b7bff', '#ffe9a8', '#43d1c1', '#ff5d8f'],
+      scene: 'cripta',
     },
     {
       path: 'hexel/index.html',
@@ -416,13 +416,17 @@ footer { text-align: center; color: var(--muted); font-weight: 500; font-size: 0
       ctx.fillStyle = P[2]; ctx.fillRect(40, 17, 2, 1); ctx.fillRect(42, 16, 1, 1); ctx.fillRect(43, 17, 2, 1); ctx.fillRect(45, 15, 1, 2);
       ctx.fillStyle = P[3]; ctx.fillRect(51, 17, 2, 1); ctx.fillRect(49, 18, 2, 1); ctx.fillRect(56, 19, 1, 3); ctx.fillRect(55, 20, 1, 1);
       ctx.fillStyle = '#fff'; ctx.fillRect(47, 15, 1, 4); ctx.fillRect(46, 16, 3, 2);
-    } else if (g.scene === 'daw') {
+    } else if (g.scene === 'cripta') {
       ctx.fillStyle = P[0]; ctx.fillRect(0, 0, W, H);
-      for (let y = 0; y < H; y += 3) { const k = y / 3 % 12; ctx.fillStyle = [1, 3, 6, 8, 10].includes(k) ? '#14171c' : P[1]; ctx.fillRect(10, y, W - 10, 2); ctx.fillStyle = [1, 3, 6, 8, 10].includes(k) ? '#222' : '#d9dde6'; ctx.fillRect(0, y, 8, 2); }
-      const notes = [[12, 24, 10], [24, 18, 6], [32, 21, 8], [42, 15, 12], [56, 24, 6], [64, 12, 10], [76, 18, 14]];
-      for (const [x, y, w] of notes) { ctx.fillStyle = P[2]; ctx.fillRect(x, y, w, 2); }
-      for (let i = 0; i < 5; i++) { ctx.fillStyle = P[3]; ctx.fillRect(12 + i * 16, 33, 3, 4); ctx.fillStyle = P[4]; ctx.fillRect(20 + i * 16, 35, 3, 2); }
-      ctx.fillStyle = '#fff'; ctx.fillRect(50, 0, 1, H);
+      const cell = 4, cols = 11, rows = 8;
+      for (let y = 0; y < rows; y++) for (let x = 0; x < cols; x++) {
+        const k = Math.floor(rnd() * 5); ctx.fillStyle = ['#20124d', '#8b3a8f', '#ffb86b', P[2], P[3]][k]; ctx.fillRect(4 + x * cell, 4 + y * cell, cell, cell);
+      }
+      for (let y = 0; y < rows; y++) for (let x = 0; x < cols; x++) {
+        const t = (x + y) / (cols + rows), cx = x - 7, cy = y - 3;
+        ctx.fillStyle = cx * cx + cy * cy < 5 ? P[2] : y > 5 ? '#2b1640' : t < 0.5 ? '#3b2a8f' : '#c06a8a'; ctx.fillRect(52 + x * cell, 4 + y * cell, cell, cell);
+      }
+      ctx.fillStyle = P[1]; ctx.fillRect(48, 10, 1, 20); ctx.fillRect(46, 18, 5, 1); ctx.fillRect(49, 17, 1, 3);
     } else if (g.scene === 'hex') {
       ctx.fillStyle = P[0]; ctx.fillRect(0, 0, W, H);
       const hexPx = (cx, cy, c) => { ctx.fillStyle = c; ctx.fillRect(cx - 1, cy - 3, 3, 1); ctx.fillRect(cx - 2, cy - 2, 5, 4); ctx.fillRect(cx - 1, cy + 2, 3, 1); };

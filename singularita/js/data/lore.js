@@ -86,9 +86,9 @@ export const LORE = {
 };
 
 Object.assign(LORE, {
-  lore_unmade: { id: 'lore_unmade', title: 'The Unmade', text: 'Below the Singular Heart there is a place where nothing was ever made: no stone, no sea, no name. The Fracture began here, when the crown remembered too much. The ground you stand on is only there because you expect it to be.' },
-  lore_mend: { id: 'lore_mend', title: 'Mended', text: 'You asked it to remember Vael whole. It did, slowly, the way coral grows. The isles still float apart, but at night their lights line up across the sea, and the tide between them runs warm. Lume says the ships may come home after all.' },
-  lore_end: { id: 'lore_end', title: 'At Rest', text: 'You asked it to stop remembering. It did, all at once, the way a held breath ends. The dimensions are quiet now; their doors still open, but nothing behind them is angry any more. The isles stay where they are. They were always going to.' },
+  lore_unmade: { id: 'lore_unmade', zone: 'dim_unmade', title: 'The Unmade', text: 'Below the Singular Heart there is a place where nothing was ever made: no stone, no sea, no name. The Fracture began here, when the crown remembered too much. The ground you stand on is only there because you expect it to be.' },
+  lore_mend: { id: 'lore_mend', zone: 'dim_unmade', title: 'Mended', text: 'You asked it to remember Vael whole. It did, slowly, the way coral grows. The isles still float apart, but at night their lights line up across the sea, and the tide between them runs warm. Lume says the ships may come home after all.' },
+  lore_end: { id: 'lore_end', zone: 'dim_unmade', title: 'At Rest', text: 'You asked it to stop remembering. It did, all at once, the way a held breath ends. The dimensions are quiet now; their doors still open, but nothing behind them is angry any more. The isles stay where they are. They were always going to.' },
 });
 
 // Lume, the beacon-keeper construct at the base.

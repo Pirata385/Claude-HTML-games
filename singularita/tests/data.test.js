@@ -341,3 +341,7 @@ test('the ending: the Singular Key opens the Unmade, where the Fracture waits', 
   for (const id of ['lore_unmade', 'lore_mend', 'lore_end']) assert.ok(LORE[id]?.text, id);
   for (const id of ['o_key', 'o_unmade', 'o_fracture', 'o_choice']) assert.ok(OBJECTIVES.some((o) => o.id === id), id);
 });
+
+test('every lore entry says where it is found (the Journal lists them by zone)', () => {
+  for (const [id, l] of Object.entries(LORE)) assert.ok(ZONES[l.zone], `${id}: ${l.zone}`);
+});

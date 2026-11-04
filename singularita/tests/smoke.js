@@ -1055,6 +1055,26 @@ try {
     check(f.present && f.engaged && f.bands, `the Fracture waits in the Unmade, banded in every material (${JSON.stringify(f)})`);
     check(f.phases?.join(',') === 'The Four Sigils,The Five Shards,Singular' && f.summoned > 0, 'it wears every shape of the world in turn');
     check(f.defeated && f.crown, 'the Fracture falls, and leaves the Crown of Vael');
+    // Then Singularita asks what it should remember. Mend it: an epilogue, the credits, home.
+    const clickBtn = (re) => page.evaluate((src) => { const b = [...document.querySelectorAll('#dialog button, #credits button')].find((x) => new RegExp(src).test(x.textContent) && x.offsetParent !== null); if (b) b.click(); return !!b; }, re.source);
+    const stepFrames = (n) => page.evaluate((k) => { const g = window.__SG; for (let i = 0; i < k; i++) { g.update(1 / 30); g.input.endFrame(); } }, n);
+    await page.waitForTimeout(2600);
+    await clickBtn(/Continue/);
+    let asked = false;
+    for (let k = 0; k < 20 && !asked; k++) { await stepFrames(15); asked = await page.evaluate(() => /What should it remember/.test(document.getElementById('dialog')?.innerText || '')); }
+    const chose = asked && await clickBtn(/Mend it/);
+    let pages = 0;
+    for (let k = 0; k < 6; k++) { const more = await page.evaluate(() => !document.getElementById('dialog').hidden && /coral|isles|beacon|Lume/.test(document.getElementById('dialog').innerText)); if (!more) break; pages++; await clickBtn(/Continue/); }
+    const credits = await page.evaluate(() => { const c = document.getElementById('credits'); return !!c && !c.hidden && /Thank you for playing/.test(c.innerText) && /Mender of Vael/.test(c.innerText); });
+    await clickBtn(/Continue/);
+    await page.waitForTimeout(1500);
+    const after = await page.evaluate(() => { const g = window.__SG, p = g.profile; return { zone: g.zone.id, ending: p.ending, lore: p.lore.includes('lore_mend'), run: !!p.run, objective: g.objectives.current?.id ?? null }; });
+    check(asked && chose, 'after the fight, Singularita asks what it should remember');
+    check(pages >= 2 && credits, `mending it plays its epilogue (${pages} pages), then the credits`);
+    check(after.zone === 'island' && after.ending === 'mend' && after.lore && !after.run, `and you wake on Dawnreach, the choice remembered (${JSON.stringify(after)})`);
+    // Lume remembers it too, and the Journal keeps the records.
+    const told = await page.evaluate(() => { const g = window.__SG; g.ui.closeDialog?.(); g.profile.flags.metLume = true; g.interaction.talkLume(); const t = document.getElementById('dialog').innerText; g.ui.closeDialog?.(); g.ui.journalState = { tab: 'records' }; g.ui.openMenu('journal'); const j = document.getElementById('menu').innerText; for (const tab of ['goals', 'roadmap', 'lore', 'bosses', 'records']) { g.ui.journalState.tab = tab; g.ui.renderMenu(); } g.ui.journalState.tab = 'records'; g.ui.closeMenu(); return { lume: /ships may come home/.test(t), records: /Records/.test(j) && /Mender of Vael/.test(j) && /The Unmade/.test(j) }; });
+    check(told.lume && told.records, `Lume remembers the ending and the Journal keeps the records (${JSON.stringify(told)})`);
     check(!errors.length, `ending: no errors ${errors.slice(0, 3).join(' | ')}`);
     await ctx.close();
   }

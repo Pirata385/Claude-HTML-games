@@ -12,6 +12,7 @@ import { gatherXp } from '../systems/progression.js';
 import { addStack } from '../systems/inventory.js';
 import { canEnter, isleList, openGate, ownedSigils } from '../systems/travel.js';
 import { startRun, nextFloor, endRun } from '../systems/run.js';
+import { ENDINGS, chooseEnding, recordsOf } from '../systems/ending.js';
 import { F } from './grid.js';
 
 const REACH = 2.6, NODE_REACH = 1.9;
@@ -35,6 +36,8 @@ export class Interaction {
     game.bus.on('bossDefeated', ({ def }) => {
       const z = game.zone;
       if (z.type !== 'dimension' || def.zone !== z.id) return;
+      // The Fracture leaves no portal: Singularita asks its question once the dust settles.
+      if (game.zoneDef.rule === 'finale') { this.choiceT = 3; return; }
       if (z.exit?.locked) this.unlockStair('The Jailer\'s keys are yours. The stair is open, and a portal leads home.');
       this.openExitPortal();
     });
@@ -129,6 +132,43 @@ export class Interaction {
     startRun(g.profile, def.id, { zone: z.id, x: z.exit.x, z: z.exit.z + 4 });
     g.ui.fadeTravel(() => { g.enterZone(def.id); g.save('dimension'); });
     return null;
+  }
+
+  // ------------------------------------------------------------------ the ending
+  askEnding() {
+    const g = this.g;
+    g.ui.dialog({ title: 'What should it remember?', portrait: 'echo',
+      text: 'The Fracture is gone. What is left hums in your hands: Singularita, every shape the world could have been, waiting for one word from you.\n\n'
+        + `Mend it: ${ENDINGS.mend.ask}\nEnd it: ${ENDINGS.end.ask}`,
+      buttons: [{ label: ENDINGS.mend.label, primary: true, action: () => this.ending('mend') }, { label: ENDINGS.end.label, action: () => this.ending('end') }] });
+  }
+  ending(choice) {
+    const g = this.g, p = g.profile, e = ENDINGS[choice];
+    const { title } = chooseEnding(p, choice);
+    g.bus.emit('ending', { choice });
+    g.bus.emit('sfx', { id: 'fanfare' });
+    const pages = e.epilogue;
+    const page = (k) => {
+      if (k >= pages.length) { this.credits(choice, title); return; }
+      g.ui.dialog({ title: e.label, portrait: 'echo', text: pages[k], buttons: [{ label: 'Continue', primary: true, action: () => page(k + 1) }] });
+    };
+    page(0);
+  }
+  credits(choice, title) {
+    const g = this.g, rec = recordsOf(g.profile);
+    const hm = (t) => `${Math.floor(t / 3600)} h ${String(Math.floor((t % 3600) / 60)).padStart(2, '0')} min`;
+    g.ui.credits([
+      ['Singularita', 'The Broken Isles'],
+      [`${g.profile.name}, ${title}`, choice === 'mend' ? 'You asked it to remember Vael whole.' : 'You asked it to rest.'],
+      ['Your journey', `${hm(rec.playTime)} · level ${g.profile.level} · ${rec.bosses} bosses felled · ${rec.deaths} deaths · deepest gaol floor ${rec.bestFloor}`],
+      ['Lume', 'kept the light on.'],
+      ['Made for the Claude HTML Games collection', 'Thank you for playing.'],
+      ['', 'The world goes on. Lume has something to tell you.'],
+    ], () => {
+      // Home to Dawnreach, whatever the run says.
+      if (g.profile.run) g.profile.run.returnTo = { zone: 'island' };
+      this.leaveRun('complete');
+    });
   }
 
   // The exit portal at a fallen ruler's feet.
@@ -238,10 +278,10 @@ export class Interaction {
     const g = this.g, p = g.profile;
     let text;
     if (!p.flags?.metLume) { (p.flags ||= {}).metLume = true; text = LUME_LINES.first; }
+    else if (p.ending) text = LUME_LINES[p.ending === 'mend' ? 'mended' : 'ended'];
     else if (ownedSigils(p).length === 4 && !p.flags.gateOpen) text = LUME_LINES.sigilsHint;
     else if (p.level >= 66 && !p.flags.gateOpen && !Object.keys(p.zones).some((id) => id.startsWith('isle_'))) text = LUME_LINES.isleHint;
     else if (p.lore.includes('lore_seal') && !p.flags.gateOpen) text = LUME_LINES.gateHint;
-    else if (p.ending) text = LUME_LINES[p.ending === 'mend' ? 'mended' : 'ended'];
     else if ((p.inv.stacks.singular_key || 0) > 0) text = LUME_LINES.unmadeHint;
     else if (p.level >= 250 && TROPHIES.every((s) => (p.inv.stacks[s] || 0) > 0)) text = LUME_LINES.keyHint;
     else if (SHARDS.every((s) => (p.inv.stacks[s] || 0) > 0) && !p.zones.cave_9) text = LUME_LINES.heartHint;
@@ -388,6 +428,7 @@ export class Interaction {
   update(dt) {
     const g = this.g, p = g.player;
     this.swingCd -= dt;
+    if (this.choiceT > 0 && !g.ui.dialogOpen) { this.choiceT -= dt; if (this.choiceT <= 0) this.askEnding(); }
     // Respawn nodes.
     this.respawnT -= dt;
     if (this.respawnT <= 0) {

@@ -109,3 +109,11 @@ body.touch-ui .hbtn.fs { display: inline-block; }
 body.touch-ui .hotbar { display: none; }
 body.touch-ui .crosshair { display: none; }
 body.touch-ui .hud-bottom { bottom: calc(150px + var(--safe-b)); }
+
+/* The credits after the ending. */
+#credits { position: fixed; inset: 0; z-index: 60; display: grid; grid-template-rows: 1fr auto; place-items: center; background: radial-gradient(circle at 50% 40%, #241a38, #06040c 70%); color: #f4e8ff; padding: 24px 16px; overflow: hidden; }
+#credits .roll { display: grid; gap: 28px; text-align: center; max-width: 560px; animation: credits-rise 24s linear both; }
+#credits .credit b { display: block; font-family: var(--serif, Georgia, serif); font-size: 1.5rem; letter-spacing: 0.02em; color: #ffe9a8; }
+#credits .credit p { margin: 6px 0 0; opacity: 0.85; line-height: 1.45; }
+#credits .btn { margin-top: 12px; }
+@keyframes credits-rise { from { transform: translateY(40vh); opacity: 0; } 8% { opacity: 1; } to { transform: translateY(-10vh); opacity: 1; } }

@@ -11,7 +11,7 @@ export function generateDimension(id, { seed, floor = 1 } = {}) {
   const def = ZONES[id];
   const kind = def.gen.kind;
   const z = kind === 'floors' ? floors(def, seed, floor) : kind === 'lanes' ? lanes(def, seed) : kind === 'castle' ? castle(def, seed)
-    : kind === 'mirror' ? mirror(def, seed) : peaks(def, seed);
+    : kind === 'mirror' ? mirror(def, seed) : kind === 'unmade' ? unmade(def) : peaks(def, seed);
   pruneUnreachable(z);
   return z;
 }
@@ -448,5 +448,41 @@ function peaks(def, seed) {
     return !z.nests.some((ns) => Math.hypot(ns.x - i, ns.z - j) < 3);
   }, 4);
   placeLore(z, rng, [plats[2], plats[5]]);
+  return z;
+}
+
+// The Unmade: a landing and a walkway of light over the void, to the disc where the Fracture waits.
+// Nothing was ever made here, so it is the same on every visit (the run seed is ignored).
+function unmade(def) {
+  const N = def.gen.size, c = N / 2;
+  const g = new ZoneGrid(N, N);
+  g.seaLevel = -30;
+  const z = { id: def.id, type: 'dimension', render: 'isle', def, seed: 0, grid: g, pois: [], nodes: [], hazards: [], updrafts: [], gates: [], decor: {}, rooms: [], shards: [] };
+  for (let k = 0; k < N * N; k++) { g.h[k] = -24; g.flags[k] = F.VOID | F.DEEP; g.surf[k] = SURF.ROCK; }
+  const H = 20, land = { x: c, z: c + 34, r: 7 }, arena = { x: c, z: c - 4, r: 16 };
+  const disc = (p, surf) => {
+    for (let j = Math.floor(p.z - p.r - 1); j <= p.z + p.r + 1; j++) for (let i = Math.floor(p.x - p.r - 1); i <= p.x + p.r + 1; i++) {
+      if (!g.inside(i, j) || Math.hypot(i + 0.5 - p.x, j + 0.5 - p.z) > p.r) continue;
+      const k = g.idx(i, j);
+      g.flags[k] &= ~(F.VOID | F.DEEP); g.h[k] = H;
+      g.surf[k] = Math.hypot(i + 0.5 - p.x, j + 0.5 - p.z) > p.r - 1.2 ? SURF.GLASS : surf;
+    }
+  };
+  disc(land, SURF.BASALT);
+  disc(arena, SURF.ADAMITE);
+  // The walkway: three cells wide, straight from the landing to the arena.
+  for (let j = Math.floor(arena.z); j <= land.z; j++) for (let i = Math.floor(c) - 1; i <= Math.floor(c) + 1; i++) {
+    const k = g.idx(i, j);
+    if (!(g.flags[k] & F.VOID)) continue;
+    g.flags[k] &= ~(F.VOID | F.DEEP); g.h[k] = H; g.surf[k] = SURF.GLASS; g.flags[k] |= F.PATH;
+  }
+  setEntry(z, land.x, land.z + 2, Math.PI);
+  setArena(z, 'unmade', 'The Unmade', 'fracture', arena.x, arena.z, arena.r - 1, H);
+  // Shards of every material hang in the void around the arena (decor only).
+  for (let k = 0; k < 11; k++) {
+    const a = (k / 11) * Math.PI * 2;
+    z.shards.push({ x: arena.x + Math.cos(a) * (arena.r + 6), z: arena.z + Math.sin(a) * (arena.r + 6), h: H + 3 + (k % 3) * 2, tier: k });
+  }
+  placeLore(z, makeRng(7), [land]);
   return z;
 }

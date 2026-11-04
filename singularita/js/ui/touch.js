@@ -69,7 +69,7 @@ export class TouchControls {
     btn('attack', 'atk', kit.basic.icon, null).id = kit.basic.id;
     btn('alt', 'alt', kit.alt.icon, null).id = kit.alt.id;
     g.profile.hotbars[g.profile.classId].forEach((id, k) => { btn(`skill${k + 1}`, `sk sk${k + 1}`, SKILLS[id]?.icon || '·', null).id = id; });
-    btn('dodge', 'dodge', '⤳', 'Dodge');
+    btn('dodge', 'dodge', '⤳', 'Dash');
     btn('jump', 'jump', '⤒', 'Jump');
     btn('lock', 'lock', '◎', 'Lock');
     btn('tonic', 'tonic', '❤', null);

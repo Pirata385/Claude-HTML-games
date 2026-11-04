@@ -501,3 +501,25 @@ test('saves from before the Mage rework trade Meteor for the Arcane Lance', () =
   assert.equal(m.version, SAVE_VERSION);
   assert.ok(SAVE_VERSION >= 2);
 });
+
+test("saves from before the class dashes trade the Mage's Blink skill for the Arcane Vortex", () => {
+  const old = fresh('mage');
+  old.version = 2;
+  old.hotbars.mage = ['mg_flame', 'mg_blink', 'mg_chain', 'mg_lance'];
+  const m = migrate(JSON.parse(JSON.stringify(old)));
+  assert.deepEqual(m.hotbars.mage, ['mg_flame', 'mg_vortex', 'mg_chain', 'mg_lance']);
+  assert.ok(SAVE_VERSION >= 3);
+});
+
+test('balance: the Fracture is the longest fight in the game, but not a wall', () => {
+  const z = ZONES.dim_unmade, b = BOSSES.fracture, L = z.levelReq, bl = runLevel(z, { floor: 1 }) + b.levelOffset;
+  const p = fresh('swordsman'); p.level = L; p.attrs.str = (L - 1) * 2; p.attrs.res = L - 1;
+  const s = computeStats(p, [ITEMS.swordsman_weapon_singularita, ITEMS.swordsman_armor_singularita]);
+  const hitsToKill = enemyHp(b.hp, bl) / (s.power * s.dmgMult);
+  const hitsToDie = s.maxHp / (enemyDmg(b.dmg, bl) * 100 / (100 + s.def));
+  const ragnarok = 256; // the last ruler, from the rulers' test
+  assert.ok(hitsToKill > ragnarok && hitsToKill <= 420, `hitsToKill ${hitsToKill.toFixed(0)}`);
+  assert.ok(hitsToDie >= 6.5, `hitsToDie ${hitsToDie.toFixed(1)}`);
+  const levels = (b.xp * (1 + 0.08 * bl)) / xpToNext(L);
+  assert.ok(levels >= 1 && levels <= 3, `${levels.toFixed(1)} levels`);
+});

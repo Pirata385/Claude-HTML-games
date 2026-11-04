@@ -175,6 +175,17 @@ export class UI {
     this.g.bus.emit('sfx', { id: 'bossIntro' });
   }
 
+  // Credits: lines of [heading, text] rising over the screen, then Continue.
+  credits(lines, onDone) {
+    let root = document.getElementById('credits');
+    if (!root) { root = document.createElement('div'); root.id = 'credits'; document.body.appendChild(root); }
+    root.innerHTML = '';
+    this.g.paused = true; this.g.input.releasePointer(); this.g.input.clear();
+    const roll = h('div', { class: 'roll' }, ...lines.map(([a, b]) => h('div', { class: 'credit' }, a ? h('b', {}, a) : null, h('p', {}, b))));
+    root.append(roll, h('button', { class: 'btn primary', onclick: () => { root.hidden = true; this.g.paused = !!this.menuOpen; onDone?.(); } }, 'Continue'));
+    root.hidden = false;
+  }
+
   deathScreen(lost) {
     const d = this.el.death;
     clear(d).append(h('div', { class: 'death-title' }, 'You fell'), h('p', {}, `The beacon calls you back. ${lost ? `Lost ${fmt(lost)} XP of progress toward the next level.` : ''}`),

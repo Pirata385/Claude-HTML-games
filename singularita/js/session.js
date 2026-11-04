@@ -30,7 +30,8 @@ export function installSession(game, { audio }) {
   bus.on('gathered', (e) => progress({ type: 'gathered', material: e.material, n: e.n }));
   bus.on('kill', () => progress({ type: 'kill' }));
   bus.on('zoneEnter', ({ id }) => { const layer = game.zone.layer || 0; p.stats.maxLayer = Math.max(p.stats.maxLayer, layer); progress({ type: 'zone', id }); });
-  bus.on('bossDefeated', () => progress({ type: 'boss' }));
+  bus.on('bossDefeated', ({ def }) => progress({ type: 'boss', id: def.id }));
+  bus.on('ending', ({ choice }) => progress({ type: 'ending', choice }));
   bus.on('lore', ({ id }) => progress({ type: 'lore', id }));
   bus.on('sigil', ({ id }) => progress({ type: 'sigil', id }));
   bus.on('shard', ({ id }) => progress({ type: 'shard', id }));

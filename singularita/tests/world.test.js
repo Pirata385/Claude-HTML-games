@@ -270,4 +270,21 @@ const SNAPSHOT = {
   dim_mirror: 2559964178,
   dim_dragons: 2075933498,
   cave_9: 487881930,
+  dim_unmade: 21846198,
 };
+
+test('the Unmade: a walkway over the void to a flat arena, the same on every visit', () => {
+  const z = generateDimension('dim_unmade', { seed: runSeed('dim_unmade', 0) });
+  assert.deepEqual(validateDimension(z).errors, []);
+  const g = z.grid, a = z.arena;
+  assert.ok(a && a.boss === 'fracture' && a.r >= 14);
+  // The arena is flat and open, and the void surrounds it.
+  for (let j = Math.floor(a.z - a.r + 1); j < a.z + a.r - 1; j++) for (let i = Math.floor(a.x - a.r + 1); i < a.x + a.r - 1; i++) {
+    if (Math.hypot(i + 0.5 - a.x, j + 0.5 - a.z) > a.r - 1) continue;
+    assert.ok(g.walkable(i, j) && g.height(i, j) === a.h, `arena cell ${i},${j}`);
+  }
+  assert.ok(g.has(Math.floor(a.x + a.r + 6), Math.floor(a.z), F.VOID), 'the void beyond the arena');
+  assert.equal(z.nodes.length, 0, 'nothing grows in the Unmade');
+  // The place where nothing was made does not change.
+  assert.equal(generateDimension('dim_unmade', { seed: runSeed('dim_unmade', 5) }).grid.hashCode(), g.hashCode());
+});

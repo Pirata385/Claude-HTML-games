@@ -21,8 +21,9 @@ export function mapTab(g, root) {
     const effects = [...(z.hazards || []), ...(z.phenomena || [])];
     return h('li', { class: `${visited ? 'visited' : ''}${locked ? ' locked' : ''}${g.zone.id === z.id ? ' here' : ''}` },
       h('b', {}, z.name), h('small', {}, `${z.subtitle} · from Lv ${z.levelReq}${why}${g.zone.id === z.id ? ' · you are here' : visited ? ' · visited' : ''}`),
-      guardian ? h('small', {}, `${count(p.inv, sigil) ? '✦' : '·'} ${guardian.name} keeps the ${MATERIALS[sigil].name}${z.type === 'isle' ? '. Sail from the Wayshrine in camp.' : '.'}`) : null,
-      z.type === 'dimension' ? h('small', {}, `Opened with the ${CONSUMABLES[z.emblem].name}.${rec ? ` Runs ${rec.runs}, cleared ${rec.cleared}${z.rule === 'keys' ? `, deepest floor ${rec.bestFloor}` : ''}.` : ''}`) : null,
+      guardian && sigil ? h('small', {}, `${count(p.inv, sigil) ? '✦' : '·'} ${guardian.name} keeps the ${MATERIALS[sigil].name}${z.type === 'isle' ? '. Sail from the Wayshrine in camp.' : '.'}`) : null,
+      guardian && !sigil ? h('small', {}, `${p.stats.bosses[guardian.id] ? '✦' : '·'} ${guardian.name} waits here.`) : null,
+      z.type === 'dimension' ? h('small', {}, `Opened with ${z.emblem ? `the ${CONSUMABLES[z.emblem].name}` : 'the Singular Key, at the Heart'}.${rec ? ` Runs ${rec.runs}, cleared ${rec.cleared}${z.rule === 'keys' ? `, deepest floor ${rec.bestFloor}` : ''}.` : ''}`) : null,
       z.requires && locked ? h('small', {}, 'Below the Diamond Throat. The four sigils of the isles open the way.') : null,
       effects.length ? h('small', { class: 'hz' }, `Hazards: ${effects.map((x) => HAZARDS[x].name).join(', ')}`) : null);
   });

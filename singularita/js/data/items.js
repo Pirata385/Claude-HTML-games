@@ -111,6 +111,7 @@ anyAcc('jailers_grip', "Jailer's Grip", 9, 'legendary', { knockback: 0.6, stagge
 anyAcc('siamese_locket', 'Siamese Locket', 9, 'legendary', { lifesteal: 0.04, hpRegen: 0.005, resMax: 30 }, 'Two hearts in a locket. When one of you is hurt, the other mends it.', true);
 anyAcc('adamite_signet', 'Adamite Signet', 9, 'legendary', { armorPen: 0.2, crit: 0.06, statusRes: 0.15 }, 'The Adamite King\'s ring, cleansed. It no longer whispers, but it still commands.', true);
 anyAcc('looking_glass', 'Looking-Glass', 10, 'legendary', { crit: 0.08, critMult: 0.3, dodgeCd: 0.15 }, 'A hand mirror from the Mirrored. The one in it moves first; follow it.', true);
+anyAcc('crown_of_vael', 'Crown of Vael', 10, 'singular', { dmgBonus: 0.12, hpMult: 0.12, cdr: 0.1, statusRes: 0.15 }, 'The crown that broke the world, mended small enough to wear. It remembers being whole, and it is patient with you.', true);
 anyAcc('ragnarok_fang', "Ragnarok's Fang", 10, 'legendary', { dmgBonus: 0.15, fireBonus: 0.25, burnChance: 0.15 }, 'A fang of the Dragon God. It is still hungry.', true);
 
 export const ITEMS = Object.fromEntries(list.map((i) => [i.id, i]));
@@ -119,7 +120,7 @@ export const ITEMS = Object.fromEntries(list.map((i) => [i.id, i]));
 export const STAT_LABELS = {
   power: 'Power', def: 'Defence', hp: 'Health', toolPower: 'Tool power',
   str: 'Strength', res: 'Resistance', agi: 'Agility', dex: 'Dexterity', spi: 'Spirituality', int: 'Intelligence', rsv: 'Reserves',
-  atkSpd: 'Attack speed', moveSpd: 'Move speed', dodgeCd: 'Dodge cooldown', crit: 'Crit chance', critMult: 'Crit damage',
+  atkSpd: 'Attack speed', moveSpd: 'Move speed', dodgeCd: 'Dash cooldown', crit: 'Crit chance', critMult: 'Crit damage',
   knockback: 'Knockback', staggerRes: 'Stagger resist', armorPen: 'Armour pierce', statusRes: 'Status resist',
   lifesteal: 'Life steal', hpRegen: 'Health regen', resRegen: 'Resource regen', resMax: 'Resource max', cdr: 'Cooldown reduction',
   luck: 'Drop luck', shockChance: 'Shock chance', burnChance: 'Burn chance', chillChance: 'Chill chance', prismatic: 'Prismatic',

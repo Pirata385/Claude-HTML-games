@@ -8,16 +8,18 @@ import { xpToNext } from '../../systems/progression.js';
 import { count, takeStack } from '../../systems/inventory.js';
 import { CLASSES } from '../../data/classes.js';
 import { fmt } from '../../core/math.js';
+import { ENDINGS } from '../../systems/ending.js';
 
 const SHOW = [
   ['maxHp', 'Health', (v) => fmt(v)], ['def', 'Defence', (v) => v.toFixed(0)], ['power', 'Weapon power', (v) => v.toFixed(0)], ['dmgMult', 'Damage multiplier', (v) => `×${v.toFixed(2)}`],
   ['critChance', 'Crit chance', (v) => `${(v * 100).toFixed(1)}%`], ['critMult', 'Crit damage', (v) => `×${v.toFixed(2)}`], ['attackSpeed', 'Attack speed', (v) => `×${v.toFixed(2)}`],
-  ['moveSpeed', 'Move speed', (v) => v.toFixed(2)], ['dodgeCd', 'Dodge cooldown', (v) => `${v.toFixed(2)} s`], ['cdr', 'Cooldown reduction', (v) => `${(v * 100).toFixed(1)}%`],
+  ['moveSpeed', 'Move speed', (v) => v.toFixed(2)], ['dodgeCd', 'Dash cooldown', (v) => `${v.toFixed(2)} s`], ['cdr', 'Cooldown reduction', (v) => `${(v * 100).toFixed(1)}%`],
   ['resourceMax', 'Resource max', (v) => v.toFixed(0)], ['resourceRegen', 'Resource regen', (v) => `${v.toFixed(1)}/s`], ['spiPower', 'Astral power', (v) => `×${v.toFixed(2)}`],
   ['leash', 'Astral leash', (v) => `${v.toFixed(1)} m`], ['astralHits', 'Astral guard', (v) => `${v} blows`], ['statusRes', 'Status resist', (v) => `${(v * 100).toFixed(1)}%`], ['statusPotency', 'Status potency', (v) => `×${v.toFixed(2)}`],
   ['gatherPower', 'Gathering', (v) => `×${v.toFixed(2)}`], ['oocRegen', 'Rest regen', (v) => `${(v * 100).toFixed(2)}%/s`], ['tonicPotency', 'Tonic potency', (v) => `×${v.toFixed(2)}`],
   ['accuracy', 'Accuracy', (v) => `${(v * 100).toFixed(0)}%`], ['knockback', 'Knockback', (v) => `×${v.toFixed(2)}`], ['healMult', 'Healing received', (v) => `×${v.toFixed(2)}`],
 ];
+
 
 export function characterTab(g, root, opts, rerender) {
   const p = g.profile, c = CLASSES[p.classId];
@@ -43,6 +45,7 @@ export function characterTab(g, root, opts, rerender) {
     h('div', { class: 'char-col' },
       h('h3', { style: { color: c.color } }, `${p.name} — ${c.name}`),
       h('p', { class: 'muted' }, `Level ${p.level} · ${fmt(p.xp)} / ${fmt(next)} XP · Main attributes: ${Object.keys(c.scaling).map((x) => ATTR_INFO[x].name).join(', ')}`),
+      Object.keys(p.endings || {}).length || p.cycle ? h('p', { class: 'muted' }, [...Object.keys(p.endings || {}).map((e) => ENDINGS[e].title), p.cycle ? `Ascension ${p.cycle}` : null].filter(Boolean).join(' · ')) : null,
       h('div', { class: `points-box${p.attrPoints ? ' on' : ''}` }, `${p.attrPoints} attribute point${p.attrPoints === 1 ? '' : 's'} to spend`),
       ...attrRows, preview,
       h('div', { class: 'row' }, h('button', { class: 'btn', disabled: !crystals, onclick: () => {

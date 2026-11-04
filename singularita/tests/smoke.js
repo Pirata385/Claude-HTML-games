@@ -41,6 +41,8 @@ async function open(url, ctxOpts = { viewport: { width: 1280, height: 720 } }) {
   await page.goto(url);
   return { ctx, page, errors };
 }
+// Screenshots are for looking at, not checks: a slow software renderer gets time, and a miss is only noted.
+const shot = (page, o) => page.screenshot({ timeout: 120000, ...o }).catch((e) => console.log(`note: screenshot ${path.basename(o.path)} skipped (${e.message.split('\n')[0]})`));
 const waitGame = (page) => page.waitForFunction(() => window.__SG && window.__SG.zone && document.getElementById('loading').hidden, null, { timeout: 60000 });
 // Runs `body` in the page with helpers that step the simulation directly (independent of frame rate).
 const sim = (page, body) => page.evaluate(`(async () => {
@@ -70,7 +72,7 @@ try {
     await page.locator('.class-card[data-cls="archer"]').click();
     await page.locator('.btn', { hasText: 'Begin' }).click();
     await waitGame(page);
-    await page.screenshot({ path: path.join(SHOTS, 'island_day.png') });
+    await shot(page, { path: path.join(SHOTS, 'island_day.png') });
     const r = await sim(page, `
       g.ui.closeDialog && g.ui.closeDialog();
       const z = g.zone, p = g.player, out = {};
@@ -131,7 +133,7 @@ try {
     check(r.boss.id && r.boss.period === r.boss.phase && r.boss.timer >= 480, `boss clock spawns the ${r.boss.phase} boss and restarts (${r.boss.id}, next in ${Math.round(r.boss.timer)} s, level ${r.boss.level})`);
     check(r.boss.paused, 'the boss clock waits while a boss is abroad');
     check(r.stats.calls < 250 && r.stats.triangles < 400000, `render budget (calls ${r.stats.calls}, triangles ${r.stats.triangles})`);
-    await page.screenshot({ path: path.join(SHOTS, 'island_combat.png') });
+    await shot(page, { path: path.join(SHOTS, 'island_combat.png') });
 
     // 3. Caves, layer gates, transitions and saving.
     const c = await sim(page, `
@@ -164,7 +166,7 @@ try {
     check(c.geo[1] <= c.geo[0] + 2, `no geometry leak across zone changes (${c.geo.join(' → ')})`);
     check(c.lore.length >= 1, 'Echo Stones record lore');
     check(c.saved, 'game saves');
-    await page.screenshot({ path: path.join(SHOTS, 'cave.png') });
+    await shot(page, { path: path.join(SHOTS, 'cave.png') });
 
     // 4. Bosses: phases, the split, the pillar stun and rewards.
     const b = await sim(page, `
@@ -267,7 +269,7 @@ try {
       return { kills, used: [...used], hp: p.hp > 0 };`);
     check(r.kills >= 2 && r.used.length >= 4, `${cls}: fights (kills ${r.kills}, skills ${r.used.join(',')})`);
     check(!errors.length, `${cls}: no errors ${errors.slice(0, 2).join(' | ')}`);
-    await page.screenshot({ path: path.join(SHOTS, `class_${cls}.png`) });
+    await shot(page, { path: path.join(SHOTS, `class_${cls}.png`) });
     await ctx.close();
   }
 
@@ -300,8 +302,11 @@ try {
     // Measured before each tap: the layout can shift when the browser bars go away.
     const tapFs = async () => {
       const b = await page.evaluate(() => { const q = document.querySelector('#hud .hbtn.fs').getBoundingClientRect(); return { x: q.x + q.width / 2, y: q.y + q.height / 2 }; });
+      const was = await isFs();
       await page.touchscreen.tap(b.x, b.y);
-      await page.waitForTimeout(400);
+      // Entering and leaving full screen is asynchronous: wait for it (slow renderers take a while).
+      await page.waitForFunction((w) => !!document.fullscreenElement !== w, was, { timeout: 3000 }).catch(() => {});
+      await page.waitForTimeout(200);
     };
     // Let the first-tap automatic full screen (if any) settle before measuring.
     await page.waitForTimeout(500);
@@ -342,11 +347,12 @@ try {
       return { hidden, back: scaleOf() };
     }, tree.index);
     check(back.hidden === 0 && back.back > 0, `touch ${name}: a tree hidden for the camera comes back (${back.hidden} → ${back.back.toFixed(2)})`);
-    for (let k = 0; k < 14; k++) { await page.touchscreen.tap(tree.x, tree.y); await page.waitForTimeout(450); }
-    const wood = await page.evaluate(() => window.__SG.profile.inv.stacks.wood || 0);
+    // Keep tapping like a player would until the wood comes (a slow renderer needs more taps).
+    let wood = tree.wood;
+    for (let k = 0; k < 40 && wood <= tree.wood; k++) { await page.touchscreen.tap(tree.x, tree.y); await page.waitForTimeout(450); wood = await page.evaluate(() => window.__SG.profile.inv.stacks.wood || 0); }
     check(wood > tree.wood, `touch ${name}: tapping the prompt (${tree.label}) chops wood (${tree.wood} → ${wood})`);
     check(!errors.length, `touch ${name}: no errors`);
-    await page.screenshot({ path: path.join(SHOTS, `touch_${name}.png`) });
+    await shot(page, { path: path.join(SHOTS, `touch_${name}.png`) });
     await ctx.close();
   }
 
@@ -363,7 +369,7 @@ try {
         return { id: g.zone.id, alive: g.player.alive };`);
       await settle();
       const stats = await page.evaluate(() => window.__SG.r.stats());
-      await page.screenshot({ path: path.join(SHOTS, `${id}.png`) });
+      await shot(page, { path: path.join(SHOTS, `${id}.png`) });
       check(r.id === id && r.alive, `${id}: loads and plays`);
       check(stats.calls < 250 && stats.triangles < 400000, `${id}: render budget (calls ${stats.calls}, triangles ${stats.triangles})`);
     }
@@ -420,7 +426,7 @@ try {
       out.alive = g.player.alive; out.enemies = g.enemies.count();
       return out;`);
     await settle();
-    await page.screenshot({ path: path.join(SHOTS, 'cave_8.png') });
+    await shot(page, { path: path.join(SHOTS, 'cave_8.png') });
     check(core.open && core.zone === 'cave_8' && core.exit === 'heart', `the sigils open the gate to the Core (${core.zone})`);
     check(core.enemies > 0, `the Core is populated (${core.enemies})`);
     const menus = await page.evaluate(() => {
@@ -436,7 +442,7 @@ try {
     check(/Key items/.test(menus.inv) && /Sigil of Wind/.test(menus.inv), 'sigils show as key items');
     const horizon = await sim(page, `g.enterZone('island'); step(3); return !!g.view.horizon;`);
     await settle();
-    await page.screenshot({ path: path.join(SHOTS, 'horizon.png') });
+    await shot(page, { path: path.join(SHOTS, 'horizon.png') });
     check(horizon, 'Dawnreach shows the isles on the horizon');
     check(!errors.length, `isles: no errors ${errors.slice(0, 3).join(' | ')}`);
     await ctx.close();
@@ -466,7 +472,7 @@ try {
       out.spawned = n; out.total = ids.length; out.shots = shot.length;
       return out;`);
     await settle();
-    await page.screenshot({ path: path.join(SHOTS, 'm2_creatures.png') });
+    await shot(page, { path: path.join(SHOTS, 'm2_creatures.png') });
     check(cr.pop > 0 && cr.own && cr.levels, `isles keep their own creatures at their own levels (${cr.pop})`);
     check(cr.spawned === cr.total && cr.shots > 0, `every new creature spawns and fights (${cr.spawned}/${cr.total}, ${cr.shots} shots)`);
     for (const [isle, id, sigil] of [['isle_air', 'ronin_east_wind', 'sigil_wind'], ['isle_water', 'tears_of_poseidon', 'sigil_tide'], ['isle_fire', 'magma_vector', 'sigil_flame'], ['isle_earth', 'allele_golem', 'sigil_stone']]) {
@@ -484,7 +490,7 @@ try {
         out.engaged = boss.engaged;
         return out;`);
       await settle();
-      await page.screenshot({ path: path.join(SHOTS, `guardian_${id}.png`) });
+      await shot(page, { path: path.join(SHOTS, `guardian_${id}.png`) });
       check(a.present && a.engaged, `${id}: waits in its arena and engages`);
       if (!a.present) continue;
       const r = await sim(page, `
@@ -567,7 +573,7 @@ try {
         }
         return out;`);
       await settle();
-      await page.screenshot({ path: path.join(SHOTS, `${dim}.png`) });
+      await shot(page, { path: path.join(SHOTS, `${dim}.png`) });
       check(d.zone === dim && d.alive && d.enemies > 0, `${dim}: the portal leads there and it is populated (${d.enemies})`);
       if (dim === 'dim_twins') check(d.gateOpen, 'twins: a lever opens a gate in the other lane');
       // Dying ends the run.
@@ -635,7 +641,7 @@ try {
     check(rules.sheltered && rules.burned, 'roost: dragon breath burns the open, not behind a rock');
     check(rules.heart, 'the five shards open the Heart Seal into the Singular Heart, where Singularita grows');
     await settle();
-    await page.screenshot({ path: path.join(SHOTS, 'cave_9.png') });
+    await shot(page, { path: path.join(SHOTS, 'cave_9.png') });
     check(!errors.length, `dimensions: no errors ${errors.slice(0, 3).join(' | ')}`);
     await ctx.close();
   }
@@ -674,7 +680,7 @@ try {
         } else out.staysIn = true;
         return out;`);
       await settle();
-      await page.screenshot({ path: path.join(SHOTS, `ruler_${boss}.png`) });
+      await shot(page, { path: path.join(SHOTS, `ruler_${boss}.png`) });
       check(a.present && a.engaged, `${boss}: rules its dimension and engages (${JSON.stringify(a)})`);
       check(a.staysIn, `${boss}: keeps to its arena when you step out`);
       if (!a.present) { await sim(page, `g.interaction.leaveRun('leave'); await new Promise((r) => setTimeout(r, 1200)); return 1;`); continue; }
@@ -941,17 +947,153 @@ try {
       out.shield = +(p.shield / g.stats.maxHp).toFixed(2);
       near(3); step(30 * 8.5);
       out.barrierFreeze = pack.every((e) => e.statuses.has('freeze'));
-      // Blink: a moment when every blow misses.
-      ready(); kit.tryCast('mg_blink'); step(1);
-      out.evade = +p.iframes.toFixed(2);
+      // Arcane Vortex: the pack is drawn together, then the vortex implodes.
+      reset(); pack.forEach((e, k) => { const a = (k / 3) * Math.PI * 2; e.x = p.x + fwd.x * 8 + Math.cos(a) * 3.5; e.z = p.z + fwd.z * 8 + Math.sin(a) * 3.5; });
+      const spread = () => Math.max(...pack.map((e) => Math.hypot(e.x - p.x - fwd.x * 8, e.z - p.z - fwd.z * 8)));
+      const s0 = spread();
+      // Aim at the middle of the pack.
+      const mid = g.enemies.spawn('slime', p.x + fwd.x * 8, p.z + fwd.z * 8, { level: 40, noIntro: true }); mid.spawnT = 0; mid.maxHp = mid.hp = 1e7; mid.speed = 0;
+      g.lockTarget = mid; ready(); kit.tryCast('mg_vortex'); step(30 * 1.2);
+      mid.alive = false; mid.dyingT = 0;
+      out.vortex = +(spread() / s0).toFixed(2);
+      step(30 * 1.5);
+      out.vortexHurt = pack.every((e) => e.hp < e.maxHp);
       for (const e of pack) { e.alive = false; e.dyingT = 0; }
       return out;`);
     check(m.boltHit && m.splash, `the Mage's bolt bursts over the pack and slows it (${JSON.stringify(m)})`);
     check(m.frozen, 'Frost Nova freezes every foe around you');
     check(m.lance >= 6 && m.lanceAlone && m.lanceStun, `the Arcane Lance strikes one foe for ${m.lance}× a bolt, and stuns it`);
     check(m.shield >= 0.3 && m.barrierFreeze, 'Arcane Barrier shields you, then freezes foes around you as it fades');
-    check(m.evade >= 1, 'Blink leaves a moment in which every blow misses');
+    check(m.vortex < 0.6 && m.vortexHurt, `Arcane Vortex draws the pack together, then implodes (spread ×${m.vortex})`);
     check(!errors.length, `mage: no errors ${errors.slice(0, 3).join(' | ')}`);
+    await ctx.close();
+  }
+  // 14. Every class dashes its own way.
+  for (const cls of ['swordsman', 'archer', 'mage', 'assassin', 'stardust']) {
+    const { ctx, page, errors } = await open(`${BASE}/singularita/index.html?quickstart=${cls}&debug`);
+    await waitGame(page);
+    const d = await sim(page, `
+      g.ui.closeDialog && g.ui.closeDialog(); g.godMode = true;
+      const out = {}, p = g.player;
+      for (const e of g.enemies.list) { e.alive = false; e.dyingT = 0; }
+      // A clear, level stretch of 13 cells.
+      const G = g.grid;
+      const clearLine = (a) => { const h0 = G.height(Math.floor(p.x), Math.floor(p.z)); for (let s = -9; s <= 13; s += 0.5) { const i = Math.floor(p.x + Math.sin(a) * s), j = Math.floor(p.z + Math.cos(a) * s); if (!G.walkable(i, j) || Math.abs(G.height(i, j) - h0) > 0.5 || G.has(i, j, 4)) return false; } return true; };
+      let a = null;
+      for (let t = 0; t < 60 && a == null; t++) {
+        goNear(G.w / 2 + Math.cos(t) * t * 1.5, G.d / 2 + 30 + Math.sin(t) * t * 1.5);
+        for (let k = 0; k < 16 && a == null; k++) if (clearLine((k / 16) * Math.PI * 2)) a = (k / 16) * Math.PI * 2;
+      }
+      out.spot = a != null;
+      p.yaw = a; p.grounded = true; p.vx = p.vz = 0; g.cam.yaw = a; step(5); p.yaw = a; p.dodgeCd = 0;
+      const x0 = p.x, z0 = p.z, f = { x: Math.sin(a), z: Math.cos(a) }, ground = p.y;
+      const along = () => +(((p.x - x0) * f.x + (p.z - z0) * f.z)).toFixed(2);
+      // A foe in the way of the Swordsman's charge, or where the Stardust lands.
+      const fd = '${cls}' === 'stardust' ? 9.5 : 2.5;
+      const foe = g.enemies.spawn('slime', p.x + f.x * fd, p.z + f.z * fd, { level: 5, noIntro: true }); foe.spawnT = 0; foe.maxHp = foe.hp = 1e6; foe.speed = 0;
+      const f0 = { x: foe.x, z: foe.z };
+      g.input.press('dodge'); step(1); g.input.release('dodge');
+      out.first = along();
+      let top = 0;
+      for (let k = 0; k < 40; k++) { step(1); top = Math.max(top, p.y - ground); }
+      out.dist = along(); out.top = +top.toFixed(2);
+      out.facing = +Math.abs(Math.atan2(Math.sin(p.yaw - a), Math.cos(p.yaw - a))).toFixed(2);
+      out.foeMoved = +Math.hypot(foe.x - f0.x, foe.z - f0.z).toFixed(2);
+      out.foeHurt = foe.hp < foe.maxHp;
+      foe.alive = false; foe.dyingT = 0;
+      return out;`);
+    const ok = {
+      swordsman: d.dist >= 4 && d.dist <= 6.5 && d.foeHurt && d.foeMoved > 1,
+      archer: d.dist <= -5.5 && d.facing < 0.2,
+      mage: d.first >= 6,
+      assassin: d.dist >= 9.5,
+      stardust: d.dist >= 7.5 && d.top >= 1.2 && d.foeMoved > 1,
+    }[cls];
+    check(d.spot && ok, `${cls}: dashes its own way (${JSON.stringify(d)})`);
+    check(!errors.length, `${cls} dash: no errors ${errors.slice(0, 3).join(' | ')}`);
+    await ctx.close();
+  }
+  // 15. Milestone 4: the ending.
+  {
+    const { ctx, page, errors } = await open(`${BASE}/singularita/index.html?quickstart=swordsman&debug`);
+    await waitGame(page);
+    const e = await sim(page, `
+      g.ui.closeDialog && g.ui.closeDialog(); g.godMode = true;
+      const out = {}, p = g.player;
+      g.profile.level = 270; g.recomputeStats();
+      g.profile.inv.stacks.singular_key = 1;
+      // Away from the Heart the key only hums.
+      out.away = !g.useConsumable('singular_key') && g.zone.id === 'island';
+      g.enterZone('cave_9'); step(3);
+      const h = g.zone.exit; goNear(h.x + 2.5, h.z); step(3);
+      g.useConsumable('singular_key'); await new Promise((r) => setTimeout(r, 1300)); step(3);
+      out.zone = g.zone.id; out.run = g.profile.run?.dim; out.keyKept = g.profile.inv.stacks.singular_key === 1;
+      out.lore = g.interaction.items.some((it) => it.id.startsWith('lore:'));
+      g.ui.openMenu('map'); out.map = /The Unmade/.test(document.getElementById('menu').innerText); g.ui.closeMenu();
+      out.boss = g.spawner.boss?.def.id;
+      return out;`);
+    check(e.away && e.zone === 'dim_unmade' && e.run === 'dim_unmade' && e.keyKept, `the Singular Key opens the Unmade from the Heart, and is kept (${JSON.stringify(e)})`);
+    check(e.map, 'the map knows the Unmade');
+    // The Fracture: it waits in the arena, wears every shape of the world in turn, and falls.
+    const f = await sim(page, `
+      g.ui.closeDialog && g.ui.closeDialog();
+      const out = {}, p = g.player, ar = g.zone.arena;
+      const boss = g.spawner.boss;
+      out.present = boss?.def.id === 'fracture';
+      if (!boss) return out;
+      goNear(ar.x, ar.z + ar.r - 3); p.grounded = true; step(30 * 2);
+      out.engaged = boss.engaged;
+      const b = boss.members[0];
+      out.bands = !!b.rig.orbit && b.rig.orbit.children.length >= 11;
+      const phases = []; g.bus.on('bossPhase', (ev) => { if (ev.def.id === 'fracture') phases.push(ev.phase.name); });
+      let summoned = 0; g.bus.on('spawned', ({ enemy }) => { if (enemy.summoned) summoned++; });
+      for (let k = 0; k < 160 && b.alive; k++) { g.combat.applyRaw(b, b.maxHp * 0.007, 'dmg'); step(15); p.hp = g.stats.maxHp; }
+      out.phases = phases; out.summoned = summoned;
+      out.defeated = boss.defeated;
+      out.crown = g.profile.inv.items.some((it) => it.id === 'crown_of_vael');
+      return out;`);
+    check(f.present && f.engaged && f.bands, `the Fracture waits in the Unmade, banded in every material (${JSON.stringify(f)})`);
+    check(f.phases?.join(',') === 'The Four Sigils,The Five Shards,Singular' && f.summoned > 0, 'it wears every shape of the world in turn');
+    check(f.defeated && f.crown, 'the Fracture falls, and leaves the Crown of Vael');
+    // Then Singularita asks what it should remember. Mend it: an epilogue, the credits, home.
+    const clickBtn = (re) => page.evaluate((src) => { const b = [...document.querySelectorAll('#dialog button, #credits button')].find((x) => new RegExp(src).test(x.textContent) && x.offsetParent !== null); if (b) b.click(); return !!b; }, re.source);
+    const stepFrames = (n) => page.evaluate((k) => { const g = window.__SG; for (let i = 0; i < k; i++) { g.update(1 / 30); g.input.endFrame(); } }, n);
+    await page.waitForTimeout(2600);
+    await clickBtn(/Continue/);
+    let asked = false;
+    for (let k = 0; k < 20 && !asked; k++) { await stepFrames(15); asked = await page.evaluate(() => /What should it remember/.test(document.getElementById('dialog')?.innerText || '')); }
+    const chose = asked && await clickBtn(/Mend it/);
+    let pages = 0;
+    for (let k = 0; k < 6; k++) { const more = await page.evaluate(() => !document.getElementById('dialog').hidden && /coral|isles|beacon|Lume/.test(document.getElementById('dialog').innerText)); if (!more) break; pages++; await clickBtn(/Continue/); }
+    const credits = await page.evaluate(() => { const c = document.getElementById('credits'); return !!c && !c.hidden && /Thank you for playing/.test(c.innerText) && /Mender of Vael/.test(c.innerText); });
+    await clickBtn(/Continue/);
+    await page.waitForTimeout(1500);
+    const after = await page.evaluate(() => { const g = window.__SG, p = g.profile; return { zone: g.zone.id, ending: p.ending, lore: p.lore.includes('lore_mend'), run: !!p.run, objective: g.objectives.current?.id ?? null }; });
+    check(asked && chose, 'after the fight, Singularita asks what it should remember');
+    check(pages >= 2 && credits, `mending it plays its epilogue (${pages} pages), then the credits`);
+    check(after.zone === 'island' && after.ending === 'mend' && after.lore && !after.run, `and you wake on Dawnreach, the choice remembered (${JSON.stringify(after)})`);
+    // Lume remembers it too, and the Journal keeps the records.
+    const told = await page.evaluate(() => { const g = window.__SG; g.ui.closeDialog?.(); g.profile.flags.metLume = true; g.interaction.talkLume(); const t = document.getElementById('dialog').innerText; g.ui.closeDialog?.(); g.ui.journalState = { tab: 'records' }; g.ui.openMenu('journal'); const j = document.getElementById('menu').innerText; for (const tab of ['goals', 'roadmap', 'lore', 'bosses', 'records']) { g.ui.journalState.tab = tab; g.ui.renderMenu(); } g.ui.journalState.tab = 'records'; g.ui.closeMenu(); return { lume: /ships may come home/.test(t), records: /Records/.test(j) && /Mender of Vael/.test(j) && /The Unmade/.test(j) }; });
+    check(told.lume && told.records, `Lume remembers the ending and the Journal keeps the records (${JSON.stringify(told)})`);
+    // Ascension: Lume offers to begin again. The story's keys go; the world stands taller.
+    await page.evaluate(() => { const g = window.__SG; g.ui.closeDialog?.(); g.profile.inv.stacks.sigil_wind = 1; g.interaction.talkLume(); });
+    const offered = await clickBtn(/Ascend/);
+    const confirmed = offered && await clickBtn(/Begin again/);
+    const asc = await sim(page, `
+      const out = { cycle: g.profile.cycle, sigil: g.profile.inv.stacks.sigil_wind || 0, level: g.profile.level };
+      g.ui.closeDialog && g.ui.closeDialog(); g.godMode = true;
+      for (const e of g.enemies.list) { e.alive = false; e.dyingT = 0; }
+      g.profile.playTime = Math.max(g.profile.playTime, 600);
+      step(30 * 40);
+      const horde = g.enemies.list.filter((e) => e.alive && e.horde);
+      out.horde = horde.length; out.minLevel = Math.min(...horde.map((e) => e.level));
+      const b = g.spawner.spawnBoss('slime_prince', false);
+      out.prince = b.level;
+      for (const m of g.spawner.boss.members) { m.alive = false; m.dyingT = 0; } g.spawner.boss = null;
+      return out;`);
+    check(offered && confirmed && asc.cycle === 1 && asc.sigil === 0 && asc.level >= 270, `Lume offers Ascension; the story begins again, you do not (${JSON.stringify(asc)})`);
+    check(asc.horde > 0 && asc.minLevel >= 31 && asc.prince >= 40, 'after Ascension the horde and the bosses stand thirty levels higher');
+    check(!errors.length, `ending: no errors ${errors.slice(0, 3).join(' | ')}`);
     await ctx.close();
   }
 } catch (err) {

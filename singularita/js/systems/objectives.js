@@ -27,7 +27,8 @@ export class ObjectiveTracker {
       case 'sigil': if (ev.type === 'sigil') inc = Math.max(0, sigilsHeld(this.p) - this.p.objectives.progress); break;
       case 'shard': if (ev.type === 'shard') inc = Math.max(0, held(this.p, SHARDS) - this.p.objectives.progress); break;
       case 'gate': if (ev.type === 'gate') inc = 1; break;
-      case 'boss': if (ev.type === 'boss') inc = 1; break;
+      case 'boss': if (ev.type === 'boss' && (o.target === 'any' || o.target === ev.id)) inc = 1; break;
+      case 'ending': if (ev.type === 'ending') inc = 1; break;
       case 'lore': if (ev.type === 'lore' && matches(o.target, ev.id)) inc = 1; break;
       default: break;
     }
@@ -57,7 +58,8 @@ export class ObjectiveTracker {
       else if (o.type === 'shard') ok = held(p, SHARDS) >= o.count;
       else if (o.type === 'gate') ok = !!p.flags?.gateOpen;
       else if (o.type === 'lore') ok = p.lore.includes(o.target);
-      else if (o.type === 'boss') ok = Object.keys(p.stats.bosses).length > 0;
+      else if (o.type === 'boss') ok = o.target === 'any' ? Object.keys(p.stats.bosses).length > 0 : !!p.stats.bosses[o.target];
+      else if (o.type === 'ending') ok = !!p.ending;
       else if (o.type === 'allocate') ok = Object.values(p.attrs).some((v) => v > 0);
       else if (o.type === 'equip') ok = (ctx.weaponTier ?? -1) >= (o.minTier || 0);
       else if (o.type === 'craft' || o.type === 'craftAny') ok = o.target.split('|').some((id) => p.stats.crafted[`craft_${id}`]);

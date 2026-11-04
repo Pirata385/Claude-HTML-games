@@ -35,4 +35,8 @@ export const OBJECTIVES = [
   { id: 'o_heart', type: 'reach', target: 'cave_9', count: 1, text: 'Open the Heart Seal', hint: 'Bring the five shards to the Heart Seal at the bottom of the Dawn and Dusk Hollows.', xp: 300000 },
   { id: 'o_singularita', type: 'gather', target: 'singularita', count: 6, text: 'Mine Singularita', hint: 'A Chromantite Pickaxe reaches it.', xp: 400000 },
   { id: 'o_t10gear', type: 'equip', target: 'weapon', minTier: 10, count: 1, text: 'Wield a Singularita weapon', hint: 'At the Forge, choose which two materials it remembers.', xp: 600000 },
+  { id: 'o_key', type: 'craft', target: 'singular_key', count: 1, text: 'Forge the Singular Key', hint: 'Singularita and two trophies from each ruler, at the Forge. Level 260.', xp: 800000 },
+  { id: 'o_unmade', type: 'reach', target: 'dim_unmade', count: 1, text: 'Enter the Unmade', hint: 'Use the Singular Key at the Heart, at the bottom of the Singular Heart.', xp: 400000 },
+  { id: 'o_fracture', type: 'boss', target: 'fracture', count: 1, text: 'Face the Fracture', hint: 'It wears every shape of the world in turn. Learn each one.', xp: 1200000 },
+  { id: 'o_choice', type: 'ending', target: 'any', count: 1, text: 'Tell Singularita what to remember', hint: 'Mend the world, or let it rest.', xp: 0 },
 ];

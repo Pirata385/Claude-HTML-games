@@ -4,7 +4,7 @@ import { h, clear } from '../dom.js';
 import { GRAPHICS_PRESETS, applyPreset, DEFAULT_BINDINGS } from '../../systems/settings.js';
 
 const ACTION_NAMES = {
-  forward: 'Move forward', back: 'Move back', left: 'Move left', right: 'Move right', jump: 'Jump', dodge: 'Dodge', interact: 'Interact / gather',
+  forward: 'Move forward', back: 'Move back', left: 'Move left', right: 'Move right', jump: 'Jump', dodge: 'Dash', interact: 'Interact / gather',
   lock: 'Lock on', tonic: 'Drink tonic', skill1: 'Skill 1', skill2: 'Skill 2', skill3: 'Skill 3', skill4: 'Skill 4', menu: 'Menu', inventory: 'Inventory',
   craft: 'Crafting', character: 'Character', skills: 'Skills', map: 'Map', journal: 'Journal', recall: 'Return to camp',
 };

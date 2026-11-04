@@ -234,6 +234,7 @@ const MOODS = {
   dim_twins: { root: 62, bpm: 96, scale: [0, 2, 4, 7, 9], prog: [0, 0, 5, 5], pad: 'triangle', lead: 'triangle', density: 0.32, bass: true },
   dim_king: { root: 46, bpm: 72, scale: PHRYG, prog: [0, 1, 6, 1], pad: 'sawtooth', lead: 'sine', density: 0.16, bass: true },
   dim_mirror: { root: 57, bpm: 80, scale: [0, 2, 3, 6, 7, 9, 10], prog: [0, -1, 0, 1], pad: 'sine', lead: 'triangle', density: 0.22, bass: false },
+  dim_unmade: { root: 50, bpm: 58, scale: [0, 2, 4, 6, 8, 10], prog: [0, 2, 4, 2], pad: 'sine', lead: 'sine', density: 0.18, bass: true },
   dim_dragons: { root: 45, bpm: 88, scale: DORIAN, prog: [0, 5, 3, -2], pad: 'sawtooth', lead: 'square', density: 0.3, bass: true },
   cave9: { root: 48, bpm: 54, scale: [0, 2, 4, 6, 8, 10], prog: [0, 2, 4, 2], pad: 'sine', lead: 'sine', density: 0.14, bass: true },
   boss: { root: 50, bpm: 132, scale: PHRYG, prog: [0, 1, 0, -2], pad: 'sawtooth', lead: 'square', density: 0.5, bass: true },

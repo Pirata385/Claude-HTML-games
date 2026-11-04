@@ -33,7 +33,11 @@ export function endRun(p, outcome) {
   const run = p.run;
   if (!run) return null;
   const r = record(p, run.dim);
-  if (outcome === 'complete') r.cleared++;
+  if (outcome === 'complete') {
+    r.cleared++;
+    const t = Math.round((p.playTime || 0) - (run.startedAt || 0));
+    if (r.bestTime == null || t < r.bestTime) r.bestTime = t;
+  }
   if (outcome !== 'fail' || run.floor > 1) r.bestFloor = Math.max(r.bestFloor, run.floor);
   p.run = null;
   return { dim: run.dim, floor: run.floor, kills: run.kills, outcome, returnTo: run.returnTo };

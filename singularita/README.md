@@ -2,12 +2,13 @@
 
 A third-person 3D voxel RPG of exploration, combat and crafting for the browser, on desktop and mobile. Hold the starter isle of **Dawnreach** against slimes by day and the Echoes of dead miners by night, mine down through the seven layers of **the Hollow Deep** from wood to diamond, craft gear for five very different classes, and face the **Slime Prince** and the **Silverback Zombie Emperor**.
 
-> **Status — the full design (Milestones 1 to 3).**
+> **Status — the full design and its ending (Milestones 1 to 4).**
 > - **Milestone 1:** the starter island, the Hollow Deep, all five classes, crafting, levels (cap 300), saving, mobile support and the first two bosses.
 > - **Milestone 2:** the four elemental isles (Air, Water, Fire, Earth) with their phenomena, creatures and guardians; the four sigils that open the Sealed Core Gate; the eighth layer beyond it, with Dawndosite and Escuresite.
 > - **Milestone 3:** the five dimensions, opened with Emblems and played as runs, each with its own rule and ruler; the five Fracture Shards that open the Singular Heart; and the last two tiers, Chromantite and Singularita.
+> - **Milestone 4:** the ending. The Singular Key opens the Unmade, where the Fracture waits; the choice to mend the world or let it rest, with its epilogue and credits; records; and Ascension, to begin the story again with everything you have.
 >
-> All eleven bosses of the brief are in. Nothing in this build is a placeholder: every recipe can be crafted and every area can be reached.
+> All eleven bosses of the brief are in, and a twelfth to end it. Nothing in this build is a placeholder: every recipe can be crafted and every area can be reached.
 
 ## Running
 
@@ -27,7 +28,7 @@ Open the root `index.html` menu and pick **Singularita**. Progress is saved in t
 | Attack | Left click (hold to repeat, or to charge as Archer) | Big button |
 | Alternate (guard, aim, channel, mark, manifest) | Right click | Button left of attack |
 | Skills | 1–4 | Four skill buttons |
-| Dodge / jump | Shift / Space | Dodge / Jump |
+| Dash / jump | Shift / Space | Dash / Jump |
 | Interact, gather (hold) | F | Tap the prompt |
 | Lock on | Q | Lock button, or a quick tap on the view |
 | Healing tonic | R | ❤ button |
@@ -67,6 +68,8 @@ On phones and tablets the game goes full screen on the first tap; the ⛶ button
   - **The Mirrored (Lv 140, Looking-Glass Emblem).** Your Reflection walks the far side of a glass line. Gates open only while both of you stand on mirrored plates, and its side has walls yours does not. **You?** fights like your own class, splits into a decoy without a shadow, and casts your last skill back at you.
   - **The Dragons' Roost (Lv 160, Dragonfire Emblem).** A climb of plateaus over the void. Dragon breath sweeps the paths: hide behind the standing rocks. Nests hatch whelps if you linger. **Ragnarok, the Dragon God** strafes from the sky, then fights on the ground, then calls meteors and a closing ring of fire.
 - **The Singular Heart (Lv 200).** Each ruler keeps one of five **Fracture Shards**. With all five, the Heart Seal at the bottom of the Dawn and Dusk Hollows opens into layer 9, where Singularita grows.
+- **The ending (Lv 260).** Fold Singularita and two trophies from each ruler into **the Singular Key** at the Forge, and use it at the Heart of the Singular Heart. It opens **the Unmade**, where the land broke, and **the Fracture**: the shape the crown remembered, banded in every material of the world. It wears every shape of your journey in turn: Vael (the Slime Prince's leap, the night's Echoes), the Four Sigils (wind, tide, flame, stone), the Five Shards (the rulers' hook, gel, crown shards, your reflection, the Dragon God's breath), and Singular (it pulls you in, and the edge burns away). Then Singularita asks what it should remember: **Mend it** or **End it**. Each choice has its own epilogue, title and credits, and the world remembers it. The key is kept: you can face the Fracture again, and choose differently.
+- **Ascension (New Game+).** After an ending, Lume can begin the story again. You keep your level, gear, materials, lore and records; the sigils, shards and key go back to the world and the Sealed Core Gate shuts. Every creature and boss stands 30 levels higher per cycle (up to 300), with more elites, ×1.25 experience and ×1.25 spoils per cycle. The Journal's **Records** tab keeps your endings, cycle, deepest floor and fastest clears.
 - **Lore.** Echo Stones on the island and in every layer tell the story of the Dawnforgers, Singularita and the Fracture. Lume, item descriptions and the bosses fill in the rest. The Journal collects everything you have found.
 
 ## Classes
@@ -75,9 +78,11 @@ On phones and tablets the game goes full screen on the first tap; the ⛶ button
 | --- | --- | --- | --- |
 | Swordsman | Stamina | Three-hit combos, guard and a 0.25 s perfect parry, Lunge, Whirlwind, Sunder, War Cry, Earthsplitter, Blade Dance | No ranged options |
 | Archer | Focus | Hold to charge (a full charge pierces), Steady Aim, Volley, Roll Shot, Pinning Arrow, Blast Arrow, Arrow Rain, Hawk Eye | Fragile; weaker at point blank |
-| Mage | Mana | **Crowd control.** Homing bolts that burst over the pack and slow it, Channel, Flame Burst that throws foes back, Frost Nova that freezes a whole pack, Chain Lightning that stuns, Blink with a moment of sure evasion, an Arcane Barrier that shatters into ice, and the **Arcane Lance**, one enormous blow to a single foe | Cast times, low health, mana |
+| Mage | Mana | **Crowd control.** Homing bolts that burst over the pack and slow it, Channel, Flame Burst that throws foes back, Frost Nova that freezes a whole pack, Chain Lightning that stuns, Arcane Vortex that drags a pack together, an Arcane Barrier that shatters into ice, and the **Arcane Lance**, one enormous blow to a single foe | Cast times, low health, mana |
 | Assassin | Energy | Fast stabs, double damage from behind, Mark, Shadowstep, Smoke Veil, Fan of Knives, Venom Edge, Execution, Dash Cut | Lowest health, weak against crowds |
 | Stardust | Spirit | Manifests an **Astral**, a stand of starlight generated from your character's seed. It fights inside a leash, guards in orbit, can be posted as a Sentinel, and casts Comet Dive, Gravity Well, Starfall and Constellation Link | Spirit drains while the Astral is out. It breaks after a number of blows (4, plus one per 12 Spirituality, up to 20) whatever their strength; puddles on the ground pass through it. 30% of its wounds echo to you, and if it breaks it cannot return for 6 s |
+
+Every class dashes its own way (the dodge key), with a moment of invulnerability: the Swordsman's **Shoulder Charge** barges through foes and staggers them; the Archer **Vaults** back without lowering the bow; the Mage **Blinks** (a teleport); the Assassin's **Shadow Dash** is the longest; the Stardust's **Star Leap** jumps far and throws foes back where it lands.
 
 Skills unlock at levels 1, 4, 10, 18, 28 and 40. Four of the six go on the hotbar, chosen in the Skills tab.
 
@@ -86,7 +91,7 @@ Skills unlock at levels 1, 4, 10, 18, 28 and 40. Four of the six go on the hotba
 You get 3 points per level, plus free growth in your class's two main attributes. Every attribute has soft caps, so no single one is mandatory:
 - **Strength:** melee damage, knockback and gathering speed.
 - **Resistance:** health, defence and stagger resistance.
-- **Agility:** move and attack speed, dodge cooldown.
+- **Agility:** move and attack speed, dash cooldown.
 - **Dexterity:** critical hits, projectile speed and accuracy.
 - **Spirituality:** Astral power and leash, status potency and resistance, healing received.
 - **Intelligence:** magic damage, cooldown reduction and Mana.

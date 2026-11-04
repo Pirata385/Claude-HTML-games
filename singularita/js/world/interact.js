@@ -2,6 +2,9 @@
 // Echo Stones, the Wayshrine and the isles, the Sealed Core Gate and the recall channel.
 import { NODES } from '../data/nodes.js';
 import { MATERIALS, SHARDS } from '../data/materials.js';
+
+// The rulers' trophies that go into the Singular Key.
+const TROPHIES = ['jailer_chain', 'siamese_heart', 'adamite_crown_shard', 'mirror_self', 'ragnarok_ember'];
 import { ZONES } from '../data/zones.js';
 import { LORE, LUME_LINES } from '../data/lore.js';
 import { canGather, gatherDamage, rollYield } from '../systems/gathering.js';
@@ -9,6 +12,9 @@ import { gatherXp } from '../systems/progression.js';
 import { addStack } from '../systems/inventory.js';
 import { canEnter, isleList, openGate, ownedSigils } from '../systems/travel.js';
 import { startRun, nextFloor, endRun } from '../systems/run.js';
+import { ENDINGS, chooseEnding, recordsOf } from '../systems/ending.js';
+import { ASCENSION, canAscend, ascend, ascendBonus } from '../systems/ascension.js';
+import { ObjectiveTracker } from '../systems/objectives.js';
 import { F } from './grid.js';
 
 const REACH = 2.6, NODE_REACH = 1.9;
@@ -32,6 +38,8 @@ export class Interaction {
     game.bus.on('bossDefeated', ({ def }) => {
       const z = game.zone;
       if (z.type !== 'dimension' || def.zone !== z.id) return;
+      // The Fracture leaves no portal: Singularita asks its question once the dust settles.
+      if (game.zoneDef.rule === 'finale') { this.choiceT = 3; return; }
       if (z.exit?.locked) this.unlockStair('The Jailer\'s keys are yours. The stair is open, and a portal leads home.');
       this.openExitPortal();
     });
@@ -118,6 +126,69 @@ export class Interaction {
     startRun(g.profile, P.dim, from);
     g.ui.fadeTravel(() => { g.enterZone(P.dim); g.save('dimension'); });
   }
+  // The Singular Key, at the Heart: down into the Unmade. Returns why it cannot, or null.
+  enterUnmade() {
+    const g = this.g, p = g.player, z = g.zone, def = ZONES.dim_unmade;
+    if (z.id !== 'cave_9' || Math.hypot(p.x - z.exit.x, p.z - z.exit.z) > 7) return 'The key hums toward the Singular Heart, at the bottom of everything.';
+    if (g.profile.level < def.levelReq) return `The Unmade will not hold you yet. Level ${def.levelReq}.`;
+    startRun(g.profile, def.id, { zone: z.id, x: z.exit.x, z: z.exit.z + 4 });
+    g.ui.fadeTravel(() => { g.enterZone(def.id); g.save('dimension'); });
+    return null;
+  }
+
+  // ------------------------------------------------------------------ Ascension
+  offerAscension() {
+    const g = this.g, next = (g.profile.cycle || 0) + 1, b = ascendBonus(next);
+    g.ui.dialog({ title: `Ascension ${next}`, portrait: 'lume',
+      text: `The story can begin again, and you with it, as you are now: your level, your gear, your materials and everything you learned stay with you. The sigils, the shards and the Singular Key go back to the world; the Sealed Core Gate shuts.\n\nEverything out there will stand ${ASCENSION.levels * next} levels taller than the first time, with more elites among them, and it will give more back: ×${b.xp.toFixed(2)} experience and ×${b.loot.toFixed(2)} spoils.`,
+      buttons: [{ label: 'Begin again', primary: true, action: () => this.ascendNow() }, { label: 'Not yet' }] });
+  }
+  ascendNow() {
+    const g = this.g, cycle = ascend(g.profile);
+    g.objectives = new ObjectiveTracker(g.profile);
+    g.bus.emit('ascend', { cycle });
+    g.ui.banner(`Ascension ${cycle}`, 'The story begins again. The world stands taller.', 'boss');
+    g.bus.emit('sfx', { id: 'levelup' });
+    g.save('ascend');
+  }
+
+  // ------------------------------------------------------------------ the ending
+  askEnding() {
+    const g = this.g;
+    g.ui.dialog({ title: 'What should it remember?', portrait: 'echo',
+      text: 'The Fracture is gone. What is left hums in your hands: Singularita, every shape the world could have been, waiting for one word from you.\n\n'
+        + `Mend it: ${ENDINGS.mend.ask}\nEnd it: ${ENDINGS.end.ask}`,
+      buttons: [{ label: ENDINGS.mend.label, primary: true, action: () => this.ending('mend') }, { label: ENDINGS.end.label, action: () => this.ending('end') }] });
+  }
+  ending(choice) {
+    const g = this.g, p = g.profile, e = ENDINGS[choice];
+    const { title } = chooseEnding(p, choice);
+    g.bus.emit('ending', { choice });
+    g.bus.emit('sfx', { id: 'fanfare' });
+    const pages = e.epilogue;
+    const page = (k) => {
+      if (k >= pages.length) { this.credits(choice, title); return; }
+      g.ui.dialog({ title: e.label, portrait: 'echo', text: pages[k], buttons: [{ label: 'Continue', primary: true, action: () => page(k + 1) }] });
+    };
+    page(0);
+  }
+  credits(choice, title) {
+    const g = this.g, rec = recordsOf(g.profile);
+    const hm = (t) => `${Math.floor(t / 3600)} h ${String(Math.floor((t % 3600) / 60)).padStart(2, '0')} min`;
+    g.ui.credits([
+      ['Singularita', 'The Broken Isles'],
+      [`${g.profile.name}, ${title}`, choice === 'mend' ? 'You asked it to remember Vael whole.' : 'You asked it to rest.'],
+      ['Your journey', `${hm(rec.playTime)} · level ${g.profile.level} · ${rec.bosses} bosses felled · ${rec.deaths} deaths · deepest gaol floor ${rec.bestFloor}`],
+      ['Lume', 'kept the light on.'],
+      ['Made for the Claude HTML Games collection', 'Thank you for playing.'],
+      ['', 'The world goes on. Lume has something to tell you.'],
+    ], () => {
+      // Home to Dawnreach, whatever the run says.
+      if (g.profile.run) g.profile.run.returnTo = { zone: 'island' };
+      this.leaveRun('complete');
+    });
+  }
+
   // The exit portal at a fallen ruler's feet.
   openExitPortal() {
     const g = this.g, a = g.zone.arena;
@@ -225,15 +296,20 @@ export class Interaction {
     const g = this.g, p = g.profile;
     let text;
     if (!p.flags?.metLume) { (p.flags ||= {}).metLume = true; text = LUME_LINES.first; }
+    else if (p.ending) text = LUME_LINES[p.ending === 'mend' ? 'mended' : 'ended'];
     else if (ownedSigils(p).length === 4 && !p.flags.gateOpen) text = LUME_LINES.sigilsHint;
     else if (p.level >= 66 && !p.flags.gateOpen && !Object.keys(p.zones).some((id) => id.startsWith('isle_'))) text = LUME_LINES.isleHint;
     else if (p.lore.includes('lore_seal') && !p.flags.gateOpen) text = LUME_LINES.gateHint;
+    else if ((p.inv.stacks.singular_key || 0) > 0) text = LUME_LINES.unmadeHint;
+    else if (p.level >= 250 && TROPHIES.every((s) => (p.inv.stacks[s] || 0) > 0)) text = LUME_LINES.keyHint;
     else if (SHARDS.every((s) => (p.inv.stacks[s] || 0) > 0) && !p.zones.cave_9) text = LUME_LINES.heartHint;
     else if (p.level >= 100 && p.flags.gateOpen && !Object.keys(p.dims || {}).length) text = LUME_LINES.emblemHint;
     else if (p.level >= 3 && !p.zones.cave_1) text = LUME_LINES.caveHint;
     else if (g.dayNight.phase === 'night') text = LUME_LINES.night;
     else text = LUME_LINES.greet[Math.floor(g.time) % LUME_LINES.greet.length] + ' ' + LUME_LINES.day;
-    g.ui.dialog({ title: 'Lume, the Beacon Keeper', text, portrait: 'lume' });
+    // Once the story has an ending, Lume can tell you how to begin it again.
+    const buttons = canAscend(p) ? [{ label: 'Ascend…', action: () => this.offerAscension() }, { label: 'Goodbye', primary: true }] : null;
+    g.ui.dialog({ title: 'Lume, the Beacon Keeper', text, portrait: 'lume', buttons });
     if (!p.lore.includes('lore_beacon') && p.flags.metLume) this.learn('lore_beacon', false);
   }
 
@@ -294,7 +370,10 @@ export class Interaction {
     // In the Singular Heart itself, the heart is the end of the road.
     if (g.zone.exit.type === 'core') {
       this.learn('lore_choice', false);
-      g.ui.dialog({ title: 'The Singular Heart', portrait: 'echo', text: 'Singularita grows here like coral, in every colour at once, humming the shape of every possible thing. It does not want anything from you. If you mine it and bring it to the Forge, it will become whatever you ask, and remember two other shapes besides.' });
+      const key = (p.inv.stacks.singular_key || 0) > 0;
+      g.ui.dialog({ title: 'The Singular Heart', portrait: 'echo', text: 'Singularita grows here like coral, in every colour at once, humming the shape of every possible thing. It does not want anything from you. If you mine it and bring it to the Forge, it will become whatever you ask, and remember two other shapes besides.'
+        + (key ? '\n\nThe Singular Key hums in your pack. Below the coral, something that is not quite a door remembers being one.' : ''),
+        buttons: key ? [{ label: 'Descend into the Unmade', primary: true, action: () => { const why = this.enterUnmade(); if (why) g.ui.toast(why, 'warn'); } }, { label: 'Not yet' }] : null });
       return;
     }
     const have = SHARDS.filter((s) => (p.inv.stacks[s] || 0) > 0);
@@ -369,6 +448,7 @@ export class Interaction {
   update(dt) {
     const g = this.g, p = g.player;
     this.swingCd -= dt;
+    if (this.choiceT > 0 && !g.ui.dialogOpen) { this.choiceT -= dt; if (this.choiceT <= 0) this.askEnding(); }
     // Respawn nodes.
     this.respawnT -= dt;
     if (this.respawnT <= 0) {

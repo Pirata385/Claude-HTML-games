@@ -107,3 +107,15 @@ test('shard objectives count the Fracture Shards you carry', () => {
   for (const s of ['shard_gaol', 'shard_twins', 'shard_crown', 'shard_mirror', 'shard_dragon']) q.inv.stacks[s] = 1;
   assert.equal(new ObjectiveTracker(q).checkImmediate()[0].id, 'o_shards');
 });
+
+test('a boss objective with a target asks for that boss only', () => {
+  const p = fresh();
+  p.stats.bosses = { slime_prince: 3, ragnarok: 1 };
+  p.objectives.index = OBJECTIVES.findIndex((o) => o.id === 'o_fracture');
+  const t = new ObjectiveTracker(p);
+  assert.equal(t.current.id, 'o_fracture', 'earlier bosses do not count');
+  assert.equal(t.handle({ type: 'boss', id: 'ragnarok' }), null);
+  assert.equal(t.handle({ type: 'boss', id: 'fracture' }).id, 'o_fracture');
+  assert.equal(t.current.id, 'o_choice');
+  assert.equal(t.handle({ type: 'ending', choice: 'mend' }).id, 'o_choice');
+});

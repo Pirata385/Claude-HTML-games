@@ -19,6 +19,10 @@ export function skillsTab(g, root, opts, rerender) {
         h('small', { class: 'muted' }, [s.cost ? `${s.cost} ${res}` : null, s.cd ? `${s.cd} s cooldown` : null].filter(Boolean).join(' · '))),
       s.kind === 'skill' ? h('button', { class: 'btn small', disabled: locked, onclick: () => { st.pick = st.pick === s.id ? null : s.id; rerender(); } }, onBar >= 0 ? `On slot ${onBar + 1}` : st.pick === s.id ? 'Choose a slot ↓' : 'Place') : null);
   };
+  // Every class has its own dash, on the dodge key.
+  const dashCard = (d) => h('div', { class: 'skill' },
+    h('div', { class: 'sk-ico' }, '➠'),
+    h('div', { class: 'sk-body' }, h('b', {}, d.name, h('small', {}, ' · dash')), h('p', {}, d.desc), h('small', { class: 'muted' }, `${d.dist} m · ${(g.stats.dodgeCd * d.cd).toFixed(1)} s cooldown`)));
   const bar = h('div', { class: 'hb-edit' }, hb.map((id, k) => h('button', { class: `hb-slot${st.pick ? ' target' : ''}`, onclick: () => {
     if (!st.pick) return;
     const prev = hb.indexOf(st.pick);
@@ -30,5 +34,5 @@ export function skillsTab(g, root, opts, rerender) {
     h('h3', {}, `${CLASSES[cls].name} skills`),
     h('p', { class: 'muted small' }, 'Four of your six skills sit on the hotbar. Pick a skill, then the slot to put it in. Key bindings can be changed in Settings.'),
     bar,
-    h('div', { class: 'skill-list' }, skillsOf(cls).map(card))));
+    h('div', { class: 'skill-list' }, dashCard(CLASSES[cls].dash), ...skillsOf(cls).map(card))));
 }

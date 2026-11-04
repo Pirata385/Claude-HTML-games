@@ -15,6 +15,8 @@ export const CONSUMABLES = {
   royal_bait: { id: 'royal_bait', name: 'Royal Jelly Bait', rarity: 'rare', icon: '♛', color: '#ffd166', effect: { summon: 'slime_prince' }, cd: 0,
     desc: 'Sweet enough to offend royalty. Use it in the Sunlit Glade by day to summon the Slime Prince.' },
   // Emblems: using one opens a portal to its dimension, in front of you, for a minute.
+  singular_key: { id: 'singular_key', name: 'The Singular Key', rarity: 'singular', icon: '✧', color: '#f4e8ff', effect: { finale: true }, cd: 0,
+    desc: 'Every trophy of the five rulers, folded into Singularita. It does not open a door: it reminds the Singular Heart that there was one. Use it at the Heart, at the bottom of everything.' },
   emblem_dungeon: { id: 'emblem_dungeon', name: 'Iron Key Emblem', rarity: 'legendary', icon: '⚿', color: '#9a9aa8', effect: { portal: 'dim_dungeon' }, cd: 0,
     desc: 'A key that fits no lock in this world. Use it to open a portal to the Endless Dungeon.' },
   emblem_twins: { id: 'emblem_twins', name: 'Twin Gel Emblem', rarity: 'legendary', icon: '❦', color: '#ff9ac8', effect: { portal: 'dim_twins' }, cd: 0,

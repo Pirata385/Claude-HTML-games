@@ -13,6 +13,7 @@ import { F } from '../world/grid.js';
 import { WAVES } from '../data/waves.js';
 import { notices, forgets } from './perception.js';
 import { angleDiff } from '../core/math.js';
+import { ascendBonus } from '../systems/ascension.js';
 
 const ACTIVE = 55, REDUCED = 95;
 const RIG_OF = (def) => (def.model === 'zombie' && def.helmet ? 'zombieHelmet' : def.model);
@@ -115,7 +116,7 @@ export class Enemies {
     let lootY = e.ry + e.height * e.scale + 0.6;
     for (const d of e.def.drops) {
       if (g.rng.next() > d.chance + luck) continue;
-      const n = g.rng.int(d.min, d.max) + (e.elite ? 1 : 0);
+      const n = Math.round((g.rng.int(d.min, d.max) + (e.elite ? 1 : 0)) * ascendBonus(p.cycle).loot);
       addStack(p.inv, d.id, n);
       g.overlay.text(e.x, lootY, e.z, `+${n} ${MATERIALS[d.id].name}`, 'loot');
       lootY += 0.4;

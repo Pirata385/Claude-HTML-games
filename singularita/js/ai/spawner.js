@@ -19,9 +19,10 @@ import { Siamese } from './bosses/siamese.js';
 import { AdamiteKing } from './bosses/adamiteKing.js';
 import { MirrorSelf } from './bosses/mirrorSelf.js';
 import { Ragnarok } from './bosses/ragnarok.js';
+import { Fracture } from './bosses/fracture.js';
 
 const BOSS_CLASS = { slime_prince: SlimePrince, silverback_emperor: Silverback, ronin_east_wind: Ronin, tears_of_poseidon: Tears, magma_vector: MagmaVector, allele_golem: AlleleGolem,
-  iron_jailer: IronJailer, siamese: Siamese, adamite_king: AdamiteKing, you: MirrorSelf, ragnarok: Ragnarok };
+  iron_jailer: IronJailer, siamese: Siamese, adamite_king: AdamiteKing, you: MirrorSelf, ragnarok: Ragnarok, fracture: Fracture };
 
 export class Spawner {
   constructor(game) {

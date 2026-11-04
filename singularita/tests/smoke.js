@@ -1034,6 +1034,27 @@ try {
       return out;`);
     check(e.away && e.zone === 'dim_unmade' && e.run === 'dim_unmade' && e.keyKept, `the Singular Key opens the Unmade from the Heart, and is kept (${JSON.stringify(e)})`);
     check(e.map, 'the map knows the Unmade');
+    // The Fracture: it waits in the arena, wears every shape of the world in turn, and falls.
+    const f = await sim(page, `
+      g.ui.closeDialog && g.ui.closeDialog();
+      const out = {}, p = g.player, ar = g.zone.arena;
+      const boss = g.spawner.boss;
+      out.present = boss?.def.id === 'fracture';
+      if (!boss) return out;
+      goNear(ar.x, ar.z + ar.r - 3); p.grounded = true; step(30 * 2);
+      out.engaged = boss.engaged;
+      const b = boss.members[0];
+      out.bands = !!b.rig.orbit && b.rig.orbit.children.length >= 11;
+      const phases = []; g.bus.on('bossPhase', (ev) => { if (ev.def.id === 'fracture') phases.push(ev.phase.name); });
+      let summoned = 0; g.bus.on('spawned', ({ enemy }) => { if (enemy.summoned) summoned++; });
+      for (let k = 0; k < 160 && b.alive; k++) { g.combat.applyRaw(b, b.maxHp * 0.007, 'dmg'); step(15); p.hp = g.stats.maxHp; }
+      out.phases = phases; out.summoned = summoned;
+      out.defeated = boss.defeated;
+      out.crown = g.profile.inv.items.some((it) => it.id === 'crown_of_vael');
+      return out;`);
+    check(f.present && f.engaged && f.bands, `the Fracture waits in the Unmade, banded in every material (${JSON.stringify(f)})`);
+    check(f.phases?.join(',') === 'The Four Sigils,The Five Shards,Singular' && f.summoned > 0, 'it wears every shape of the world in turn');
+    check(f.defeated && f.crown, 'the Fracture falls, and leaves the Crown of Vael');
     check(!errors.length, `ending: no errors ${errors.slice(0, 3).join(' | ')}`);
     await ctx.close();
   }

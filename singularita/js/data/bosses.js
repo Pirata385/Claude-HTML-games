@@ -218,7 +218,7 @@ export const BOSSES = {
   },
   fracture: {
     id: 'fracture', name: 'The Fracture', title: 'The Shape the Crown Remembered', zone: 'dim_unmade', arena: 'unmade', minLevel: 260,
-    hp: 2300, dmg: 26, levelOffset: 3, color: '#f4e8ff', model: 'fracture',
+    hp: 2500, dmg: 29, levelOffset: 3, color: '#f4e8ff', model: 'fracture',
     intro: 'I am every shape this world could have been, all at once, and it hurts. You carry pieces of me in your hands. Show me which one you are.',
     defeat: 'Enough. You have shown me. Now tell me what to be.',
     lore: 'When the king set Singularita into a crown and asked it to make him every king who ever was, it tried, and remembered too much: every shape of Vael at once. The land could not hold them all and broke. What stayed behind, in the place where nothing was made, was the remembering itself.',

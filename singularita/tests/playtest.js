@@ -44,7 +44,7 @@ const BASE = `http://localhost:${server.address().port}`;
 const browser = await chromium.launch({ args: ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader'] });
 
 // What a player brings to each dimension: its entry level, plus the gear and skills of that level.
-const ENTRY = { dim_dungeon: 100, dim_twins: 110, dim_king: 125, dim_mirror: 140, dim_dragons: 160, cave_9: 200,
+const ENTRY = { dim_dungeon: 100, dim_twins: 110, dim_king: 125, dim_mirror: 140, dim_dragons: 160, cave_9: 200, dim_unmade: 260,
   // Reference zones from earlier milestones, at a level a player meets them.
   cave_1: 3, cave_2: 10, cave_3: 18, cave_4: 28, cave_5: 40, cave_6: 52, cave_7: 66, isle_air: 75, isle_fire: 90, cave_8: 105,
   'boss:slime_prince': 8, 'boss:silverback_emperor': 14 };
@@ -441,6 +441,14 @@ async function playRun(page, cls, dim, level) {
       return out;
     }
     if (!dim.startsWith('dim_')) { g.enterZone(dim); return out; }
+    // The Unmade is reached with the Singular Key, at the Heart of the Singular Heart.
+    if (dim === 'dim_unmade') {
+      g.profile.inv.stacks.singular_key = 1;
+      g.enterZone('cave_9');
+      const h = g.zone.exit, p = g.player; p.x = h.x + 2.5; p.z = h.z; p.y = p.ry = g.grid.height(Math.floor(p.x), Math.floor(p.z));
+      g.useConsumable('singular_key');
+      return out;
+    }
     g.profile.inv.stacks[dim.replace('dim_', 'emblem_')] = 1;
     const p = g.player; g.enterZone('island'); p.yaw = g.zone.spawnYaw ?? Math.PI;
     const why = g.interaction.openPortal(dim);

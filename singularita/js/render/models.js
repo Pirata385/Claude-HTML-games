@@ -283,3 +283,38 @@ export function buildAstral(seed) {
   group.add(new THREE.Mesh(auraGeo, glowMaterial()));
   return { group, color: col, armL, armR, dispose() { torsoGeo.dispose(); armGeo.dispose(); lineGeo.dispose(); lineMat.dispose(); auraGeo.dispose(); group.parent?.remove(group); } };
 }
+
+// The Fracture: a tall figure banded in every material of the world, wood at the feet and
+// Singularita at the brow, under a crown split by Purple Adamite. Shards of each material circle
+// it (`orbit`, turned by the boss), and its chest holds a light that cycles their colours.
+export function buildFractureRig() {
+  const band = ['wood', 'stone', 'copper', 'iron', 'titanium', 'emerald', 'ruby', 'sapphire', 'diamond', 'dawndosite', 'chromantite', 'singularita'].map((id) => MATERIALS[id].color);
+  const crack = '#9a4ae0', core = '#ffffff';
+  const legs = (side) => [B(0, -0.15, 0, 0.3, 0.3, 0.32, band[0]), B(0, -0.45, 0, 0.3, 0.3, 0.32, band[1]), B(0, -0.75, 0, 0.32, 0.3, 0.34, band[2])];
+  const rig = {
+    kind: 'humanoid', scale: 2.3,
+    parts: [
+      { name: 'torso', parent: -1, pivot: [0, 0.95, 0], boxes: [B(0, 0.08, 0, 0.6, 0.18, 0.38, band[3]), B(0, 0.26, 0, 0.66, 0.18, 0.4, band[4]), B(0, 0.44, 0, 0.72, 0.18, 0.42, band[5]),
+        B(0, 0.62, 0, 0.78, 0.18, 0.44, band[6]), B(0, 0.8, 0, 0.8, 0.18, 0.44, band[7]), B(0, 0.5, 0.23, 0.2, 0.2, 0.04, core)] },
+      { name: 'head', parent: 0, pivot: [0, 0.92, 0], boxes: [B(0, 0.08, 0, 0.42, 0.16, 0.42, band[8]), B(0, 0.24, 0, 0.42, 0.16, 0.42, band[9]), B(0, 0.36, 0, 0.4, 0.1, 0.4, band[10]),
+        B(0.1, 0.22, 0.22, 0.08, 0.05, 0.02, core), B(-0.1, 0.22, 0.22, 0.08, 0.05, 0.02, core),
+        B(0, 0.5, 0, 0.5, 0.12, 0.5, band[11]), B(0.18, 0.66, 0.18, 0.08, 0.24, 0.08, band[11]), B(-0.18, 0.7, 0.18, 0.08, 0.3, 0.08, band[11]), B(0.18, 0.62, -0.18, 0.08, 0.2, 0.08, band[11]),
+        B(-0.04, 0.6, 0, 0.06, 0.34, 0.52, crack)] },
+      { name: 'armL', parent: 0, pivot: [0.48, 0.78, 0], boxes: [B(0, -0.2, 0, 0.22, 0.36, 0.24, band[7]), B(0, -0.52, 0, 0.22, 0.3, 0.24, band[6]), B(0, -0.76, 0.02, 0.28, 0.2, 0.28, band[11])] },
+      { name: 'armR', parent: 0, pivot: [-0.48, 0.78, 0], boxes: [B(0, -0.2, 0, 0.22, 0.36, 0.24, band[7]), B(0, -0.52, 0, 0.22, 0.3, 0.24, band[6]), B(0, -0.76, 0.02, 0.28, 0.2, 0.28, band[11])] },
+      { name: 'legL', parent: -1, pivot: [0.17, 0.95, 0], boxes: legs(1) },
+      { name: 'legR', parent: -1, pivot: [-0.17, 0.95, 0], boxes: legs(-1) },
+    ],
+  };
+  const r = new RigMesh(rig);
+  // A shard of every material, circling.
+  const orbit = new THREE.Group();
+  const geos = band.map((c) => boxesGeometry([B(0, 0, 0, 0.32, 0.5, 0.32, c), B(0, 0.3, 0, 0.16, 0.18, 0.16, c)]));
+  const mat = unlitMaterial();
+  geos.forEach((geo, k) => { const m = new THREE.Mesh(geo, mat); const a = (k / geos.length) * Math.PI * 2; m.position.set(Math.cos(a) * 2.6, 2.6 + Math.sin(k * 1.7) * 0.6, Math.sin(a) * 2.6); orbit.add(m); });
+  r.root.add(orbit);
+  r.orbit = orbit;
+  const base = r.dispose.bind(r);
+  r.dispose = () => { base(); for (const g of geos) g.dispose(); };
+  return r;
+}

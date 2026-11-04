@@ -12,7 +12,7 @@ import { fmt } from '../../core/math.js';
 const SHOW = [
   ['maxHp', 'Health', (v) => fmt(v)], ['def', 'Defence', (v) => v.toFixed(0)], ['power', 'Weapon power', (v) => v.toFixed(0)], ['dmgMult', 'Damage multiplier', (v) => `×${v.toFixed(2)}`],
   ['critChance', 'Crit chance', (v) => `${(v * 100).toFixed(1)}%`], ['critMult', 'Crit damage', (v) => `×${v.toFixed(2)}`], ['attackSpeed', 'Attack speed', (v) => `×${v.toFixed(2)}`],
-  ['moveSpeed', 'Move speed', (v) => v.toFixed(2)], ['dodgeCd', 'Dodge cooldown', (v) => `${v.toFixed(2)} s`], ['cdr', 'Cooldown reduction', (v) => `${(v * 100).toFixed(1)}%`],
+  ['moveSpeed', 'Move speed', (v) => v.toFixed(2)], ['dodgeCd', 'Dash cooldown', (v) => `${v.toFixed(2)} s`], ['cdr', 'Cooldown reduction', (v) => `${(v * 100).toFixed(1)}%`],
   ['resourceMax', 'Resource max', (v) => v.toFixed(0)], ['resourceRegen', 'Resource regen', (v) => `${v.toFixed(1)}/s`], ['spiPower', 'Astral power', (v) => `×${v.toFixed(2)}`],
   ['leash', 'Astral leash', (v) => `${v.toFixed(1)} m`], ['astralHits', 'Astral guard', (v) => `${v} blows`], ['statusRes', 'Status resist', (v) => `${(v * 100).toFixed(1)}%`], ['statusPotency', 'Status potency', (v) => `×${v.toFixed(2)}`],
   ['gatherPower', 'Gathering', (v) => `×${v.toFixed(2)}`], ['oocRegen', 'Rest regen', (v) => `${(v * 100).toFixed(2)}%/s`], ['tonicPotency', 'Tonic potency', (v) => `×${v.toFixed(2)}`],

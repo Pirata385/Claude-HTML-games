@@ -119,7 +119,7 @@ export const ITEMS = Object.fromEntries(list.map((i) => [i.id, i]));
 export const STAT_LABELS = {
   power: 'Power', def: 'Defence', hp: 'Health', toolPower: 'Tool power',
   str: 'Strength', res: 'Resistance', agi: 'Agility', dex: 'Dexterity', spi: 'Spirituality', int: 'Intelligence', rsv: 'Reserves',
-  atkSpd: 'Attack speed', moveSpd: 'Move speed', dodgeCd: 'Dodge cooldown', crit: 'Crit chance', critMult: 'Crit damage',
+  atkSpd: 'Attack speed', moveSpd: 'Move speed', dodgeCd: 'Dash cooldown', crit: 'Crit chance', critMult: 'Crit damage',
   knockback: 'Knockback', staggerRes: 'Stagger resist', armorPen: 'Armour pierce', statusRes: 'Status resist',
   lifesteal: 'Life steal', hpRegen: 'Health regen', resRegen: 'Resource regen', resMax: 'Resource max', cdr: 'Cooldown reduction',
   luck: 'Drop luck', shockChance: 'Shock chance', burnChance: 'Burn chance', chillChance: 'Chill chance', prismatic: 'Prismatic',

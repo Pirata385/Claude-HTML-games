@@ -41,6 +41,8 @@ async function open(url, ctxOpts = { viewport: { width: 1280, height: 720 } }) {
   await page.goto(url);
   return { ctx, page, errors };
 }
+// Screenshots are for looking at, not checks: a slow software renderer gets time, and a miss is only noted.
+const shot = (page, o) => page.screenshot({ timeout: 120000, ...o }).catch((e) => console.log(`note: screenshot ${path.basename(o.path)} skipped (${e.message.split('\n')[0]})`));
 const waitGame = (page) => page.waitForFunction(() => window.__SG && window.__SG.zone && document.getElementById('loading').hidden, null, { timeout: 60000 });
 // Runs `body` in the page with helpers that step the simulation directly (independent of frame rate).
 const sim = (page, body) => page.evaluate(`(async () => {
@@ -70,7 +72,7 @@ try {
     await page.locator('.class-card[data-cls="archer"]').click();
     await page.locator('.btn', { hasText: 'Begin' }).click();
     await waitGame(page);
-    await page.screenshot({ path: path.join(SHOTS, 'island_day.png') });
+    await shot(page, { path: path.join(SHOTS, 'island_day.png') });
     const r = await sim(page, `
       g.ui.closeDialog && g.ui.closeDialog();
       const z = g.zone, p = g.player, out = {};
@@ -131,7 +133,7 @@ try {
     check(r.boss.id && r.boss.period === r.boss.phase && r.boss.timer >= 480, `boss clock spawns the ${r.boss.phase} boss and restarts (${r.boss.id}, next in ${Math.round(r.boss.timer)} s, level ${r.boss.level})`);
     check(r.boss.paused, 'the boss clock waits while a boss is abroad');
     check(r.stats.calls < 250 && r.stats.triangles < 400000, `render budget (calls ${r.stats.calls}, triangles ${r.stats.triangles})`);
-    await page.screenshot({ path: path.join(SHOTS, 'island_combat.png') });
+    await shot(page, { path: path.join(SHOTS, 'island_combat.png') });
 
     // 3. Caves, layer gates, transitions and saving.
     const c = await sim(page, `
@@ -164,7 +166,7 @@ try {
     check(c.geo[1] <= c.geo[0] + 2, `no geometry leak across zone changes (${c.geo.join(' → ')})`);
     check(c.lore.length >= 1, 'Echo Stones record lore');
     check(c.saved, 'game saves');
-    await page.screenshot({ path: path.join(SHOTS, 'cave.png') });
+    await shot(page, { path: path.join(SHOTS, 'cave.png') });
 
     // 4. Bosses: phases, the split, the pillar stun and rewards.
     const b = await sim(page, `
@@ -267,7 +269,7 @@ try {
       return { kills, used: [...used], hp: p.hp > 0 };`);
     check(r.kills >= 2 && r.used.length >= 4, `${cls}: fights (kills ${r.kills}, skills ${r.used.join(',')})`);
     check(!errors.length, `${cls}: no errors ${errors.slice(0, 2).join(' | ')}`);
-    await page.screenshot({ path: path.join(SHOTS, `class_${cls}.png`) });
+    await shot(page, { path: path.join(SHOTS, `class_${cls}.png`) });
     await ctx.close();
   }
 
@@ -300,8 +302,11 @@ try {
     // Measured before each tap: the layout can shift when the browser bars go away.
     const tapFs = async () => {
       const b = await page.evaluate(() => { const q = document.querySelector('#hud .hbtn.fs').getBoundingClientRect(); return { x: q.x + q.width / 2, y: q.y + q.height / 2 }; });
+      const was = await isFs();
       await page.touchscreen.tap(b.x, b.y);
-      await page.waitForTimeout(400);
+      // Entering and leaving full screen is asynchronous: wait for it (slow renderers take a while).
+      await page.waitForFunction((w) => !!document.fullscreenElement !== w, was, { timeout: 3000 }).catch(() => {});
+      await page.waitForTimeout(200);
     };
     // Let the first-tap automatic full screen (if any) settle before measuring.
     await page.waitForTimeout(500);
@@ -342,11 +347,12 @@ try {
       return { hidden, back: scaleOf() };
     }, tree.index);
     check(back.hidden === 0 && back.back > 0, `touch ${name}: a tree hidden for the camera comes back (${back.hidden} → ${back.back.toFixed(2)})`);
-    for (let k = 0; k < 14; k++) { await page.touchscreen.tap(tree.x, tree.y); await page.waitForTimeout(450); }
-    const wood = await page.evaluate(() => window.__SG.profile.inv.stacks.wood || 0);
+    // Keep tapping like a player would until the wood comes (a slow renderer needs more taps).
+    let wood = tree.wood;
+    for (let k = 0; k < 40 && wood <= tree.wood; k++) { await page.touchscreen.tap(tree.x, tree.y); await page.waitForTimeout(450); wood = await page.evaluate(() => window.__SG.profile.inv.stacks.wood || 0); }
     check(wood > tree.wood, `touch ${name}: tapping the prompt (${tree.label}) chops wood (${tree.wood} → ${wood})`);
     check(!errors.length, `touch ${name}: no errors`);
-    await page.screenshot({ path: path.join(SHOTS, `touch_${name}.png`) });
+    await shot(page, { path: path.join(SHOTS, `touch_${name}.png`) });
     await ctx.close();
   }
 
@@ -363,7 +369,7 @@ try {
         return { id: g.zone.id, alive: g.player.alive };`);
       await settle();
       const stats = await page.evaluate(() => window.__SG.r.stats());
-      await page.screenshot({ path: path.join(SHOTS, `${id}.png`) });
+      await shot(page, { path: path.join(SHOTS, `${id}.png`) });
       check(r.id === id && r.alive, `${id}: loads and plays`);
       check(stats.calls < 250 && stats.triangles < 400000, `${id}: render budget (calls ${stats.calls}, triangles ${stats.triangles})`);
     }
@@ -420,7 +426,7 @@ try {
       out.alive = g.player.alive; out.enemies = g.enemies.count();
       return out;`);
     await settle();
-    await page.screenshot({ path: path.join(SHOTS, 'cave_8.png') });
+    await shot(page, { path: path.join(SHOTS, 'cave_8.png') });
     check(core.open && core.zone === 'cave_8' && core.exit === 'heart', `the sigils open the gate to the Core (${core.zone})`);
     check(core.enemies > 0, `the Core is populated (${core.enemies})`);
     const menus = await page.evaluate(() => {
@@ -436,7 +442,7 @@ try {
     check(/Key items/.test(menus.inv) && /Sigil of Wind/.test(menus.inv), 'sigils show as key items');
     const horizon = await sim(page, `g.enterZone('island'); step(3); return !!g.view.horizon;`);
     await settle();
-    await page.screenshot({ path: path.join(SHOTS, 'horizon.png') });
+    await shot(page, { path: path.join(SHOTS, 'horizon.png') });
     check(horizon, 'Dawnreach shows the isles on the horizon');
     check(!errors.length, `isles: no errors ${errors.slice(0, 3).join(' | ')}`);
     await ctx.close();
@@ -466,7 +472,7 @@ try {
       out.spawned = n; out.total = ids.length; out.shots = shot.length;
       return out;`);
     await settle();
-    await page.screenshot({ path: path.join(SHOTS, 'm2_creatures.png') });
+    await shot(page, { path: path.join(SHOTS, 'm2_creatures.png') });
     check(cr.pop > 0 && cr.own && cr.levels, `isles keep their own creatures at their own levels (${cr.pop})`);
     check(cr.spawned === cr.total && cr.shots > 0, `every new creature spawns and fights (${cr.spawned}/${cr.total}, ${cr.shots} shots)`);
     for (const [isle, id, sigil] of [['isle_air', 'ronin_east_wind', 'sigil_wind'], ['isle_water', 'tears_of_poseidon', 'sigil_tide'], ['isle_fire', 'magma_vector', 'sigil_flame'], ['isle_earth', 'allele_golem', 'sigil_stone']]) {
@@ -484,7 +490,7 @@ try {
         out.engaged = boss.engaged;
         return out;`);
       await settle();
-      await page.screenshot({ path: path.join(SHOTS, `guardian_${id}.png`) });
+      await shot(page, { path: path.join(SHOTS, `guardian_${id}.png`) });
       check(a.present && a.engaged, `${id}: waits in its arena and engages`);
       if (!a.present) continue;
       const r = await sim(page, `
@@ -567,7 +573,7 @@ try {
         }
         return out;`);
       await settle();
-      await page.screenshot({ path: path.join(SHOTS, `${dim}.png`) });
+      await shot(page, { path: path.join(SHOTS, `${dim}.png`) });
       check(d.zone === dim && d.alive && d.enemies > 0, `${dim}: the portal leads there and it is populated (${d.enemies})`);
       if (dim === 'dim_twins') check(d.gateOpen, 'twins: a lever opens a gate in the other lane');
       // Dying ends the run.
@@ -635,7 +641,7 @@ try {
     check(rules.sheltered && rules.burned, 'roost: dragon breath burns the open, not behind a rock');
     check(rules.heart, 'the five shards open the Heart Seal into the Singular Heart, where Singularita grows');
     await settle();
-    await page.screenshot({ path: path.join(SHOTS, 'cave_9.png') });
+    await shot(page, { path: path.join(SHOTS, 'cave_9.png') });
     check(!errors.length, `dimensions: no errors ${errors.slice(0, 3).join(' | ')}`);
     await ctx.close();
   }
@@ -674,7 +680,7 @@ try {
         } else out.staysIn = true;
         return out;`);
       await settle();
-      await page.screenshot({ path: path.join(SHOTS, `ruler_${boss}.png`) });
+      await shot(page, { path: path.join(SHOTS, `ruler_${boss}.png`) });
       check(a.present && a.engaged, `${boss}: rules its dimension and engages (${JSON.stringify(a)})`);
       check(a.staysIn, `${boss}: keeps to its arena when you step out`);
       if (!a.present) { await sim(page, `g.interaction.leaveRun('leave'); await new Promise((r) => setTimeout(r, 1200)); return 1;`); continue; }
@@ -941,17 +947,70 @@ try {
       out.shield = +(p.shield / g.stats.maxHp).toFixed(2);
       near(3); step(30 * 8.5);
       out.barrierFreeze = pack.every((e) => e.statuses.has('freeze'));
-      // Blink: a moment when every blow misses.
-      ready(); kit.tryCast('mg_blink'); step(1);
-      out.evade = +p.iframes.toFixed(2);
+      // Arcane Vortex: the pack is drawn together, then the vortex implodes.
+      reset(); pack.forEach((e, k) => { const a = (k / 3) * Math.PI * 2; e.x = p.x + fwd.x * 8 + Math.cos(a) * 3.5; e.z = p.z + fwd.z * 8 + Math.sin(a) * 3.5; });
+      const spread = () => Math.max(...pack.map((e) => Math.hypot(e.x - p.x - fwd.x * 8, e.z - p.z - fwd.z * 8)));
+      const s0 = spread();
+      // Aim at the middle of the pack.
+      const mid = g.enemies.spawn('slime', p.x + fwd.x * 8, p.z + fwd.z * 8, { level: 40, noIntro: true }); mid.spawnT = 0; mid.maxHp = mid.hp = 1e7; mid.speed = 0;
+      g.lockTarget = mid; ready(); kit.tryCast('mg_vortex'); step(30 * 1.2);
+      mid.alive = false; mid.dyingT = 0;
+      out.vortex = +(spread() / s0).toFixed(2);
+      step(30 * 1.5);
+      out.vortexHurt = pack.every((e) => e.hp < e.maxHp);
       for (const e of pack) { e.alive = false; e.dyingT = 0; }
       return out;`);
     check(m.boltHit && m.splash, `the Mage's bolt bursts over the pack and slows it (${JSON.stringify(m)})`);
     check(m.frozen, 'Frost Nova freezes every foe around you');
     check(m.lance >= 6 && m.lanceAlone && m.lanceStun, `the Arcane Lance strikes one foe for ${m.lance}× a bolt, and stuns it`);
     check(m.shield >= 0.3 && m.barrierFreeze, 'Arcane Barrier shields you, then freezes foes around you as it fades');
-    check(m.evade >= 1, 'Blink leaves a moment in which every blow misses');
+    check(m.vortex < 0.6 && m.vortexHurt, `Arcane Vortex draws the pack together, then implodes (spread ×${m.vortex})`);
     check(!errors.length, `mage: no errors ${errors.slice(0, 3).join(' | ')}`);
+    await ctx.close();
+  }
+  // 14. Every class dashes its own way.
+  for (const cls of ['swordsman', 'archer', 'mage', 'assassin', 'stardust']) {
+    const { ctx, page, errors } = await open(`${BASE}/singularita/index.html?quickstart=${cls}&debug`);
+    await waitGame(page);
+    const d = await sim(page, `
+      g.ui.closeDialog && g.ui.closeDialog(); g.godMode = true;
+      const out = {}, p = g.player;
+      for (const e of g.enemies.list) { e.alive = false; e.dyingT = 0; }
+      // A clear, level stretch of 13 cells.
+      const G = g.grid;
+      const clearLine = (a) => { const h0 = G.height(Math.floor(p.x), Math.floor(p.z)); for (let s = -9; s <= 13; s += 0.5) { const i = Math.floor(p.x + Math.sin(a) * s), j = Math.floor(p.z + Math.cos(a) * s); if (!G.walkable(i, j) || Math.abs(G.height(i, j) - h0) > 0.5 || G.has(i, j, 4)) return false; } return true; };
+      let a = null;
+      for (let t = 0; t < 60 && a == null; t++) {
+        goNear(G.w / 2 + Math.cos(t) * t * 1.5, G.d / 2 + 30 + Math.sin(t) * t * 1.5);
+        for (let k = 0; k < 16 && a == null; k++) if (clearLine((k / 16) * Math.PI * 2)) a = (k / 16) * Math.PI * 2;
+      }
+      out.spot = a != null;
+      p.yaw = a; p.grounded = true; p.vx = p.vz = 0; g.cam.yaw = a; step(5); p.yaw = a; p.dodgeCd = 0;
+      const x0 = p.x, z0 = p.z, f = { x: Math.sin(a), z: Math.cos(a) }, ground = p.y;
+      const along = () => +(((p.x - x0) * f.x + (p.z - z0) * f.z)).toFixed(2);
+      // A foe in the way of the Swordsman's charge, or where the Stardust lands.
+      const fd = '${cls}' === 'stardust' ? 9.5 : 2.5;
+      const foe = g.enemies.spawn('slime', p.x + f.x * fd, p.z + f.z * fd, { level: 5, noIntro: true }); foe.spawnT = 0; foe.maxHp = foe.hp = 1e6; foe.speed = 0;
+      const f0 = { x: foe.x, z: foe.z };
+      g.input.press('dodge'); step(1); g.input.release('dodge');
+      out.first = along();
+      let top = 0;
+      for (let k = 0; k < 40; k++) { step(1); top = Math.max(top, p.y - ground); }
+      out.dist = along(); out.top = +top.toFixed(2);
+      out.facing = +Math.abs(Math.atan2(Math.sin(p.yaw - a), Math.cos(p.yaw - a))).toFixed(2);
+      out.foeMoved = +Math.hypot(foe.x - f0.x, foe.z - f0.z).toFixed(2);
+      out.foeHurt = foe.hp < foe.maxHp;
+      foe.alive = false; foe.dyingT = 0;
+      return out;`);
+    const ok = {
+      swordsman: d.dist >= 4 && d.dist <= 6.5 && d.foeHurt && d.foeMoved > 1,
+      archer: d.dist <= -5.5 && d.facing < 0.2,
+      mage: d.first >= 6,
+      assassin: d.dist >= 9.5,
+      stardust: d.dist >= 7.5 && d.top >= 1.2 && d.foeMoved > 1,
+    }[cls];
+    check(d.spot && ok, `${cls}: dashes its own way (${JSON.stringify(d)})`);
+    check(!errors.length, `${cls} dash: no errors ${errors.slice(0, 3).join(' | ')}`);
     await ctx.close();
   }
 } catch (err) {

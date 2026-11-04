@@ -1,6 +1,6 @@
 // Mage: crowd control. Bolts that burst over a pack, fire that throws foes back, frost that freezes
-// them, lightning that stuns them; a blink that leaves a moment of sure evasion, a barrier that
-// shatters into ice, and the Arcane Lance for the one foe that matters.
+// them, lightning that stuns them; a vortex that gathers a pack, a barrier that shatters into ice,
+// and the Arcane Lance for the one foe that matters. (Its blink is the Mage's dash.)
 import { BaseKit, dirOf } from './base.js';
 import { moveCircle } from '../../world/physics.js';
 import { SKILLS } from '../../data/skills.js';
@@ -85,23 +85,27 @@ export class MageKit extends BaseKit {
     this.g.bus.emit('sfx', { id: 'zap' });
   }
 
-  s_mg_blink(s) {
-    const ax = this.g.input.axes();
-    const f = this.g.cam.forward, r = this.g.cam.right;
-    let dx = f.x * ax.y + r.x * ax.x, dz = f.z * ax.y + r.z * ax.x;
-    if (Math.hypot(dx, dz) < 0.1) { dx = Math.sin(this.p.yaw); dz = Math.cos(this.p.yaw); }
-    const l = Math.hypot(dx, dz);
-    const x0 = this.p.x, z0 = this.p.z;
-    this.fx.burst(this.p.x, this.p.ry + 1, this.p.z, 14, { color: '#b8a0ff', speed: 3 });
-    moveCircle(this.g.grid, this.p, (dx / l) * s.range, (dz / l) * s.range, this.p.radius, 1.05);
-    // A moment in which every blow misses, and a trail of frost that slows whoever follows.
-    this.p.iframes = Math.max(this.p.iframes, s.evade);
-    for (let k = 0; k < 3; k++) {
-      const x = x0 + (this.p.x - x0) * (k / 3), z = z0 + (this.p.z - z0) * (k / 3);
-      this.combat.zone({ x, z, r: 1.6, t: 3, interval: 0.4, team: 'player', color: '#9fd8ff', onTick: (ts) => { for (const t of ts) this.combat.applyStatus(t, 'slow', { dur: 1 }); } });
-    }
-    this.fx.burst(this.p.x, this.p.ry + 1, this.p.z, 14, { color: '#b8a0ff', speed: 3 });
+  // Arcane Vortex: foes are dragged to its eye for a while, then it implodes.
+  s_mg_vortex(s) {
+    const pt = this.aimPoint(s.range);
+    const y = this.g.grid.height(Math.floor(pt.x), Math.floor(pt.z));
+    this.face(Math.atan2(pt.x - this.p.x, pt.z - this.p.z)); this.play('cast', 0.3);
     this.g.bus.emit('sfx', { id: 'blink' });
+    this.combat.zone({ x: pt.x, z: pt.z, y, r: s.radius, t: s.duration, interval: 1 / 30, team: 'player', color: '#9f7aff',
+      onTick: (ts, z) => {
+        for (const t of ts) {
+          if (t.boss) continue;
+          const dx = z.x - t.x, dz = z.z - t.z, d = Math.hypot(dx, dz);
+          if (d > 0.4) moveCircle(this.g.grid, t, (dx / d) * Math.min(d, s.pull / 30), (dz / d) * Math.min(d, s.pull / 30), t.radius * 0.8, 1.05, t.flying);
+          if (!t.statuses.has('slow')) this.combat.applyStatus(t, 'slow', { dur: 0.5 });
+        }
+        if (Math.random() < 0.5) this.fx.burst(z.x + (Math.random() - 0.5) * z.r * 2, y + 0.5, z.z + (Math.random() - 0.5) * z.r * 2, 1, { color: '#b8a0ff', speed: 1, life: 0.5 });
+      },
+      onEnd: (z) => {
+        this.fx.burst(z.x, y + 0.8, z.z, 34, { color: '#cfefff', speed: 7, up: 2 });
+        this.g.bus.emit('sfx', { id: 'frost' });
+        for (const t of this.combat.circle(z.x, z.z, s.radius * 0.6, 'player')) this.combat.hit(t, { mult: s.dmg, element: 'frost', status: [{ id: 'chill' }], from: z });
+      } });
   }
 
   s_mg_barrier(s) {

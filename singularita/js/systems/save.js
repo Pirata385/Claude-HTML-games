@@ -5,9 +5,9 @@ import { hashStr } from '../core/rng.js';
 import { ITEMS } from '../data/items.js';
 import { defaultHotbar } from '../data/skills.js';
 
-export const SAVE_VERSION = 2;
+export const SAVE_VERSION = 3;
 // Skills that were replaced, and what takes their place on the hotbars.
-const RENAMED_SKILLS = { mg_meteor: 'mg_lance' };
+const RENAMED_SKILLS = { mg_meteor: 'mg_lance', mg_blink: 'mg_vortex' };
 export const SLOT_COUNT = 3;
 
 export function newProfile({ name, classId, slot, seed }) {
@@ -55,7 +55,7 @@ export function migrate(data) {
   delete defaults.inv.stacks.healing_tonic;
   // The boss pity roll became a boss clock.
   if (data.world) delete data.world.bossPity;
-  // The Mage's Meteor became the Arcane Lance.
+  // The Mage's Meteor became the Arcane Lance, and Blink (now its dash) the Arcane Vortex.
   for (const bar of Object.values(data.hotbars || {})) for (let k = 0; k < bar.length; k++) if (RENAMED_SKILLS[bar[k]]) bar[k] = RENAMED_SKILLS[bar[k]];
   fillDefaults(data, { ...defaults, inv: data.inv || defaults.inv, equipment: data.equipment || {}, hotbars: data.hotbars || defaults.hotbars });
   data.version = SAVE_VERSION;

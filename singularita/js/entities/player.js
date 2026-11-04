@@ -1,9 +1,11 @@
-// The player: movement, jumping, dodging and animation. Combat comes from the class kit.
+// The player: movement, jumping, each class's dash and animation. Combat comes from the class kit.
 import { Entity } from './entity.js';
 import { moveCircle, groundAt, unstick } from '../world/physics.js';
 import { animate } from '../render/rigs.js';
 import { F } from '../world/grid.js';
 import { damp, angleDiff } from '../core/math.js';
+import { CLASSES } from '../data/classes.js';
+import { planDash } from '../combat/dash.js';
 
 const GRAVITY = 24, JUMP_V = 8.2, STEP = 1.05;
 
@@ -53,7 +55,7 @@ export class Player extends Entity {
 
     if (this.dodgeT > 0) {
       this.dodgeT -= dt;
-      moveCircle(grid, this, this.dodgeX * 11 * dt, this.dodgeZ * 11 * dt, this.radius, STEP);
+      this.dashStep(dt, g);
     } else {
       this.vx = damp(this.vx, mx * speed, 14, dt);
       this.vz = damp(this.vz, mz * speed, 14, dt);
@@ -63,14 +65,21 @@ export class Player extends Entity {
       if (this.kit?.faceYaw != null) this.yaw += angleDiff(this.yaw, this.kit.faceYaw) * Math.min(1, dt * 20);
     }
 
-    // Dodge roll: short burst with invulnerability.
-    if (!g.inputBlocked && input.wasPressed('dodge') && this.dodgeCd <= 0 && !st.rooted && this.grounded) {
-      const dx = ml > 0.1 ? mx / Math.max(ml, 1e-6) : -f.x, dz = ml > 0.1 ? mz / Math.max(ml, 1e-6) : -f.z;
-      const l = Math.hypot(dx, dz) || 1;
-      this.dodgeX = dx / l; this.dodgeZ = dz / l;
-      this.dodgeT = 0.32; this.iframes = 0.34; this.dodgeCd = stats.dodgeCd;
-      this.yaw = Math.atan2(this.dodgeX, this.dodgeZ);
-      g.bus.emit('dodge', { x: this.x, z: this.z });
+    // Each class dashes its own way (data/classes.js), with a moment of invulnerability.
+    const dash = CLASSES[g.profile.classId].dash;
+    if (!g.inputBlocked && input.wasPressed('dodge') && this.dodgeCd <= 0 && !st.rooted && (this.grounded || dash.kind === 'blink')) {
+      const plan = planDash(dash, ml > 0.1 ? { x: mx, z: mz } : null, this.yaw);
+      this.dash = { ...plan, def: dash, hit: new Set() };
+      this.dodgeX = plan.dx; this.dodgeZ = plan.dz;
+      this.iframes = Math.max(this.iframes, dash.iframes); this.dodgeCd = stats.dodgeCd * dash.cd;
+      if (!dash.keepFacing) this.yaw = Math.atan2(plan.dx, plan.dz);
+      g.bus.emit('dodge', { x: this.x, z: this.z, kind: dash.kind });
+      if (plan.speed === Infinity) this.blink(plan, g);
+      else {
+        this.dodgeT = dash.dist / plan.speed;
+        // Leaps and vaults leave the ground on an arc that lands as the dash ends.
+        if (dash.height) { this.vy = Math.sqrt(2 * GRAVITY * dash.height); this.grounded = false; this.dash.air = true; }
+      }
     }
 
     // Vertical.
@@ -83,7 +92,10 @@ export class Player extends Entity {
     if (!this.grounded) {
       this.vy -= GRAVITY * dt;
       this.y += this.vy * dt;
-      if (this.y <= ground) { this.y = ground; this.grounded = true; if (this.vy < -12) g.bus.emit('land', { hard: true }); this.vy = 0; }
+      if (this.y <= ground) {
+        this.y = ground; this.grounded = true; if (this.vy < -12) g.bus.emit('land', { hard: true }); this.vy = 0;
+        if (this.dash?.def.kind === 'leap' && this.dash.air) { this.dash.air = false; this.starLanding(g); }
+      }
     }
     this.ry = this.grounded ? damp(this.ry, this.y, 18, dt) : this.y;
     if (Math.abs(this.ry - this.y) > 2) this.ry = this.y;
@@ -93,6 +105,37 @@ export class Player extends Entity {
     this.moveAmt = damp(this.moveAmt, Math.min(1, hs / 4), 10, dt);
     this.phase += hs * dt * 2.2;
     this.still = hs < 0.2 ? this.still + dt : 0;
+  }
+
+  // One step of a travelling dash, and what it does on the way.
+  dashStep(dt, g) {
+    const d = this.dash, k = d.def.kind;
+    moveCircle(g.grid, this, d.dx * d.speed * dt, d.dz * d.speed * dt, this.radius, d.air ? STEP + 0.6 : STEP);
+    if (k === 'charge') {
+      // Barging through: each foe in the way is thrown aside and staggered, once.
+      for (const e of g.combat.circle(this.x, this.z, 1.3, 'player')) {
+        if (d.hit.has(e)) continue;
+        d.hit.add(e);
+        g.combat.hit(e, { mult: 0.4, knock: d.def.knock, status: [{ id: 'stun', dur: 0.5 }], noTraits: true });
+      }
+    } else if (k === 'shadow' && Math.random() < dt * 40) g.fx.burst(this.x, this.ry + 1, this.z, 2, { color: '#3a2a4a', speed: 0.3, life: 0.4, size: 0.3 });
+  }
+
+  // The Mage's blink: there, then here.
+  blink(plan, g) {
+    g.fx.burst(this.x, this.ry + 1, this.z, 16, { color: '#b8a0ff', speed: 3 });
+    moveCircle(g.grid, this, plan.dx * plan.dist, plan.dz * plan.dist, this.radius, STEP);
+    this.y = this.ry = groundAt(g.grid, this.x, this.z); this.vy = 0; this.grounded = true;
+    this.vx = this.vz = 0;
+    g.fx.burst(this.x, this.ry + 1, this.z, 16, { color: '#b8a0ff', speed: 3 });
+  }
+
+  // A Star Leap lands: foes around are thrown back.
+  starLanding(g) {
+    g.fx.decal({ shape: 'ring', x: this.x, z: this.z, y: this.y, r: 2.8, t: 0.4, fill: false, color: '#c48cff' });
+    g.fx.burst(this.x, this.y + 0.3, this.z, 20, { color: '#c48cff', speed: 6, up: 2 });
+    g.cam.shake(0.25);
+    for (const e of g.combat.circle(this.x, this.z, 2.8, 'player')) g.combat.hit(e, { mult: 0.3, knock: 1.5, from: this, noTraits: true });
   }
 
   render(dt) {

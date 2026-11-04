@@ -314,7 +314,8 @@ test('the Mage controls crowds: bursting bolts, freezing frost, a ward to surviv
   assert.ok(SKILLS.mg_nova.freeze >= 1.5, 'Frost Nova freezes on the first cast');
   assert.ok(SKILLS.mg_chain.stun > 0, 'Chain Lightning stuns');
   assert.ok(SKILLS.mg_barrier.shield >= 0.3 && SKILLS.mg_barrier.pulse, 'Arcane Barrier shields, then freezes foes around you');
-  assert.ok(SKILLS.mg_blink.evade >= 1, 'Blink grants a moment of sure evasion');
+  assert.ok(SKILLS.mg_vortex.pull > 0 && SKILLS.mg_vortex.radius >= 4 && SKILLS.mg_vortex.duration >= 1.5, 'Arcane Vortex gathers a pack');
+  assert.equal(SKILLS.mg_blink, undefined, 'the blink is the Mage\'s dash now');
   // The last skill is a single, devastating blow.
   const last = kit.filter((s) => s.kind !== 'basic' && s.kind !== 'alt').sort((a, b) => b.unlock - a.unlock)[0];
   assert.equal(last.id, 'mg_lance');

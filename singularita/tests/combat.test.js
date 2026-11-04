@@ -3,6 +3,8 @@ import assert from 'node:assert/strict';
 import { computeHit, defenseFactor, isBehind } from '../js/combat/formulas.js';
 import { StatusSet } from '../js/combat/statusRuntime.js';
 import { makeRng } from '../js/core/rng.js';
+import { CLASSES, CLASS_IDS } from '../js/data/classes.js';
+import { planDash } from '../js/combat/dash.js';
 
 const base = { power: 20, dmgMult: 1.5, mult: 1, critChance: 0, critMult: 1.5, def: 0, pen: 0, defMult: 1, vuln: 1 };
 
@@ -64,4 +66,33 @@ test('status set: marked only boosts its source', () => {
   s.apply('marked', { src: 'me' });
   assert.ok(s.vulnFrom('me') > 1);
   assert.equal(s.vulnFrom('someone'), 1);
+});
+
+test('every class dashes its own way', () => {
+  const kinds = CLASS_IDS.map((c) => CLASSES[c].dash.kind);
+  assert.equal(new Set(kinds).size, CLASS_IDS.length, 'five different dashes');
+  for (const c of CLASS_IDS) { const d = CLASSES[c].dash; assert.ok(d.name && d.dist > 0 && d.iframes > 0 && d.cd > 0, c); }
+  const d = (c) => CLASSES[c].dash;
+  assert.ok(CLASS_IDS.every((c) => c === 'assassin' || d(c).dist < d('assassin').dist), 'the Assassin dashes furthest');
+  assert.equal(d('mage').kind, 'blink'); assert.equal(d('mage').time, 0, 'the Mage teleports');
+  assert.equal(d('stardust').kind, 'leap'); assert.ok(d('stardust').height >= 1.2, 'the Stardust leaps');
+  assert.ok(d('swordsman').knock > 0, 'the Swordsman barges through');
+  assert.ok(d('archer').back && d('archer').keepFacing, 'the Archer vaults back, still aiming');
+});
+
+test('planDash: where a dash goes', () => {
+  const fwd = { dash: { dist: 5, time: 0.3 } }, back = { dash: { dist: 7, time: 0.4, back: true } };
+  const close = (a, b) => Math.abs(a - b) < 1e-9;
+  // With a direction held, every dash goes that way.
+  let p = planDash(fwd.dash, { x: 1, z: 0 }, 0);
+  assert.ok(close(p.dx, 1) && close(p.dz, 0) && p.dist === 5 && close(p.speed, 5 / 0.3));
+  p = planDash(back.dash, { x: 0, z: -1 }, 0);
+  assert.ok(close(p.dz, -1));
+  // Without one, most dash where you face; the Archer vaults away from it.
+  p = planDash(fwd.dash, null, Math.PI / 2);
+  assert.ok(close(p.dx, 1) && close(p.dz, 0));
+  p = planDash(back.dash, null, 0);
+  assert.ok(close(p.dz, -1));
+  // A teleport has no travel time.
+  assert.equal(planDash({ dist: 7, time: 0 }, null, 0).speed, Infinity);
 });

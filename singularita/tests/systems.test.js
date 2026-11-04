@@ -501,3 +501,12 @@ test('saves from before the Mage rework trade Meteor for the Arcane Lance', () =
   assert.equal(m.version, SAVE_VERSION);
   assert.ok(SAVE_VERSION >= 2);
 });
+
+test("saves from before the class dashes trade the Mage's Blink skill for the Arcane Vortex", () => {
+  const old = fresh('mage');
+  old.version = 2;
+  old.hotbars.mage = ['mg_flame', 'mg_blink', 'mg_chain', 'mg_lance'];
+  const m = migrate(JSON.parse(JSON.stringify(old)));
+  assert.deepEqual(m.hotbars.mage, ['mg_flame', 'mg_vortex', 'mg_chain', 'mg_lance']);
+  assert.ok(SAVE_VERSION >= 3);
+});

@@ -27,7 +27,7 @@ Open the root `index.html` menu and pick **Singularita**. Progress is saved in t
 | Attack | Left click (hold to repeat, or to charge as Archer) | Big button |
 | Alternate (guard, aim, channel, mark, manifest) | Right click | Button left of attack |
 | Skills | 1–4 | Four skill buttons |
-| Dodge / jump | Shift / Space | Dodge / Jump |
+| Dash / jump | Shift / Space | Dash / Jump |
 | Interact, gather (hold) | F | Tap the prompt |
 | Lock on | Q | Lock button, or a quick tap on the view |
 | Healing tonic | R | ❤ button |
@@ -75,9 +75,11 @@ On phones and tablets the game goes full screen on the first tap; the ⛶ button
 | --- | --- | --- | --- |
 | Swordsman | Stamina | Three-hit combos, guard and a 0.25 s perfect parry, Lunge, Whirlwind, Sunder, War Cry, Earthsplitter, Blade Dance | No ranged options |
 | Archer | Focus | Hold to charge (a full charge pierces), Steady Aim, Volley, Roll Shot, Pinning Arrow, Blast Arrow, Arrow Rain, Hawk Eye | Fragile; weaker at point blank |
-| Mage | Mana | **Crowd control.** Homing bolts that burst over the pack and slow it, Channel, Flame Burst that throws foes back, Frost Nova that freezes a whole pack, Chain Lightning that stuns, Blink with a moment of sure evasion, an Arcane Barrier that shatters into ice, and the **Arcane Lance**, one enormous blow to a single foe | Cast times, low health, mana |
+| Mage | Mana | **Crowd control.** Homing bolts that burst over the pack and slow it, Channel, Flame Burst that throws foes back, Frost Nova that freezes a whole pack, Chain Lightning that stuns, Arcane Vortex that drags a pack together, an Arcane Barrier that shatters into ice, and the **Arcane Lance**, one enormous blow to a single foe | Cast times, low health, mana |
 | Assassin | Energy | Fast stabs, double damage from behind, Mark, Shadowstep, Smoke Veil, Fan of Knives, Venom Edge, Execution, Dash Cut | Lowest health, weak against crowds |
 | Stardust | Spirit | Manifests an **Astral**, a stand of starlight generated from your character's seed. It fights inside a leash, guards in orbit, can be posted as a Sentinel, and casts Comet Dive, Gravity Well, Starfall and Constellation Link | Spirit drains while the Astral is out. It breaks after a number of blows (4, plus one per 12 Spirituality, up to 20) whatever their strength; puddles on the ground pass through it. 30% of its wounds echo to you, and if it breaks it cannot return for 6 s |
+
+Every class dashes its own way (the dodge key), with a moment of invulnerability: the Swordsman's **Shoulder Charge** barges through foes and staggers them; the Archer **Vaults** back without lowering the bow; the Mage **Blinks** (a teleport); the Assassin's **Shadow Dash** is the longest; the Stardust's **Star Leap** jumps far and throws foes back where it lands.
 
 Skills unlock at levels 1, 4, 10, 18, 28 and 40. Four of the six go on the hotbar, chosen in the Skills tab.
 
@@ -86,7 +88,7 @@ Skills unlock at levels 1, 4, 10, 18, 28 and 40. Four of the six go on the hotba
 You get 3 points per level, plus free growth in your class's two main attributes. Every attribute has soft caps, so no single one is mandatory:
 - **Strength:** melee damage, knockback and gathering speed.
 - **Resistance:** health, defence and stagger resistance.
-- **Agility:** move and attack speed, dodge cooldown.
+- **Agility:** move and attack speed, dash cooldown.
 - **Dexterity:** critical hits, projectile speed and accuracy.
 - **Spirituality:** Astral power and leash, status potency and resistance, healing received.
 - **Intelligence:** magic damage, cooldown reduction and Mana.

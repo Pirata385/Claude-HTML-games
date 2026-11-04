@@ -216,4 +216,23 @@ export const BOSSES = {
     ],
     xp: 13500,
   },
+  fracture: {
+    id: 'fracture', name: 'The Fracture', title: 'The Shape the Crown Remembered', zone: 'dim_unmade', arena: 'unmade', minLevel: 260,
+    hp: 2300, dmg: 26, levelOffset: 3, color: '#f4e8ff', model: 'fracture',
+    intro: 'I am every shape this world could have been, all at once, and it hurts. You carry pieces of me in your hands. Show me which one you are.',
+    defeat: 'Enough. You have shown me. Now tell me what to be.',
+    lore: 'When the king set Singularita into a crown and asked it to make him every king who ever was, it tried, and remembered too much: every shape of Vael at once. The land could not hold them all and broke. What stayed behind, in the place where nothing was made, was the remembering itself.',
+    phases: [
+      { at: 1.0, name: 'Vael', desc: 'It wears the shapes of Dawnreach: it bounces like the Slime Prince by day, and by night it calls the Echoes.' },
+      { at: 0.7, name: 'The Four Sigils', desc: 'Wind, Tide, Flame and Stone in turn: gusts that push, rising water that slows, burning ground, falling rock.' },
+      { at: 0.4, name: 'The Five Shards', desc: 'It borrows the rulers: the Jailer\'s hook, the Siamese gel, the crown\'s shards, your reflection, the Dragon God\'s breath.' },
+      { at: 0.15, name: 'Singular', desc: 'It pulls everything toward itself, and the edge of the Unmade falls away.' },
+    ],
+    rewards: [
+      { item: 'crown_of_vael', chance: 1, firstKill: true },
+      { material: 'singularita', min: 8, max: 14, chance: 1 },
+      { material: 'singularita_shard', min: 4, max: 6, chance: 1 },
+    ],
+    xp: 16000,
+  },
 };

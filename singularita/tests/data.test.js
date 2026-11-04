@@ -9,7 +9,7 @@ import { RECIPES } from '../js/data/recipes.js';
 import { CONSUMABLES } from '../js/data/consumables.js';
 import { ENEMIES, BEHAVIORS } from '../js/data/enemies.js';
 import { BOSSES } from '../js/data/bosses.js';
-import { ZONES, ZONE_ORDER } from '../js/data/zones.js';
+import { ZONES, ZONE_ORDER, DIMENSIONS as DIMENSION_IDS } from '../js/data/zones.js';
 import { WAVES } from '../js/data/waves.js';
 import { STATUS } from '../js/data/status.js';
 import { LORE } from '../js/data/lore.js';
@@ -87,7 +87,8 @@ test('progression sim: from bare hands the pickaxe chain reaches Singularita by 
   // their emblem can be crafted.
   let pickTier = -1; // hands
   const have = new Set(['wood', 'slime_gel', 'zombie_sinew']);
-  const emblemReady = (z, L) => { const r = RECIPES[`craft_${z.emblem}`]; return r.level <= L && Object.keys(r.inputs).every((id) => have.has(id)); };
+  // Dimensions open with their emblem; the Unmade with the Singular Key.
+  const emblemReady = (z, L) => { const r = RECIPES[`craft_${z.emblem || z.key}`]; return r.level <= L && Object.keys(r.inputs).every((id) => have.has(id)); };
   const open = (z, L) => z.levelReq <= L && (z.requires || []).every((id) => have.has(id)) && (z.type !== 'dimension' || emblemReady(z, L));
   for (let L = 1; L <= 300; L++) {
     for (const b of Object.values(BOSSES)) if (b.minLevel <= L && open(ZONES[b.zone || 'island'], L)) for (const r of b.rewards) if (r.material) have.add(r.material);
@@ -108,7 +109,8 @@ test('progression sim: from bare hands the pickaxe chain reaches Singularita by 
   assert.ok(pickTier >= 10, `best pickaxe tier ${pickTier}`);
 });
 
-const DIMENSIONS = () => Object.values(ZONES).filter((z) => z.type === 'dimension');
+// The five emblem dimensions (the Unmade, where the story ends, is a dimension of its own kind).
+const DIMENSIONS = () => Object.values(ZONES).filter((z) => z.type === 'dimension' && z.rule !== 'finale');
 const MAIN_WORLD_BOSS_MATS = new Set(Object.values(BOSSES).filter((b) => ['island', 'isle'].includes(ZONES[b.zone || 'island'].type)).flatMap((b) => b.rewards.map((r) => r.material)).filter(Boolean));
 
 test('five dimensions, each opened by its own craftable emblem made from main-world boss materials', () => {
@@ -322,4 +324,20 @@ test('the Mage controls crowds: bursting bolts, freezing frost, a ward to surviv
   assert.ok(last.dmg >= 8 && !last.radius && !last.bounces, 'focused on one target');
   assert.equal(SKILLS.mg_meteor, undefined);
   assert.match(CLASSES.mage.tagline, /crowd|control/i);
+});
+
+test('the ending: the Singular Key opens the Unmade, where the Fracture waits', () => {
+  const key = Object.values(RECIPES).find((r) => r.output.stack === 'singular_key');
+  assert.ok(key && key.level === 260, 'crafted at level 260');
+  for (const m of ['singularita', 'jailer_chain', 'siamese_heart', 'adamite_crown_shard', 'mirror_self', 'ragnarok_ember']) assert.ok(key.inputs[m] > 0, m);
+  assert.ok(CONSUMABLES.singular_key?.effect?.finale, 'the key is used at the Singular Heart');
+  const z = ZONES.dim_unmade;
+  assert.ok(z && z.type === 'dimension' && z.rule === 'finale' && z.boss === 'fracture' && z.levelReq === 260 && !z.emblem);
+  assert.ok(!DIMENSION_IDS.includes('dim_unmade') && ZONE_ORDER.includes('dim_unmade'), 'not an emblem dimension, but part of the world');
+  const b = BOSSES.fracture;
+  assert.ok(b && b.zone === 'dim_unmade' && b.phases.length === 4 && b.intro && b.defeat && b.lore);
+  assert.deepEqual(b.phases.map((p) => p.name), ['Vael', 'The Four Sigils', 'The Five Shards', 'Singular']);
+  assert.ok(b.rewards.some((r) => r.item === 'crown_of_vael') && ITEMS.crown_of_vael, 'a unique worth the trip');
+  for (const id of ['lore_unmade', 'lore_mend', 'lore_end']) assert.ok(LORE[id]?.text, id);
+  for (const id of ['o_key', 'o_unmade', 'o_fracture', 'o_choice']) assert.ok(OBJECTIVES.some((o) => o.id === id), id);
 });

@@ -85,6 +85,12 @@ export const LORE = {
     'Hold a piece of it and it asks you, without words, what it should be. A blade. A shield. A ring. Whatever you answer, it remembers that you asked it nicely.' },
 };
 
+Object.assign(LORE, {
+  lore_unmade: { id: 'lore_unmade', title: 'The Unmade', text: 'Below the Singular Heart there is a place where nothing was ever made: no stone, no sea, no name. The Fracture began here, when the crown remembered too much. The ground you stand on is only there because you expect it to be.' },
+  lore_mend: { id: 'lore_mend', title: 'Mended', text: 'You asked it to remember Vael whole. It did, slowly, the way coral grows. The isles still float apart, but at night their lights line up across the sea, and the tide between them runs warm. Lume says the ships may come home after all.' },
+  lore_end: { id: 'lore_end', title: 'At Rest', text: 'You asked it to stop remembering. It did, all at once, the way a held breath ends. The dimensions are quiet now; their doors still open, but nothing behind them is angry any more. The isles stay where they are. They were always going to.' },
+});
+
 // Lume, the beacon-keeper construct at the base.
 export const LUME_LINES = {
   greet: [
@@ -101,4 +107,8 @@ export const LUME_LINES = {
   sigilsHint: 'Four sigils. The gate will know them. Whatever lies below has waited a long time for someone to open it.',
   emblemHint: 'The bosses of this world leave more than loot: their essences fold into Emblems at the Forge. An Emblem opens a door to one of the dimensions the Fracture made. Each has a ruler, and each ruler holds a piece of the Fracture itself.',
   heartHint: 'Five pieces of the Fracture, humming against each other. The Heart Seal will know them. I think this is where Singularita sleeps.',
+  keyHint: 'You carry a trophy from every ruler now. Fold them into Singularita at the Forge and you will have a key to the one place even the Heart does not talk about.',
+  unmadeHint: 'The key hums toward the bottom of everything. Whatever broke this world is waiting there. Go when you are ready. I will keep the light on.',
+  mended: 'I saw the isles\' lights line up across the sea last night. Nine hundred and twelve years, and the ships may come home after all. Thank you.',
+  ended: 'It is quiet now. Not empty: quiet. I did not know the world could rest. I think I will keep the light on anyway.',
 };

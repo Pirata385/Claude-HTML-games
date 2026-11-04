@@ -81,6 +81,7 @@ consumable('emblem_dungeon', 100, { silver_mane: 3, vector_core: 2, dawndosite: 
 consumable('emblem_twins', 110, { royal_jelly: 4, poseidon_tear: 2, escuresite: 4, slime_gel: 30 }, 1);
 consumable('emblem_king', 125, { allele_seed: 2, silver_mane: 3, escuresite: 6, prism_dust: 10 }, 1);
 consumable('emblem_mirror', 140, { eastwind_silk: 2, poseidon_tear: 2, dawndosite: 6, diamond: 8 }, 1);
+consumable('singular_key', 260, { singularita: 30, jailer_chain: 2, siamese_heart: 2, adamite_crown_shard: 2, mirror_self: 2, ragnarok_ember: 2 }, 1);
 consumable('emblem_dragons', 160, { vector_core: 3, eastwind_silk: 2, allele_seed: 2, dawndosite: 4, escuresite: 4 }, 1);
 
 // Elemental isle accessories.

@@ -185,6 +185,16 @@ ZONES.dim_dragons = dim('dragons', {
   palette: { sky: '#3a1a2a', horizon: '#ff8a4a', fog: '#4a2a2a', sea: '#2a1a1a', ground: '#5a3a30', ash: '#7a6058', rock: '#4a3a3a', grass: '#6a5040', sun: '#ffb070', hemi: '#ff9a6a', hemiG: '#2a1010' },
 });
 
+// The Unmade: beyond the Singular Heart, where the Fracture began. One fight, then a choice.
+ZONES.dim_unmade = dim('unmade', {
+  name: 'The Unmade', subtitle: 'Where the Fracture began', levelReq: 260, band: [270, 270], population: 0,
+  boss: 'fracture', rule: 'finale', key: 'singular_key', render: 'isle',
+  ruleDesc: 'Nothing grows here and nothing waits but the Fracture. Win, and Singularita will ask you what it should remember.',
+  gen: { kind: 'unmade', size: 96 },
+  nodes: [], enemies: [], exclusive: [], lore: ['lore_unmade'],
+  palette: { sky: '#0a0614', horizon: '#c890e0', fog: '#1a1028', sea: '#06040c', ground: '#3a3048', ash: '#5a4a70', rock: '#2a2238', grass: '#4a3a60', sun: '#f4e8ff', hemi: '#d8c8ff', hemiG: '#100818' },
+});
+
 ZONES.cave_9 = cave(9, {
   name: 'The Singular Heart', subtitle: 'Beyond the Heart Seal', levelReq: 200, band: [200, 220], population: 8, elite: 0.12,
   requires: ['shard_gaol', 'shard_twins', 'shard_crown', 'shard_mirror', 'shard_dragon'],
@@ -197,7 +207,7 @@ ZONES.cave_9 = cave(9, {
 });
 
 export const ZONE_ORDER = ['island', 'cave_1', 'cave_2', 'cave_3', 'cave_4', 'cave_5', 'cave_6', 'cave_7', 'isle_air', 'isle_water', 'isle_fire', 'isle_earth', 'cave_8',
-  'dim_dungeon', 'dim_twins', 'dim_king', 'dim_mirror', 'dim_dragons', 'cave_9'];
+  'dim_dungeon', 'dim_twins', 'dim_king', 'dim_mirror', 'dim_dragons', 'cave_9', 'dim_unmade'];
 export const DIMENSIONS = ['dim_dungeon', 'dim_twins', 'dim_king', 'dim_mirror', 'dim_dragons'];
 export const ISLES = ['isle_air', 'isle_water', 'isle_fire', 'isle_earth'];
 export const caveZone = (layer) => ZONES[`cave_${layer}`];

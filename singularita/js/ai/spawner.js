@@ -1,6 +1,7 @@
 // Spawning: the endless island horde by day and night, the roaming bosses,
 // cave and isle populations, the isle guardians, tremors and cave hazards.
 import { Horde, BossClock, eliteChance } from '../systems/horde.js';
+import { ascendLevel, ascendBonus } from '../systems/ascension.js';
 import { ENEMIES } from '../data/enemies.js';
 import { runLevel } from '../systems/run.js';
 import { WAVES } from '../data/waves.js';
@@ -62,9 +63,10 @@ export class Spawner {
 
   caveLevel() {
     const g = this.g;
-    if (g.zone.type === 'dimension' && g.profile.run) return Math.min(300, runLevel(g.zoneDef, g.profile.run) + g.rng.int(-2, 2));
+    const cycle = g.profile.cycle;
+    if (g.zone.type === 'dimension' && g.profile.run) return ascendLevel(Math.min(300, runLevel(g.zoneDef, g.profile.run) + g.rng.int(-2, 2)), cycle);
     const b = g.zoneDef.band;
-    return g.rng.int(b[0], b[1]);
+    return ascendLevel(g.rng.int(b[0], b[1]), cycle);
   }
 
   // A walkable, reachable spot at a distance from the player, preferably out of view.
@@ -91,7 +93,7 @@ export class Spawner {
     const table = z.enemies.filter((e) => !e.side || e.side === side);
     if (!id && !table.length) return null;
     const pick = id || g.rng.weighted(table).id;
-    return g.enemies.spawn(pick, spot.x, spot.z, { level: this.caveLevel(), elite: g.rng.chance(eliteChance(z, g.zone, WAVES)), ambient: true });
+    return g.enemies.spawn(pick, spot.x, spot.z, { level: this.caveLevel(), elite: g.rng.chance(eliteChance(z, g.zone, WAVES, g.profile.cycle)), ambient: true });
   }
 
   update(dt) {
@@ -112,7 +114,7 @@ export class Spawner {
     const target = g.profile.playTime < 240 ? 4 : undefined;
     for (const r of this.horde.update(dt, { phase: g.dayNight.phase, alive, core, cap: g.enemies.cap - 4, target })) {
       const spot = this.findSpot(22, 34);
-      if (spot) g.enemies.spawn(r.id, spot.x, spot.z, { level: r.level, elite: r.elite, horde: true, ambient: true });
+      if (spot) g.enemies.spawn(r.id, spot.x, spot.z, { level: ascendLevel(r.level, g.profile.cycle), elite: r.elite || g.rng.chance(ascendBonus(g.profile.cycle).elite), horde: true, ambient: true });
     }
     // Roaming bosses: a random clock, paused while one is abroad.
     const id = this.bossClock.update(dt, { phase: g.dayNight.phase, level: g.profile.level, bossAbroad: !!this.boss });
@@ -258,7 +260,7 @@ export class Spawner {
     const def = BOSSES[id];
     const arena = g.zone.arenas ? g.zone.arenas[def.arena] : g.zone.arena;
     // Bosses have fixed levels, like the creatures of their island; the Jailer grows with the gaol.
-    const level = g.zone.type === 'dimension' && g.profile.run ? Math.min(300, runLevel(g.zoneDef, g.profile.run) + def.levelOffset) : def.minLevel + def.levelOffset;
+    const level = ascendLevel(g.zone.type === 'dimension' && g.profile.run ? Math.min(300, runLevel(g.zoneDef, g.profile.run) + def.levelOffset) : def.minLevel + def.levelOffset, g.profile.cycle);
     const b = new BOSS_CLASS[id](g, level, arena);
     g.enemies.addBoss(b);
     this.boss = b.group;

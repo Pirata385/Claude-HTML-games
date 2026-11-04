@@ -7,6 +7,7 @@ import { Spawner } from './ai/spawner.js';
 import { Phenomena } from './world/phenomena.js';
 import { DimensionRules } from './world/dimrules.js';
 import { Astral } from './entities/astral.js';
+import { ascendBonus } from './systems/ascension.js';
 import { makeKit } from './combat/kits/index.js';
 import { addXp, applyDeathPenalty, xpToNext } from './systems/progression.js';
 import { count, takeStack } from './systems/inventory.js';
@@ -34,6 +35,7 @@ export function installGameplay(game) {
 
   game.grantXp = (amount, src) => {
     const p = game.profile;
+    amount *= ascendBonus(p.cycle).xp;
     const before = p.level;
     const res = addXp(p, amount);
     if (src && amount >= 1) game.overlay.text(game.player.x, game.player.ry + 2.6, game.player.z, `+${Math.round(amount)} XP`, 'xp');

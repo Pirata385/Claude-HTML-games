@@ -1075,6 +1075,24 @@ try {
     // Lume remembers it too, and the Journal keeps the records.
     const told = await page.evaluate(() => { const g = window.__SG; g.ui.closeDialog?.(); g.profile.flags.metLume = true; g.interaction.talkLume(); const t = document.getElementById('dialog').innerText; g.ui.closeDialog?.(); g.ui.journalState = { tab: 'records' }; g.ui.openMenu('journal'); const j = document.getElementById('menu').innerText; for (const tab of ['goals', 'roadmap', 'lore', 'bosses', 'records']) { g.ui.journalState.tab = tab; g.ui.renderMenu(); } g.ui.journalState.tab = 'records'; g.ui.closeMenu(); return { lume: /ships may come home/.test(t), records: /Records/.test(j) && /Mender of Vael/.test(j) && /The Unmade/.test(j) }; });
     check(told.lume && told.records, `Lume remembers the ending and the Journal keeps the records (${JSON.stringify(told)})`);
+    // Ascension: Lume offers to begin again. The story's keys go; the world stands taller.
+    await page.evaluate(() => { const g = window.__SG; g.ui.closeDialog?.(); g.profile.inv.stacks.sigil_wind = 1; g.interaction.talkLume(); });
+    const offered = await clickBtn(/Ascend/);
+    const confirmed = offered && await clickBtn(/Begin again/);
+    const asc = await sim(page, `
+      const out = { cycle: g.profile.cycle, sigil: g.profile.inv.stacks.sigil_wind || 0, level: g.profile.level };
+      g.ui.closeDialog && g.ui.closeDialog(); g.godMode = true;
+      for (const e of g.enemies.list) { e.alive = false; e.dyingT = 0; }
+      g.profile.playTime = Math.max(g.profile.playTime, 600);
+      step(30 * 40);
+      const horde = g.enemies.list.filter((e) => e.alive && e.horde);
+      out.horde = horde.length; out.minLevel = Math.min(...horde.map((e) => e.level));
+      const b = g.spawner.spawnBoss('slime_prince', false);
+      out.prince = b.level;
+      for (const m of g.spawner.boss.members) { m.alive = false; m.dyingT = 0; } g.spawner.boss = null;
+      return out;`);
+    check(offered && confirmed && asc.cycle === 1 && asc.sigil === 0 && asc.level >= 270, `Lume offers Ascension; the story begins again, you do not (${JSON.stringify(asc)})`);
+    check(asc.horde > 0 && asc.minLevel >= 31 && asc.prince >= 40, 'after Ascension the horde and the bosses stand thirty levels higher');
     check(!errors.length, `ending: no errors ${errors.slice(0, 3).join(' | ')}`);
     await ctx.close();
   }

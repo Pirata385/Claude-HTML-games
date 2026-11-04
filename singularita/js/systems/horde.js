@@ -3,6 +3,7 @@
 // Pure logic: it returns spawn requests and the game places them in the world.
 import { ENEMIES } from '../data/enemies.js';
 import { BOSSES } from '../data/bosses.js';
+import { ascendBonus } from './ascension.js';
 
 const CORE = new Set(['swarm', 'frontline', 'tank']);
 
@@ -10,11 +11,13 @@ export const islandLevel = (cfg, phase, rng) => rng.int(...cfg.levels[phase]);
 
 // Chance that a creature in a cave, isle or dimension spawns elite. Caves grow more elite with
 // depth unless the zone sets its own rate; a dimension's Elite modifier overrides everything.
-export function eliteChance(def, zone, waves) {
-  if (zone.modifier === 'elite') return 0.35;
-  if (def.elite != null) return def.elite;
+// Each Ascension cycle adds its own share on top.
+export function eliteChance(def, zone, waves, cycle = 0) {
+  const extra = ascendBonus(cycle).elite;
+  if (zone.modifier === 'elite') return 0.35 + extra;
+  if (def.elite != null) return def.elite + extra;
   const el = zone.type === 'cave' ? waves.cave.elite : waves.isle.elite;
-  return Math.min(el.max, el.base + el.perLayer * (zone.layer || 0));
+  return Math.min(el.max, el.base + el.perLayer * (zone.layer || 0)) + extra;
 }
 
 export class Horde {

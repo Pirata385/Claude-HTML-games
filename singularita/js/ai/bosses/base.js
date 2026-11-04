@@ -7,6 +7,7 @@ import { angleDiff } from '../../core/math.js';
 import { addStack, addItem } from '../../systems/inventory.js';
 import { MATERIALS, SIGILS, SHARDS } from '../../data/materials.js';
 import { rollRewards } from '../../systems/rewards.js';
+import { ascendBonus } from '../../systems/ascension.js';
 import { ITEMS } from '../../data/items.js';
 
 export class Boss extends Entity {
@@ -90,6 +91,8 @@ export class Boss extends Entity {
     p.stats.bosses[def.id] = (p.stats.bosses[def.id] || 0) + 1;
     const loot = [];
     for (const r of rollRewards(def, p, g.rng, first)) {
+      // Each Ascension cycle brings richer spoils (keys stay single).
+      if (r.material && !SIGILS.includes(r.material) && !SHARDS.includes(r.material)) r.n = Math.round(r.n * ascendBonus(p.cycle).loot);
       if (r.material) {
         addStack(p.inv, r.material, r.n); loot.push(`${r.n} ${MATERIALS[r.material].name}`);
         g.bus.emit('itemGained', { id: r.material, n: r.n, source: 'boss' });

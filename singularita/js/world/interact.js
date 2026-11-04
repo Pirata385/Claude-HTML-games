@@ -13,6 +13,8 @@ import { addStack } from '../systems/inventory.js';
 import { canEnter, isleList, openGate, ownedSigils } from '../systems/travel.js';
 import { startRun, nextFloor, endRun } from '../systems/run.js';
 import { ENDINGS, chooseEnding, recordsOf } from '../systems/ending.js';
+import { ASCENSION, canAscend, ascend, ascendBonus } from '../systems/ascension.js';
+import { ObjectiveTracker } from '../systems/objectives.js';
 import { F } from './grid.js';
 
 const REACH = 2.6, NODE_REACH = 1.9;
@@ -132,6 +134,22 @@ export class Interaction {
     startRun(g.profile, def.id, { zone: z.id, x: z.exit.x, z: z.exit.z + 4 });
     g.ui.fadeTravel(() => { g.enterZone(def.id); g.save('dimension'); });
     return null;
+  }
+
+  // ------------------------------------------------------------------ Ascension
+  offerAscension() {
+    const g = this.g, next = (g.profile.cycle || 0) + 1, b = ascendBonus(next);
+    g.ui.dialog({ title: `Ascension ${next}`, portrait: 'lume',
+      text: `The story can begin again, and you with it, as you are now: your level, your gear, your materials and everything you learned stay with you. The sigils, the shards and the Singular Key go back to the world; the Sealed Core Gate shuts.\n\nEverything out there will stand ${ASCENSION.levels * next} levels taller than the first time, with more elites among them, and it will give more back: ×${b.xp.toFixed(2)} experience and ×${b.loot.toFixed(2)} spoils.`,
+      buttons: [{ label: 'Begin again', primary: true, action: () => this.ascendNow() }, { label: 'Not yet' }] });
+  }
+  ascendNow() {
+    const g = this.g, cycle = ascend(g.profile);
+    g.objectives = new ObjectiveTracker(g.profile);
+    g.bus.emit('ascend', { cycle });
+    g.ui.banner(`Ascension ${cycle}`, 'The story begins again. The world stands taller.', 'boss');
+    g.bus.emit('sfx', { id: 'levelup' });
+    g.save('ascend');
   }
 
   // ------------------------------------------------------------------ the ending
@@ -289,7 +307,9 @@ export class Interaction {
     else if (p.level >= 3 && !p.zones.cave_1) text = LUME_LINES.caveHint;
     else if (g.dayNight.phase === 'night') text = LUME_LINES.night;
     else text = LUME_LINES.greet[Math.floor(g.time) % LUME_LINES.greet.length] + ' ' + LUME_LINES.day;
-    g.ui.dialog({ title: 'Lume, the Beacon Keeper', text, portrait: 'lume' });
+    // Once the story has an ending, Lume can tell you how to begin it again.
+    const buttons = canAscend(p) ? [{ label: 'Ascend…', action: () => this.offerAscension() }, { label: 'Goodbye', primary: true }] : null;
+    g.ui.dialog({ title: 'Lume, the Beacon Keeper', text, portrait: 'lume', buttons });
     if (!p.lore.includes('lore_beacon') && p.flags.metLume) this.learn('lore_beacon', false);
   }
 

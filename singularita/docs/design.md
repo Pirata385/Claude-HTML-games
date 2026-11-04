@@ -32,6 +32,7 @@ What the player meets on Dawnreach comes from that story:
 | The Dawn and Dusk Hollows (layer 8) | 2 | Beyond the Sealed Core Gate: tier 8 Dawndosite and Escuresite; ends at the Heart Seal |
 | Dimensions: Endless Dungeon, King Corrupted by Purple Adamite, Mirrored, Twin Slimes, Dragons | 3 | Dungeons with their own rules and the last materials. Bosses: Iron-Hand Jailer, the Adamite King, "You?", the Siamese, Ragnarok the Dragon God |
 | The Sealed Core | 3 | Singularita, the final tier |
+| The Unmade | 4 | The final fight against the Fracture, the ending's choice, then Ascension |
 
 **Procedural generation with a fixed seed.** `WORLD_SEED` and `GEN_VERSION` derive one seed per zone. Generators must satisfy rules that are checked in tests (`js/world/gen/validate.js`):
 - Every point of interest is reachable from camp without jumping.
@@ -95,6 +96,15 @@ What the player meets on Dawnreach comes from that story:
   - **Chromantite:** its stats `chromatic` and `afflictedBonus` cycle afflictions and reward them.
   - **Singularita:** pieces carry `memory: 2` and `collapse`. `systems/memory.js` adds the two remembered traits' modifiers for the piece's slot when stats are computed. Choices are stored per item in the save and are only changed at the Forge.
   - **Collapse:** every 12 hits (8 with a full set) a pull and a burst.
+
+## Systems (Milestone 4)
+
+- **The way in.** `dim_unmade` is a dimension of its own kind (`rule: 'finale'`, no emblem): the Singular Key (`effect.finale`) starts a run there from the Heart of `cave_9` and is never spent. Its layout (`unmade()` in `gen/dimensions.js`) ignores the run seed: a landing, a walkway over the void, a flat arena of radius 15.
+- **The Fracture** (`ai/bosses/fracture.js`). Four phases by health: Vael (leap and ring, Echo summons), the Four Sigils (a sigil every 8 s: gusts, swells, burning ground, falling stone), the Five Shards (the rulers' moves in rotation), Singular (pull and burst, and a ring that closes like Ragnarok's). Its rig is banded in every material and carries an orbit of shards.
+- **The choice** (`systems/ending.js`, `interact.js`). A finale ruler leaves no portal; after the defeat dialog Singularita asks. `chooseEnding` records the ending (both may be seen), its lore and title; then epilogue pages, credits (`ui.credits`) and home to Dawnreach. Boss objectives with a target count that boss only.
+- **Records.** Runs keep their best time; `recordsOf` summarises endings, cycle, floors, times, bosses, deaths and play time for the Journal.
+- **Ascension** (`systems/ascension.js`). `ascend` keeps the character and removes the story's keys, shuts the gate and resumes the objectives at the isles. `ascendLevel` raises every spawned creature's and boss's level by 30 per cycle (summons follow their summoner); `ascendBonus` adds elites, experience and spoils.
+- **Class dashes** (`classes.js` `dash`, `combat/dash.js`): charge, vault, blink, shadow dash and star leap, each with its own distance, invulnerability and cooldown.
 
 ## Patches after Milestone 3
 

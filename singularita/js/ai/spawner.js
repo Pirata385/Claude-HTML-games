@@ -57,7 +57,7 @@ export class Spawner {
   }
   onZoneExit() {}
 
-  population() { const z = this.g.zoneDef; return Math.min(this.g.enemies.cap - 4, Math.round((z.population || 10) * (this.g.zone.modifier === 'swarm' ? 1.5 : 1))); }
+  population() { const z = this.g.zoneDef; return Math.min(this.g.enemies.cap - 4, Math.round((z.population ?? 10) * (this.g.zone.modifier === 'swarm' ? 1.5 : 1))); }
 
   caveLevel() {
     const g = this.g;
@@ -88,6 +88,7 @@ export class Spawner {
     if (!spot) return null;
     const side = g.zone.sideOf?.(Math.floor(spot.x));
     const table = z.enemies.filter((e) => !e.side || e.side === side);
+    if (!id && !table.length) return null;
     const pick = id || g.rng.weighted(table).id;
     return g.enemies.spawn(pick, spot.x, spot.z, { level: this.caveLevel(), elite: g.rng.chance(eliteChance(z, g.zone, WAVES)), ambient: true });
   }

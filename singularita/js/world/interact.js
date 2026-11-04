@@ -2,6 +2,9 @@
 // Echo Stones, the Wayshrine and the isles, the Sealed Core Gate and the recall channel.
 import { NODES } from '../data/nodes.js';
 import { MATERIALS, SHARDS } from '../data/materials.js';
+
+// The rulers' trophies that go into the Singular Key.
+const TROPHIES = ['jailer_chain', 'siamese_heart', 'adamite_crown_shard', 'mirror_self', 'ragnarok_ember'];
 import { ZONES } from '../data/zones.js';
 import { LORE, LUME_LINES } from '../data/lore.js';
 import { canGather, gatherDamage, rollYield } from '../systems/gathering.js';
@@ -118,6 +121,16 @@ export class Interaction {
     startRun(g.profile, P.dim, from);
     g.ui.fadeTravel(() => { g.enterZone(P.dim); g.save('dimension'); });
   }
+  // The Singular Key, at the Heart: down into the Unmade. Returns why it cannot, or null.
+  enterUnmade() {
+    const g = this.g, p = g.player, z = g.zone, def = ZONES.dim_unmade;
+    if (z.id !== 'cave_9' || Math.hypot(p.x - z.exit.x, p.z - z.exit.z) > 7) return 'The key hums toward the Singular Heart, at the bottom of everything.';
+    if (g.profile.level < def.levelReq) return `The Unmade will not hold you yet. Level ${def.levelReq}.`;
+    startRun(g.profile, def.id, { zone: z.id, x: z.exit.x, z: z.exit.z + 4 });
+    g.ui.fadeTravel(() => { g.enterZone(def.id); g.save('dimension'); });
+    return null;
+  }
+
   // The exit portal at a fallen ruler's feet.
   openExitPortal() {
     const g = this.g, a = g.zone.arena;
@@ -228,6 +241,9 @@ export class Interaction {
     else if (ownedSigils(p).length === 4 && !p.flags.gateOpen) text = LUME_LINES.sigilsHint;
     else if (p.level >= 66 && !p.flags.gateOpen && !Object.keys(p.zones).some((id) => id.startsWith('isle_'))) text = LUME_LINES.isleHint;
     else if (p.lore.includes('lore_seal') && !p.flags.gateOpen) text = LUME_LINES.gateHint;
+    else if (p.ending) text = LUME_LINES[p.ending === 'mend' ? 'mended' : 'ended'];
+    else if ((p.inv.stacks.singular_key || 0) > 0) text = LUME_LINES.unmadeHint;
+    else if (p.level >= 250 && TROPHIES.every((s) => (p.inv.stacks[s] || 0) > 0)) text = LUME_LINES.keyHint;
     else if (SHARDS.every((s) => (p.inv.stacks[s] || 0) > 0) && !p.zones.cave_9) text = LUME_LINES.heartHint;
     else if (p.level >= 100 && p.flags.gateOpen && !Object.keys(p.dims || {}).length) text = LUME_LINES.emblemHint;
     else if (p.level >= 3 && !p.zones.cave_1) text = LUME_LINES.caveHint;
@@ -294,7 +310,10 @@ export class Interaction {
     // In the Singular Heart itself, the heart is the end of the road.
     if (g.zone.exit.type === 'core') {
       this.learn('lore_choice', false);
-      g.ui.dialog({ title: 'The Singular Heart', portrait: 'echo', text: 'Singularita grows here like coral, in every colour at once, humming the shape of every possible thing. It does not want anything from you. If you mine it and bring it to the Forge, it will become whatever you ask, and remember two other shapes besides.' });
+      const key = (p.inv.stacks.singular_key || 0) > 0;
+      g.ui.dialog({ title: 'The Singular Heart', portrait: 'echo', text: 'Singularita grows here like coral, in every colour at once, humming the shape of every possible thing. It does not want anything from you. If you mine it and bring it to the Forge, it will become whatever you ask, and remember two other shapes besides.'
+        + (key ? '\n\nThe Singular Key hums in your pack. Below the coral, something that is not quite a door remembers being one.' : ''),
+        buttons: key ? [{ label: 'Descend into the Unmade', primary: true, action: () => { const why = this.enterUnmade(); if (why) g.ui.toast(why, 'warn'); } }, { label: 'Not yet' }] : null });
       return;
     }
     const have = SHARDS.filter((s) => (p.inv.stacks[s] || 0) > 0);

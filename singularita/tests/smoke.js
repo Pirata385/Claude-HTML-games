@@ -1013,6 +1013,30 @@ try {
     check(!errors.length, `${cls} dash: no errors ${errors.slice(0, 3).join(' | ')}`);
     await ctx.close();
   }
+  // 15. Milestone 4: the ending.
+  {
+    const { ctx, page, errors } = await open(`${BASE}/singularita/index.html?quickstart=swordsman&debug`);
+    await waitGame(page);
+    const e = await sim(page, `
+      g.ui.closeDialog && g.ui.closeDialog(); g.godMode = true;
+      const out = {}, p = g.player;
+      g.profile.level = 270; g.recomputeStats();
+      g.profile.inv.stacks.singular_key = 1;
+      // Away from the Heart the key only hums.
+      out.away = !g.useConsumable('singular_key') && g.zone.id === 'island';
+      g.enterZone('cave_9'); step(3);
+      const h = g.zone.exit; goNear(h.x + 2.5, h.z); step(3);
+      g.useConsumable('singular_key'); await new Promise((r) => setTimeout(r, 1300)); step(3);
+      out.zone = g.zone.id; out.run = g.profile.run?.dim; out.keyKept = g.profile.inv.stacks.singular_key === 1;
+      out.lore = g.interaction.items.some((it) => it.id.startsWith('lore:'));
+      g.ui.openMenu('map'); out.map = /The Unmade/.test(document.getElementById('menu').innerText); g.ui.closeMenu();
+      out.boss = g.spawner.boss?.def.id;
+      return out;`);
+    check(e.away && e.zone === 'dim_unmade' && e.run === 'dim_unmade' && e.keyKept, `the Singular Key opens the Unmade from the Heart, and is kept (${JSON.stringify(e)})`);
+    check(e.map, 'the map knows the Unmade');
+    check(!errors.length, `ending: no errors ${errors.slice(0, 3).join(' | ')}`);
+    await ctx.close();
+  }
 } catch (err) {
   failures++;
   console.error('FAIL smoke test crashed:', err);

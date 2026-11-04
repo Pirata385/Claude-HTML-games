@@ -79,6 +79,12 @@ export function installGameplay(game) {
       const why = game.interaction.openPortal(e.portal);
       if (why) return game.ui?.toast(why, 'warn');
     }
+    // The Singular Key is kept: it is the way down, every time.
+    if (e.finale) {
+      const why = game.interaction.enterUnmade();
+      if (why) { game.ui?.toast(why, 'warn'); return false; }
+      return true;
+    }
     if (e.heal) game.combat.healPlayer(game.stats.maxHp * e.heal * game.stats.tonicPotency);
     if (e.resource) p.res = Math.min(game.stats.resourceMax, p.res + game.stats.resourceMax * e.resource * game.stats.tonicPotency);
     if (e.cure) for (const s of e.cure) p.statuses.remove(s);

@@ -899,36 +899,43 @@ try {
     await ctx.close();
   }
   {
-    // The Stardust's Astral: a stand that breaks after a number of blows, untouched by puddles.
+    // The Stardust's Astral: it never breaks nor drains Spirit; emptying the Spirit leaves only M1 until it refills.
     const { ctx, page, errors } = await open(`${BASE}/singularita/index.html?quickstart=stardust&debug`);
     await waitGame(page);
     const a = await sim(page, `
       g.ui.closeDialog && g.ui.closeDialog();
-      const out = {}, a = g.astral, p = g.player;
-      g.profile.level = 30; g.profile.attrs.spi = 58; g.recomputeStats();
-      p.res = g.stats.resourceMax; a.manifest(true); step(3);
-      out.max = g.stats.astralHits; out.left0 = a.hitsLeft;
-      for (let k = 0; k < 30; k++) g.combat.hurt(a, 1e6, null, { type: 'hazard' });
-      out.afterHazards = a.hitsLeft; out.upAfterHazards = a.manifested;
-      g.combat.hurt(a, 1e9, null, { type: 'melee' }); p.hp = g.stats.maxHp;
-      out.afterBigBlow = a.hitsLeft; out.upAfterBigBlow = a.manifested;
-      for (let k = 2; k < out.max; k++) g.combat.hurt(a, 1, null, { type: 'aoe' });
-      out.oneLeft = a.manifested && a.hitsLeft === 1;
-      g.combat.hurt(a, 1, null, { type: 'ranged' });
-      out.broken = !a.manifested && a.lockT > 0;
-      // It looks like a stand, and its fists fly when it strikes.
-      a.lockT = 0; p.res = g.stats.resourceMax; a.manifest(true); step(3);
-      out.arms = !!(a.vis.armL && a.vis.armR);
+      const out = {}, a = g.astral, p = g.player, kit = p.kit;
+      g.profile.level = 30; g.profile.attrs.spi = 58; g.recomputeStats(); g.godMode = true;
+      let casts = 0; g.bus.on('skill', (e) => { if (e.cls === 'stardust') casts++; });
+      // Manifest with the alternate button; Spirit keeps refilling while it is out.
+      p.res = 40; tap('alt'); out.up = a.manifested;
+      step(30 * 2); out.resAfter = Math.round(p.res);
+      // A hundred direct blows and a flood of hazards: it stays.
+      for (let k = 0; k < 100; k++) g.combat.hurt(a, 1e6, null, { type: 'melee' });
+      const hp = p.hp; for (let k = 0; k < 30; k++) g.combat.hurt(a, 1e6, null, { type: 'hazard' });
+      out.standing = a.manifested; out.hazardsPass = p.hp === hp;
+      // Dismiss and call it again at will, even with no Spirit at all.
+      p.res = 0; tap('alt'); out.dismissed = !a.manifested; tap('alt'); out.again = a.manifested;
+      // Ten Spirit still pays for a 15-Spirit skill, and empties it: exhausted.
+      p.res = 10; kit.cd = {}; const c0 = casts; tap('skill1'); out.firstCast = casts - c0; out.empty = kit.spirit.exhausted && p.res < 3; // it starts refilling at once
+      // Exhausted: skills are refused, but M1 still has the Astral strike.
+      const c1 = casts; tap('skill2'); out.refused = casts === c1;
       const e = g.enemies.spawn('slime', a.x + 1.5, a.z, { level: 30, noIntro: true }); e.spawnT = 0; e.maxHp = e.hp = 1e9;
-      let swing = 0;
-      for (let k = 0; k < 60; k++) { a.command(e); step(1); swing = Math.min(swing, a.vis.armL?.rotation.x ?? 0, a.vis.armR?.rotation.x ?? 0); }
-      out.punches = swing < -0.6;
-      e.alive = false; e.dyingT = 0;
+      let swing = 0; const hp0 = e.hp;
+      for (let k = 0; k < 60; k++) { g.lockTarget = e; g.input.press('attack'); step(1); swing = Math.min(swing, a.vis.armL?.rotation.x ?? 0, a.vis.armR?.rotation.x ?? 0); }
+      g.input.release('attack'); step(1);
+      out.m1 = e.hp < hp0; out.arms = !!(a.vis.armL && a.vis.armR); out.punches = swing < -0.6;
+      e.alive = false; e.dyingT = 0; g.lockTarget = null;
+      // Full again: the skills come back.
+      for (let k = 0; k < 30 * 12 && kit.spirit.exhausted; k++) step(1);
+      const c2 = casts; kit.cd = {}; tap('skill2'); out.free = !kit.spirit.exhausted && casts > c2;
       return out;`);
-    check(a.left0 === a.max && a.max >= 8 && a.max <= 20, `the Astral's guard grows with Spirituality (${a.max} blows at 58 SPI)`);
-    check(a.afterHazards === a.max && a.upAfterHazards, `puddles and ground hazards pass through the Astral (${JSON.stringify(a)})`);
-    check(a.afterBigBlow === a.max - 1 && a.upAfterBigBlow && a.oneLeft && a.broken, 'each direct blow counts once, however hard; it breaks on the last');
-    check(a.arms && a.punches, 'the Astral is a stand whose fists fly when it strikes');
+    check(a.up && a.resAfter > 40, `the Astral no longer drains Spirit: it refills while it is out (40 → ${a.resAfter})`);
+    check(a.standing && a.hazardsPass, `the Astral no longer breaks, and hazards still pass through it (${JSON.stringify(a)})`);
+    check(a.dismissed && a.again, 'it is called and dismissed at will, even with no Spirit');
+    check(a.firstCast === 1 && a.empty && a.refused, 'spending the last Spirit leaves the Stardust exhausted: skills are refused');
+    check(a.m1 && a.arms && a.punches, 'exhausted, M1 still has the Astral strike with its fists');
+    check(a.free, 'when the Spirit is full again, the skills come back');
     check(!errors.length, `stardust: no errors ${errors.slice(0, 3).join(' | ')}`);
     await ctx.close();
   }
@@ -1214,6 +1221,72 @@ try {
     const plain = await o.page.evaluate(() => { const g = window.__SG; g.ui.closeDialog?.(); g.ui.openMenu('debug'); const tabs = [...document.querySelectorAll('#menu .mtab')].map((b) => b.textContent); return { tabs, open: g.ui.menuOpen, dev: !!document.querySelector('#menu [data-dbg]') }; });
     check(!plain.tabs.some((t) => /Dev/.test(t)) && plain.open !== 'debug' && !plain.dev, `a character not named DeBug has no developer menu (${JSON.stringify(plain)})`);
     await o.ctx.close();
+  }
+  // 18. Boss fights: the Golem no longer heals; other creatures keep out of arenas and leave you be.
+  {
+    const { ctx, page, errors } = await open(`${BASE}/singularita/index.html?quickstart=swordsman&debug`);
+    await waitGame(page);
+    const golem = await sim(page, `
+      g.ui.closeDialog && g.ui.closeDialog(); g.godMode = true;
+      g.profile.level = 90; g.recomputeStats();
+      g.profile.world.guardians = {};
+      g.enterZone('isle_earth'); step(3);
+      const b = g.spawner.boss?.members[0], ar = g.zone.arena, p = g.player;
+      if (!b) return { present: false };
+      goNear(ar.x, ar.z + 4); p.grounded = true; step(30);
+      b.express(['moss']); b.geneT = 1e9;
+      b.hp = Math.round(b.maxHp * 0.5); const hp0 = b.hp;
+      const seeds = () => g.enemies.list.filter((e) => e.alive && e.golem === b);
+      let shots = 0; g.bus.on('sfx', (ev) => { if (ev.id === 'enemyShoot' && seeds().some((s) => Math.hypot(s.x - ev.x, s.z - ev.z) < 0.5)) shots++; });
+      let most = hp0;
+      for (let k = 0; k < 30 * 12; k++) { step(1); most = Math.max(most, b.hp); }
+      return { present: true, seeds: seeds().length, hp0, most, shots };`);
+    check(golem.present && golem.seeds > 0 && golem.most <= golem.hp0, `the Allele Golem no longer heals from its seedlings (${JSON.stringify(golem)})`);
+    check(golem.shots > 0, `its seedlings throw thorns instead (${golem.shots} shots)`);
+    const arena = await sim(page, `
+      g.ui.closeDialog && g.ui.closeDialog(); g.godMode = true;
+      g.profile.level = 30; g.recomputeStats();
+      g.enterZone('island'); step(3);
+      for (const e of g.enemies.list) { e.alive = false; e.dyingT = 0; }
+      if (g.spawner.boss) { for (const m of g.spawner.boss.members) { m.alive = false; m.dyingT = 0; } g.spawner.boss = null; }
+      g.spawner.popT = 1e9; g.horde && (g.horde.timer = 1e9);
+      const p = g.player, ar = g.zone.arenas.glade, ARENA = 8; // F.ARENA in world/grid.js
+      const out = {};
+      // A creature at the edge, you inside: it cannot follow you in.
+      goNear(ar.x, ar.z); step(2);
+      let spot = null;
+      for (let a = 0; a < 24 && !spot; a++) { const x = ar.x + Math.cos(a / 24 * 6.283) * (ar.r + 3), z = ar.z + Math.sin(a / 24 * 6.283) * (ar.r + 3); if (g.grid.walkable(Math.floor(x), Math.floor(z))) spot = [x, z]; }
+      const w = g.enemies.spawn('zombie_walker', spot[0], spot[1], { level: 20, noIntro: true });
+      let inside = 0, closest = 1e9;
+      for (let k = 0; k < 30 * 12; k++) { goNear(ar.x, ar.z); step(1); if (g.grid.has(Math.floor(w.x), Math.floor(w.z), ARENA)) inside++; closest = Math.min(closest, Math.hypot(w.x - ar.x, w.z - ar.z)); }
+      out.inside = inside; out.closest = Math.round(closest * 10) / 10; out.r = ar.r;
+      // A boss engaged: creatures outside stop following you; when it ends they come again.
+      const b = g.spawner.spawnBoss('slime_prince', true); step(3);
+      const edge = () => { const d = Math.hypot(w.x - ar.x, w.z - ar.z) || 1; goNear(ar.x + (w.x - ar.x) / d * (ar.r - 2), ar.z + (w.z - ar.z) / d * (ar.r - 2)); };
+      edge(); step(2);
+      const d0 = Math.hypot(w.x - p.x, w.z - p.z);
+      let moved = 0, px = w.x, pz = w.z;
+      for (let k = 0; k < 30 * 6; k++) { edge(); step(1); moved += Math.hypot(w.x - px, w.z - pz); px = w.x; pz = w.z; }
+      out.fightMoved = Math.round(moved * 10) / 10;
+      // His royal guards are his own: they may be in the arena, wherever they are called.
+      b.summonGuards?.(2); step(30);
+      out.guards = g.enemies.list.filter((e) => e.alive && e.royal).length;
+      out.guardsIn = g.enemies.list.filter((e) => e.alive && e.royal).every((e) => e.minion) && g.enemies.list.some((e) => e.alive && e.royal && g.grid.has(Math.floor(e.x), Math.floor(e.z), ARENA));
+      for (const m of g.spawner.boss.members) { m.alive = false; m.dyingT = 0; } g.spawner.boss = null;
+      for (const e of g.enemies.list) if (e.royal) { e.alive = false; e.dyingT = 0; }
+      // Out of the arena, with no boss: it comes for you again.
+      goNear(spot[0] + (spot[0] - ar.x) * 0.6, spot[1] + (spot[1] - ar.z) * 0.6); step(2);
+      const far0 = Math.hypot(w.x - p.x, w.z - p.z);
+      for (let k = 0; k < 30 * 4; k++) step(1);
+      out.after = [Math.round(far0), Math.round(Math.hypot(w.x - p.x, w.z - p.z))];
+      out.d0 = Math.round(d0);
+      return out;`);
+    check(arena.inside === 0 && arena.closest >= arena.r - 0.6, `creatures cannot enter a boss arena (${JSON.stringify(arena)})`);
+    check(arena.fightMoved < 1.5, `while you fight a boss, creatures outside stop following you (moved ${arena.fightMoved} m)`);
+    check(arena.guards > 0 && arena.guardsIn, `a boss's own minions may enter its arena (${arena.guards})`);
+    check(arena.after[1] < arena.after[0] - 2, `when the fight is over they come for you again (${arena.after.join(' → ')} m)`);
+    check(!errors.length, `boss fights: no errors ${errors.slice(0, 3).join(' | ')}`);
+    await ctx.close();
   }
 } catch (err) {
   failures++;

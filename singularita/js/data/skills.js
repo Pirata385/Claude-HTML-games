@@ -80,7 +80,7 @@ const LIST = [
   S('stardust', 'sd_mote', { kind: 'basic', name: 'Star Mote', icon: '✧', unlock: 1, dmg: 0.45, speed: 26, astralDmg: [0.55, 0.55, 0.85],
     desc: 'Without your Astral: a weak mote of starlight. With it manifested: your Astral strikes your target in rapid combos.' }),
   S('stardust', 'sd_manifest', { kind: 'alt', name: 'Manifest', icon: '✪', unlock: 1,
-    desc: 'Call or dismiss your Astral. It drains Spirit while manifested; Spirit refills while it rests.' }),
+    desc: 'Call or dismiss your Astral at any time, for free. It never breaks; your Spirit refills all the while. Spend the last of it and only your basic attack is left until it is whole again.' }),
   S('stardust', 'sd_comet', { name: 'Comet Dive', icon: '☄', unlock: 1, cost: 15, cd: 6, dmg: 1.6, range: 10,
     desc: 'Your Astral dives in a straight line, battering and throwing back all it passes.' }),
   S('stardust', 'sd_orbit', { name: 'Orbit Guard', icon: '◌', unlock: 4, cost: 25, cd: 14, dmg: 0.4, duration: 6,

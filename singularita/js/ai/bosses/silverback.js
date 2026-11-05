@@ -30,7 +30,7 @@ export class Silverback extends Boss {
     const n = big ? 4 : this.enraged ? 3 : 2;
     for (let k = 0; k < n; k++) {
       const a = Math.random() * Math.PI * 2;
-      g.enemies.spawn(Math.random() < 0.5 ? 'zombie_walker' : 'zombie_runner', this.arena.x + Math.cos(a) * (this.arena.r + 2), this.arena.z + Math.sin(a) * (this.arena.r + 2), { level: Math.max(1, this.level - 3) });
+      g.enemies.spawn(Math.random() < 0.5 ? 'zombie_walker' : 'zombie_runner', this.arena.x + Math.cos(a) * (this.arena.r + 2), this.arena.z + Math.sin(a) * (this.arena.r + 2), { minion: true, level: Math.max(1, this.level - 3) });
     }
     for (const e of g.enemies.active) if (e.def.family === 'zombie' && e.dist2(this) < 400) e.statuses.apply('haste', { dur: 6 });
   }

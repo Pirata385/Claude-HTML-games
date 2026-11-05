@@ -1,37 +1,52 @@
-// Stardust: manifest the Astral and fight beside it. Spirit drains while it is out.
+// Stardust: manifest the Astral and fight beside it. The Astral never breaks and costs no Spirit;
+// spending the last Spirit leaves only the basic attack until it is full again (combat/spirit.js).
 import { BaseKit, dirOf } from './base.js';
+import { SKILLS } from '../../data/skills.js';
+import { spiritCanCast, spiritPay, spiritRegen } from '../spirit.js';
 import { moveCircle } from '../../world/physics.js';
 import { F } from '../../world/grid.js';
 
 export class StardustKit extends BaseKit {
-  constructor(g) { super(g, 'stardust'); this.moteCd = 0; }
+  constructor(g) {
+    super(g, 'stardust');
+    this.moteCd = 0;
+    const kit = this;
+    this.spirit = { exhausted: false, get res() { return kit.p.res; }, set res(v) { kit.p.res = v; } };
+  }
   get astral() { return this.g.astral; }
 
   regen(dt) {
-    const p = this.p, a = this.astral, r = this.def.resource;
-    if (a?.manifested) {
-      p.res -= r.drain * dt * (1 - Math.min(0.5, (this.stats.attrs.rsv || 0) * 0.004));
-      if (p.res <= 0) { p.res = 0; a.manifest(false); this.warn('Your Spirit is spent; the Astral fades.'); }
-    } else if (!(a?.lockT > 0)) p.res = Math.min(this.stats.resourceMax, p.res + this.stats.resourceRegen * dt);
+    const guarded = this.p.statuses.has('guarded') ? 2 : 1;
+    if (spiritRegen(this.spirit, dt * guarded, this.stats.resourceMax, this.stats.resourceRegen)) this.g.ui?.toast('Your Spirit is whole again.', 'good');
+  }
+
+  // Any Spirit left pays for a skill; exhausted, only the basic attack answers.
+  canCast(id) {
+    const s = SKILLS[id];
+    if (!s) return 'No skill in this slot.';
+    if (!this.unlocked(id)) return `${s.name} unlocks at level ${s.unlock}.`;
+    if (this.cdLeft(id) > 0) return `${s.name} is recharging.`;
+    const why = spiritCanCast(this.spirit);
+    if (why) return why;
+    if (this.p.statuses.stunned) return 'You are stunned.';
+    return null;
+  }
+
+  pay(cost) {
+    if (spiritPay(this.spirit, cost)) { this.warn('Your Spirit is spent: only basic attacks until it is whole again.'); this.g.bus.emit('spiritSpent', {}); }
   }
 
   ensureManifest() {
     const a = this.astral;
-    if (a.manifested) return true;
-    if (a.lockT > 0) { this.warn('Your Astral is still reforming.'); return false; }
-    a.manifest(true);
+    if (!a.manifested) a.manifest(true);
     return a.manifested;
   }
 
   updateClass(dt, input) {
     this.moteCd -= dt;
     const a = this.astral;
-    if (input.wasPressed('alt')) {
-      if (a.manifested) a.manifest(false);
-      else if (a.lockT > 0) this.warn(`Your Astral reforms in ${Math.ceil(a.lockT)} s.`);
-      else if (this.p.res < 10) this.warn('Not enough Spirit to manifest.');
-      else a.manifest(true);
-    }
+    // Called and dismissed at will: it costs nothing.
+    if (input.wasPressed('alt')) a.manifest(!a.manifested);
     if (input.isDown('attack')) {
       if (a.manifested) {
         const t = this.aimTarget(a.leash + 4);

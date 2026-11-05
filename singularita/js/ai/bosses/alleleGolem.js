@@ -1,6 +1,6 @@
 // Allele of the Divine Golem: a living genome that expresses one allele at a time.
 // Granite: armoured in front (strike its back), heavy slams. Quartz: swift three-hit combos.
-// Moss: seedlings sprout and heal it until cut. Later it expresses two at once, then mutates fast.
+// Moss: seedlings sprout and throw thorns until cut. Later it expresses two at once, then mutates fast.
 import { Boss } from './base.js';
 import { buildAlleleRig } from '../../render/models.js';
 import { BOSSES } from '../../data/bosses.js';
@@ -8,7 +8,7 @@ import { BOSSES } from '../../data/bosses.js';
 const ALLELES = {
   granite: { name: 'Granite', color: 0x9a948a, desc: 'Armoured in front: strike its back.' },
   quartz: { name: 'Quartz', color: 0xffd8f0, desc: 'Swift combos: dodge them.' },
-  moss: { name: 'Moss', color: 0x7ad04a, desc: 'Cut the seedlings before they heal it.' },
+  moss: { name: 'Moss', color: 0x7ad04a, desc: 'Seedlings sprout and throw thorns: cut them.' },
 };
 const ORDER = ['granite', 'quartz', 'moss'];
 
@@ -47,7 +47,7 @@ export class AlleleGolem extends Boss {
       const a = Math.random() * Math.PI * 2, r = 4 + Math.random() * (this.arena.r - 6);
       const x = this.arena.x + Math.cos(a) * r, z = this.arena.z + Math.sin(a) * r;
       if (!g.grid.walkable(Math.floor(x), Math.floor(z))) continue;
-      const e = g.enemies.spawn('allele_seedling', Math.floor(x) + 0.5, Math.floor(z) + 0.5, { level: this.level, summoned: true });
+      const e = g.enemies.spawn('allele_seedling', Math.floor(x) + 0.5, Math.floor(z) + 0.5, { minion: true, level: this.level, summoned: true });
       if (e) e.golem = this;
     }
   }

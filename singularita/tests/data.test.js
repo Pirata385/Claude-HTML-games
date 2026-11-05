@@ -358,3 +358,10 @@ test('every elemental isle\'s own resources can be gathered with the tools of it
     }
   }
 });
+
+test('the Allele Golem no longer heals: its seedlings throw thorns instead', () => {
+  const s = ENEMIES.allele_seedling;
+  assert.equal(s.heal, undefined, 'no healing left on the seedling');
+  assert.ok(s.dmg > 0 && s.atkCd > 0, 'the seedling shoots');
+  assert.doesNotMatch(BOSSES.allele_golem.phases.map((p) => p.desc).join(' '), /heal/i);
+});

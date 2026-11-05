@@ -307,15 +307,13 @@ export const BEHAVIOR = {
     }
   },
 
-  // Allele seedling: rooted, it feeds the golem that sprouted it with a thin green beam.
+  // Allele seedling: rooted beside the golem that sprouted it, it throws thorns at you until cut.
   seedling(e, dt, c) {
     const b = e.golem;
     if (!b?.alive) { c.g.enemies.kill(e, 'despawn'); return; }
-    e.ai.aux -= dt;
-    if (e.ai.aux > 0) return;
-    e.ai.aux = 1;
-    b.hp = Math.min(b.maxHp, b.hp + b.maxHp * e.def.heal);
-    c.fx.beam(e.x, e.ry + 1, e.z, b.x, b.ry + 2.5, b.z, '#8ad06a', 0.4);
+    if (!c.target) return;
+    face(e, c.target.x, c.target.z, dt, 6);
+    if (e.ai.cd <= 0 && c.dist < e.def.range && c.los) { e.ai.cd = e.def.atkCd; shootAt(e, c, 'acid', 15); }
   },
 
   lurker(e, dt, c) {

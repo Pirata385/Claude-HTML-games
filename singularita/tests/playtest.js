@@ -91,7 +91,7 @@ function installBot({ hotbars, skill }) {
     k.__botWrapped = true;
   };
 
-  const M = { reset() { Object.assign(this, { t: 0, dealt: 0, bossDealt: 0, resets: 0, astralBreaks: 0, taken: { boss: 0, enemy: 0, hazard: 0, other: 0 }, tonics: 0, kills: 0, dodges: 0, deaths: 0, cause: null, bossT: 0, bossHp: null, bossPhases: [], xp: 0, levels: 0 }); } };
+  const M = { reset() { Object.assign(this, { t: 0, dealt: 0, bossDealt: 0, resets: 0, taken: { boss: 0, enemy: 0, hazard: 0, other: 0 }, tonics: 0, kills: 0, dodges: 0, deaths: 0, cause: null, bossT: 0, bossHp: null, bossPhases: [], xp: 0, levels: 0 }); } };
   M.reset();
   let hurtThisFrame = 0;
   g.bus.on('playerHurt', ({ dmg, source }) => {
@@ -103,7 +103,6 @@ function installBot({ hotbars, skill }) {
   const hit0 = g.combat.hit.bind(g.combat);
   g.combat.hit = (t, spec) => { const r = hit0(t, spec); if (r) { M.dealt += r.dmg; if (t.boss) M.bossDealt += r.dmg; } return r; };
   g.bus.on('bossReset', () => M.resets++);
-  g.bus.on('sfx', (e) => { if (e.id === 'break') M.astralBreaks++; });
   g.bus.on('dodge', () => M.dodges++);
   g.bus.on('playerDeath', ({ source }) => { M.deaths++; M.cause = source?.def?.id || source?.def?.name || (typeof source === 'string' ? source : 'hazard'); });
   g.bus.on('bossPhase', (e) => { if (!M.bossPhases.includes(e.phase.name)) M.bossPhases.push(e.phase.name); });
@@ -551,7 +550,7 @@ async function playRun(page, cls, dim, level) {
     g.ui.closeDialog?.();
     const gained = {};
     for (const [k, v] of Object.entries(g.profile.inv.stacks)) { const d = v - (M.inv0[k] || 0); if (d > 0 && !/emblem|tonic/.test(k)) gained[k] = d; }
-    return { t: Math.round(M.t), dps: Math.round(M.dealt / Math.max(1, M.t)), bossDps: Math.round(M.bossDealt / Math.max(1, M.bossT)), resets: M.resets, astralBreaks: M.astralBreaks, bossT: Math.round(M.bossT), bossHp: M.bossHp == null ? null : Math.round(M.bossHp * 100), phases: M.bossPhases, deaths: M.deaths, cause: M.cause,
+    return { t: Math.round(M.t), dps: Math.round(M.dealt / Math.max(1, M.t)), bossDps: Math.round(M.bossDealt / Math.max(1, M.bossT)), resets: M.resets, bossT: Math.round(M.bossT), bossHp: M.bossHp == null ? null : Math.round(M.bossHp * 100), phases: M.bossPhases, deaths: M.deaths, cause: M.cause,
       tonics: M.tonics, kills: M.kills, dodges: M.dodges, taken: Object.fromEntries(Object.entries(M.taken).map(([k, v]) => [k, Math.round(v)])),
       maxHp: Math.round(g.stats.maxHp), xp: Math.round(g.profile.xp - M.xp), levels: g.profile.level - M.level0, gained };
   }, { outcome });
@@ -572,7 +571,7 @@ try {
         results.push(r);
         const tk = r.taken ? `boss ${r.taken.boss} enemy ${r.taken.enemy} hazard ${r.taken.hazard + r.taken.other}` : '';
         const perMin = r.t ? ` kpm ${(r.kills * 60 / r.t).toFixed(1)} dmg/min ${Math.round(Object.values(r.taken || {}).reduce((a, b) => a + b, 0) * 6000 / r.t / r.maxHp)}%hp dps ${r.dps}` : '';
-        console.log(`${cls.padEnd(9)} ${dim.padEnd(11)} L${level} ${String(r.outcome || r.error).padEnd(8)}${perMin} t ${r.t}s boss ${r.bossT}s left ${r.bossHp ?? '-'}% bossDps ${r.bossDps} resets ${r.resets}${r.cls === 'stardust' ? ` astral breaks ${r.astralBreaks}` : ''} deaths ${r.deaths} cause ${r.cause || '-'} tonics ${r.tonics} kills ${r.kills} | taken ${tk} of ${r.maxHp} | floors ${(r.floors || []).map((f) => `${f.floor}:${f.res}/${f.t}s`).join(' ')} | xp ${r.xp} +${r.levels}L | ${JSON.stringify(r.gained)} (${r.wall}s)`);
+        console.log(`${cls.padEnd(9)} ${dim.padEnd(11)} L${level} ${String(r.outcome || r.error).padEnd(8)}${perMin} t ${r.t}s boss ${r.bossT}s left ${r.bossHp ?? '-'}% bossDps ${r.bossDps} resets ${r.resets} deaths ${r.deaths} cause ${r.cause || '-'} tonics ${r.tonics} kills ${r.kills} | taken ${tk} of ${r.maxHp} | floors ${(r.floors || []).map((f) => `${f.floor}:${f.res}/${f.t}s`).join(' ')} | xp ${r.xp} +${r.levels}L | ${JSON.stringify(r.gained)} (${r.wall}s)`);
       }
     }
     if (errors.length) console.log(`  page errors (${cls}): ${errors.slice(0, 3).join(' | ')}`);

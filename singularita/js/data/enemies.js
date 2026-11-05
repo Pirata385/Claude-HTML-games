@@ -102,9 +102,9 @@ export const ENEMIES = {
   stone_wisp: E('stone_wisp', { name: 'Stone Wisp', family: 'root', role: 'ranged', behavior: 'ranged', hp: 99, dmg: 16, speed: 3.0, xp: 44,
     proj: 'pebble', range: 11, atkCd: 1.8, model: 'wisp', color: '#b8a98a', flags: ['flying'], drops: [drop('golem_shard', 0.45)] }),
 
-  // Sprouted by the Allele golem's Moss allele: they heal it until cut down. No drops.
-  allele_seedling: E('allele_seedling', { name: 'Allele Seedling', family: 'root', role: 'support', behavior: 'seedling', hp: 90, dmg: 0, speed: 0, xp: 12,
-    heal: 0.012, model: 'lasher', color: '#8ad06a', scale: 0.55 }),
+  // Sprouted by the Allele golem's Moss allele: they throw thorns until cut down. No drops.
+  allele_seedling: E('allele_seedling', { name: 'Allele Seedling', family: 'root', role: 'support', behavior: 'seedling', hp: 90, dmg: 12, speed: 0, xp: 12,
+    range: 16, atkCd: 2.6, model: 'lasher', color: '#8ad06a', scale: 0.55 }),
 
   // The Dawn and Dusk Hollows (Core layer 8).
   dawn_sentinel: E('dawn_sentinel', { name: 'Dawnbound Sentinel', family: 'construct', role: 'ranged', behavior: 'sentry', hp: 80, dmg: 13, speed: 0, xp: 14,

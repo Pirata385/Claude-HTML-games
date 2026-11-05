@@ -4,7 +4,7 @@ import { F } from './grid.js';
 import { moveCircle, groundAt } from './physics.js';
 import { applyTide, tideAt } from './tide.js';
 import { updraftArc, FLIGHT_TIME } from './updraft.js';
-import { enemyDmg } from '../systems/scaling.js';
+import { zoneHazardDmg } from '../systems/scaling.js';
 
 const TIDE_LINES = {
   low: 'Low tide: the sandbars and pearl beds are uncovered.',
@@ -40,7 +40,7 @@ export class Phenomena {
     if (this.flight) { p.carried = false; this.flight = null; }
   }
 
-  dmg(base) { return enemyDmg(base, this.g.zoneDef.band[0]); }
+  dmg(base) { return zoneHazardDmg(base, this.g.zoneDef); }
 
   update(dt) {
     const g = this.g, p = g.player;

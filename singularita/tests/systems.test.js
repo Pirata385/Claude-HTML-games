@@ -12,7 +12,7 @@ import { Horde, BossClock, islandLevel, eliteChance } from '../js/systems/horde.
 import { notices, forgets } from '../js/ai/perception.js';
 import { DayNight, nightGlow } from '../js/systems/dayNight.js';
 import { allocate, respec } from '../js/systems/attributes.js';
-import { enemyHp, enemyDmg } from '../js/systems/scaling.js';
+import { enemyHp, enemyDmg, zoneHazardDmg } from '../js/systems/scaling.js';
 import { runLevel } from '../js/systems/run.js';
 import { ZONES } from '../js/data/zones.js';
 import { BOSSES } from '../js/data/bosses.js';
@@ -455,6 +455,10 @@ test('balance: the elemental isles, opened earlier, are as fair as they were', (
       assert.ok(k <= k0 * 1.1 && k >= k0 * 0.8, `${id} ${eid} L${foeLevel}: hitsToKill ${k.toFixed(1)}, was ${k0}`);
       assert.ok(d >= d0 * 0.9 && d <= d0 * 1.25, `${id} ${eid} L${foeLevel}: hitsToDie ${d.toFixed(1)}, was ${d0}`);
     }
+    // The isle's own phenomena (gusts, the tide, lava, eruptions, quakes) bite as hard as they did.
+    const HAZARD = { isle_air: 0.041, isle_water: 0.041, isle_fire: 0.043, isle_earth: 0.043 };
+    const share = (zoneHazardDmg(10, z) * 100 / (100 + s.def)) / s.maxHp;
+    assert.ok(share <= HAZARD[id] * 1.1 && share >= HAZARD[id] * 0.85, `${id}: a hazard takes ${(share * 100).toFixed(1)}% of your health, was ${(HAZARD[id] * 100).toFixed(1)}%`);
     // The guardian waits a few levels above the isle's entry and is the fight it was.
     const b = BOSSES[bid], bl = b.minLevel + b.levelOffset;
     assert.ok(b.minLevel >= L && b.minLevel <= L + 5, `${bid} minLevel ${b.minLevel}`);

@@ -3,4 +3,6 @@
 const hpLevel = (L) => (L <= 100 ? L : 100 + (L - 100) * 0.6);
 export const enemyHp = (base, L) => base * 0.62 * (1 + 0.1 * (hpLevel(L) - 1)) ** 1.8;
 export const enemyDmg = (base, L) => base * (1 + 0.1 * (L - 1)) ** 1.6;
+// A zone's own phenomena hit at its entry level; isles opened early soften them (hazardMult) to stay fair.
+export const zoneHazardDmg = (base, zone) => enemyDmg(base, zone.band[0]) * (zone.hazardMult ?? 1);
 export const enemyXp = (base, L) => base * (1 + 0.15 * (L - 1)) ** 1.75;

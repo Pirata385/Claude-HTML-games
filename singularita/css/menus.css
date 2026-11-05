@@ -125,3 +125,17 @@
   .settings { grid-template-columns: 1fr; }
   .hb-edit { grid-template-columns: repeat(2, 1fr); }
 }
+
+/* Dev menu (a "DeBug" character only) */
+.dbg { display: flex; flex-direction: column; gap: 6px; }
+.dbg-sec { border: 1px dashed var(--line-2); border-radius: var(--radius); padding: 8px 12px 12px; }
+.dbg-sec .row { margin-top: 8px; gap: 6px; }
+.dbg-lbl { color: var(--muted); font-size: 13px; min-width: 44px; }
+.dbg-input { min-height: 34px; width: 90px; padding: 4px 8px; background: var(--panel-2); border: 1px solid var(--line-2); border-radius: 8px; color: var(--ink); }
+.dbg-input.wide { width: 100%; margin-top: 8px; }
+.dbg-results { display: flex; flex-direction: column; gap: 4px; margin-top: 8px; max-height: 280px; overflow: auto; }
+.dbg-item { display: flex; align-items: center; gap: 6px; }
+.dbg-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dbg-name small { color: var(--muted); }
+.dbg-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 6px; margin-top: 8px; }
+.dbg-grid .btn { text-align: left; justify-content: flex-start; }

@@ -20,6 +20,17 @@ npx serve .          # from the repository root, then open /singularita/
 
 Open the root `index.html` menu and pick **Singularita**. Progress is saved in the browser (five slots, each shown with its character, class, level and progress), and saves can be exported as a text code from the System tab or the title screen.
 
+### Debug mode
+
+A character named exactly **DeBug** gets a **Dev** tab in the menu (and DEBUG next to its name on the HUD). From it you can:
+
+- **Player:** set the level (with that level's attribute points), turn on invincibility, fly, change your speed (×1, ×2, ×4), heal, reset cooldowns, clear nearby creatures and switch day and night. While flying, jump climbs, dash descends, and walls do not stop you.
+- **Items:** search any material, consumable, gear or tool and add it, plus shortcuts: all sigils, all Fracture Shards, every Emblem, tonics, and opening the Core Gate.
+- **Bosses:** fight any of them. The menu takes you to the boss's home (Dawnreach, its isle, or a fresh run of its dimension; the Jailer on floor 5) and puts you at its arena.
+- **Teleport:** jump to the named spots of the current zone (arrival, camp, cave mouth, arenas, stairs, gates, landing, exit), or to any zone. A dimension starts a run of its own.
+
+Any other name plays the normal game; the Dev tab never appears for it.
+
 ## Controls
 
 | Action | Keyboard & mouse | Touch |

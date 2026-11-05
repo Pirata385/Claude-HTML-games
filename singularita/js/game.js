@@ -51,6 +51,8 @@ export class Game {
     this.time = 0;
     this.paused = false;
     this.inputBlocked = false;
+    // Developer switches, used by the Dev menu of a "DeBug" character: flight and a speed multiplier.
+    this.debug = { fly: false, speed: 1 };
     this.systems = [];
     this.player = new Player({});
     this.recomputeStats();

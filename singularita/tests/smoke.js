@@ -1096,6 +1096,45 @@ try {
     check(!errors.length, `ending: no errors ${errors.slice(0, 3).join(' | ')}`);
     await ctx.close();
   }
+  // 16. The load screen: five slots, whole cards a finger can tap, and one character after another.
+  {
+    const { ctx, page, errors } = await open(`${BASE}/singularita/index.html?debug`, { viewport: { width: 412, height: 915 }, hasTouch: true, isMobile: true, deviceScaleFactor: 2 });
+    await page.waitForSelector('.title-buttons');
+    await page.evaluate(async () => {
+      const { newProfile, SaveStore } = await import('./js/systems/save.js');
+      const st = new SaveStore(localStorage);
+      const aria = Object.assign(newProfile({ name: 'Aria', classId: 'mage', slot: 0, seed: 1 }), { level: 42, ending: 'mend', cycle: 1, playTime: 5400 });
+      aria.stats.bosses = { slime_prince: 1, silverback: 2 }; aria.stats.deaths = 4;
+      st.save(0, aria);
+      st.save(3, Object.assign(newProfile({ name: 'Bram', classId: 'swordsman', slot: 3, seed: 2 }), { level: 7 }));
+    });
+    await page.reload(); await page.waitForSelector('.title-buttons');
+    const tapOn = async (loc) => { await loc.scrollIntoViewIfNeeded(); const q = await loc.boundingBox(); await page.touchscreen.tap(q.x + q.width / 2, q.y + q.height / 2); };
+    const openLoad = async () => { await tapOn(page.locator('.title-buttons .btn', { hasText: 'Load Game' })); await page.waitForSelector('.save-card', { timeout: 15000 }); };
+    await openLoad();
+    const cards = await page.evaluate(() => [...document.querySelectorAll('.save-card')].map((c) => ({ w: c.getBoundingClientRect().width, empty: c.classList.contains('empty'), text: c.innerText, portrait: !!c.querySelector('.save-portrait img') })));
+    check(cards.length === 5 && cards.filter((c) => !c.empty).length === 2, `load screen: five slots, two of them saved (${cards.map((c) => (c.empty ? '_' : 'S')).join('')})`);
+    check(cards.every((c) => c.w > 340), `load screen: the cards span the screen (${cards.map((c) => Math.round(c.w)).join(', ')} px)`);
+    const a = cards[0];
+    check(a.portrait && /Aria/.test(a.text) && /Mage/.test(a.text) && /42/.test(a.text) && /Mender of Vael/.test(a.text) && /Wood Staff/.test(a.text) && /Dawnreach/.test(a.text), `a saved card shows the character, its class, name and status (${a.text.replace(/\n+/g, ' | ')})`);
+    // A finger on Bram's Play button lands on it, and plays Bram.
+    const play = page.locator('.save-card').nth(3).locator('.btn.primary');
+    await play.scrollIntoViewIfNeeded();
+    const top = await play.evaluate((b) => { const q = b.getBoundingClientRect(); return b.contains(document.elementFromPoint(q.x + q.width / 2, q.y + q.height / 2)) && q.height >= 40; });
+    check(top, 'load screen: the Play button is on top, at finger size');
+    await shot(page, { path: path.join(SHOTS, 'load-screen.png') });
+    await tapOn(play);
+    await page.waitForFunction(() => window.__SG?.profile?.name === 'Bram' && window.__SG.zone && document.getElementById('loading').hidden, null, { timeout: 60000 });
+    // Back to the title, then the other character.
+    await page.evaluate(() => window.__SG.hooks.quitToTitle());
+    await openLoad();
+    await tapOn(page.locator('.save-card').nth(0).locator('.save-main'));
+    const ok = await page.waitForFunction(() => window.__SG?.profile?.name === 'Aria' && window.__SG.zone && document.getElementById('loading').hidden, null, { timeout: 60000 }).then(() => true, () => false);
+    const who = await page.evaluate(() => ({ name: window.__SG.profile.name, cls: window.__SG.profile.classId, level: window.__SG.profile.level }));
+    check(ok && who.cls === 'mage' && who.level === 42, `after quitting Bram, tapping Aria's card loads Aria (${JSON.stringify(who)})`);
+    check(!errors.length, `load screen: no errors ${errors.slice(0, 3).join(' | ')}`);
+    await ctx.close();
+  }
 } catch (err) {
   failures++;
   console.error('FAIL smoke test crashed:', err);

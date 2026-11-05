@@ -6,6 +6,7 @@ import { ZONES } from '../data/zones.js';
 import { newProfile, importString, SLOT_COUNT } from '../systems/save.js';
 import { openSettings } from './menus/settings.js';
 import { toggleFullscreen, isStandalone } from './fullscreen.js';
+import { portraitOf, releasePortraits } from '../render/portrait.js';
 
 export class TitleScreen {
   constructor(root, ctx) { this.root = root; this.ctx = ctx; }
@@ -33,7 +34,7 @@ export class TitleScreen {
         h('button', { class: 'btn ghost', onclick: () => this.importView() }, 'Import a save code'),
         this.ctx.input?.isTouch && !isStandalone() && h('button', { class: 'btn ghost fs-toggle', onclick: () => toggleFullscreen().then((tip) => { if (tip) alert(tip); }) }, '⛶ Full screen'),
       ),
-      h('p', { class: 'title-foot' }, 'Milestone 1 — Dawnreach and the Hollow Deep. Your progress is saved in this browser.'),
+      h('p', { class: 'title-foot' }, `Up to ${SLOT_COUNT} characters are saved in this browser.`),
     );
   }
 
@@ -46,20 +47,41 @@ export class TitleScreen {
 
   slots() {
     const list = this.ctx.store.list();
+    const used = list.filter(Boolean).length;
     this.frame(
       h('h2', { class: 'screen-title' }, 'Load Game'),
-      h('div', { class: 'slot-list' }, list.map((s, i) => s
-        ? h('div', { class: 'slot' },
-          h('div', { class: 'slot-info' }, h('b', {}, s.name), h('span', {}, `${CLASSES[s.classId].name} · Level ${s.level}`),
-            h('small', {}, `${ZONES[s.zone]?.name || 'Dawnreach'} · ${fmtTime(s.playTime)} played`)),
-          h('div', { class: 'slot-actions' },
-            h('button', { class: 'btn primary', onclick: () => this.play(i) }, 'Play'),
-            h('button', { class: 'btn ghost', onclick: () => this.exportSlot(i) }, 'Export'),
-            h('button', { class: 'btn danger', onclick: () => { if (confirm(`Delete ${s.name} for good?`)) { this.ctx.store.remove(i); this.slots(); } } }, 'Delete')))
-        : h('div', { class: 'slot empty' }, h('div', { class: 'slot-info' }, h('b', {}, `Slot ${i + 1}`), h('span', {}, 'Empty')),
-          h('button', { class: 'btn', onclick: () => this.create(i) }, 'New Character')))),
+      h('p', { class: 'muted small save-count' }, `${used} of ${SLOT_COUNT} slots in use. Tap a character to play.`),
+      h('div', { class: 'save-list' }, list.map((s, i) => (s ? this.saveCard(s, i) : this.emptyCard(i)))),
       h('button', { class: 'btn ghost', onclick: () => this.title() }, '← Back'),
     );
+    releasePortraits();
+  }
+
+  saveCard(s, i) {
+    const c = CLASSES[s.classId];
+    const img = portraitOf(s.classId, s.weapon?.material, s.armor?.material);
+    const stat = (ico, label, v) => h('span', { class: 'save-stat', title: label }, h('i', {}, ico), String(v));
+    const meta = [ZONES[s.zone]?.name || 'Dawnreach', `${fmtTime(s.playTime)} played`, `${s.bosses} boss${s.bosses === 1 ? '' : 'es'} defeated`, `${s.deaths} death${s.deaths === 1 ? '' : 's'}`];
+    return h('div', { class: 'save-card', style: { '--cc': c.color } },
+      h('button', { class: 'save-main', onclick: () => this.play(i), 'aria-label': `Play ${s.name}` },
+        h('div', { class: 'save-portrait' }, img ? h('img', { src: img, alt: '' }) : h('span', { class: 'save-emblem' }, c.name[0])),
+        h('div', { class: 'save-info' },
+          h('div', { class: 'save-head' }, h('b', { class: 'save-name' }, s.name), h('span', { class: 'save-lv' }, `Lv ${s.level}`)),
+          h('div', { class: 'save-class' }, h('span', { class: 'cls' }, c.name), s.title && h('span', { class: 'save-title' }, `· ${s.title}`), s.cycle > 0 && h('span', { class: 'save-asc' }, `✦ Ascension ${s.cycle}`)),
+          h('div', { class: 'save-stats' }, stat('❤', 'Health', s.maxHp), stat('⚔', 'Damage', s.power), stat('⛨', 'Defence', s.def)),
+          h('div', { class: 'save-gear' }, `${s.weapon?.name || 'No weapon'} · ${s.armor?.name || 'No armour'}`),
+          h('small', { class: 'save-meta' }, meta.join(' · ')))),
+      h('div', { class: 'save-actions' },
+        h('button', { class: 'btn primary', onclick: () => this.play(i) }, 'Play'),
+        h('button', { class: 'btn ghost', onclick: () => this.exportSlot(i) }, 'Export'),
+        h('button', { class: 'btn danger', onclick: () => { if (confirm(`Delete ${s.name} for good?`)) { this.ctx.store.remove(i); this.slots(); } } }, 'Delete')));
+  }
+
+  emptyCard(i) {
+    return h('div', { class: 'save-card empty' },
+      h('button', { class: 'save-main', onclick: () => this.create(i) },
+        h('div', { class: 'save-portrait' }, h('span', { class: 'save-emblem' }, '+')),
+        h('div', { class: 'save-info' }, h('b', { class: 'save-name' }, `Slot ${i + 1}`), h('span', { class: 'muted' }, 'Empty. Tap to create a new character.'))));
   }
 
   exportSlot(i) {

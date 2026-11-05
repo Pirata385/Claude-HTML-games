@@ -148,6 +148,13 @@ try {
       out.gated = g.zone.id;
       g.profile.level = 8; goNear(ex.x + 0.6, ex.z); step(3); tap('interact'); await new Promise((r) => setTimeout(r, 900)); step(3);
       out.zone2 = g.zone.id;
+      // Both ways sit side by side in the hall at the centre: you arrive a few steps from each.
+      const near = () => { const p = g.player, z = g.zone; return [Math.hypot(p.x - z.entry.x, p.z - z.entry.z), Math.hypot(p.x - z.exit.x, p.z - z.exit.z)].map((d) => Math.round(d * 10) / 10); };
+      out.down = near();
+      const en = g.zone.entry; goNear(en.x + 0.6, en.z); step(3); tap('interact'); await new Promise((r) => setTimeout(r, 900)); step(3);
+      out.upZone = g.zone.id; out.up = near();
+      goNear(g.zone.exit.x + 0.6, g.zone.exit.z); step(3); tap('interact'); await new Promise((r) => setTimeout(r, 900)); step(3);
+      out.again = g.zone.id;
       step(30 * 20);
       out.caveEnemies = g.enemies.count();
       g.enterZone('cave_4'); step(30 * 10); out.hazards = g.zone.hazards.length;
@@ -162,6 +169,7 @@ try {
     check(c.zone1 === 'cave_1', 'cave mouth leads to layer 1');
     check(c.gated === 'cave_1', 'layer 2 is gated by level');
     check(c.zone2 === 'cave_2', 'layer 2 opens at level 8');
+    check(c.down.every((d) => d <= 10) && c.upZone === 'cave_1' && c.up.every((d) => d <= 10) && c.again === 'cave_2', `the stairs up and the way down stand side by side: down ${c.down}, up ${c.up} (m to stairs, way down)`);
     check(c.caveEnemies > 0, `caves are populated (${c.caveEnemies})`);
     check(c.geo[1] <= c.geo[0] + 2, `no geometry leak across zone changes (${c.geo.join(' → ')})`);
     check(c.lore.length >= 1, 'Echo Stones record lore');

@@ -226,6 +226,20 @@ test('save migrates older versions', () => {
   assert.ok(Array.isArray(res.profile.hints));
 });
 
+test('saves from before the central cave halls forget the old cave layouts, and only those', () => {
+  const p = fresh(); p.version = 3; p.zone = 'cave_4'; p.pos = [10, 12];
+  p.zones = { island: { nodes: { n3: 100 }, fog: 'island-fog' }, cave_4: { nodes: { n7: 50 }, fog: 'old-fog' }, isle_air: { nodes: { n1: 9 }, fog: 'air-fog' } };
+  const m = migrate(structuredClone(p));
+  assert.equal(SAVE_VERSION, 4);
+  assert.equal(m.pos, null, 'a position in an old cave could be inside rock now');
+  assert.deepEqual(m.zones.cave_4, { nodes: {}, fog: null });
+  assert.deepEqual(m.zones.island, p.zones.island);
+  assert.deepEqual(m.zones.isle_air, p.zones.isle_air);
+  // Outside the caves the position is kept.
+  const q = fresh(); q.version = 3; q.zone = 'island'; q.pos = [5, 6];
+  assert.deepEqual(migrate(q).pos, [5, 6]);
+});
+
 test('SaveStore uses slots and falls back to the backup on corruption', () => {
   const mem = new Map();
   const storage = { getItem: (k) => (mem.has(k) ? mem.get(k) : null), setItem: (k, v) => mem.set(k, String(v)), removeItem: (k) => mem.delete(k) };

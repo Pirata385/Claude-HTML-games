@@ -53,9 +53,8 @@ export function validateCave(z) {
   if (!g.walkable(z.exit.i, z.exit.j)) errors.push('exit blocked');
   const dx = dist[g.idx(z.exit.i, z.exit.j)];
   if (dx < 0) errors.push('exit unreachable');
-  let diameter = 0;
-  for (const d of dist) diameter = Math.max(diameter, d);
-  if (dx < diameter * 0.6) errors.push(`exit too close to entry (${dx} of ${diameter})`);
+  // The stairs up and the way down stand side by side in the central hall.
+  if (dx > 14) errors.push(`exit ${dx} steps from the entry: they should stand side by side`);
   for (const n of z.nodes) {
     if (g.has(n.i, n.j, F.PATH)) errors.push(`node ${n.id} on the main route`);
     if (!reachableNeighbour(g, dist, n.i, n.j)) errors.push(`node ${n.id} unreachable`);

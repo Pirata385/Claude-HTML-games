@@ -155,6 +155,21 @@ for (const id of ZONE_ORDER.filter((x) => ZONES[x].type === 'cave')) {
   });
 }
 
+for (const id of ZONE_ORDER.filter((x) => ZONES[x].type === 'cave')) {
+  test(`${id}: the stairs up and the way down stand side by side in a hall at the centre`, () => {
+    const z = gen(id), g = z.grid, c = g.w / 2;
+    const apart = Math.hypot(z.exit.x - z.entry.x, z.exit.z - z.entry.z);
+    assert.ok(apart >= 6 && apart <= 12, `${id}: ${apart.toFixed(1)} m apart`);
+    for (const p of [z.entry, z.exit]) assert.ok(Math.hypot(p.x - c, p.z - c) <= g.w * 0.12, `${id}: ${p.type} at ${p.x},${p.z} is off-centre`);
+    // A straight walk across open floor: nothing in the way, no detour.
+    const walk = g.bfs(z.entry.i, z.entry.j, { maxStep: 1 })[g.idx(z.exit.i, z.exit.j)];
+    assert.ok(walk > 0 && walk <= Math.ceil(apart) + 1, `${id}: walk ${walk}`);
+    // Arriving from above or below puts you in the hall, a few steps from both.
+    const [si, sj] = [Math.floor(z.spawn.x), Math.floor(z.spawn.z)];
+    assert.ok(Math.hypot(si - z.exit.i, sj - z.exit.j) >= 3.5, `${id}: spawn on top of the way down`);
+  });
+}
+
 test('split rift layer keeps ruby on the hot side and sapphire on the cold side', () => {
   const z = gen('cave_5');
   for (const n of z.nodes) {
@@ -246,30 +261,31 @@ test('the Singular Heart ends at the heart of Singularita', () => {
 
 test('snapshot: the world stays the same between versions', () => {
   const hashes = Object.fromEntries(ZONE_ORDER.map((id) => [id, gen(id).grid.hashCode()]));
-  // Update these only when GEN_VERSION changes.
+  // Update these only when GEN_VERSION changes, or a generator changes on purpose (the caves'
+  // central halls changed every cave; saves from before are migrated by SAVE_VERSION 4).
   assert.deepEqual(hashes, SNAPSHOT);
 });
 
 const SNAPSHOT = {
   island: 2342205016,
-  cave_1: 721125773,
-  cave_2: 187366791,
-  cave_3: 1733519886,
-  cave_4: 4000703462,
-  cave_5: 2709913210,
-  cave_6: 1321776304,
-  cave_7: 3610936536,
+  cave_1: 101939129,
+  cave_2: 3926632014,
+  cave_3: 3979178644,
+  cave_4: 1249388838,
+  cave_5: 660835468,
+  cave_6: 4066547938,
+  cave_7: 1956414724,
   isle_air: 864389213,
   isle_water: 1510201923,
   isle_fire: 3261711635,
   isle_earth: 1606759553,
-  cave_8: 1470528535,
+  cave_8: 605349747,
   dim_dungeon: 3338211100,
   dim_twins: 4190279646,
   dim_king: 4209598902,
   dim_mirror: 2559964178,
   dim_dragons: 2075933498,
-  cave_9: 487881930,
+  cave_9: 4071972309,
   dim_unmade: 21846198,
 };
 

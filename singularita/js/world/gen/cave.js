@@ -1,5 +1,6 @@
 // The Hollow Deep: each layer is a cellular-automata cave with one connected floor,
-// stairs up and a shaft down at opposite ends, ore veins along the walls and layer hazards.
+// stairs up and the way down side by side in a hall at its centre (so moving between layers is
+// quick), ore veins along the walls and layer hazards.
 import { ZoneGrid, F, SURF, N4, N8 } from '../grid.js';
 import { makeRng, hashSeed } from '../../core/rng.js';
 import { makeNoise2D } from '../../core/noise.js';
@@ -50,6 +51,17 @@ function tryCave(def, seed) {
     carveTunnel(wall, N, a % N, Math.floor(a / N), best % N, Math.floor(best / N));
     for (const k of r) inMain[k] = 1;
   }
+  // The hall at the centre, where the stairs up and the way down stand side by side. It is dug out
+  // and joined to the nearest open floor, so it is always part of the cave.
+  const big = def.gen.gate || def.gen.heart || def.gen.core;
+  const C = N >> 1, R = big ? 10 : 8, HALF = big ? 5 : 4;
+  const inHall = (i, j) => (i - C) ** 2 + (j - C) ** 2 <= R * R;
+  for (let j = C - R; j <= C + R; j++) for (let i = C - R; i <= C + R; i++) if (inHall(i, j)) wall[j * N + i] = 0;
+  {
+    let best = main[0], bd = Infinity;
+    for (const k of main) { const i = k % N, j = Math.floor(k / N); if (inHall(i, j)) { best = -1; break; } const d = Math.abs(i - C) + Math.abs(j - C); if (d < bd) { bd = d; best = k; } }
+    if (best >= 0) carveTunnel(wall, N, C, C, best % N, Math.floor(best / N));
+  }
   let floor = 0;
   for (let k = 0; k < N * N; k++) if (!wall[k]) floor++;
   const frac = floor / (N * N);
@@ -63,35 +75,20 @@ function tryCave(def, seed) {
     if (wall[k]) g.flags[k] |= F.WALL;
   }
 
-  // Stairs up and the way down sit at the two ends of the cave's longest walk.
   const open = (i, j, r) => { for (let oj = -r; oj <= r; oj++) for (let oi = -r; oi <= r; oi++) if (!g.inside(i + oi, j + oj) || g.has(i + oi, j + oj, F.WALL)) return false; return true; };
-  const anyFloor = main[Math.floor(rng.next() * main.length)];
-  const far = (k) => { const d = g.bfs(k % N, Math.floor(k / N), { maxStep: 1 }); let bk = k, bd = -1; for (let x = 0; x < d.length; x++) if (d[x] > bd) { bd = d[x]; bk = x; } return [bk, d, bd]; };
-  let [ek] = far(anyFloor);
-  let [xk, dFromEntry, diameter] = far(ek);
-  const clearAround = (k, r) => {
-    const ci = k % N, cj = Math.floor(k / N);
-    for (let oj = -r; oj <= r; oj++) for (let oi = -r; oi <= r; oi++) {
-      const i = ci + oi, j = cj + oj;
-      if (i < 2 || j < 2 || i >= N - 2 || j >= N - 2) continue;
-      if (oi * oi + oj * oj <= r * r) { g.clear(i, j, F.WALL); g.h[g.idx(i, j)] = g.h[k]; }
-    }
-  };
-  if (!open(ek % N, Math.floor(ek / N), 2)) clearAround(ek, 3);
-  clearAround(xk, def.gen.gate || def.gen.heart || def.gen.core ? 5 : 3);
-  // Recompute after clearing.
-  dFromEntry = g.bfs(ek % N, Math.floor(ek / N), { maxStep: 1 });
-  diameter = 0;
-  for (let k = 0; k < dFromEntry.length; k++) diameter = Math.max(diameter, dFromEntry[k]);
-  const entry = { i: ek % N, j: Math.floor(ek / N), type: 'stairs' };
-  const exit = { i: xk % N, j: Math.floor(xk / N), type: def.gen.core ? 'core' : def.gen.heart ? 'heart' : def.gen.gate ? 'gate' : 'shaft' };
+  // The hall is level, and nothing spawns in it.
+  for (let j = C - R; j <= C + R; j++) for (let i = C - R; i <= C + R; i++) if (inHall(i, j)) { g.h[g.idx(i, j)] = 0; g.set(i, j, F.NOSPAWN); }
+  const entry = { i: C - HALF, j: C, type: 'stairs' };
+  const exit = { i: C + HALF, j: C, type: def.gen.core ? 'core' : def.gen.heart ? 'heart' : def.gen.gate ? 'gate' : 'shaft' };
   for (const p of [entry, exit]) { p.x = p.i + 0.5; p.z = p.j + 0.5; p.h = g.h[g.idx(p.i, p.j)]; }
-  if (dFromEntry[g.idx(exit.i, exit.j)] < diameter * 0.6) return null;
+  const dFromEntry = g.bfs(entry.i, entry.j, { maxStep: 1 });
+  let diameter = 0, farK = g.idx(entry.i, entry.j);
+  for (let k = 0; k < dFromEntry.length; k++) if (dFromEntry[k] > diameter) { diameter = dFromEntry[k]; farK = k; }
 
-  // Main route: walk back down the distance field from the exit.
+  // Main route: from the hall out to the far end of the cave, walked back down the distance field.
   const route = [];
   {
-    let ci = exit.i, cj = exit.j;
+    let ci = farK % N, cj = Math.floor(farK / N);
     route.push([ci, cj]);
     while (dFromEntry[g.idx(ci, cj)] > 0) {
       let moved = false;
@@ -206,7 +203,7 @@ function tryCave(def, seed) {
   for (const [i, j] of candidates) if (wallAdjacent(i, j) && !g.has(i, j, F.OBSTACLE) && rng.chance(0.06)) glow.push({ x: i + 0.5, z: j + 0.5, h: g.h[g.idx(i, j)], c: rng.int(0, 2) });
   const rails = def.gen.rails ? route.filter((_, n) => n > 4 && n < route.length - 4).map(([i, j]) => ({ i, j })) : [];
 
-  const spawnCell = N4.map(([di, dj]) => [entry.i + di * 2, entry.j + dj * 2]).find(([i, j]) => g.walkable(i, j)) || [entry.i, entry.j];
+  const spawnCell = [[2, 3], [0, 3], [0, -3], [-3, 0]].map(([di, dj]) => [entry.i + di, entry.j + dj]).find(([i, j]) => g.walkable(i, j)) || [entry.i, entry.j];
   return {
     id: def.id, type: 'cave', layer: def.layer, def, seed, grid: g,
     entry, exit, route, pois, nodes, hazards, split, sides, sideOf,

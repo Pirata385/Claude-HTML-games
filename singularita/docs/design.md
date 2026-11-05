@@ -38,7 +38,7 @@ What the player meets on Dawnreach comes from that story:
 - Every point of interest is reachable from camp without jumping.
 - Feature footprints do not overlap, and arenas are flat and clear.
 - Nodes never block paths or corridors.
-- A cave's way down is at least 60% of the cave's diameter from its stairs, and every ore vein is reachable.
+- A cave's stairs up and way down stand side by side (8–10 m apart) in a level hall at its centre, where nothing spawns, so moving between layers is quick. Arriving from above or below puts you in front of the pair. Every ore vein is reachable. The change moved every cave (`SAVE_VERSION` 4 drops the old caves' explored maps, mined veins and a position inside one).
 
 ## Systems (Milestone 1)
 

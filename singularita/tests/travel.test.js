@@ -9,12 +9,14 @@ import { ISLES } from '../js/data/zones.js';
 
 const fresh = (level = 1) => { const p = newProfile({ name: 'Tess', classId: 'swordsman', slot: 0, seed: 77 }); p.level = level; return p; };
 
-test('isles open by level', () => {
-  const r = canEnter(fresh(50), 'isle_air');
+test('isles open by level: Air at 20, Water at 40, Fire at 60, Earth at 80', () => {
+  const r = canEnter(fresh(19), 'isle_air');
   assert.equal(r.ok, false);
-  assert.match(r.reason, /level 66/);
-  assert.equal(canEnter(fresh(66), 'isle_air').ok, true);
-  assert.equal(canEnter(fresh(70), 'isle_fire').ok, false);
+  assert.match(r.reason, /level 20/);
+  for (const [id, L] of [['isle_air', 20], ['isle_water', 40], ['isle_fire', 60], ['isle_earth', 80]]) {
+    assert.equal(canEnter(fresh(L - 1), id).ok, false, `${id} at ${L - 1}`);
+    assert.equal(canEnter(fresh(L), id).ok, true, `${id} at ${L}`);
+  }
 });
 
 test('the Core needs all four sigils and an opened gate', () => {

@@ -369,6 +369,18 @@ try {
     const { ctx, page, errors } = await open(`${BASE}/singularita/index.html?quickstart=swordsman&debug`);
     await waitGame(page);
     const settle = () => page.evaluate(() => { const g = window.__SG; g.cam.snapBehind(g.player.yaw); for (let i = 0; i < 60; i++) g.render(1 / 30); });
+    // At level 20 the Wayshrine opens the Isle of Air, and only it; its button sails there.
+    const shrine = await page.evaluate(async () => {
+      const g = window.__SG; g.ui.closeDialog?.();
+      g.profile.level = 20; g.recomputeStats();
+      g.interaction.wayshrine();
+      const labels = [...document.querySelectorAll('#dialog button')].map((b) => b.textContent);
+      [...document.querySelectorAll('#dialog button')].find((b) => /^Sail to The Galeforge Spires/.test(b.textContent))?.click();
+      await new Promise((r) => setTimeout(r, 1200));
+      return { labels, zone: g.zone.id };
+    });
+    check(shrine.labels.some((l) => /^Sail to The Galeforge Spires/.test(l)) && shrine.labels.some((l) => /Tidecrown Atoll \(level 40\)/.test(l)) && shrine.labels.some((l) => /Cinderspine \(level 60\)/.test(l)) && shrine.zone === 'isle_air',
+      `at level 20 the Wayshrine sails to the Isle of Air; Water waits for 40 and Fire for 60 (${shrine.labels.join(' / ')} → ${shrine.zone})`);
     for (const id of ['isle_air', 'isle_water', 'isle_fire', 'isle_earth']) {
       const r = await sim(page, `
         g.ui.closeDialog && g.ui.closeDialog(); g.godMode = true;

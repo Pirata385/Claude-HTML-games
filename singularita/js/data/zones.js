@@ -96,7 +96,7 @@ ZONES.cave_8 = cave(8, {
 // The four elemental isles, reached from the Wayshrine in camp.
 const isle = (element, o) => ({ id: `isle_${element}`, type: 'isle', element, music: `isle_${element}`, hazards: [], ...o });
 ZONES.isle_air = isle('air', {
-  name: 'The Galeforge Spires', subtitle: 'Isle of Air', levelReq: 66, band: [66, 90], population: 11,
+  name: 'The Galeforge Spires', subtitle: 'Isle of Air', levelReq: 20, band: [20, 26], population: 11,
   gen: { size: 200, kind: 'spires' },
   nodes: [{ node: 'tree_cloudpine', w: 5 }, { node: 'node_skyglass', w: 3 }, { node: 'ore_diamond', w: 1 }],
   enemies: [{ id: 'gale_harpy', w: 5 }, { id: 'kite_serpent', w: 3 }, { id: 'cloud_sprite', w: 2 }, { id: 'storm_wisp', w: 2 }],
@@ -105,7 +105,7 @@ ZONES.isle_air = isle('air', {
   palette: { sky: '#7fc4ff', horizon: '#e8f6ff', fog: '#d8ecff', ground: '#c8e0b0', grass: '#a8d890', rock: '#b8c0cc', sun: '#fff8e8', hemi: '#e0f0ff', hemiG: '#8a9aaa' },
 });
 ZONES.isle_water = isle('water', {
-  name: 'Tidecrown Atoll', subtitle: 'Isle of Water', levelReq: 66, band: [66, 90], population: 11,
+  name: 'Tidecrown Atoll', subtitle: 'Isle of Water', levelReq: 40, band: [40, 50], population: 11,
   gen: { size: 200, kind: 'atoll' },
   nodes: [{ node: 'tree_palm', w: 5 }, { node: 'pearl_bed', w: 3, low: true }, { node: 'ore_sapphire', w: 1 }],
   enemies: [{ id: 'reef_crab', w: 4 }, { id: 'siren', w: 3 }, { id: 'drowned_sailor', w: 3 }, { id: 'glass_jelly', w: 3 }],
@@ -114,7 +114,7 @@ ZONES.isle_water = isle('water', {
   palette: { sky: '#5ab8e8', horizon: '#f4e8c8', fog: '#cfeaf0', sea: '#1fb0c8', sand: '#f0e0b0', grass: '#7ccf6a', rock: '#a8a090', sun: '#fff0d0', hemi: '#d0f0ff', hemiG: '#8a7a5a' },
 });
 ZONES.isle_fire = isle('fire', {
-  name: 'Cinderspine', subtitle: 'Isle of Fire', levelReq: 80, band: [80, 105], population: 12,
+  name: 'Cinderspine', subtitle: 'Isle of Fire', levelReq: 60, band: [60, 72], population: 12,
   gen: { size: 200, kind: 'volcano' },
   nodes: [{ node: 'tree_charred', w: 4 }, { node: 'ore_obsidian', w: 4 }, { node: 'ore_ruby', w: 1 }],
   enemies: [{ id: 'lava_hound', w: 5 }, { id: 'obsidian_golem', w: 2 }, { id: 'fire_imp', w: 4 }, { id: 'ash_shaman', w: 2 }],
@@ -123,7 +123,7 @@ ZONES.isle_fire = isle('fire', {
   palette: { sky: '#7a3e34', horizon: '#ffa060', fog: '#7a4434', sea: '#3a2420', ground: '#7a5444', ash: '#8a7a72', rock: '#5a4a4c', sun: '#ffc890', hemi: '#ffb890', hemiG: '#4a2a22' },
 });
 ZONES.isle_earth = isle('earth', {
-  name: 'The Rootdeep Mesas', subtitle: 'Isle of Earth', levelReq: 80, band: [80, 105], population: 12,
+  name: 'The Rootdeep Mesas', subtitle: 'Isle of Earth', levelReq: 80, band: [80, 96], population: 12,
   gen: { size: 200, kind: 'mesas' },
   nodes: [{ node: 'tree_mossoak', w: 5 }, { node: 'amber_root', w: 3 }, { node: 'ore_emerald', w: 1 }],
   enemies: [{ id: 'mossback_tortoise', w: 2 }, { id: 'root_lasher', w: 3 }, { id: 'burrowing_mole', w: 3 }, { id: 'stone_wisp', w: 4 }],

@@ -345,3 +345,16 @@ test('the ending: the Singular Key opens the Unmade, where the Fracture waits', 
 test('every lore entry says where it is found (the Journal lists them by zone)', () => {
   for (const [id, l] of Object.entries(LORE)) assert.ok(ZONES[l.zone], `${id}: ${l.zone}`);
 });
+
+test('every elemental isle\'s own resources can be gathered with the tools of its entry level', () => {
+  // A pickaxe of tier T mines nodes up to tier T + 1; trees need any axe.
+  const bestPickaxe = (L) => Math.max(...Object.values(RECIPES).filter((r) => r.level <= L && ITEMS[r.output.item]?.tool === 'pickaxe').map((r) => ITEMS[r.output.item].tier));
+  for (const id of ['isle_air', 'isle_water', 'isle_fire', 'isle_earth']) {
+    const z = ZONES[id], T = bestPickaxe(z.levelReq);
+    for (const { node } of z.nodes) {
+      const n = NODES[node];
+      if (!z.exclusive.includes(n.material)) continue;
+      assert.ok(n.tool === 'axe' || n.tier <= T + 1, `${id}: ${node} is tier ${n.tier}, the best pickaxe at level ${z.levelReq} is tier ${T}`);
+    }
+  }
+});

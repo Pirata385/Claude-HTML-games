@@ -39,8 +39,8 @@ export const BOSSES = {
 
   // Guardians of the elemental isles. They wait in their arenas and return some time after defeat.
   ronin_east_wind: {
-    id: 'ronin_east_wind', name: 'Ronin of the East Wind', title: 'Oathbound Guard of the Eastern Gate', zone: 'isle_air', arena: 'shrine', minLevel: 70,
-    hp: 2400, dmg: 30, levelOffset: 3, color: '#cfe8ff', model: 'ronin', respawn: 600,
+    id: 'ronin_east_wind', name: 'Ronin of the East Wind', title: 'Oathbound Guard of the Eastern Gate', zone: 'isle_air', arena: 'shrine', minLevel: 24,
+    hp: 1640, dmg: 17, levelOffset: 3, color: '#cfe8ff', model: 'ronin', respawn: 600,
     intro: 'You climb well, stranger. My oath was to let no one pass the eastern gate. The gate fell a thousand years ago. The oath did not.',
     defeat: 'So the wind turns… Take the sigil. Guard it better than I guarded my king.',
     lore: 'When the Fracture raced east, a single guard drew his blade and cut the wind in two, and the eastern isle was spared the worst of it. He has stood on its highest spire ever since, sword half-drawn, waiting for an order that will not come.',
@@ -55,11 +55,11 @@ export const BOSSES = {
       { item: 'ronin_sash', chance: 0.2, firstKill: true },
       { material: 'zephyr_feather', min: 6, max: 10, chance: 1 },
     ],
-    xp: 6000,
+    xp: 2500,
   },
   tears_of_poseidon: {
-    id: 'tears_of_poseidon', name: 'Tears of Poseidon', title: 'Grief of the Drowned Palace', zone: 'isle_water', arena: 'temple', minLevel: 70,
-    hp: 900, dmg: 26, levelOffset: 3, color: '#7fe0ff', model: 'tear', respawn: 600, members: 3,
+    id: 'tears_of_poseidon', name: 'Tears of Poseidon', title: 'Grief of the Drowned Palace', zone: 'isle_water', arena: 'temple', minLevel: 44,
+    hp: 760, dmg: 19, levelOffset: 3, color: '#7fe0ff', model: 'tear', respawn: 600, members: 3,
     intro: '(Three tears fall from the drowned god\'s statue and do not land. They circle you, weeping, and the sea begins to rise.)',
     defeat: '(The last tear falls into the lagoon. For a moment the tide stops, as if the sea were listening. Then, gently, it goes out.)',
     lore: 'The palace of Vael fell into the sea on the night of the Fracture. The god of that sea had loved its people. His grief became three tears that never stopped falling, and each tide they shed lifts the water a little higher.',
@@ -74,11 +74,11 @@ export const BOSSES = {
       { item: 'tearstone_pendant', chance: 0.2, firstKill: true },
       { material: 'abyssal_pearl', min: 3, max: 6, chance: 1 },
     ],
-    xp: 6000,
+    xp: 4200,
   },
   magma_vector: {
-    id: 'magma_vector', name: 'The Magma Vector', title: 'Heat Given Direction', zone: 'isle_fire', arena: 'caldera', minLevel: 84,
-    hp: 3200, dmg: 34, levelOffset: 3, color: '#ff9a3a', model: 'vector', respawn: 600,
+    id: 'magma_vector', name: 'The Magma Vector', title: 'Heat Given Direction', zone: 'isle_fire', arena: 'caldera', minLevel: 64,
+    hp: 3140, dmg: 29, levelOffset: 3, color: '#ff9a3a', model: 'vector', respawn: 600,
     intro: '(The caldera\'s heart lifts into the air as a burning cube. Lines of light spear out across the ground: the paths it is about to take.)',
     defeat: '(The cube cools to black glass and cracks. Inside, the Sigil of Flame still points somewhere you cannot see.)',
     lore: 'The Dawnforgers gave the volcano\'s heat a direction, so their great forge could draw it on demand. When the forge died, the heat kept its direction and lost its purpose. It has moved in straight lines ever since.',
@@ -93,7 +93,7 @@ export const BOSSES = {
       { item: 'vector_ring', chance: 0.2, firstKill: true },
       { material: 'obsidian', min: 6, max: 10, chance: 1 },
     ],
-    xp: 7000,
+    xp: 5750,
   },
   allele_golem: {
     id: 'allele_golem', name: 'Allele of the Divine Golem', title: 'The Living Genome', zone: 'isle_earth', arena: 'grove', minLevel: 84,

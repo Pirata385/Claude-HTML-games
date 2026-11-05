@@ -19,7 +19,7 @@ export const OBJECTIVES = [
   { id: 'o_layer6', type: 'reach', target: 'cave_6', count: 1, text: 'Reach the Prism Caverns (Layer 6)', hint: 'Ruby and sapphire gear will see you through.', xp: 2500 },
   { id: 'o_diamond', type: 'gather', target: 'diamond', count: 8, text: 'Mine Diamond', hint: 'Diamond needs a Ruby or Sapphire Pickaxe.', xp: 4000 },
   { id: 'o_gate', type: 'lore', target: 'lore_seal', count: 1, text: 'Find the Sealed Core Gate', hint: 'It waits at the bottom of the Diamond Throat (Layer 7).', xp: 6000 },
-  { id: 'o_isle', type: 'reach', target: 'isle_air|isle_water|isle_fire|isle_earth', count: 1, text: 'Sail to an elemental isle', hint: 'The Wayshrine by the beacon opens the isles of Air and Water at level 66, Fire and Earth at 80.', xp: 8000 },
+  { id: 'o_isle', type: 'reach', target: 'isle_air|isle_water|isle_fire|isle_earth', count: 1, text: 'Sail to an elemental isle', hint: 'The Wayshrine by the beacon opens the isles: Air at level 20, Water at 40, Fire at 60 and Earth at 80.', xp: 8000 },
   { id: 'o_sigil', type: 'sigil', target: 'any', count: 1, text: 'Claim a sigil from an isle guardian', hint: 'Each isle\'s guardian waits in its arena. Read the patterns before you strike.', xp: 12000 },
   { id: 'o_sigils', type: 'sigil', target: 'any', count: 4, text: 'Claim all four sigils', hint: 'Wind, Tide, Flame and Stone. Isle materials make strong accessories along the way.', xp: 30000 },
   { id: 'o_open', type: 'gate', target: 'any', count: 1, text: 'Open the Sealed Core Gate', hint: 'Bring the four sigils to the bottom of the Diamond Throat (Layer 7).', xp: 20000 },

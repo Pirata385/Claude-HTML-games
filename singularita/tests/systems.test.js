@@ -427,6 +427,44 @@ test('balance: the Core and the dimensions are fair to a player who just reached
   }
 });
 
+test('balance: the elemental isles, opened earlier, are as fair as they were', () => {
+  // Each isle against a player who just reached it, with that level's gear. The numbers on the right
+  // are what each fight was when the isles opened at 66 and 80: [hits to kill, hits to die]. Opening
+  // them at 20, 40, 60 and 80 must not make any of them harder, nor much easier.
+  const OLD = {
+    gale_harpy: [6.6, 12.1], kite_serpent: [7.6, 13.8], cloud_sprite: [5.7, 32.3], storm_wisp: [5.2, 6.5],
+    reef_crab: [47.4, 12.1], siren: [8.1, 12.9], drowned_sailor: [11.4, 10.8], glass_jelly: [6.6, 21.5],
+    lava_hound: [12.8, 10.5], obsidian_golem: [48.9, 5.5], fire_imp: [9.3, 11.8], ash_shaman: [11.6, 18.8],
+    mossback_tortoise: [221.2, 7.2], root_lasher: [18.6, 8.6], burrowing_mole: [16.3, 8.6], stone_wisp: [10.5, 12.6],
+  };
+  const GUARDIANS = { isle_air: ['ronin_east_wind', 205, 7.1], isle_water: ['tears_of_poseidon', 230, 8.2], isle_fire: ['magma_vector', 334, 6.1], isle_earth: ['allele_golem', 376, 6.5] };
+  const tiers = [1, 3, 8, 16, 26, 38, 50, 64, 100, 180, 240];
+  const mats = ['wood', 'stone', 'copper', 'iron', 'titanium', 'emerald', 'ruby', 'diamond', 'dawndosite', 'chromantite', 'singularita'];
+  const levels = [];
+  for (const [id, [bid, bKill, bDie]] of Object.entries(GUARDIANS)) {
+    const z = ZONES[id], L = z.levelReq, foeLevel = Math.round((z.band[0] + z.band[1]) / 2);
+    levels.push(L);
+    const p = fresh('swordsman'); p.level = L; p.attrs.str = (L - 1) * 2; p.attrs.res = L - 1;
+    const m = mats[tiers.filter((x) => x <= L).length - 1];
+    const s = computeStats(p, [ITEMS[`swordsman_weapon_${m}`], ITEMS[`swordsman_armor_${m}`]]);
+    const hit = s.power * s.dmgMult, taken = (dmg, lv) => enemyDmg(dmg, lv) * 100 / (100 + s.def);
+    assert.ok(z.band[0] === L && z.band[1] > L, `${id} band ${z.band}`);
+    for (const { id: eid } of z.enemies) {
+      const e = ENEMIES[eid], [k0, d0] = OLD[eid];
+      const k = enemyHp(e.hp, foeLevel) / (hit * (1 - (e.frontArmor || 0))), d = s.maxHp / taken(e.dmg, foeLevel);
+      assert.ok(k <= k0 * 1.1 && k >= k0 * 0.8, `${id} ${eid} L${foeLevel}: hitsToKill ${k.toFixed(1)}, was ${k0}`);
+      assert.ok(d >= d0 * 0.9 && d <= d0 * 1.25, `${id} ${eid} L${foeLevel}: hitsToDie ${d.toFixed(1)}, was ${d0}`);
+    }
+    // The guardian waits a few levels above the isle's entry and is the fight it was.
+    const b = BOSSES[bid], bl = b.minLevel + b.levelOffset;
+    assert.ok(b.minLevel >= L && b.minLevel <= L + 5, `${bid} minLevel ${b.minLevel}`);
+    const k = (enemyHp(b.hp, bl) * (b.members || 1)) / hit, d = s.maxHp / taken(b.dmg, bl);
+    assert.ok(k >= bKill * 0.85 && k <= bKill * 1.15, `${bid}: hitsToKill ${k.toFixed(0)}, was ${bKill}`);
+    assert.ok(d >= bDie * 0.9, `${bid}: hitsToDie ${d.toFixed(1)}, was ${bDie}`);
+  }
+  assert.deepEqual(levels, [20, 40, 60, 80]);
+});
+
 test('balance: the rulers of the dimensions are long fights, not walls', () => {
   // Each ruler against a player at the dimension's entry level, with that level's gear. The Jailer
   // is met on floor 5; deeper Jailers grow with the gaol on purpose.

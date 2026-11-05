@@ -32,8 +32,8 @@ export const NODES = {
   tree_palm: { id: 'tree_palm', name: 'Palm', material: 'wood', tier: 0, tool: 'axe', hp: 6, yield: [2, 4], respawn: 100, xp: 2, model: 'palm' },
   tree_charred: { id: 'tree_charred', name: 'Charred Tree', material: 'wood', tier: 0, tool: 'axe', hp: 5, yield: [1, 3], respawn: 100, xp: 2, model: 'charred' },
   tree_mossoak: { id: 'tree_mossoak', name: 'Moss Oak', material: 'wood', tier: 0, tool: 'axe', hp: 8, yield: [3, 5], respawn: 100, xp: 2, model: 'mossoak' },
-  node_skyglass: ore('skyglass', 7, { id: 'node_skyglass', name: 'Skyglass Spire', yield: [1, 3] }),
-  pearl_bed: ore('abyssal_pearl', 7, { id: 'pearl_bed', name: 'Pearl Bed', yield: [1, 2], model: 'pearl', tide: 'low' }),
+  node_skyglass: ore('skyglass', 4, { id: 'node_skyglass', name: 'Skyglass Spire', yield: [1, 3] }),
+  pearl_bed: ore('abyssal_pearl', 6, { id: 'pearl_bed', name: 'Pearl Bed', yield: [1, 2], model: 'pearl', tide: 'low' }),
   ore_obsidian: ore('obsidian', 7, { name: 'Obsidian Flow', yield: [1, 3] }),
   // Dimensions and the Singular Heart.
   ore_chromantite: ore('chromantite', 9, { name: 'Chromantite Vein', yield: [1, 2] }),

@@ -61,7 +61,7 @@ What the player meets on Dawnreach comes from that story:
 
 ## Systems (Milestone 2)
 
-- **Travel.** The Wayshrine in camp is placed on the generated island at load time, so the island's snapshot does not change. `systems/travel.js` holds the rules: isles open by level; layer 8 needs the four sigils set into the gate (`flags.gateOpen`). Sigils are key items and stay in the bag.
+- **Travel.** The Wayshrine in camp is placed on the generated island at load time, so the island's snapshot does not change. `systems/travel.js` holds the rules: isles open by level (Air 20, Water 40, Fire 60, Earth 80; each isle's creatures stand a few levels above its entry, its guardian four above, and its own ores need only the pickaxe of that level); layer 8 needs the four sigils set into the gate (`flags.gateOpen`). Sigils are key items and stay in the bag.
 - **Isle generators** (`js/world/gen/isles.js`). They return the same shape as the island and the caves; `validateIsle` checks reachability, counting updrafts as links.
   - **Spires:** plateaus over a void, joined by a spanning tree of bridges, or updraft pairs where a bridge would be too steep.
   - **Atoll:** radial bands; three sandbars to the temple; tidal cells between SEA−2 and SEA+1.

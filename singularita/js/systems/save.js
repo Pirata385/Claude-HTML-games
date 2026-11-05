@@ -8,7 +8,7 @@ import { hashStr } from '../core/rng.js';
 import { ITEMS } from '../data/items.js';
 import { defaultHotbar } from '../data/skills.js';
 
-export const SAVE_VERSION = 3;
+export const SAVE_VERSION = 4;
 // Skills that were replaced, and what takes their place on the hotbars.
 const RENAMED_SKILLS = { mg_meteor: 'mg_lance', mg_blink: 'mg_vortex' };
 export const SLOT_COUNT = 5;
@@ -70,6 +70,13 @@ function fillDefaults(target, defaults) {
 }
 
 export function migrate(data) {
+  const from = data.version ?? 0;
+  // Version 4 moved each cave's stairs into a hall at its centre: the old cave layouts are gone,
+  // so a position inside one (now perhaps rock), its explored map and its mined veins are dropped.
+  if (from < 4) {
+    for (const id of Object.keys(data.zones || {})) if (/^cave_\d+$/.test(id)) data.zones[id] = { nodes: {}, fog: null };
+    if (/^cave_\d+$/.test(data.zone || '')) data.pos = null;
+  }
   const defaults = newProfile({ name: data.name || 'Wanderer', classId: data.classId || 'swordsman', slot: data.slot ?? 0, seed: data.seed ?? 1 });
   delete defaults.inv.stacks.healing_tonic;
   // The boss pity roll became a boss clock.

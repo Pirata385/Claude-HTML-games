@@ -264,8 +264,9 @@ export class Interaction {
       const yaw = Math.atan2(z.base.x - cm.x, z.base.z - cm.z);
       arrival = { x: cm.x + Math.sin(yaw) * 3, z: cm.z + Math.cos(yaw) * 3, yaw };
     } else if (how === 'fromBelow') {
+      // In front of the way down, a step toward the stairs beside it.
       const z = g.getZone(zoneId), ex = z.exit;
-      const spot = this.openNear(z, ex.i, ex.j, 3);
+      const spot = this.openNear(z, ex.i - 2, ex.j + 3, 0);
       arrival = { x: spot[0] + 0.5, z: spot[1] + 0.5, yaw: Math.atan2(spot[0] - ex.i, spot[1] - ex.j) };
     }
     g.ui.fadeTravel(() => {

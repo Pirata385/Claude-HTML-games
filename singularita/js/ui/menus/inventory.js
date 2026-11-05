@@ -22,7 +22,8 @@ export function inventoryTab(g, root, opts, rerender) {
     const cur = memoryOf(p, def), picks = [...cur];
     const atForge = g.isAtForge();
     const names = (list) => list.map((t) => TRAITS[t].name).join(' and ');
-    const sel = (n) => h('select', { onchange: (e) => { picks[n] = e.target.value; } }, MEMORY_TRAITS.map((t) => h('option', { value: t, selected: picks[n] === t }, TRAITS[t].name)));
+    // Away from the Forge the choice is shown, not offered: a change there could not stick.
+    const sel = (n) => h('select', { disabled: !atForge, onchange: (e) => { picks[n] = e.target.value; } }, MEMORY_TRAITS.map((t) => h('option', { value: t, selected: picks[n] === t }, TRAITS[t].name)));
     return h('div', { class: 'memory' }, h('h4', {}, 'Shape memory'),
       h('p', { class: 'muted small' }, `It remembers ${names(cur)}: ${cur.map((t) => TRAITS[t].desc).join(' ')} ${atForge ? 'Choose what it should remember.' : 'Change it at the Forge.'}`),
       h('div', { class: 'row' }, sel(0), sel(1),
@@ -69,7 +70,7 @@ export function inventoryTab(g, root, opts, rerender) {
   const eqCol = h('div', { class: 'equip-col' }, h('h4', {}, `${CLASSES[p.classId].name} loadout`));
   for (const s of SLOTS) {
     const d = equippedIn(p, s);
-    eqCol.append(h('button', { class: `eq-slot${d ? '' : ' empty'}`, style: d ? { borderColor: rarityColor(d.rarity) } : {}, onclick: () => d && showItem(loadout(p)[s]) },
+    eqCol.append(h('button', { class: `eq-slot${d ? '' : ' empty'}`, style: d ? { borderColor: rarityColor(d.rarity) } : {}, onclick: () => { if (!d) return; state.sel = loadout(p)[s]; showItem(state.sel); } },
       h('small', {}, SLOT_NAMES[s]), h('b', { style: d ? { color: rarityColor(d.rarity) } : {} }, d ? d.name : 'Empty')));
   }
   for (const t of ['pickaxe', 'axe']) {

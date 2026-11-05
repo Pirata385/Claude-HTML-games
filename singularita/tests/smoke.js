@@ -813,6 +813,37 @@ try {
       return out;
     });
     check(r.panel && r.memory === 'ember,rime' && r.burn, `Singularita remembers what you choose at the Forge (${r.memory})`);
+    // Opened from the loadout after another piece in the bag, it stays the piece you changed, and shows what it remembers now.
+    const lo = await page.evaluate(() => {
+      const g = window.__SG, p = g.player, out = {};
+      g.profile.memory = {};
+      const f = g.zone.base.stations.forge; p.x = f.x + 1.5; p.z = f.z + 1.5;
+      const w = g.profile.inv.items.find((i) => i.id === 'swordsman_weapon_singularita');
+      g.profile.equipment.swordsman.weapon = w.uid;
+      g.profile.inv.items.push({ uid: g.profile.inv.nextUid++, id: 'swordsman_armor_singularita' });
+      g.recomputeStats();
+      g.ui.openMenu('inventory');
+      [...document.querySelectorAll('#menu .cell')].find((c) => /Singularita/.test(c.title) && !/Blade|Sword/.test(c.title))?.click();
+      document.querySelectorAll('#menu .eq-slot')[0].click();
+      const sel = [...document.querySelectorAll('#menu .memory select')];
+      sel[0].value = 'umbral'; sel[0].dispatchEvent(new Event('change'));
+      sel[1].value = 'conductive'; sel[1].dispatchEvent(new Event('change'));
+      document.querySelector('#menu .memory .btn').click();
+      out.shown = document.querySelector('#menu .detail h3')?.textContent;
+      out.text = document.querySelector('#menu .memory p')?.textContent;
+      out.stats = document.querySelector('#menu .detail .stat-lines')?.innerText;
+      out.shock = g.stats.shockChance > 0;
+      g.ui.closeMenu();
+      // Away from the Forge the choices are shown, not offered: nothing to change that would not stick.
+      p.x = f.x + 40; p.z = f.z + 40; g.update(1 / 30);
+      g.ui.openMenu('inventory');
+      document.querySelectorAll('#menu .eq-slot')[0].click();
+      out.away = [...document.querySelectorAll('#menu .memory select')].every((x) => x.disabled) && /at the Forge/.test(document.querySelector('#menu .memory p')?.textContent || '');
+      g.ui.closeMenu();
+      return out;
+    });
+    check(/Singularita (Blade|Sword|Greatsword)/.test(lo.shown || '') && /Umbral and Conductive/.test(lo.text || '') && lo.shock, `changed from the loadout, the piece stays in view with its new memory (${JSON.stringify(lo)})`);
+    check(lo.away, 'away from the Forge the memory is shown but cannot be changed');
     check(r.collapse >= 1 && r.collapses === 1, `every twelfth hit collapses (${r.collapses})`);
     check(r.chroma >= 2, `Chromantite hits cycle through afflictions (${r.chroma} kinds)`);
     check(!errors.length, `shape memory: no errors ${errors.slice(0, 3).join(' | ')}`);

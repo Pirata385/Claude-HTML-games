@@ -119,7 +119,7 @@ try {
       out.boss.paused = g.spawner.bossClock.timer === out.boss.timer;
       if (boss) { for (const m of boss.members) { m.alive = false; m.dyingT = 0; } g.spawner.boss = null; }
       g.profile.level = lvl;
-      return out;`);
+      return out;`.replace('WAVES_LEVELS', JSON.stringify({ day: [1, 10], night: [4, 14] })));
     check(r.objective0 === 'o_wood', 'tutorial starts with gathering wood');
     check(r.wood >= 6, `chopping trees gives wood (${r.wood})`);
     check(r.pickaxe, 'Wood Pickaxe crafted through the Forge menu');

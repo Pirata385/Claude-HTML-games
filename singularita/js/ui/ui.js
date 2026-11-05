@@ -10,6 +10,7 @@ import { equip } from '../systems/equipment.js';
 import { xpToNext, MAX_LEVEL } from '../systems/progression.js';
 import { Minimap } from './minimap.js';
 import { MENUS, MENU_TABS } from './menus/index.js';
+import { isDebug } from '../systems/debug.js';
 import { TouchControls } from './touch.js';
 import { fmt } from '../core/math.js';
 import { toggleFullscreen } from './fullscreen.js';
@@ -235,6 +236,7 @@ export class UI {
   openMenu(tab = 'inventory', opts = {}) {
     if (this.dialogOpen) return;
     const g = this.g;
+    if (MENU_TABS.find((t) => t.id === tab)?.debugOnly && !isDebug(g.profile)) tab = 'inventory';
     this.menuOpts = opts;
     g.paused = true;
     g.input.releasePointer();
@@ -255,11 +257,13 @@ export class UI {
   renderMenu() {
     const tab = this.menuOpen;
     const body = h('div', { class: 'menu-body' });
-    const tabs = h('div', { class: 'menu-tabs', role: 'tablist' }, MENU_TABS.map((t) => h('button', { class: `mtab${t.id === tab ? ' on' : ''}`, role: 'tab', 'aria-selected': String(t.id === tab), onclick: () => { this.menuOpen = t.id; this.renderMenu(); } }, h('span', { class: 'mi' }, t.icon), h('span', { class: 'ml' }, t.name))));
+    const tabs = h('div', { class: 'menu-tabs', role: 'tablist' }, MENU_TABS.filter((t) => !t.debugOnly || isDebug(this.g.profile)).map((t) => h('button', { class: `mtab${t.id === tab ? ' on' : ''}`, role: 'tab', 'aria-selected': String(t.id === tab), onclick: () => { this.menuOpen = t.id; this.renderMenu(); } }, h('span', { class: 'mi' }, t.icon), h('span', { class: 'ml' }, t.name))));
     clear(this.menuRoot).append(h('div', { class: 'menu-panel' },
       h('div', { class: 'menu-head' }, tabs, h('button', { class: 'menu-close', 'aria-label': 'Close', onclick: () => this.closeMenu() }, '✕')),
       body));
     MENUS[tab](this.g, body, this.menuOpts || {}, () => this.renderMenu());
+    // On narrow screens the tab bar scrolls: keep the open tab in sight.
+    tabs.querySelector('.mtab.on')?.scrollIntoView?.({ block: 'nearest', inline: 'nearest' });
   }
 
   // ------------------------------------------------------------------ per frame
@@ -298,7 +302,7 @@ export class UI {
     this.textT = 0.1;
     const c = CLASSES[g.profile.classId];
     el.lvl.textContent = g.profile.level;
-    el.name.textContent = `${g.profile.name} · ${c.name}`;
+    el.name.textContent = `${g.profile.name} · ${c.name}${isDebug(g.profile) ? ' · DEBUG' : ''}`;
     el.hp.s.textContent = `${Math.ceil(p.hp)} / ${st.maxHp}`;
     el.res.s.textContent = `${c.resource.name} ${Math.floor(p.res)}`;
     el.res.i.style.background = c.resource.color;

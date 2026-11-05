@@ -369,6 +369,18 @@ try {
     const { ctx, page, errors } = await open(`${BASE}/singularita/index.html?quickstart=swordsman&debug`);
     await waitGame(page);
     const settle = () => page.evaluate(() => { const g = window.__SG; g.cam.snapBehind(g.player.yaw); for (let i = 0; i < 60; i++) g.render(1 / 30); });
+    // At level 20 the Wayshrine opens the Isle of Air, and only it; its button sails there.
+    const shrine = await page.evaluate(async () => {
+      const g = window.__SG; g.ui.closeDialog?.();
+      g.profile.level = 20; g.recomputeStats();
+      g.interaction.wayshrine();
+      const labels = [...document.querySelectorAll('#dialog button')].map((b) => b.textContent);
+      [...document.querySelectorAll('#dialog button')].find((b) => /^Sail to The Galeforge Spires/.test(b.textContent))?.click();
+      await new Promise((r) => setTimeout(r, 1200));
+      return { labels, zone: g.zone.id };
+    });
+    check(shrine.labels.some((l) => /^Sail to The Galeforge Spires/.test(l)) && shrine.labels.some((l) => /Tidecrown Atoll \(level 40\)/.test(l)) && shrine.labels.some((l) => /Cinderspine \(level 60\)/.test(l)) && shrine.zone === 'isle_air',
+      `at level 20 the Wayshrine sails to the Isle of Air; Water waits for 40 and Fire for 60 (${shrine.labels.join(' / ')} → ${shrine.zone})`);
     for (const id of ['isle_air', 'isle_water', 'isle_fire', 'isle_earth']) {
       const r = await sim(page, `
         g.ui.closeDialog && g.ui.closeDialog(); g.godMode = true;
@@ -1142,6 +1154,66 @@ try {
     check(ok && who.cls === 'mage' && who.level === 42, `after quitting Bram, tapping Aria's card loads Aria (${JSON.stringify(who)})`);
     check(!errors.length, `load screen: no errors ${errors.slice(0, 3).join(' | ')}`);
     await ctx.close();
+  }
+  // 17. Debug mode: a character named "DeBug" gets the developer menu; nobody else does.
+  {
+    const { ctx, page, errors } = await open(`${BASE}/singularita/index.html?debug`);
+    await page.locator('.title-buttons .btn', { hasText: 'New Character' }).click();
+    await page.fill('.name-input', 'DeBug');
+    await page.locator('.class-card[data-cls="mage"]').click();
+    await page.locator('.btn', { hasText: 'Begin' }).click();
+    await waitGame(page);
+    await page.evaluate(() => { const g = window.__SG; g.ui.closeDialog?.(); g.ui.openMenu('debug'); });
+    const dbg = (key) => page.locator(`#menu [data-dbg="${key}"]`).first();
+    const tabs = await page.evaluate(() => [...document.querySelectorAll('#menu .mtab')].map((b) => b.textContent));
+    const badge = await page.evaluate(() => /DEBUG/.test(document.querySelector('.pf-name')?.textContent || ''));
+    check(tabs.some((t) => /Dev/.test(t)) && badge, `DeBug: the Dev tab is in the menu and the HUD says DEBUG (${tabs.join(', ')})`);
+    // Level.
+    await dbg('level').fill('150'); await dbg('level-set').click();
+    const lv = await page.evaluate(() => ({ level: window.__SG.profile.level, points: window.__SG.profile.attrPoints, hp: window.__SG.stats.maxHp }));
+    check(lv.level === 150 && lv.points === 149 * 3, `DeBug: sets the level (${JSON.stringify(lv)})`);
+    // Items: search, then give.
+    await dbg('item-search').fill('Looking-Glass');
+    await dbg('give-emblem_mirror-10').click();
+    const em = await page.evaluate(() => window.__SG.profile.inv.stacks.emblem_mirror || 0);
+    await dbg('item-search').fill('Singularita Staff');
+    await dbg('give-mage_weapon_singularita-1').click();
+    const staff = await page.evaluate(() => window.__SG.profile.inv.items.some((i) => i.id === 'mage_weapon_singularita'));
+    check(em === 10 && staff, `DeBug: gives stacks and gear (${em} emblems, staff ${staff})`);
+    // Invincibility.
+    await dbg('god').click();
+    const god = await sim(page, `const p = g.player, hp = p.hp; g.combat.hurt(p, 1e7, null, { type: 'aoe' }); step(5); return { alive: p.alive, same: p.hp === hp, flag: g.godMode };`);
+    check(god.alive && god.same && god.flag, `DeBug: invincible (${JSON.stringify(god)})`);
+    // Flight: hold jump to climb, through walls.
+    await dbg('fly').click();
+    const fly = await sim(page, `g.ui.closeMenu(); const p = g.player, y0 = p.y; g.input.press('jump'); step(45); g.input.release('jump'); step(30); const up = p.y - y0; return { up, flying: g.debug.fly, held: p.y - y0 > 1 };`);
+    check(fly.flying && fly.up > 3 && fly.held, `DeBug: flies and hovers (${JSON.stringify(fly)})`);
+    // Teleport: another zone, then a named spot in it.
+    await page.evaluate(() => window.__SG.ui.openMenu('debug'));
+    await dbg('fly').click();
+    await dbg('zone-cave_3').click();
+    await page.evaluate(() => window.__SG.ui.openMenu('debug'));
+    await dbg('spot-Way down').click();
+    const tp = await page.evaluate(() => { const g = window.__SG; return { zone: g.zone.id, d: Math.hypot(g.player.x - g.zone.exit.x, g.player.z - g.zone.exit.z) }; });
+    check(tp.zone === 'cave_3' && tp.d < 4, `DeBug: teleports to a zone and to a spot in it (${JSON.stringify(tp)})`);
+    // Bosses: the Ronin, at home on the Isle of Air; and a ruler, in its own run.
+    await page.evaluate(() => { const g = window.__SG; g.ui.closeDialog?.(); g.ui.openMenu('debug'); });
+    await dbg('boss-ronin_east_wind').click();
+    const ronin = await sim(page, `step(5); return { zone: g.zone.id, boss: g.spawner.boss?.def.id, near: Math.hypot(g.player.x - g.zone.arena.x, g.player.z - g.zone.arena.z) < g.zone.arena.r + 4 };`);
+    await page.evaluate(() => { const g = window.__SG; clearTimeout(g.ui.combatDialog); g.ui.closeDialog?.(); g.ui.openMenu('debug'); });
+    await dbg('boss-siamese').click();
+    const ruler = await sim(page, `step(5); return { zone: g.zone.id, run: g.profile.run?.dim, boss: g.spawner.boss?.def.id };`);
+    check(ronin.zone === 'isle_air' && ronin.boss === 'ronin_east_wind' && ronin.near, `DeBug: fights an isle guardian at home (${JSON.stringify(ronin)})`);
+    check(ruler.zone === 'dim_twins' && ruler.run === 'dim_twins' && ruler.boss === 'siamese', `DeBug: fights a ruler in its dimension (${JSON.stringify(ruler)})`);
+    await shot(page, { path: path.join(SHOTS, 'debug-menu.png') });
+    check(!errors.length, `DeBug: no errors ${errors.slice(0, 3).join(' | ')}`);
+    await ctx.close();
+    // Anyone else: no Dev tab, and asking for it opens nothing special.
+    const o = await open(`${BASE}/singularita/index.html?quickstart=swordsman&debug`);
+    await waitGame(o.page);
+    const plain = await o.page.evaluate(() => { const g = window.__SG; g.ui.closeDialog?.(); g.ui.openMenu('debug'); const tabs = [...document.querySelectorAll('#menu .mtab')].map((b) => b.textContent); return { tabs, open: g.ui.menuOpen, dev: !!document.querySelector('#menu [data-dbg]') }; });
+    check(!plain.tabs.some((t) => /Dev/.test(t)) && plain.open !== 'debug' && !plain.dev, `a character not named DeBug has no developer menu (${JSON.stringify(plain)})`);
+    await o.ctx.close();
   }
 } catch (err) {
   failures++;

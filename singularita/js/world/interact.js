@@ -299,7 +299,7 @@ export class Interaction {
     if (!p.flags?.metLume) { (p.flags ||= {}).metLume = true; text = LUME_LINES.first; }
     else if (p.ending) text = LUME_LINES[p.ending === 'mend' ? 'mended' : 'ended'];
     else if (ownedSigils(p).length === 4 && !p.flags.gateOpen) text = LUME_LINES.sigilsHint;
-    else if (p.level >= 66 && !p.flags.gateOpen && !Object.keys(p.zones).some((id) => id.startsWith('isle_'))) text = LUME_LINES.isleHint;
+    else if (p.level >= ZONES.isle_air.levelReq && !p.flags.gateOpen && !Object.keys(p.zones).some((id) => id.startsWith('isle_'))) text = LUME_LINES.isleHint;
     else if (p.lore.includes('lore_seal') && !p.flags.gateOpen) text = LUME_LINES.gateHint;
     else if ((p.inv.stacks.singular_key || 0) > 0) text = LUME_LINES.unmadeHint;
     else if (p.level >= 250 && TROPHIES.every((s) => (p.inv.stacks[s] || 0) > 0)) text = LUME_LINES.keyHint;

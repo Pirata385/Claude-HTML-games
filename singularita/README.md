@@ -20,6 +20,17 @@ npx serve .          # from the repository root, then open /singularita/
 
 Open the root `index.html` menu and pick **Singularita**. Progress is saved in the browser (five slots, each shown with its character, class, level and progress), and saves can be exported as a text code from the System tab or the title screen.
 
+### Debug mode
+
+A character named exactly **DeBug** gets a **Dev** tab in the menu (and DEBUG next to its name on the HUD). From it you can:
+
+- **Player:** set the level (with that level's attribute points), turn on invincibility, fly, change your speed (×1, ×2, ×4), heal, reset cooldowns, clear nearby creatures and switch day and night. While flying, jump climbs, dash descends, and walls do not stop you.
+- **Items:** search any material, consumable, gear or tool and add it, plus shortcuts: all sigils, all Fracture Shards, every Emblem, tonics, and opening the Core Gate.
+- **Bosses:** fight any of them. The menu takes you to the boss's home (Dawnreach, its isle, or a fresh run of its dimension; the Jailer on floor 5) and puts you at its arena.
+- **Teleport:** jump to the named spots of the current zone (arrival, camp, cave mouth, arenas, stairs, gates, landing, exit), or to any zone. A dimension starts a run of its own.
+
+Any other name plays the normal game; the Dev tab never appears for it.
+
 ## Controls
 
 | Action | Keyboard & mouse | Touch |
@@ -50,10 +61,10 @@ On phones and tablets the game goes full screen on the first tap; the ⛶ button
 - **Bosses.** Bosses roam Dawnreach at random, 8 to 14 minutes apart: the Slime Prince holds court in the Sunlit Glade by day, the Silverback Emperor waits in Bone Ridge Crater by night. A banner tells you when one appears. You can also summon them with a crafted Royal Jelly Bait or Echo Horn.
   - **The Slime Prince** lands in shockwave rings you must jump or dodge. He slams his crown down and absorbs his golden guards to heal unless you kill them first, then splits in two.
   - **The Silverback Emperor** leaps, throws boulders and roars up Echoes. His charge stuns him for a few seconds if you bait him into a pillar.
-- **The elemental isles** (from level 66 and 80). The **Wayshrine** in camp carries you to each isle's landing; a return stone there brings you back. Each isle has its own creatures at fixed levels, exclusive materials, two Echo Stones and a guardian who keeps a sigil.
-  - **The Galeforge Spires (Air, Lv 66).** Plateaus over a cloud sea, linked by plank bridges and updraft vents that carry you from spire to spire; gales push everything across the summits. Harpies dive and knock you back, Kite Serpents shoot lightning, Cloud Sprites shield their kin, Storm Wisps burst. Skyglass spires and Cloud Pines.
-  - **Tidecrown Atoll (Water, Lv 66).** A ring of land around a lagoon and a temple islet. The tide runs on a cycle: at low water sandbars lead to the temple and pearl beds can be gathered; at high water they flood, and the current drags you ashore. Reef Crabs, Sirens, Drowned Sailors and Glass Jellies.
-  - **Cinderspine (Fire, Lv 80).** A volcano with lava rivers (paths cross them on basalt) and eruptions that rain burning rock. Lava Hounds, Obsidian Golems, Fire Imps and Ash Shamans, all fireproof. Obsidian grows by the lava.
+- **The elemental isles** (from level 20, 40, 60 and 80). The **Wayshrine** in camp carries you to each isle's landing; a return stone there brings you back. Each isle has its own creatures at fixed levels, exclusive materials, two Echo Stones and a guardian who keeps a sigil.
+  - **The Galeforge Spires (Air, Lv 20).** Plateaus over a cloud sea, linked by plank bridges and updraft vents that carry you from spire to spire; gales push everything across the summits. Harpies dive and knock you back, Kite Serpents shoot lightning, Cloud Sprites shield their kin, Storm Wisps burst. Skyglass spires and Cloud Pines.
+  - **Tidecrown Atoll (Water, Lv 40).** A ring of land around a lagoon and a temple islet. The tide runs on a cycle: at low water sandbars lead to the temple and pearl beds can be gathered; at high water they flood, and the current drags you ashore. Reef Crabs, Sirens, Drowned Sailors and Glass Jellies.
+  - **Cinderspine (Fire, Lv 60).** A volcano with lava rivers (paths cross them on basalt) and eruptions that rain burning rock. Lava Hounds, Obsidian Golems, Fire Imps and Ash Shamans, all fireproof. Obsidian grows by the lava.
   - **The Rootdeep Mesas (Earth, Lv 80).** Terraced mesas crossed by the Worldroot, whose flanks grow Living Amber; quakes raise stone spikes. Mossback Tortoises, Root Lashers that whip from the ground, Burrowing Moles and Stone Wisps.
 - **The guardians** wait in their arenas and return 10 minutes after a defeat. Each gives its sigil once.
   - **Ronin of the East Wind:** iai dashes along a line he shows first, wind crescents, a blue counter stance (do not strike it), then Gale Steps and tornadoes.

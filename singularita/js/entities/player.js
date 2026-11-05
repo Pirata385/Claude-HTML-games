@@ -35,7 +35,9 @@ export class Player extends Entity {
     if (!this.alive) return;
     if (this.carried) { this.combatT += dt; return; }
     const { input, cam, grid, stats } = g;
-    if (unstick(grid, this)) { this.y = this.ry = groundAt(grid, this.x, this.z); this.grounded = true; }
+    // Debug flight (a "DeBug" character's Dev menu): no gravity, no walls; jump climbs, dash descends.
+    const fly = !!g.debug?.fly;
+    if (!fly && unstick(grid, this)) { this.y = this.ry = groundAt(grid, this.x, this.z); this.grounded = true; }
     const st = this.statuses;
     this.combatT += dt;
     this.dodgeCd = Math.max(0, this.dodgeCd - dt);
@@ -51,7 +53,7 @@ export class Player extends Entity {
     const kitMult = this.kit?.moveMult ?? 1;
     const [ci, cj] = grid.cellAt(this.x, this.z);
     const wading = grid.has(ci, cj, F.WATER) ? 0.6 : 1;
-    const speed = stats.moveSpeed * st.slowMult * kitMult * wading * (st.rooted ? 0 : 1);
+    const speed = stats.moveSpeed * st.slowMult * kitMult * wading * (st.rooted ? 0 : 1) * (g.debug?.speed || 1) * (fly ? 1.6 : 1);
 
     if (this.dodgeT > 0) {
       this.dodgeT -= dt;
@@ -60,14 +62,15 @@ export class Player extends Entity {
       this.vx = damp(this.vx, mx * speed, 14, dt);
       this.vz = damp(this.vz, mz * speed, 14, dt);
       if (this.kbt > 0) { this.kbt -= dt; this.vx += this.kbx * dt * 8; this.vz += this.kbz * dt * 8; }
-      moveCircle(grid, this, this.vx * dt, this.vz * dt, this.radius, this.grounded ? STEP : STEP + 0.2);
+      if (fly) { this.x = Math.min(grid.w - 1.5, Math.max(1.5, this.x + this.vx * dt)); this.z = Math.min(grid.d - 1.5, Math.max(1.5, this.z + this.vz * dt)); }
+      else moveCircle(grid, this, this.vx * dt, this.vz * dt, this.radius, this.grounded ? STEP : STEP + 0.2);
       if (ml > 0.1 && !this.kit?.facingLocked) this.yaw += angleDiff(this.yaw, Math.atan2(mx, mz)) * Math.min(1, dt * 14);
       if (this.kit?.faceYaw != null) this.yaw += angleDiff(this.yaw, this.kit.faceYaw) * Math.min(1, dt * 20);
     }
 
     // Each class dashes its own way (data/classes.js), with a moment of invulnerability.
     const dash = CLASSES[g.profile.classId].dash;
-    if (!g.inputBlocked && input.wasPressed('dodge') && this.dodgeCd <= 0 && !st.rooted && (this.grounded || dash.kind === 'blink')) {
+    if (!fly && !g.inputBlocked && input.wasPressed('dodge') && this.dodgeCd <= 0 && !st.rooted && (this.grounded || dash.kind === 'blink')) {
       const plan = planDash(dash, ml > 0.1 ? { x: mx, z: mz } : null, this.yaw);
       this.dash = { ...plan, def: dash, hit: new Set() };
       this.dodgeX = plan.dx; this.dodgeZ = plan.dz;
@@ -84,7 +87,13 @@ export class Player extends Entity {
 
     // Vertical.
     const ground = groundAt(grid, this.x, this.z);
-    if (this.grounded) {
+    if (fly) {
+      const climb = g.inputBlocked ? 0 : (input.isDown('jump') ? 1 : 0) - (input.isDown('dodge') ? 1 : 0);
+      this.vy = damp(this.vy, climb * 9, 10, dt);
+      this.y = Math.max(ground, Math.min(ground + 60, this.y + this.vy * dt));
+      this.grounded = false;
+      this.ry = this.y;
+    } else if (this.grounded) {
       if (ground < this.y - 0.05) { this.grounded = false; this.vy = 0; }
       else this.y = ground;
       if (!g.inputBlocked && input.wasPressed('jump') && !st.rooted) { this.vy = JUMP_V; this.grounded = false; g.bus.emit('jump', {}); }

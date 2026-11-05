@@ -38,7 +38,7 @@ export class SlimePrince extends Boss {
   summonGuards(n) {
     for (let k = 0; k < n; k++) {
       const a = (k / n) * Math.PI * 2;
-      const e = this.g.enemies.spawn('royal_guard', this.x + Math.cos(a) * 3.5, this.z + Math.sin(a) * 3.5, { level: this.level, noIntro: false });
+      const e = this.g.enemies.spawn('royal_guard', this.x + Math.cos(a) * 3.5, this.z + Math.sin(a) * 3.5, { minion: true, level: this.level, noIntro: false });
       if (e) e.royal = this;
     }
     this.g.bus.emit('sfx', { id: 'fanfare' });

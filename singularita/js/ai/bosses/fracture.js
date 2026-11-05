@@ -112,7 +112,7 @@ export class Fracture extends Boss {
       if (g.enemies.count((e) => e.summoned && !e.boss) < 3) {
         for (let k = 0; k < 2; k++) {
           const a = Math.random() * Math.PI * 2;
-          g.enemies.spawn(k ? 'zombie_brute' : 'zombie_walker', this.arena.x + Math.cos(a) * (this.arena.r - 3), this.arena.z + Math.sin(a) * (this.arena.r - 3), { level: this.level - 8, summoned: true });
+          g.enemies.spawn(k ? 'zombie_brute' : 'zombie_walker', this.arena.x + Math.cos(a) * (this.arena.r - 3), this.arena.z + Math.sin(a) * (this.arena.r - 3), { minion: true, level: this.level - 8, summoned: true });
         }
         g.overlay.text(this.x, this.ry + 5, this.z, 'Night falls on Vael', 'status');
       }
@@ -256,7 +256,7 @@ export class Fracture extends Boss {
     if (this.t === 0) {
       if (g.enemies.count((e) => e.summoned && e.def.id === 'reflection') < 2) {
         const a = Math.random() * Math.PI * 2;
-        g.enemies.spawn('reflection', p.x + Math.cos(a) * 4, p.z + Math.sin(a) * 4, { level: this.level - 6, summoned: true });
+        g.enemies.spawn('reflection', p.x + Math.cos(a) * 4, p.z + Math.sin(a) * 4, { minion: true, level: this.level - 6, summoned: true });
         g.overlay.text(p.x, p.ry + 2.6, p.z, 'You?', 'status');
       }
       this.play('cast', 0.6);

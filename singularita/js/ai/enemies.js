@@ -57,6 +57,8 @@ export class Enemies {
     const e = new Enemy(def, Math.max(1, o.level || 1), { ...o, affixes });
     e.x = x; e.z = z;
     e.y = e.ry = this.g.grid.height(Math.floor(x), Math.floor(z));
+    // A boss's own minions may enter its arena; every other creature is kept out of arenas.
+    e.minion = !!o.minion;
     e.yaw = Math.atan2(this.g.player.x - x, this.g.player.z - z);
     e.inst = inst; e.slot = slot;
     e.initPose(inst.rig.parts.length);
@@ -91,6 +93,22 @@ export class Enemies {
       e.anim.move = 0.5; e.anim.phase += step * 2;
     }
     return null;
+  }
+
+  // Boss arenas belong to the boss and its minions: a creature that wanders, is knocked or pushed
+  // into one goes back to where it last stood outside.
+  keepOut(e) {
+    const grid = this.g.grid;
+    if (!grid.has(Math.floor(e.x), Math.floor(e.z), F.ARENA)) { e.safeX = e.x; e.safeZ = e.z; return; }
+    if (e.safeX != null) { e.x = e.safeX; e.z = e.safeZ; return; }
+    // Inside with no way back known: out past the nearest edge, or gone.
+    const z = this.g.zone, arenas = z.arenas ? Object.values(z.arenas) : z.arena ? [z.arena] : [];
+    const a = arenas.find((r) => Math.hypot(e.x - r.x, e.z - r.z) <= r.r + 1.5);
+    if (a) {
+      const d = Math.hypot(e.x - a.x, e.z - a.z) || 1, x = a.x + ((e.x - a.x) / d) * (a.r + 1.5), zz = a.z + ((e.z - a.z) / d) * (a.r + 1.5);
+      if (grid.walkable(Math.floor(x), Math.floor(zz)) && !grid.has(Math.floor(x), Math.floor(zz), F.ARENA)) { e.x = x; e.z = zz; e.safeX = x; e.safeZ = zz; return; }
+    }
+    this.kill(e, 'despawn');
   }
 
   // Death: drops, XP, splits and the death effect.
@@ -147,6 +165,8 @@ export class Enemies {
     this.active.length = 0;
     const astral = g.astral?.manifested ? g.astral : null;
     const cave = g.zone.type === 'cave';
+    // While you fight a boss, the creatures outside its arena leave you to it.
+    const bossFight = !!(g.spawner?.boss?.engaged && !g.spawner.boss.defeated);
     for (let i = this.list.length - 1; i >= 0; i--) {
       const e = this.list[i];
       if (!e.alive) {
@@ -177,6 +197,7 @@ export class Enemies {
       }
       // In the caves a creature comes for you only once it has noticed you; until then it looks about.
       if (cave && !e.boss) target = this.perceive(e, target, c, step);
+      if (bossFight && !e.boss && !e.minion) target = null;
       c.target = target;
       if (e.boss) { e.update(step, c); }
       else if (!e.statuses.stunned) {
@@ -186,6 +207,7 @@ export class Enemies {
       // Knockback and ground; never left inside rock, trees or the camp.
       if (!e.flying && !e.boss) unstick(grid, e, F.BASE);
       if (e.kbt > 0) { e.kbt -= step; moveCircle(grid, e, e.kbx * step, e.kbz * step, e.radius * 0.8, 1.05, e.flying, e.boss ? 0 : F.BASE); }
+      if (!e.boss && !e.minion) this.keepOut(e);
       const gh = grid.height(Math.floor(e.x), Math.floor(e.z));
       e.y = gh;
       e.ry += (gh - e.ry) * Math.min(1, step * 12);
@@ -201,6 +223,8 @@ export class Enemies {
       const d = Math.sqrt(d2), push = (rr - d) * 0.5;
       moveCircle(grid, a, (-dx / d) * push, (-dz / d) * push, a.radius * 0.8, 1.05, a.flying, F.BASE);
       moveCircle(grid, b, (dx / d) * push, (dz / d) * push, b.radius * 0.8, 1.05, b.flying, F.BASE);
+      if (!a.minion) this.keepOut(a);
+      if (!b.minion) this.keepOut(b);
     }
     // Controlled recall of long-dormant regular creatures when the population is over the cap.
     if (this.list.length > this.cap) {

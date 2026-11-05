@@ -102,7 +102,7 @@ export const BOSSES = {
     defeat: 'RECESSIVE… ALL… RECESSIVE. (Its last seed drops into your hand: the Sigil of Stone, warm as a living thing.)',
     lore: 'The Dawnforgers wanted a guardian that could never be outmatched, so they grew one that could become anything. They gave it three alleles of stone, crystal and root, and it switches between them faster than any foe can adapt. Almost any foe.',
     phases: [
-      { at: 1.0, name: 'Expression', desc: 'Granite: armoured, strike its glowing back. Quartz: swift, dodge its combos. Moss: kill the seedlings before they heal it.' },
+      { at: 1.0, name: 'Expression', desc: 'Granite: armoured, strike its glowing back. Quartz: swift, dodge its combos. Moss: seedlings sprout and throw thorns, so cut them.' },
       { at: 0.6, name: 'Codominance', desc: 'Two alleles at once.' },
       { at: 0.3, name: 'Mutation', desc: 'The alleles cycle rapidly.' },
     ],

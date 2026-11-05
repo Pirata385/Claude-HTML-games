@@ -75,7 +75,7 @@ export class AdamiteKing extends Boss {
           for (let k = 0; k < 2; k++) {
             const a = Math.random() * Math.PI * 2, r = 4 + Math.random() * (this.arena.r - 5);
             const x = Math.floor(this.arena.x + Math.cos(a) * r) + 0.5, z = Math.floor(this.arena.z + Math.sin(a) * r) + 0.5;
-            if (g.grid.walkable(Math.floor(x), Math.floor(z))) g.enemies.spawn('adamite_pillar', x, z, { level: this.level - 2, summoned: true });
+            if (g.grid.walkable(Math.floor(x), Math.floor(z))) g.enemies.spawn('adamite_pillar', x, z, { minion: true, level: this.level - 2, summoned: true });
           }
         }
         this.t += dt;

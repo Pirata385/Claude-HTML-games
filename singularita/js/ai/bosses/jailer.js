@@ -29,7 +29,7 @@ export class IronJailer extends Boss {
         this.riotT = 12;
         for (let k = 0; k < 3; k++) {
           const a = Math.random() * Math.PI * 2;
-          g.enemies.spawn('shackled_prisoner', this.arena.x + Math.cos(a) * (this.arena.r - 2), this.arena.z + Math.sin(a) * (this.arena.r - 2), { level: this.level - 4, summoned: true });
+          g.enemies.spawn('shackled_prisoner', this.arena.x + Math.cos(a) * (this.arena.r - 2), this.arena.z + Math.sin(a) * (this.arena.r - 2), { minion: true, level: this.level - 4, summoned: true });
         }
         g.bus.emit('sfx', { id: 'unlock' });
       }

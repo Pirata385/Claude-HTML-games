@@ -119,7 +119,7 @@ try {
       out.boss.paused = g.spawner.bossClock.timer === out.boss.timer;
       if (boss) { for (const m of boss.members) { m.alive = false; m.dyingT = 0; } g.spawner.boss = null; }
       g.profile.level = lvl;
-      return out;`.replace('WAVES_LEVELS', JSON.stringify({ day: [1, 10], night: [4, 14] })));
+      return out;`);
     check(r.objective0 === 'o_wood', 'tutorial starts with gathering wood');
     check(r.wood >= 6, `chopping trees gives wood (${r.wood})`);
     check(r.pickaxe, 'Wood Pickaxe crafted through the Forge menu');
@@ -1214,6 +1214,72 @@ try {
     const plain = await o.page.evaluate(() => { const g = window.__SG; g.ui.closeDialog?.(); g.ui.openMenu('debug'); const tabs = [...document.querySelectorAll('#menu .mtab')].map((b) => b.textContent); return { tabs, open: g.ui.menuOpen, dev: !!document.querySelector('#menu [data-dbg]') }; });
     check(!plain.tabs.some((t) => /Dev/.test(t)) && plain.open !== 'debug' && !plain.dev, `a character not named DeBug has no developer menu (${JSON.stringify(plain)})`);
     await o.ctx.close();
+  }
+  // 18. Boss fights: the Golem no longer heals; other creatures keep out of arenas and leave you be.
+  {
+    const { ctx, page, errors } = await open(`${BASE}/singularita/index.html?quickstart=swordsman&debug`);
+    await waitGame(page);
+    const golem = await sim(page, `
+      g.ui.closeDialog && g.ui.closeDialog(); g.godMode = true;
+      g.profile.level = 90; g.recomputeStats();
+      g.profile.world.guardians = {};
+      g.enterZone('isle_earth'); step(3);
+      const b = g.spawner.boss?.members[0], ar = g.zone.arena, p = g.player;
+      if (!b) return { present: false };
+      goNear(ar.x, ar.z + 4); p.grounded = true; step(30);
+      b.express(['moss']); b.geneT = 1e9;
+      b.hp = Math.round(b.maxHp * 0.5); const hp0 = b.hp;
+      const seeds = () => g.enemies.list.filter((e) => e.alive && e.golem === b);
+      let shots = 0; g.bus.on('sfx', (ev) => { if (ev.id === 'enemyShoot' && seeds().some((s) => Math.hypot(s.x - ev.x, s.z - ev.z) < 0.5)) shots++; });
+      let most = hp0;
+      for (let k = 0; k < 30 * 12; k++) { step(1); most = Math.max(most, b.hp); }
+      return { present: true, seeds: seeds().length, hp0, most, shots };`);
+    check(golem.present && golem.seeds > 0 && golem.most <= golem.hp0, `the Allele Golem no longer heals from its seedlings (${JSON.stringify(golem)})`);
+    check(golem.shots > 0, `its seedlings throw thorns instead (${golem.shots} shots)`);
+    const arena = await sim(page, `
+      g.ui.closeDialog && g.ui.closeDialog(); g.godMode = true;
+      g.profile.level = 30; g.recomputeStats();
+      g.enterZone('island'); step(3);
+      for (const e of g.enemies.list) { e.alive = false; e.dyingT = 0; }
+      if (g.spawner.boss) { for (const m of g.spawner.boss.members) { m.alive = false; m.dyingT = 0; } g.spawner.boss = null; }
+      g.spawner.popT = 1e9; g.horde && (g.horde.timer = 1e9);
+      const p = g.player, ar = g.zone.arenas.glade, ARENA = 8; // F.ARENA in world/grid.js
+      const out = {};
+      // A creature at the edge, you inside: it cannot follow you in.
+      goNear(ar.x, ar.z); step(2);
+      let spot = null;
+      for (let a = 0; a < 24 && !spot; a++) { const x = ar.x + Math.cos(a / 24 * 6.283) * (ar.r + 3), z = ar.z + Math.sin(a / 24 * 6.283) * (ar.r + 3); if (g.grid.walkable(Math.floor(x), Math.floor(z))) spot = [x, z]; }
+      const w = g.enemies.spawn('zombie_walker', spot[0], spot[1], { level: 20, noIntro: true });
+      let inside = 0, closest = 1e9;
+      for (let k = 0; k < 30 * 12; k++) { goNear(ar.x, ar.z); step(1); if (g.grid.has(Math.floor(w.x), Math.floor(w.z), ARENA)) inside++; closest = Math.min(closest, Math.hypot(w.x - ar.x, w.z - ar.z)); }
+      out.inside = inside; out.closest = Math.round(closest * 10) / 10; out.r = ar.r;
+      // A boss engaged: creatures outside stop following you; when it ends they come again.
+      const b = g.spawner.spawnBoss('slime_prince', true); step(3);
+      const edge = () => { const d = Math.hypot(w.x - ar.x, w.z - ar.z) || 1; goNear(ar.x + (w.x - ar.x) / d * (ar.r - 2), ar.z + (w.z - ar.z) / d * (ar.r - 2)); };
+      edge(); step(2);
+      const d0 = Math.hypot(w.x - p.x, w.z - p.z);
+      let moved = 0, px = w.x, pz = w.z;
+      for (let k = 0; k < 30 * 6; k++) { edge(); step(1); moved += Math.hypot(w.x - px, w.z - pz); px = w.x; pz = w.z; }
+      out.fightMoved = Math.round(moved * 10) / 10;
+      // His royal guards are his own: they may be in the arena, wherever they are called.
+      b.summonGuards?.(2); step(30);
+      out.guards = g.enemies.list.filter((e) => e.alive && e.royal).length;
+      out.guardsIn = g.enemies.list.filter((e) => e.alive && e.royal).every((e) => e.minion) && g.enemies.list.some((e) => e.alive && e.royal && g.grid.has(Math.floor(e.x), Math.floor(e.z), ARENA));
+      for (const m of g.spawner.boss.members) { m.alive = false; m.dyingT = 0; } g.spawner.boss = null;
+      for (const e of g.enemies.list) if (e.royal) { e.alive = false; e.dyingT = 0; }
+      // Out of the arena, with no boss: it comes for you again.
+      goNear(spot[0] + (spot[0] - ar.x) * 0.6, spot[1] + (spot[1] - ar.z) * 0.6); step(2);
+      const far0 = Math.hypot(w.x - p.x, w.z - p.z);
+      for (let k = 0; k < 30 * 4; k++) step(1);
+      out.after = [Math.round(far0), Math.round(Math.hypot(w.x - p.x, w.z - p.z))];
+      out.d0 = Math.round(d0);
+      return out;`);
+    check(arena.inside === 0 && arena.closest >= arena.r - 0.6, `creatures cannot enter a boss arena (${JSON.stringify(arena)})`);
+    check(arena.fightMoved < 1.5, `while you fight a boss, creatures outside stop following you (moved ${arena.fightMoved} m)`);
+    check(arena.guards > 0 && arena.guardsIn, `a boss's own minions may enter its arena (${arena.guards})`);
+    check(arena.after[1] < arena.after[0] - 2, `when the fight is over they come for you again (${arena.after.join(' → ')} m)`);
+    check(!errors.length, `boss fights: no errors ${errors.slice(0, 3).join(' | ')}`);
+    await ctx.close();
   }
 } catch (err) {
   failures++;

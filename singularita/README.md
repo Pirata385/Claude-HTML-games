@@ -18,7 +18,7 @@ The game uses ES modules, so it must be served over HTTP (opening the file direc
 npx serve .          # from the repository root, then open /singularita/
 ```
 
-Open the root `index.html` menu and pick **Singularita**. Progress is saved in the browser (three slots), and saves can be exported as a text code from the System tab or the title screen.
+Open the root `index.html` menu and pick **Singularita**. Progress is saved in the browser (five slots, each shown with its character, class, level and progress), and saves can be exported as a text code from the System tab or the title screen.
 
 ## Controls
 

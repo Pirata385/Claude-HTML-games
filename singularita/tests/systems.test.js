@@ -6,7 +6,7 @@ import * as Inv from '../js/systems/inventory.js';
 import { equip, canEquip, equippedDefs, compareItems, bestTool } from '../js/systems/equipment.js';
 import { checkRecipe, craft } from '../js/systems/crafting.js';
 import { canGather, gatherDamage, rollYield } from '../js/systems/gathering.js';
-import { newProfile, serialize, deserialize, SaveStore, SAVE_VERSION, exportString, importString, migrate } from '../js/systems/save.js';
+import { newProfile, serialize, deserialize, SaveStore, SAVE_VERSION, SLOT_COUNT, exportString, importString, migrate } from '../js/systems/save.js';
 import { DEFAULT_SETTINGS, mergeSettings } from '../js/systems/settings.js';
 import { Horde, BossClock, islandLevel, eliteChance } from '../js/systems/horde.js';
 import { notices, forgets } from '../js/ai/perception.js';
@@ -243,6 +243,27 @@ test('SaveStore uses slots and falls back to the backup on corruption', () => {
   assert.equal(store.list().filter(Boolean).length, 1);
   store.remove(0);
   assert.equal(store.load(0).ok, false);
+});
+
+test('there are five save slots, each listed with what the load screen shows', () => {
+  const mem = new Map();
+  const storage = { getItem: (k) => (mem.has(k) ? mem.get(k) : null), setItem: (k, v) => mem.set(k, String(v)), removeItem: (k) => mem.delete(k) };
+  const store = new SaveStore(storage);
+  assert.equal(SLOT_COUNT, 5);
+  const p = fresh('mage'); p.level = 42; p.zone = 'cave_3'; p.playTime = 3600; p.cycle = 1; p.ending = 'mend';
+  p.stats.bosses = { slime_prince: 2, silverback: 1 }; p.stats.deaths = 3; p.stats.kills = 120;
+  store.save(4, p);
+  const list = store.list();
+  assert.equal(list.length, 5);
+  assert.deepEqual(list.slice(0, 4), [null, null, null, null]);
+  const s = list[4];
+  assert.equal(s.slot, 4);
+  assert.equal(s.name, 'Tess'); assert.equal(s.classId, 'mage'); assert.equal(s.level, 42); assert.equal(s.zone, 'cave_3');
+  assert.equal(s.bosses, 2); assert.equal(s.deaths, 3); assert.equal(s.kills, 120); assert.equal(s.cycle, 1);
+  assert.equal(s.title, 'Mender of Vael');
+  // The starter weapon is worn: its name and material show, and the stats come from the real formulas.
+  assert.equal(s.weapon.id, 'mage_weapon_wood'); assert.ok(s.weapon.name); assert.equal(s.armor, null);
+  assert.ok(s.maxHp > 100 && s.power > 0 && s.def >= 0, JSON.stringify(s));
 });
 
 test('export/import string round-trip', () => {

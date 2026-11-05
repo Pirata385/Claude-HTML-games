@@ -73,12 +73,36 @@ input, textarea, select { font: inherit; }
 .title-buttons { display: flex; flex-direction: column; gap: 10px; width: min(380px, 100%); margin: 36px auto 0; }
 .title-foot { text-align: center; color: var(--muted); font-size: 13px; margin-top: 28px; }
 .screen-title { font-family: var(--title); color: var(--gold-2); letter-spacing: 0.08em; margin: 8px 0; }
-.slot-list { display: flex; flex-direction: column; gap: 10px; }
-.slot { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 12px 14px; background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); flex-wrap: wrap; }
-.slot.empty { opacity: 0.75; }
-.slot-info { display: flex; flex-direction: column; gap: 2px; }
-.slot-info span, .slot-info small { color: var(--muted); }
-.slot-actions { display: flex; gap: 6px; flex-wrap: wrap; }
+.save-count { margin: -4px 0 4px; }
+.save-list { display: flex; flex-direction: column; gap: 10px; }
+.save-card { --cc: var(--line-2); display: flex; flex-direction: column; gap: 8px; width: 100%; padding: 10px; background: linear-gradient(100deg, color-mix(in srgb, var(--cc) 18%, var(--panel)) 0%, var(--panel) 55%); border: 1px solid var(--line); border-left: 3px solid var(--cc); border-radius: var(--radius); }
+.save-card.empty { border-style: dashed; border-left-width: 1px; background: var(--panel); opacity: 0.85; }
+.save-main { display: flex; align-items: center; gap: 12px; width: 100%; min-height: 64px; padding: 0; background: none; border: 0; color: inherit; font: inherit; text-align: left; cursor: pointer; touch-action: manipulation; }
+.save-portrait { flex: none; width: 76px; height: 88px; border-radius: 10px; display: grid; place-items: center; overflow: hidden; background: radial-gradient(circle at 50% 35%, color-mix(in srgb, var(--cc) 45%, transparent), transparent 70%), var(--panel-2); border: 1px solid color-mix(in srgb, var(--cc) 50%, var(--line)); }
+.save-card.empty .save-portrait { height: 64px; width: 64px; }
+.save-portrait img { width: 100%; height: 100%; object-fit: contain; display: block; }
+.save-emblem { font-family: var(--title); font-size: 30px; color: var(--cc); }
+.save-card.empty .save-emblem { color: var(--muted); }
+.save-info { display: flex; flex-direction: column; gap: 3px; min-width: 0; flex: 1; }
+.save-head { display: flex; align-items: baseline; gap: 8px; }
+.save-name { font-size: 18px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.save-lv { flex: none; padding: 1px 8px; border-radius: 999px; background: color-mix(in srgb, var(--cc) 30%, var(--panel-2)); font-size: 13px; font-weight: 600; }
+.save-class { display: flex; flex-wrap: wrap; gap: 0 6px; font-size: 14px; }
+.save-class .cls { color: var(--cc); font-weight: 600; }
+.save-title { color: var(--gold-2); }
+.save-asc { color: var(--accent); }
+.save-stats { display: flex; flex-wrap: wrap; gap: 4px 12px; font-size: 14px; }
+.save-stat i { font-style: normal; margin-right: 4px; color: var(--muted); }
+.save-gear { font-size: 13px; color: var(--ink); opacity: 0.85; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.save-meta { color: var(--muted); font-size: 12px; line-height: 1.35; }
+.save-actions { display: flex; gap: 6px; flex-wrap: wrap; }
+.save-actions .btn { min-height: 44px; }
+.save-actions .btn.primary { flex: 1 1 120px; }
+@media (min-width: 640px) {
+  .save-card { flex-direction: row; align-items: center; }
+  .save-actions { flex: none; flex-direction: column; width: 132px; }
+  .save-actions .btn.primary { flex: none; }
+}
 .field { display: flex; flex-direction: column; gap: 4px; }
 .field span { color: var(--muted); font-size: 13px; }
 .name-input { min-height: 44px; padding: 8px 12px; background: var(--panel-2); border: 1px solid var(--line-2); border-radius: var(--radius); color: var(--ink); }

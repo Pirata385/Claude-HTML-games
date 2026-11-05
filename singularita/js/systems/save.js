@@ -1,6 +1,9 @@
 // Save data: versioned, checksummed, with migrations and a backup per slot.
-import { ATTRS } from './stats.js';
-import { newInventory } from './inventory.js';
+import { ATTRS, computeStats } from './stats.js';
+import { equippedDefs, loadout } from './equipment.js';
+import { withMemory } from './memory.js';
+import { ENDINGS } from './ending.js';
+import { newInventory, findItem } from './inventory.js';
 import { hashStr } from '../core/rng.js';
 import { ITEMS } from '../data/items.js';
 import { defaultHotbar } from '../data/skills.js';
@@ -8,7 +11,7 @@ import { defaultHotbar } from '../data/skills.js';
 export const SAVE_VERSION = 3;
 // Skills that were replaced, and what takes their place on the hotbars.
 const RENAMED_SKILLS = { mg_meteor: 'mg_lance', mg_blink: 'mg_vortex' };
-export const SLOT_COUNT = 3;
+export const SLOT_COUNT = 5;
 
 export function newProfile({ name, classId, slot, seed }) {
   const inv = newInventory();
@@ -33,6 +36,22 @@ export function newProfile({ name, classId, slot, seed }) {
   if (ITEMS[starter]) { inv.items.push({ uid: inv.nextUid++, id: starter }); }
   inv.stacks.healing_tonic = 3;
   return p;
+}
+
+// What the load screen shows of a character: who, what they carry and how far they have come.
+export function summarize(p, slot = p.slot) {
+  const lo = loadout(p);
+  const piece = (s) => { const it = lo[s] != null ? findItem(p.inv, lo[s]) : null, def = it && ITEMS[it.id]; return def ? { id: def.id, name: def.name, material: def.material || null } : null; };
+  let st = null;
+  try { st = computeStats(p, withMemory(p, equippedDefs(p))); } catch { /* an odd old save still lists */ }
+  const ending = p.ending || Object.keys(p.endings || {})[0];
+  return {
+    slot, name: p.name, classId: p.classId, level: p.level, playTime: p.playTime, savedAt: p.savedAt, zone: p.zone,
+    weapon: piece('weapon'), armor: piece('armor'),
+    maxHp: st?.maxHp ?? 0, power: st ? Math.round(st.power * st.dmgMult) : 0, def: st ? Math.round(st.def) : 0,
+    bosses: Object.keys(p.stats?.bosses || {}).length, deaths: p.stats?.deaths || 0, kills: p.stats?.kills || 0,
+    cycle: p.cycle || 0, title: ENDINGS[ending]?.title || null,
+  };
 }
 
 const checksum = (data) => hashStr(JSON.stringify(data));
@@ -100,7 +119,7 @@ export class SaveStore {
     const out = [];
     for (let s = 0; s < SLOT_COUNT; s++) {
       const r = this.load(s);
-      out.push(r.ok ? { slot: s, name: r.profile.name, classId: r.profile.classId, level: r.profile.level, playTime: r.profile.playTime, savedAt: r.profile.savedAt, zone: r.profile.zone } : null);
+      out.push(r.ok ? summarize(r.profile, s) : null);
     }
     return out;
   }

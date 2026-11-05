@@ -899,36 +899,43 @@ try {
     await ctx.close();
   }
   {
-    // The Stardust's Astral: a stand that breaks after a number of blows, untouched by puddles.
+    // The Stardust's Astral: it never breaks nor drains Spirit; emptying the Spirit leaves only M1 until it refills.
     const { ctx, page, errors } = await open(`${BASE}/singularita/index.html?quickstart=stardust&debug`);
     await waitGame(page);
     const a = await sim(page, `
       g.ui.closeDialog && g.ui.closeDialog();
-      const out = {}, a = g.astral, p = g.player;
-      g.profile.level = 30; g.profile.attrs.spi = 58; g.recomputeStats();
-      p.res = g.stats.resourceMax; a.manifest(true); step(3);
-      out.max = g.stats.astralHits; out.left0 = a.hitsLeft;
-      for (let k = 0; k < 30; k++) g.combat.hurt(a, 1e6, null, { type: 'hazard' });
-      out.afterHazards = a.hitsLeft; out.upAfterHazards = a.manifested;
-      g.combat.hurt(a, 1e9, null, { type: 'melee' }); p.hp = g.stats.maxHp;
-      out.afterBigBlow = a.hitsLeft; out.upAfterBigBlow = a.manifested;
-      for (let k = 2; k < out.max; k++) g.combat.hurt(a, 1, null, { type: 'aoe' });
-      out.oneLeft = a.manifested && a.hitsLeft === 1;
-      g.combat.hurt(a, 1, null, { type: 'ranged' });
-      out.broken = !a.manifested && a.lockT > 0;
-      // It looks like a stand, and its fists fly when it strikes.
-      a.lockT = 0; p.res = g.stats.resourceMax; a.manifest(true); step(3);
-      out.arms = !!(a.vis.armL && a.vis.armR);
+      const out = {}, a = g.astral, p = g.player, kit = p.kit;
+      g.profile.level = 30; g.profile.attrs.spi = 58; g.recomputeStats(); g.godMode = true;
+      let casts = 0; g.bus.on('skill', (e) => { if (e.cls === 'stardust') casts++; });
+      // Manifest with the alternate button; Spirit keeps refilling while it is out.
+      p.res = 40; tap('alt'); out.up = a.manifested;
+      step(30 * 2); out.resAfter = Math.round(p.res);
+      // A hundred direct blows and a flood of hazards: it stays.
+      for (let k = 0; k < 100; k++) g.combat.hurt(a, 1e6, null, { type: 'melee' });
+      const hp = p.hp; for (let k = 0; k < 30; k++) g.combat.hurt(a, 1e6, null, { type: 'hazard' });
+      out.standing = a.manifested; out.hazardsPass = p.hp === hp;
+      // Dismiss and call it again at will, even with no Spirit at all.
+      p.res = 0; tap('alt'); out.dismissed = !a.manifested; tap('alt'); out.again = a.manifested;
+      // Ten Spirit still pays for a 15-Spirit skill, and empties it: exhausted.
+      p.res = 10; kit.cd = {}; const c0 = casts; tap('skill1'); out.firstCast = casts - c0; out.empty = kit.spirit.exhausted && p.res < 3; // it starts refilling at once
+      // Exhausted: skills are refused, but M1 still has the Astral strike.
+      const c1 = casts; tap('skill2'); out.refused = casts === c1;
       const e = g.enemies.spawn('slime', a.x + 1.5, a.z, { level: 30, noIntro: true }); e.spawnT = 0; e.maxHp = e.hp = 1e9;
-      let swing = 0;
-      for (let k = 0; k < 60; k++) { a.command(e); step(1); swing = Math.min(swing, a.vis.armL?.rotation.x ?? 0, a.vis.armR?.rotation.x ?? 0); }
-      out.punches = swing < -0.6;
-      e.alive = false; e.dyingT = 0;
+      let swing = 0; const hp0 = e.hp;
+      for (let k = 0; k < 60; k++) { g.lockTarget = e; g.input.press('attack'); step(1); swing = Math.min(swing, a.vis.armL?.rotation.x ?? 0, a.vis.armR?.rotation.x ?? 0); }
+      g.input.release('attack'); step(1);
+      out.m1 = e.hp < hp0; out.arms = !!(a.vis.armL && a.vis.armR); out.punches = swing < -0.6;
+      e.alive = false; e.dyingT = 0; g.lockTarget = null;
+      // Full again: the skills come back.
+      for (let k = 0; k < 30 * 12 && kit.spirit.exhausted; k++) step(1);
+      const c2 = casts; kit.cd = {}; tap('skill2'); out.free = !kit.spirit.exhausted && casts > c2;
       return out;`);
-    check(a.left0 === a.max && a.max >= 8 && a.max <= 20, `the Astral's guard grows with Spirituality (${a.max} blows at 58 SPI)`);
-    check(a.afterHazards === a.max && a.upAfterHazards, `puddles and ground hazards pass through the Astral (${JSON.stringify(a)})`);
-    check(a.afterBigBlow === a.max - 1 && a.upAfterBigBlow && a.oneLeft && a.broken, 'each direct blow counts once, however hard; it breaks on the last');
-    check(a.arms && a.punches, 'the Astral is a stand whose fists fly when it strikes');
+    check(a.up && a.resAfter > 40, `the Astral no longer drains Spirit: it refills while it is out (40 → ${a.resAfter})`);
+    check(a.standing && a.hazardsPass, `the Astral no longer breaks, and hazards still pass through it (${JSON.stringify(a)})`);
+    check(a.dismissed && a.again, 'it is called and dismissed at will, even with no Spirit');
+    check(a.firstCast === 1 && a.empty && a.refused, 'spending the last Spirit leaves the Stardust exhausted: skills are refused');
+    check(a.m1 && a.arms && a.punches, 'exhausted, M1 still has the Astral strike with its fists');
+    check(a.free, 'when the Spirit is full again, the skills come back');
     check(!errors.length, `stardust: no errors ${errors.slice(0, 3).join(' | ')}`);
     await ctx.close();
   }

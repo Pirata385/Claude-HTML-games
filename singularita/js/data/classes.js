@@ -49,8 +49,8 @@ export const CLASSES = {
   stardust: {
     id: 'stardust', name: 'Stardust', color: '#b07bff',
     tagline: 'Manifest your Astral and fight beside it.',
-    desc: 'A Starbearer who calls down their Astral, a stand of starlight unique to them. The Astral fights within a leash, guards, pulls foes together and can be posted as a sentinel. It breaks after a number of blows that grows with Spirituality (up to 20), and puddles on the ground pass through it. Manifesting drains Spirit, and wounds dealt to the Astral echo back to its bearer.',
-    resource: { id: 'spirit', name: 'Spirit', color: '#c48cff', max: 100, regen: 14, drain: 5 },
+    desc: 'A Starbearer who calls down their Astral, a stand of starlight unique to them. The Astral fights within a leash, guards, pulls foes together and can be posted as a sentinel. It never breaks and costs nothing to keep out: call or dismiss it at will. Puddles on the ground pass through it, and a share of the blows it takes echoes to its bearer. Any Spirit left pays for a skill, but spending the last of it leaves only the basic attack until the Spirit is whole again.',
+    resource: { id: 'spirit', name: 'Spirit', color: '#c48cff', max: 100, regen: 14 },
     hp: 100, hpPerLevel: 12, baseDef: 3, moveSpeed: 5.4,
     scaling: { spi: 1.0, int: 0.2 }, dash: { name: 'Star Leap', kind: 'leap', dist: 9, time: 0.7, iframes: 0.35, cd: 1.3, height: 2, desc: 'A long leap on starlight; where you land, foes are thrown back.' },
     growth: ['spi', 'res'],

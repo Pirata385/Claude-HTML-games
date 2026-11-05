@@ -1,7 +1,6 @@
 // The Stardust's Astral: a constellation spirit, a stand that fights within a leash of its bearer,
-// can orbit as a guard or be posted as a sentinel. It breaks after a number of blows (more with
-// Spirituality, up to 20), whatever their strength; ground hazards pass through it. A share of each
-// wound echoes to the bearer.
+// can orbit as a guard or be posted as a sentinel. It never breaks and costs no Spirit to keep out;
+// ground hazards pass through it, and a share of each direct blow echoes to the bearer.
 import { Entity } from './entity.js';
 import { buildAstral } from '../render/models.js';
 import { angleDiff } from '../core/math.js';
@@ -11,8 +10,7 @@ export class Astral extends Entity {
     super({ team: 'player', radius: 0.5, height: 2.2, scale: 1 });
     this.g = game;
     this.manifested = false;
-    this.hp = 0; // filled on its first manifestation
-    this.lockT = 0;
+    this.hp = this.maxHp = 1;
     this.target = null; this.commandT = 0;
     this.strikeT = 0; this.combo = 0;
     this.orbitT = 0; this.orbitAng = 0;
@@ -28,13 +26,9 @@ export class Astral extends Entity {
 
   manifest(on) {
     if (on === this.manifested) return;
-    if (on && this.lockT > 0) return;
     this.manifested = on;
     this.alive = on;
     if (on) {
-      // Its health is counted in blows.
-      this.maxHp = this.g.stats.astralHits;
-      if (this.hp <= 0 || this.hp > this.maxHp) this.hp = this.maxHp;
       const p = this.g.player;
       this.x = p.x - Math.sin(p.yaw) * 1.2; this.z = p.z - Math.cos(p.yaw) * 1.2; this.ry = p.ry + 0.4;
       this.g.fx.column(this.x, p.ry, this.z, '#' + this.vis.color.getHexString(), 22);
@@ -43,27 +37,16 @@ export class Astral extends Entity {
     this.vis.group.visible = on;
   }
 
-  get hitsLeft() { return this.manifested ? this.hp : 0; }
-
   takeDamage(amount, source, opts = {}) {
     if (!this.manifested) return 'none';
     // Puddles, vents and falling rock pass through it: only blows and skills count.
     if (opts.type === 'hazard') return 'none';
     const def = this.post ? 1.3 : 1;
     const dmg = Math.round(amount / def * (100 / (100 + this.g.stats.def)));
-    this.hp -= 1;
     this.flash = 1;
-    this.g.overlay.text(this.x, this.ry + 2.2, this.z, this.hp > 0 ? `◆ ${this.hp}` : '◆ 0', 'hurt');
-    // A share of the wound echoes back to the bearer.
+    // It does not break, but a share of the wound echoes back to the bearer.
     const echo = dmg * 0.3;
-    if (echo >= 1) { const p = this.g.player; p.hp = Math.max(1, p.hp - echo); p.flash = 0.6; }
-    if (this.hp <= 0) {
-      this.g.overlay.text(this.x, this.ry + 2.6, this.z, 'Astral broken!', 'hurt');
-      this.manifest(false);
-      this.lockT = 6;
-      this.g.player.res = 0;
-      this.g.bus.emit('sfx', { id: 'break' });
-    }
+    if (echo >= 1 && !this.g.godMode) { const p = this.g.player; p.hp = Math.max(1, p.hp - echo); p.flash = 0.6; }
     return 'hit';
   }
 
@@ -71,7 +54,6 @@ export class Astral extends Entity {
 
   update(dt) {
     const g = this.g, p = g.player;
-    this.lockT = Math.max(0, this.lockT - dt);
     if (!this.manifested) return;
     this.flash = Math.max(0, this.flash - dt * 4);
     this.commandT -= dt; this.strikeT -= dt; this.orbitT -= dt;

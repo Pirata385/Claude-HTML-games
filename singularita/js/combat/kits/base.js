@@ -52,7 +52,7 @@ export class BaseKit {
     const fn = this[`s_${id}`];
     if (!fn) return false;
     if (fn.call(this, s) === false) return false;
-    this.p.res -= s.cost;
+    this.pay(s.cost);
     this.cd[id] = s.cd * (1 - this.stats.cdr);
     this.p.combatT = 0;
     this.g.bus.emit('skill', { id, cls: this.cls });
@@ -117,6 +117,8 @@ export class BaseKit {
     this.p.vx = this.p.vz = 0;
     return Math.hypot(this.p.x - x0, this.p.z - z0);
   }
+
+  pay(cost) { this.p.res -= cost; }
 
   regen(dt) {
     const p = this.p;

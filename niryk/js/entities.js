@@ -83,7 +83,7 @@
   N.addFx = (o) => { o.t = 0; G.fx.push(o); return o; };
   N.part = (x, y, vx, vy, c, life = 0.5, size = 1, grav = 0) => { if (G.parts.length < 900) G.parts.push({ x, y, vx, vy, c, life, max: life, size, grav }); };
   N.spark = (x, y, c, n = 6, sp = 60, life = 0.35, size = 1) => { for (let i = 0; i < n; i++) { const a = Math.random() * TAU, s = sp * (0.4 + Math.random() * 0.8); N.part(x, y, Math.cos(a) * s, Math.sin(a) * s, c, life * (0.6 + Math.random() * 0.6), size); } };
-  N.text = (x, y, txt, c = '#ffffff', big = false) => { G.texts.push({ x: x + N.rand(-3, 3), y, txt: String(txt), c, big, t: 0, life: big ? 0.9 : 0.7 }); };
+  N.text = (x, y, txt, c = '#ffffff', big = false, life = big ? 0.9 : 0.7) => { G.texts.push({ x: x + N.rand(-3, 3), y, txt: String(txt), c, big, t: 0, life }); };
   N.shake = (a) => { if (N.save.opts.shake !== false) G.shakeA = Math.max(G.shakeA || 0, a); };
   N.ringFx = (x, y, r, c, life = 0.35, w = 2) => N.addFx({ life, draw: (ctx, k) => { ctx.globalAlpha = 1 - k; ctx.strokeStyle = c; ctx.lineWidth = w * (1 - k) + 0.5; ctx.beginPath(); ctx.arc(x, y, r * (0.3 + 0.7 * Math.sqrt(k)), 0, TAU); ctx.stroke(); ctx.globalAlpha = 1; } });
   // Sweeping crescent slash: a bright edge fading into the weapon colour, added on top of the lit scene.

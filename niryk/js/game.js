@@ -287,7 +287,7 @@
       const picks = N.shuffle(N.BLESSINGS.slice()).slice(0, 3), g = 'bless' + room.id;
       picks.forEach((b, i) => blessingOrb(b, c.x + (i - 1) * 40, c.y + 30 - (i === 1 ? 0 : 8), g));
     } else if (room.type === 'shop') {
-      prop({ x: c.x, y: (room.y0 + 2.4) * TS, h: 24, title: 'Glub, o Mercador', titleColor: '#7cdc6a', label: () => 'Conversar', use: () => { N.sfx('ui'); N.text(c.x, (room.y0 + 1) * TS, N.pick(['Glub glub! Tudo nos trinques!', 'Ouro de Niryk, só aceito ouro!', 'Volte sempre, viajante.', 'Essa aí era do meu avô.']), '#7cdc6a'); },
+      prop({ x: c.x, y: (room.y0 + 2.4) * TS, h: 24, title: 'Glub, o Mercador', titleColor: '#7cdc6a', label: () => 'Conversar', use: () => { N.sfx('ui'); N.text(c.x, (room.y0 + 1) * TS, N.pick(['Glub glub! Tudo nos trinques!', 'Ouro de Niryk, só aceito ouro!', 'Volte sempre, viajante.', 'Essa aí era do meu avô.']), '#7cdc6a', false, 1.5); },
         draw: (ctx, q) => sprProp(S.misc.merchant[Math.floor(G.time * 2) % 2])(ctx, q) });
       G.map.hidden = G.map.hidden || new Set(); const mi = (room.y0 + 1) * G.map.W + room.cx; G.map.tiles[mi] = T.BLOCK; G.map.hidden.add(mi);
       const y = c.y + 14;

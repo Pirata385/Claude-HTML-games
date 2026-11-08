@@ -706,17 +706,18 @@
     P.layer(['#3a3a58', '#5a5a86', '#8a8ab4', '#c4c4e8'], (q) => q.rect(8, 8, 32, 6, '#fff'), { r: 3 });
     P.rect(12, 18, 24, 2, '#c66bff').rect(16, 22, 16, 1, '#c66bff');
   });
-  X.merchant = [0, 1].map((f) => sp(44, 46, (P) => {
-    P.layer(M.leather, (q) => q.rect(2, 10, 16, 26, '#fff'), { r: 6 });
-    P.layer(M.red, (q) => q.rect(4, 4, 12, 7, '#fff'), { r: 3 });
-    P.rect(2, 16, 16, 2, '#e8c050');
-    P.layer(M.skinG, (q) => { q.ell(26, 31 + f * 0.5, 14, 12, '#fff'); q.ell(16, 44, 4, 2, '#fff'); q.ell(34, 44, 4, 2, '#fff'); }, { r: 8 });
-    P.layer(M.cloth, (q) => q.ell(26, 34, 9, 7, '#fff'), { r: 4 });
-    P.layer(M.skinG, (q) => { q.ell(26, 16 - f * 0.5, 13, 9, '#fff'); q.circ(19, 9 - f * 0.5, 4.5, '#fff'); q.circ(33, 9 - f * 0.5, 4.5, '#fff'); }, { r: 7, rim: '#c8ff9a' });
-    P.circ(19, 9, 2.4, '#120a10').circ(33, 9, 2.4, '#120a10').px(18, 8, '#fff').px(32, 8, '#fff');
-    P.line(19, 20, 33, 20, '#1a3a14', 1.5);
-    P.layer(M.purple, (q) => q.poly([[13, 6], [26, -1], [39, 6]], '#fff'), { r: 3 });
-  }));
+  // Glub, the merchant: chibi frog in the style of the heroes (painted at 1x, outlined, then doubled).
+  X.merchant = [0, 1].map((f) => {
+    const P = new Painter(22, 22);
+    P.rect(1, 5, 8, 13, '#8a5a34').rect(1, 8, 8, 1, '#e0b040').rect(2, 2, 6, 3, '#d8463c').circ(3, 2, 1.4, '#5fe3d6');
+    P.ell(13, 15 + f * 0.3, 7, 6, '#6aa84a').ell(13, 17, 5, 3.4, '#e8e0a8');
+    P.ell(13, 8 - f * 0.3, 6.5, 4.5, '#6aa84a');
+    P.circ(9.5, 5 - f * 0.3, 2.2, '#6aa84a').circ(16.5, 5 - f * 0.3, 2.2, '#6aa84a').circ(9.5, 4.6, 1.2, '#1a1a10').circ(16.5, 4.6, 1.2, '#1a1a10').px(9, 4, '#ffffff').px(16, 4, '#ffffff');
+    P.rect(10, 10 - f * 0.3, 7, 1, '#2a4a20').poly([[7, 3], [13, -1], [19, 3]], '#3a2a5a');
+    P.rect(7, 21, 4, 1, '#4a7a30').rect(15, 21, 4, 1, '#4a7a30');
+    P.shade();
+    return up2(outline(P.c));
+  });
   X.dummy = [0, 1].map((f) => sp(30, 46, (P) => {
     const t = f ? 2 : 0;
     P.layer(M.wood, (q) => { q.rect(13, 22, 4, 22, '#fff'); q.rect(6, 41, 18, 4, '#fff'); }, { r: 2 });

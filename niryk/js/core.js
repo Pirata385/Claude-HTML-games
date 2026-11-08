@@ -39,7 +39,7 @@
   const I = N.input = {
     keys: {}, mx: 0, my: 0, mdown: false, mclick: false, rdown: false, rclick: false, wheel: 0,
     act: {}, prev: {}, hit: {}, pressed: {}, anyKey: false, touches: new Map(), usingTouch: false,
-    vmove: { x: 0, y: 0 }, vbtn: {}, typed: [],
+    vmove: { x: 0, y: 0 }, vbtn: {}, typed: [], abAim: [null, null], tdown: false,
   };
   const BIND = {
     up: ['KeyW', 'ArrowUp'], down: ['KeyS', 'ArrowDown'], left: ['KeyA', 'ArrowLeft'], right: ['KeyD', 'ArrowRight'],
@@ -109,7 +109,7 @@
     try {
       if (!A.ctx) {
         A.ctx = new (window.AudioContext || window.webkitAudioContext)();
-        A.master = A.ctx.createGain(); A.master.gain.value = 0.55; A.master.connect(A.ctx.destination);
+        A.master = A.ctx.createGain(); A.master.gain.value = 0.7; A.master.connect(A.ctx.destination);
         A.sfxGain = A.ctx.createGain(); A.sfxGain.connect(A.master);
         A.musGain = A.ctx.createGain(); A.musGain.gain.value = 0.32; A.musGain.connect(A.master);
         A.applyOpts();
@@ -123,8 +123,8 @@
   A.applyOpts = () => {
     if (!A.ctx) return;
     const o = (N.save && N.save.opts) || {};
-    A.sfxGain.gain.value = o.sfx === false ? 0 : 1;
-    A.musGain.gain.value = o.music === false ? 0 : 0.32;
+    A.sfxGain.gain.value = o.sfx === false ? 0 : (o.sfxVol === undefined ? 0.8 : o.sfxVol);
+    A.musGain.gain.value = o.music === false ? 0 : (o.musicVol === undefined ? 0.7 : o.musicVol) * 1.1;
   };
   A.tone = (f, dur, type = 'square', vol = 0.15, slide = 0, delay = 0, out) => {
     if (!A.ctx) return;
@@ -191,6 +191,9 @@
     reverso: { root: 174.6, scale: [0, 2, 3, 6, 7, 8, 11], bpm: 100, wave: 'triangle', seed: 23 },
     wasteland: { root: 164.8, scale: [0, 1, 4, 5, 7, 8, 10], bpm: 108, wave: 'sawtooth', seed: 41 },
     boss: { root: 146.8, scale: [0, 1, 3, 5, 7, 8, 10], bpm: 140, wave: 'sawtooth', seed: 7 },
+    pantano: { root: 155.6, scale: [0, 2, 3, 5, 7, 9, 10], bpm: 92, wave: 'triangle', seed: 53 },
+    gelo: { root: 233.1, scale: [0, 2, 4, 6, 7, 9, 11], bpm: 96, wave: 'sine', seed: 61 },
+    caldeira: { root: 138.6, scale: [0, 1, 4, 5, 7, 8, 11], bpm: 124, wave: 'sawtooth', seed: 67 },
     victory: { root: 261.6, scale: [0, 2, 4, 7, 9], bpm: 96, wave: 'triangle', seed: 5 },
   };
   const M = N.music = { theme: null, step: 0, next: 0, timer: null, pat: null };
@@ -217,10 +220,11 @@
       const note = (d, oct) => th.root * Math.pow(2, (th.scale[((d % th.scale.length) + th.scale.length) % th.scale.length] + 12 * (Math.floor(d / th.scale.length) + oct)) / 12);
       if (i % 8 === 0) M.bassDeg = M.pat.bass[i];
       const b = M.pat.bass[i];
-      if (b !== null && b !== undefined) A.tone(note(b === -1 ? (M.bassDeg || 0) : b, -1), spb * 1.8, 'triangle', 0.16, 0, delay, A.musGain);
+      if (b !== null && b !== undefined) A.tone(note(b === -1 ? (M.bassDeg || 0) : b, -1), spb * 1.8, 'triangle', 0.24, 0, delay, A.musGain);
       const l = M.pat.lead[i];
-      if (l !== null) A.tone(note(l, 0), spb * 0.9, th.wave, th.wave === 'sawtooth' ? 0.035 : 0.05, 0, delay, A.musGain);
-      if (M.theme === 'boss' || M.theme === 'wasteland') { if (i % 4 === 0) { const t = A.ctx.currentTime + delay, s = A.ctx.createBufferSource(), g = A.ctx.createGain(), f = A.ctx.createBiquadFilter(); s.buffer = A.noiseBuf; f.type = 'lowpass'; f.frequency.value = 180; g.gain.setValueAtTime(0.25, t); g.gain.exponentialRampToValueAtTime(0.001, t + 0.12); s.connect(f); f.connect(g); g.connect(A.musGain); s.start(t); s.stop(t + 0.15); } }
+      if (l !== null) A.tone(note(l, 0), spb * 0.9, th.wave, th.wave === 'sawtooth' ? 0.055 : th.wave === 'sine' ? 0.11 : 0.08, 0, delay, A.musGain);
+      if (i % 8 === 4 && M.pat.lead[i] !== null) A.tone(note((M.bassDeg || 0) + 4, 0), spb * 3, 'sine', 0.05, 0, delay, A.musGain);
+      if (M.theme === 'boss' || M.theme === 'wasteland' || M.theme === 'caldeira') { if (i % 4 === 0) { const t = A.ctx.currentTime + delay, s = A.ctx.createBufferSource(), g = A.ctx.createGain(), f = A.ctx.createBiquadFilter(); s.buffer = A.noiseBuf; f.type = 'lowpass'; f.frequency.value = 180; g.gain.setValueAtTime(0.25, t); g.gain.exponentialRampToValueAtTime(0.001, t + 0.12); s.connect(f); f.connect(g); g.connect(A.musGain); s.start(t); s.stop(t + 0.15); } }
       M.step++; M.next += spb;
     }
   };
@@ -229,8 +233,9 @@
   const SAVE_KEY = 'niryk.save.v1';
   N.defaultSave = () => ({
     crystals: 0, upg: {}, ach: {}, codex: { w: {}, q: {}, m: {}, b: {} },
-    stats: { kills: 0, runs: 0, wins: 0, deaths: 0, dragonKills: 0, best: 0, winsBy: {}, bossKills: {}, crystalsTotal: 0 },
-    loadout: {}, mods: {}, char: 'emberian', opts: { music: true, sfx: true, shake: true }, seenIntro: false,
+    stats: { kills: 0, runs: 0, wins: 0, deaths: 0, dragonKills: 0, best: 0, winsBy: {}, bossKills: {}, crystalsTotal: 0, winsDiff: {} },
+    loadout: {}, mods: {}, char: 'emberian', seenIntro: false, diff: 0, lastDiff: 0, worldsSeen: {},
+    opts: { music: true, sfx: true, shake: true, musicVol: 0.7, sfxVol: 0.8, dmgNums: true, camLead: true, fps: false, blurPause: true, autoAim: true },
   });
   N.loadSave = () => {
     let s = null;
@@ -242,6 +247,15 @@
     for (const k in d.codex) if (!s.codex[k]) s.codex[k] = {};
     for (const k in d.opts) if (s.opts[k] === undefined) s.opts[k] = d.opts[k];
     return s;
+  };
+  // Fullscreen (where the browser allows it).
+  N.isFullscreen = () => !!(document.fullscreenElement || document.webkitFullscreenElement);
+  N.toggleFullscreen = () => {
+    const el = document.documentElement;
+    try {
+      if (N.isFullscreen()) (document.exitFullscreen || document.webkitExitFullscreen).call(document);
+      else { const r = (el.requestFullscreen || el.webkitRequestFullscreen).call(el); if (r && r.catch) r.catch(() => {}); }
+    } catch (e) { /* not supported (e.g. iPhone Safari) */ }
   };
   N.writeSave = () => { try { localStorage.setItem(SAVE_KEY, JSON.stringify(N.save)); } catch (e) { /* storage blocked: progress lives only in memory */ } };
   N.save = N.loadSave();

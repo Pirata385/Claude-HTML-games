@@ -130,7 +130,7 @@
     } };
     for (const id of p.equip) addFx(N.EQUIPS[id].fx);
     for (const b of p.blessings) if (b.fx) addFx(b.fx);
-    s.cdr = Math.min(0.6, s.cdr); s.discount = Math.min(0.5, s.discount);
+    s.cdr = Math.min(0.6, s.cdr); s.discount = Math.min(0.5, s.discount); s.maxShield = Math.max(0, s.maxShield); s.dodge = Math.min(0.5, s.dodge || 0);
     p.stats = s;
     const dh = s.maxHp - p.maxHp, ds = s.maxShield - p.maxShield;
     p.maxHp = s.maxHp; p.maxShield = s.maxShield;
@@ -173,9 +173,12 @@
     let r = p.stats.atkSpeed; if (p.buffs.war > 0) r += 0.3; if (p.buffs.tail > 0) r += 0.4; return r;
   };
 
-  N.hurtPlayer = (dmg, src) => {
+  N.hurtPlayer = (dmg, src, bullet) => {
     const p = G.p;
     if (!p || !p.alive || p.inv > 0 || p.dashT > 0 || p.air > 0 || p.buffs.invuln > 0 || G.state !== 'play' || G.godMode) return false;
+    if (p.stance && p.stance.t > 0) { N.ABIL_IMPL.postura.counter(p, p.stance.s, bullet); return false; }
+    if (p.stats.dodge && Math.random() < p.stats.dodge) { p.inv = 0.45; N.text(p.x, p.y - 22, 'Esquivou!', '#cfe2ff'); N.sfx('dash'); return false; }
+    if (G.run && G.diff) dmg *= G.diff.dmg;
     if (p.form === 'dragon') dmg *= 0.6;
     const a = Math.min(p.shield, dmg); p.shield -= a; dmg -= a;
     if (dmg > 0.001) { p.hp -= dmg; p.hpLost += dmg; G.runHpLost = (G.runHpLost || 0) + dmg; N.sfx('hurt'); G.hurtFlash = 0.25; N.shake(4); }
@@ -206,16 +209,17 @@
     // aim
     const wp = N.mouseWorld();
     if (I.usingTouch) {
-      const t = N.nearestEnemy(p.x, p.y, 170, true);
+      const t = N.save.opts.autoAim !== false ? N.nearestEnemy(p.x, p.y, 170, true) : null;
       if (t) p.aim = Math.atan2(t.y - p.y, t.x - p.x);
       else if (I.vmove.x || I.vmove.y) p.aim = Math.atan2(I.vmove.y, I.vmove.x);
     } else p.aim = Math.atan2(wp.y - (p.y - 5), wp.x - p.x);
     if (!p.swing) p.face = Math.cos(p.aim) >= 0 ? 1 : -1;
     // abilities
     N.updateAbilities(p, dt);
-    if (G.state === 'play' && p.alive) {
-      if (I.hit.ab1) N.castAbility(p, 0);
-      if (I.hit.ab2) N.castAbility(p, 1);
+    if (G.state === 'play' && p.alive) { N.abilityInput(p, 0, dt); N.abilityInput(p, 1, dt); }
+    if (p.stats.stormOrb && G.state === 'play') {
+      p.stormT = (p.stormT || 3) - dt;
+      if (p.stormT <= 0) { p.stormT = 3; const e = N.nearestEnemy(p.x, p.y, 150); if (e) { N.lightning(e.x + N.rand(-6, 6), e.y - 70, e.x, e.y - 4, '#9ad8ff'); N.hurtEnemy(e, 10 * p.stats.dmg, { color: '#9ad8ff' }); N.sfx('zap'); N.flash && N.flash(e.x, e.y, 40, '#9ad8ff', 0.2); } }
     }
     if (p.control) { p.control(dt); return; } // an ability is steering the hero
     if (!p.air && N.hitsWall(p.x, p.y, p.r * 0.8, false)) N.unstick(p);
@@ -234,8 +238,9 @@
       N.moveEnt(p, p.vx * dt, p.vy * dt);
       if (I.hit.dash && p.dashCd <= 0 && p.alive) {
         const dx = mv.x || mv.y ? mv.x : Math.cos(p.aim), dy = mv.x || mv.y ? mv.y : Math.sin(p.aim), l = Math.hypot(dx, dy) || 1;
-        p.dashDx = dx / l; p.dashDy = dy / l; p.dashT = 0.17; p.dashCd = 0.85 * (1 - p.stats.dashCdr); N.sfx('dash');
-        if (p.stats.dashBomb) { const bx = p.x, by = p.y; N.delayed(0.6, () => { N.explosion(bx, by, 26, '#a070ff'); N.areaDamage(bx, by, 28, 10 * p.stats.dmg, { knock: 120 }); N.sfx('explode'); }, (ctx, k) => { ctx.globalAlpha = 0.5; ctx.drawImage(N.silhouette(N.heroSprite(p), '#3a2a5a'), bx - 8, by - 18.5); ctx.globalAlpha = 1; }); }
+        p.dashDx = dx / l; p.dashDy = dy / l; p.dashT = 0.17 * (1 + (p.stats.dashLen || 0)); p.dashCd = 0.85 * (1 - p.stats.dashCdr); N.sfx('dash');
+        if (p.stats.dashWind) { N.ringFx(p.x, p.y - 4, 40, '#cfe2ff', 0.3, 2); for (const b of G.projs) if (b.team === 'e' && Math.hypot(b.x - p.x, b.y - p.y) < 42) { b.dead = true; N.spark(b.x, b.y, '#e8f4ff', 3, 40); } N.areaDamage(p.x, p.y, 40, 2 * p.stats.dmg, { knock: 200 }); }
+        if (p.stats.dashBomb) { const bx = p.x, by = p.y; N.delayed(0.6, () => { N.explosion(bx, by, 26, '#a070ff'); N.areaDamage(bx, by, 28, 10 * p.stats.dmg, { knock: 120 }); N.sfx('explode'); }, (ctx, k) => { ctx.globalAlpha = 0.5; ctx.drawImage(N.silhouette(N.heroSprite(p), '#3a2a5a'), bx - 11, by - 19); ctx.globalAlpha = 1; }); }
       }
     }
     p.moving = Math.hypot(p.vx, p.vy) > 10 || p.dashT > 0;
@@ -272,7 +277,7 @@
     N.sfx(w.sfx || 'shoot');
     if (w.kind === 'melee') {
       p.swing = { t: 0, dur: Math.min(0.22, 0.8 / rate), arc: w.arc };
-      N.meleeArc(hx, hy, a, w.arc, w.range, w.dmg, w.knock, w.fx || '#ffffff', w.id === 'tronco' || w.id === 'machado' || w.id === 'martelo');
+      N.meleeArc(hx, hy, a, w.arc, w.range, w.dmg, w.knock, w.fx || '#ffffff', w.id === 'tronco' || w.id === 'machado' || w.id === 'martelo' || w.id === 'foice', 'melee', w.burnChance && Math.random() < w.burnChance ? { burn: true } : {});
       if (w.shock) { const sx = hx + Math.cos(a) * w.range * 0.8, sy = hy + Math.sin(a) * w.range * 0.8; N.ringFx(sx, sy, 24, '#ff9a4a'); N.areaDamage(sx, sy, 24, N.playerDmg(w.dmg * 0.5, 'melee').dmg, { knock: 90 }); }
       if (w.wave) N.shoot({ x: hx, y: hy, a, speed: 230, dmg: w.dmg * 0.6, kind: 'melee', team: 'p', spr: S.proj.wave, life: 0.45, pierce: 99, proc: true, r: 6 });
     } else if (w.kind === 'thrust') {
@@ -297,22 +302,28 @@
       }
     } else {
       const n = w.count || 1, sp = (w.speed || 200) * p.stats.projSpeed * (p.buffs.hawk > 0 ? 1.3 : 1);
-      for (let i = 0; i < n; i++) {
-        const off = n > 1 ? (i / (n - 1) - 0.5) * w.spread : (Math.random() - 0.5) * (w.spread || 0.02);
-        const r0 = N.playerDmg(w.dmg, 'ranged');
-        N.shoot({
-          x: hx + Math.cos(a) * 6, y: hy + Math.sin(a) * 6, a: a + off, speed: sp * (1 + (w.speedVar ? N.rand(-w.speedVar, w.speedVar) : 0)), dmg: r0.dmg, crit: r0.crit,
-          team: 'p', spr: S.proj[w.proj] || S.proj.stone, life: w.life || 1.3, pierce: (w.pierce || 0) + p.stats.pierce, bounce: w.bounce || 0,
-          homing: w.homing || 0, explode: w.explode || 0, burn: w.burn, slow: w.slow, proc: true, kind: 'ranged',
-        });
-      }
+      const fire = (k0, aa) => {
+        const h2 = N.handPos(p);
+        for (let i = 0; i < n; i++) {
+          const off = n > 1 ? (i / (n - 1) - 0.5) * w.spread : (Math.random() - 0.5) * (w.spread || 0.02);
+          const r0 = N.playerDmg(w.dmg, 'ranged');
+          N.shoot({
+            x: h2.x + Math.cos(aa) * 6, y: h2.y + Math.sin(aa) * 6, a: aa + off, speed: sp * (1 + (w.speedVar ? N.rand(-w.speedVar, w.speedVar) : 0)), dmg: r0.dmg, crit: r0.crit,
+            team: 'p', spr: S.proj[w.proj] || S.proj.stone, life: w.life || 1.3, pierce: (w.pierce || 0) + p.stats.pierce, bounce: w.bounce || 0,
+            homing: w.homing || 0, explode: w.explode || 0, burn: w.burn, slow: w.slow, proc: true, kind: 'ranged', knock: w.knock, boomerang: w.boomerang || 0, owner: p, spin: w.boomerang ? 16 : w.proj === 'chakram' ? 20 : 0,
+          });
+        }
+      };
+      fire(0, a);
+      if (w.burst) for (let k = 1; k < w.burst; k++) N.delayed(k * 0.08, () => { if (p.alive) { fire(k, p.aim); N.sfx(w.sfx || 'shoot'); } });
       p.kick = 2;
     }
   };
   function I_aimPoint(p, maxD) {
     const I = N.input;
     let tx, ty;
-    if (I.usingTouch) { const e = N.nearestEnemy(p.x, p.y, 170, true); if (e) { tx = e.x; ty = e.y; } else { tx = p.x + Math.cos(p.aim) * 60; ty = p.y + Math.sin(p.aim) * 60; } }
+    if (p.forcedAim) { tx = p.forcedAim.x; ty = p.forcedAim.y; }
+    else if (I.usingTouch) { const e = N.save.opts.autoAim !== false ? N.nearestEnemy(p.x, p.y, 170, true) : null; if (e) { tx = e.x; ty = e.y; } else { tx = p.x + Math.cos(p.aim) * 60; ty = p.y + Math.sin(p.aim) * 60; } }
     else { const m = N.mouseWorld(); tx = m.x; ty = m.y; }
     const d = Math.hypot(tx - p.x, ty - p.y);
     if (d > maxD) { tx = p.x + (tx - p.x) / d * maxD; ty = p.y + (ty - p.y) / d * maxD; }
@@ -372,7 +383,8 @@
   N.eshoot = (x, y, a, speed, o = {}) => {
     const col = o.color || G.bulletColor || '#ff6a3a', r = o.r || 3;
     if (!o.silent) N.sfx('eshoot');
-    return N.shoot(Object.assign({ x, y, a, speed, dmg: 1, team: 'e', spr: N.bulletSprite(col, r), r, life: 6, round: true }, o));
+    const k = G.run && G.diff ? G.diff.shot : 1;
+    return N.shoot(Object.assign({ x, y, a, speed: speed * k, dmg: 1, team: 'e', spr: N.bulletSprite(col, r), r, life: 6, round: true, glow: col }, o));
   };
   N.updateProjs = (dt) => {
     const p = G.p;
@@ -406,9 +418,6 @@
           if (!e.alive || e.intangible || b.hit.has(e)) continue;
           if (Math.hypot(e.x - b.x, e.y - b.y) < e.r + b.r) {
             b.hit.add(e);
-            if (e.def && e.def.ai === 'knight' && !e.st.stun && Math.abs(N.angDiff(Math.atan2(-b.vy, -b.vx), e.faceA || 0)) < 1.1) {
-              N.spark(b.x, b.y, '#e8e0ff', 5, 60); N.sfx('shield'); b.dead = true; break;
-            }
             N.hurtEnemy(e, b.dmg, { crit: b.crit, knock: b.knock || 30, ax: b.x - b.vx, ay: b.y - b.vy, burn: b.burn, slow: b.slow, proc: b.proc, bleed: b.bleed, kind: b.kind });
             if (b.onHit) b.onHit(b, e);
             if (b.explode) { N.projEnd(b); break; }
@@ -420,7 +429,7 @@
         for (const a of G.allies) {
           if (a.hp > 0 && a.taunt && Math.hypot(a.x - b.x, a.y - b.y) < (a.r || 6) + b.r) { a.hp -= b.dmg * 8; b.dead = true; blocked = true; N.spark(b.x, b.y, '#ffffff', 3, 40); break; }
         }
-        if (!blocked && Math.hypot(p.x - b.x, p.y - 4 - b.y) < p.r + b.r - 1) { if (N.hurtPlayer(b.dmg, 'bullet')) b.dead = true; }
+        if (!blocked && b.team === 'e' && Math.hypot(p.x - b.x, p.y - 4 - b.y) < p.r + b.r - 1) { if (N.hurtPlayer(b.dmg, 'bullet', b)) b.dead = true; }
       }
     }
     G.projs = G.projs.filter((b) => !b.dead);
@@ -440,8 +449,9 @@
     const e = {
       kind: 'enemy', id, def, x, y, r: def.r, hp: def.hp * hpMul, maxHp: def.hp * hpMul, vx: 0, vy: 0, kx: 0, ky: 0, face: 1, faceA: 0,
       t: Math.random() * 2, st: {}, mode: 'idle', mt: N.rand(0.3, 1.2), cd: N.rand(0.5, 1.6), flash: 0, fly: !!def.fly, elite: !!o.elite, alive: true,
-      anim: Math.random() * 3, spd: def.speed * (o.elite ? 1.1 : 1), dmgMul: o.elite ? 1 : 1, minion: !!o.minion, noDrop: !!o.noDrop,
+      anim: Math.random() * 3, spd: def.speed * (o.elite ? 1.1 : 1), dmgMul: o.elite ? 1 : 1, minion: !!o.minion, noDrop: !!o.noDrop, hpMul, small: !!o.small,
     };
+    if (o.small) { e.r = Math.max(4, def.r * 0.6); e.spd *= 1.25; }
     G.enemies.push(e);
     N.save.codex.m[id] = N.save.codex.m[id] || 1;
     return e;
@@ -468,6 +478,8 @@
       if (s.burnChance && Math.random() < s.burnChance) e.st.burn = 4;
       if (s.freezeChance && Math.random() < s.freezeChance) { e.st.freeze = 1; N.spark(e.x, e.y, '#9fe8ff', 5, 40); }
       if (s.chainChance && Math.random() < s.chainChance) N.chainLightning(e, 3, 6);
+      if (s.poisonChance && Math.random() < s.poisonChance) e.st.poison = Math.max(e.st.poison || 0, 3);
+      if (s.critShield && o.crit && G.time > (G.p.critShT || 0) && G.p.shield < G.p.maxShield) { G.p.shield += 1; G.p.critShT = G.time + 2; N.text(G.p.x, G.p.y - 22, '+1 escudo', '#9fd0ff'); }
     }
     if (e.hp <= 0) N.killEnemy(e, o);
     return dmg;
@@ -481,6 +493,7 @@
     N.spark(e.x, e.y - 3, col, 12, 60, 0.6, 2);
     if (e.boss) return G.onBossKilled && G.onBossKilled(e);
     if (e.onDeath) e.onDeath(e);
+    if (e.def && e.def.split && !e.small) for (const dx of [-6, 6]) { const m = N.spawnEnemy(e.id, e.x + dx, e.y, { hpMul: e.hpMul * 0.4, small: true, noDrop: true }); m.kx = dx * 18; }
     const p = G.p;
     if (!e.noDrop && !e.minion) {
       const coins = N.randi(1, 2) + (e.elite ? 4 : 0);
@@ -675,6 +688,34 @@
           (ctx, k) => { ctx.strokeStyle = 'rgba(255,80,60,' + (0.4 + k * 0.5) + ')'; ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(bx, by, 18, 0, TAU); ctx.stroke(); ctx.fillStyle = 'rgba(255,80,60,0.15)'; ctx.beginPath(); ctx.arc(bx, by, 18 * k, 0, TAU); ctx.fill(); ctx.drawImage(S.misc.bone, N.lerp(sx, bx, k) - 5, N.lerp(sy - 20, by, k * k) - 3); });
       }
     },
+    toad(e, t, dt) {
+      e.mt -= dt;
+      if (e.mode === 'hop') {
+        N.moveEnt(e, e.vx * dt, e.vy * dt); e.air = Math.sin(N.clamp(1 - e.mt / 0.45, 0, 1) * Math.PI) * 10;
+        if (e.mt <= 0) { e.air = 0; e.mode = 'idle'; e.mt = N.rand(0.6, 1.1); fan(e, aimAt(e, t), e.def.shot.n + (e.elite ? 2 : 0), e.def.shot.spread, e.def.shot.speed, { color: '#9aff4a' }); }
+      } else if (e.mt <= 0) { const a = aimAt(e, t) + N.rand(-0.25, 0.25), sp = e.spd * 2.6; e.vx = Math.cos(a) * sp; e.vy = Math.sin(a) * sp; e.face = Math.cos(a) >= 0 ? 1 : -1; e.mode = 'hop'; e.mt = 0.45; }
+    },
+    witch(e, t, dt) {
+      const d = Math.hypot(t.x - e.x, t.y - e.y), a = aimAt(e, t);
+      if (d > 130) steer(e, t.x, t.y, e.spd, dt); else if (d < 70) N.moveEnt(e, -Math.cos(a) * e.spd * dt, -Math.sin(a) * e.spd * dt);
+      e.face = Math.cos(a) >= 0 ? 1 : -1; e.cd -= dt;
+      if (e.cd <= 0) {
+        e.cd = e.def.shot.cd * N.rand(0.9, 1.2); e.casts = (e.casts || 0) + 1;
+        fan(e, a, e.def.shot.n + (e.elite ? 2 : 0), e.def.shot.spread, e.def.shot.speed, { color: '#9aff4a' });
+        if (e.casts % 2 === 0) { const px = t.x, py = t.y; N.delayed(0.9, () => G.areas.push({ x: px, y: py, r: 16, life: 4, max: 4, team: 'e', dmg: 1, tick: 0.6, kind: 'poison' }), (ctx, k) => { ctx.strokeStyle = 'rgba(154,255,74,' + (0.4 + k * 0.6) + ')'; ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(px, py, 16, 0, TAU); ctx.stroke(); }); }
+      }
+    },
+    mortar(e, t, dt) {
+      e.cd -= dt; e.face = t.x > e.x ? 1 : -1;
+      if (e.cd <= 0) {
+        e.cd = e.def.shot.cd * N.rand(0.85, 1.15); N.sfx('eshoot');
+        for (let i = 0; i < (e.elite ? 3 : 1); i++) {
+          const bx = t.x + (i ? N.rand(-34, 34) : 0), by = t.y + (i ? N.rand(-34, 34) : 0), sx = e.x, sy = e.y - 16;
+          N.delayed(1.05, () => { N.explosion(bx, by, 16, '#ff8a2a'); N.sfx('explode'); if (Math.hypot(G.p.x - bx, G.p.y - by) < 17) N.hurtPlayer(1, 'bomb'); G.areas.push({ x: bx, y: by, r: 9, life: 2.5, max: 2.5, team: 'e', dmg: 1, tick: 0.6, kind: 'fire' }); },
+            (ctx, k) => { ctx.strokeStyle = 'rgba(255,120,40,' + (0.4 + k * 0.6) + ')'; ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(bx, by, 16, 0, TAU); ctx.stroke(); const x = N.lerp(sx, bx, k), y = N.lerp(sy, by, k) - Math.sin(k * Math.PI) * 60; ctx.drawImage(S.misc.lavaBomb, x - 4, y - 4); });
+        }
+      }
+    },
     turret(e, t, dt) {
       e.sa = (e.sa || 0) + dt * 1.3; e.cd -= dt; e.mt -= dt;
       if (e.mt <= 0) { e.on = !e.on; e.mt = e.on ? 2.2 : 1.5; }
@@ -723,8 +764,9 @@
       if (s.fear > 0) { const a = Math.atan2(e.y - t.y, e.x - t.x); N.moveEnt(e, Math.cos(a) * e.def.speed * 1.2 * dt, Math.sin(a) * e.def.speed * 1.2 * dt); continue; }
       const sp0 = e.spd; e.spd = sp0 * slow;
       if (s.root > 0 && !['shooter', 'kiter', 'tank', 'floater', 'caster', 'turret', 'scorpion'].includes(e.def.ai)) { e.spd = sp0; continue; }
-      AI[e.def.ai](e, t, dt * (s.slow > 0 ? 0.7 : 1));
+      AI[e.def.ai](e, t, dt * (s.slow > 0 ? 0.7 : 1) * (G.run && G.diff ? G.diff.tempo : 1));
       e.spd = sp0;
+      if (e.def.trail) { if (e.lx === undefined) { e.lx = e.x; e.ly = e.y; } if (Math.hypot(e.x - e.lx, e.y - e.ly) > 12) { e.lx = e.x; e.ly = e.y; G.areas.push({ x: e.x, y: e.y + 2, r: 7, life: 2, max: 2, team: 'e', dmg: 1, tick: 0.6, kind: 'fire' }); } }
       if (e.alive) contact(e);
     }
     // corpses fade
@@ -748,7 +790,7 @@
   // ================================================================ drawing
   N.snap = (v) => Math.round(v * N.RS) / N.RS;
   N.drawShadow = (ctx, x, y, w) => { ctx.globalAlpha = 0.55; ctx.drawImage(N.shadowTex, x - w * 1.25, y - w * 0.5, w * 2.5, w); ctx.globalAlpha = 1; };
-  N.handPos = (p) => { const h = S.hero[p.char].hand; return { x: p.x + p.face * (h[0] / N.RS - 8), y: p.y - 18.5 + h[1] / N.RS - (p.bob || 0) }; };
+  N.handPos = (p) => { const h = S.hero[p.char]; return { x: p.x + p.face * (h.hand[0] / N.RS - h.ox), y: p.y - h.oy + h.hand[1] / N.RS - (p.bob || 0) }; };
   N.drawWeapon = (ctx, p) => {
     const w = N.weaponOf(p); if (!w || p.form === 'dragon' || p.air > 6) return;
     const spr = S.wp[w.id], hp = N.handPos(p), hx = hp.x, hy = hp.y;
@@ -769,8 +811,9 @@
     if (p.buffs.invuln > 0) ctx.globalAlpha = 0.7;
     const behind = Math.sin(p.aim) < -0.2;
     if (behind) N.drawWeapon(ctx, p);
+    if (p.stance && p.stance.t > 0) { ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = 0.5 + Math.sin(G.time * 20) * 0.2; ctx.strokeStyle = '#ffb03a'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.ellipse(p.x, p.y - 8, 13, 15, 0, 0, TAU); ctx.stroke(); ctx.restore(); }
     ctx.save();
-    const ox = drag ? 17 : 8, oy = drag ? 22 : 18.5;
+    const hm = S.hero[drag ? 'dragon' : p.char], ox = hm.ox, oy = hm.oy;
     ctx.translate(N.snap(p.x), N.snap(p.y - p.air + p.bob));
     if (p.face < 0) ctx.scale(-1, 1);
     ctx.drawImage(spr, -ox, -oy);
@@ -796,7 +839,7 @@
     if (e.intangible && e.id !== 'verme') return;
     let x = N.snap(e.x + (e.mode === 'wind' ? Math.sin(e.t * 50) * 0.5 : 0)), y = N.snap(e.y - hover - air);
     if (e.mode === 'rise') x += Math.round(Math.sin(e.t * 60));
-    ctx.save(); ctx.translate(x, y + 3); if (e.face < 0) ctx.scale(-1, 1);
+    ctx.save(); ctx.translate(x, y + 3); if (e.face < 0) ctx.scale(-1, 1); if (e.small) ctx.scale(0.62, 0.62);
     const w = spr.W, h = spr.H;
     if (e.elite) { const g = N.silhouette(spr, '#ffcf40'); for (const [dx, dy] of [[-1, 0], [1, 0], [0, -1], [0, 1]]) ctx.drawImage(g, -w / 2 + dx, -h + dy); }
     if (e.mode === 'fuse' && Math.floor(e.t * 16) % 2) ctx.drawImage(N.silhouette(spr, '#ff4a3a'), -w / 2, -h);

@@ -4,7 +4,59 @@
 (function () {
   const N = window.N, S = N.S, G = N.G, TAU = Math.PI * 2;
   const AD = (base) => N.playerDmg(base, 'ability');
-  const moveDir = (p) => { const m = N.input.moveVec(); return m.x || m.y ? Math.atan2(m.y, m.x) : p.aim; };
+  const moveDir = (p) => { if (p.forcedAim) return p.forcedAim.a; const m = N.input.moveVec(); return m.x || m.y ? Math.atan2(m.y, m.x) : p.aim; };
+  const aimDir = (p) => (p.forcedAim ? p.forcedAim.a : p.aim);
+  const I_ = N.input;
+
+  // ---------------------------------------------------------------- aiming: tap = automatic aim (as always), hold = aim, release = cast
+  const AIM = { investida: 'dir', pancada: (s) => (s.mod === 2 ? 'point' : 'none'), chuva: 'point', passo: 'dir', raizes: 'point', mergulho: (s) => (s.mod === 0 ? 'none' : 'point'), rajada: 'dir', coice: 'dir', ferradura: 'dir', iai: 'dir', milcortes: 'dir', areia: 'dir' };
+  const RANGE = { investida: 100, pancada: 130, chuva: 150, passo: 84, raizes: 150, mergulho: 140, rajada: 72, coice: 40, ferradura: 120, iai: 110, milcortes: 40, areia: 70 };
+  N.aimKind = (s) => { const k = AIM[s.id]; return (typeof k === 'function' ? k(s) : k) || 'none'; };
+  const aimRadius = (s) => ({ chuva: s.mod === 1 ? 52 : s.mod === 2 ? 46 : 40, raizes: 44, mergulho: 40, pancada: 64 }[s.id] || 0);
+  N.manualAim = (p, i, s) => {
+    const R = RANGE[s.id] || 100;
+    if (I_.usingTouch) {
+      const v = I_.abAim && I_.abAim[i]; if (!v || v.mag < 0.25) return null;
+      const a = Math.atan2(v.y, v.x), d = Math.min(1, v.mag) * R; return { a, x: p.x + Math.cos(a) * d, y: p.y + Math.sin(a) * d, drag: true };
+    }
+    const m = N.mouseWorld(), a = Math.atan2(m.y - p.y, m.x - p.x), d = Math.min(R, Math.hypot(m.x - p.x, m.y - p.y));
+    return { a, x: p.x + Math.cos(a) * d, y: p.y + Math.sin(a) * d };
+  };
+  N.abilityInput = (p, i, dt) => {
+    const s = p.abil[i]; if (!s) return;
+    const key = 'ab' + (i + 1), held = I_.act[key], hit = I_.hit[key], kind = N.aimKind(s), imp = N.ABIL_IMPL[s.id];
+    if (hit) {
+      if (imp.recast && imp.recast(p, s)) { s.hold = null; return; }
+      if (kind === 'none') { N.castAbility(p, i); return; }
+      s.hold = { t: 0, dragged: false, aim: null };
+    }
+    if (!s.hold) return;
+    if (held) { s.hold.t += dt; const aim = N.manualAim(p, i, s); if (aim) { s.hold.aim = aim; if (aim.drag) s.hold.dragged = true; } return; }
+    const h = s.hold; s.hold = null;
+    const manual = h.aim && (I_.usingTouch ? h.dragged : h.t >= 0.18);
+    if (manual) { const a0 = p.aim; p.forcedAim = h.aim; p.aim = h.aim.a; p.face = Math.cos(p.aim) >= 0 ? 1 : -1; N.castAbility(p, i); p.forcedAim = null; if (!p.control) p.aim = a0; }
+    else N.castAbility(p, i);
+  };
+  // World-space aim preview while a button is held.
+  N.drawAimIndicators = (ctx) => {
+    const p = G.p; if (!p || !p.alive) return;
+    for (const s of p.abil) {
+      const h = s.hold; if (!h || !h.aim || !(h.t > 0.12 || h.dragged)) continue;
+      const kind = N.aimKind(s), c = N.CHARS[p.char].color, a = h.aim.a;
+      ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.strokeStyle = c; ctx.fillStyle = c; ctx.lineWidth = 1.2; ctx.globalAlpha = 0.85;
+      if (kind === 'dir') {
+        const L = RANGE[s.id] || 80, ex = p.x + Math.cos(a) * L, ey = p.y - 4 + Math.sin(a) * L;
+        ctx.setLineDash([3, 2]); ctx.beginPath(); ctx.moveTo(p.x + Math.cos(a) * 8, p.y - 4 + Math.sin(a) * 8); ctx.lineTo(ex, ey); ctx.stroke(); ctx.setLineDash([]);
+        ctx.beginPath(); ctx.moveTo(ex + Math.cos(a) * 4, ey + Math.sin(a) * 4); ctx.lineTo(ex + Math.cos(a + 2.5) * 6, ey + Math.sin(a + 2.5) * 6); ctx.lineTo(ex + Math.cos(a - 2.5) * 6, ey + Math.sin(a - 2.5) * 6); ctx.fill();
+      } else {
+        const r = Math.max(8, aimRadius(s));
+        ctx.setLineDash([3, 2]); ctx.beginPath(); ctx.moveTo(p.x, p.y - 4); ctx.lineTo(h.aim.x, h.aim.y); ctx.stroke(); ctx.setLineDash([]);
+        ctx.globalAlpha = 0.22; ctx.beginPath(); ctx.ellipse(h.aim.x, h.aim.y, r, r * 0.8, 0, 0, TAU); ctx.fill();
+        ctx.globalAlpha = 0.9; ctx.beginPath(); ctx.ellipse(h.aim.x, h.aim.y, r, r * 0.8, 0, 0, TAU); ctx.stroke();
+      }
+      ctx.restore();
+    }
+  };
 
   // ---------------------------------------------------------------- casting & cooldowns
   N.castAbility = (p, i) => {
@@ -181,7 +233,7 @@
         const spr = N.silhouette(S.ch[p.char][0], '#7ad8c8');
         G.allies.push({ x: ox, y: oy, life: 3, hp: 30, maxHp: 30, taunt: true, r: 6,
           onEnd: (d) => { N.explosion(d.x, d.y - 4, 34, '#5fe3d6'); N.sfx('explode'); const r = AD(15); N.areaDamage(d.x, d.y, 36, r.dmg, { crit: r.crit, knock: 150 }); },
-          draw: (ctx, d) => { ctx.globalAlpha = 0.65 + Math.sin(d.t * 10) * 0.15; ctx.drawImage(spr, d.x - 8, d.y - 18.5); ctx.globalAlpha = 1; bar(ctx, d); } });
+          draw: (ctx, d) => { ctx.globalAlpha = 0.65 + Math.sin(d.t * 10) * 0.15; ctx.drawImage(spr, d.x - 11, d.y - 19); ctx.globalAlpha = 1; bar(ctx, d); } });
       }
       if (s.mod === 2) for (const [cx, cy] of [[ox, oy], [x, y]]) for (let i = 0; i < 10; i++) { const r = AD(4); N.shoot({ x: cx, y: cy - 4, a: i / 10 * TAU, speed: 190, dmg: r.dmg, crit: r.crit, team: 'p', spr: S.proj.leaf, life: 0.55, pierce: 1, r: 3 }); }
     },
@@ -369,6 +421,82 @@
             if (s.mod === 0) { b.zt -= dt; if (b.zt <= 0) { b.zt = 0.25; const e = N.nearestEnemy(b.x, b.y, 55); if (e) { N.lightning(b.x, b.y, e.x, e.y - 4); N.hurtEnemy(e, AD(3).dmg, { color: '#ffe066' }); N.sfx('zap'); } } }
             if (s.mod === 2) for (const e of G.enemies) { if (!e.alive || e.boss || e.intangible) continue; const d = Math.hypot(b.x - e.x, b.y - e.y); if (d < 55 && d > 6) N.moveEnt(e, (b.x - e.x) / d * 90 * dt, (b.y - e.y) / d * 90 * dt); }
           } });
+      }
+    },
+  };
+  // ================================================================ KAZAN (the ronin)
+  function slashLine(x0, y0, x1, y1, c) {
+    N.addFx({ life: 0.28, draw: (ctx, k) => { ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = 1 - k; ctx.lineCap = 'round'; ctx.strokeStyle = c; ctx.lineWidth = 5 * (1 - k) + 1; ctx.beginPath(); ctx.moveTo(x0, y0); ctx.lineTo(x1, y1); ctx.stroke(); ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 1.5 * (1 - k) + 0.5; ctx.stroke(); ctx.restore(); } });
+  }
+  I.iai = {
+    cast(p, s) {
+      const a = aimDir(p), x0 = p.x, y0 = p.y - 5, hit = new Set(); let dist = 0, killed = false, trail = 0;
+      p.buffs.invuln = 0.3; N.sfx('dash'); N.sfx('swing'); p.face = Math.cos(a) >= 0 ? 1 : -1;
+      p.control = (dt) => {
+        const step = 560 * dt, r = N.moveEnt(p, Math.cos(a) * step, Math.sin(a) * step); dist += step; trail += step;
+        N.part(p.x + N.rand(-3, 3), p.y - N.rand(2, 12), 0, 0, 'rgba(255,170,90,0.6)', 0.25, 2);
+        if (s.mod === 2 && trail > 10) { trail = 0; N.fireZone(p.x, p.y, 8, 2.5); }
+        for (const e of G.enemies) if (e.alive && !e.intangible && !hit.has(e) && Math.hypot(e.x - p.x, e.y - p.y) < e.r + 10) { hit.add(e); const d = AD(14); N.hurtEnemy(e, d.dmg, { crit: d.crit, knock: 70, ax: p.x, ay: p.y }); if (!e.alive) killed = true; }
+        if (dist >= 110 || r) {
+          p.control = null; slashLine(x0, y0, p.x, p.y - 5, '#ff8a3a'); N.shake(2);
+          if (s.mod === 0 && killed) { s.charges = s.max; s.cd = 0; N.text(p.x, p.y - 24, 'Sem Retorno!', '#ffb03a'); }
+          if (s.mod === 1) { const x1 = p.x, y1 = p.y - 5; N.delayed(0.3, () => { slashLine(x1, y1, x0, y0, '#ffd060'); N.sfx('swing'); for (const e of G.enemies) if (e.alive && !e.intangible && N.segDist(e.x, e.y, x0, y0, x1, y1) < e.r + 8) { const d = AD(10); N.hurtEnemy(e, d.dmg, { crit: d.crit }); } }); }
+        }
+      };
+    },
+  };
+  I.postura = {
+    cast(p, s) { p.stance = { t: 1.2, s }; s.st.countered = false; N.sfx('ability'); N.ringFx(p.x, p.y - 6, 18, '#ffb03a', 0.3, 2); },
+    update(p, s, dt) {
+      if (!p.stance || p.stance.s !== s) return;
+      p.stance.t -= dt; if (Math.random() < 0.4) N.part(p.x + N.rand(-10, 10), p.y - N.rand(0, 18), 0, -20, '#ffb03a', 0.4, 1);
+      if (p.stance.t <= 0) p.stance = null;
+    },
+    counter(p, s, b) {
+      if (b) { if (s.mod === 0) { b.team = 'p'; b.vx *= -1.4; b.vy *= -1.4; b.dmg = AD(8).dmg; b.hit = new Set(); b.life = 2; b.spr = N.bulletSprite('#ffb03a', b.r || 3); b.glow = '#ffb03a'; N.sfx('shield'); } else b.dead = true; }
+      if (s.st.countered) return;
+      s.st.countered = true;
+      const R = s.mod === 1 ? 64 : 46;
+      N.sfx('heavy'); N.shake(4); N.ringFx(p.x, p.y - 6, R, '#ffb03a', 0.35, 3); N.slashFx(p.x, p.y - 6, p.aim, Math.PI * 2, R * 0.85, '#ffb03a');
+      const d = AD(18); N.areaDamage(p.x, p.y, R, d.dmg, { crit: d.crit, knock: 220, burn: s.mod === 1 });
+      if (s.mod === 2) { p.shield = Math.max(p.shield, p.maxShield); N.sfx('shield'); }
+      p.inv = Math.max(p.inv, 0.5); N.text(p.x, p.y - 26, 'Contra-ataque!', '#ffb03a');
+      if (s.mod !== 0) p.stance = null;
+    },
+  };
+  I.milcortes = {
+    cast(p, s) {
+      const base = aimDir(p); let k = 0;
+      N.addFx({ life: 0.8, update: (f, dt) => {
+        f.acc = (f.acc || 0) + dt;
+        while (f.acc >= 0.08) {
+          f.acc -= 0.08; k++;
+          if (!p.alive) return;
+          const a = s.mod === 0 ? base + k * 0.9 : base + N.rand(-0.45, 0.45);
+          N.sfx('swing'); N.meleeArc(p.x, p.y - 5, a, 1.5, 30, 4, 50, '#ffcf8a', false, 'ability', { bleed: s.mod === 1 });
+          if (s.mod === 2) { const d = AD(3); N.shoot({ x: p.x, y: p.y - 5, a, speed: 240, dmg: d.dmg, crit: d.crit, team: 'p', spr: S.proj.wave, life: 0.4, pierce: 99, r: 6 }); }
+        }
+      } });
+    },
+  };
+  I.areia = {
+    cast(p, s) {
+      const a = aimDir(p), R = 70, arc = 1.2;
+      N.sfx('dash');
+      for (let i = 0; i < 40; i++) { const aa = a + N.rand(-arc / 2, arc / 2), sp = N.rand(80, 220); N.part(p.x, p.y - 5, Math.cos(aa) * sp, Math.sin(aa) * sp, Math.random() < 0.5 ? '#ffb03a' : '#e8c890', 0.45, 2); }
+      for (const e of G.enemies) {
+        if (!e.alive || e.intangible) continue;
+        const d = Math.hypot(e.x - p.x, e.y - p.y); if (d > R + e.r || Math.abs(N.angDiff(a, Math.atan2(e.y - p.y, e.x - p.x))) > arc / 2) continue;
+        const r = AD(s.mod === 2 ? 12 : 6); N.hurtEnemy(e, r.dmg, { crit: r.crit, burn: true, stun: 1, knock: 60, ax: p.x, ay: p.y });
+        if (s.mod === 2) e.st.burn = 8;
+      }
+      if (s.mod === 0) {
+        const spr = N.silhouette(S.ch[p.char][0], '#e8b878'), ox = p.x, oy = p.y;
+        G.allies.push({ x: ox, y: oy, life: 3, hp: 30, maxHp: 30, taunt: true, r: 6, draw: (ctx, d) => { ctx.globalAlpha = 0.55 + Math.sin(d.t * 12) * 0.15; ctx.drawImage(spr, d.x - 11, d.y - 19); ctx.globalAlpha = 1; } });
+      }
+      if (s.mod === 1) {
+        const cx = p.x + Math.cos(a) * 40, cy = p.y + Math.sin(a) * 40;
+        G.areas.push({ x: cx, y: cy, r: 40, life: 4, max: 4, tick: 0.4, kind: 'sand', onTick: (e) => { e.st.slow = Math.max(e.st.slow || 0, 0.6); N.hurtEnemy(e, AD(2).dmg, { color: '#e8c890' }); } });
       }
     },
   };

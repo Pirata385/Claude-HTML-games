@@ -40,7 +40,7 @@
   const blockTiles = (tx, ty, w, h) => { G.map.hidden = G.map.hidden || new Set(); for (let y = ty; y < ty + h; y++) for (let x = tx; x < tx + w; x++) { const i = y * G.map.W + x; if (G.map.tiles[i] === T.FLOOR) { G.map.tiles[i] = T.BLOCK; G.map.hidden.add(i); } } };
   const sprProp = (spr) => N.R.sprProp(spr);
   const drawPortal = (ctx, pr) => N.R.drawPortal(ctx, pr), drawCampfire = (ctx, pr) => N.R.drawCampfire(ctx, pr), drawRack = (ctx, pr) => N.R.drawRack(ctx, pr);
-  const heroNpcDraw = (id, i) => (ctx, pr) => { const spr = S.ch[id][Math.sin(G.time * 2 + i) > 0.5 ? 4 : 0]; N.drawShadow(ctx, pr.x, pr.y + 2, 7); ctx.save(); ctx.translate(N.snap(pr.x), N.snap(pr.y)); if (G.p && G.p.x < pr.x) ctx.scale(-1, 1); ctx.drawImage(spr, -8, -18.5); ctx.restore(); };
+  const heroNpcDraw = (id, i) => (ctx, pr) => { const spr = S.ch[id][Math.sin(G.time * 2 + i) > 0.5 ? 4 : 0]; N.drawShadow(ctx, pr.x, pr.y + 2, 7); ctx.save(); ctx.translate(N.snap(pr.x), N.snap(pr.y)); if (G.p && G.p.x < pr.x) ctx.scale(-1, 1); ctx.drawImage(spr, -11, -19); ctx.restore(); };
 
   // ================================================================ title
   G.goTitle = () => { G.scene = 'title'; G.run = null; G.p = null; resetWorld(); N.music.play('lobby'); };
@@ -53,7 +53,7 @@
     resetWorld();
     G.map = N.genSingleRoom(30, 18);
     const r = G.map.rooms[0], X = (tx) => (r.x0 + tx) * TS, Y = (ty) => (r.y0 + ty) * TS;
-    G.p = N.makePlayer(N.save.char, keep && old ? old.x : X(15), keep && old ? old.y : Y(12.5), null);
+    G.p = N.makePlayer(N.save.char, keep && old ? old.x : X(15), keep && old ? old.y : Y(15), null);
     N.save.codex.w[N.CHARS[N.save.char].weapon] = 1;
     // stations (2.5D props; the tiles under them are solid)
     blockTiles(r.x0 + 1, r.y0, 3, 1);
@@ -72,16 +72,16 @@
     blockTiles(r.x0 + 14, r.y0 + 8, 2, 1);
     prop({ x: X(5), y: Y(9), spr: S.misc.tent, draw: sprProp(S.misc.tent) }); blockTiles(r.x0 + 3, r.y0 + 7, 4, 2);
     prop({ x: X(25), y: Y(9), spr: S.misc.tent, draw: sprProp(S.misc.tent) }); blockTiles(r.x0 + 23, r.y0 + 7, 4, 2);
-    N.CHAR_ORDER.forEach((id, i) => prop({ x: X(1.5 + i * 9), y: Y(16.8), spr: S.misc.banner(N.CHARS[id].color), draw: sprProp(S.misc.banner(N.CHARS[id].color)) }));
+    N.CHAR_ORDER.forEach((id, i) => prop({ x: X(1.5 + i * 6.75), y: Y(16.8), spr: S.misc.banner(N.CHARS[id].color), draw: sprProp(S.misc.banner(N.CHARS[id].color)) }));
     for (const [tx, ty] of [[9, 6], [21, 6], [9, 15], [21, 15]]) { prop({ x: X(tx + 0.5), y: Y(ty + 1), spr: S.misc.paperLantern, draw: sprProp(S.misc.paperLantern), light: ['#ffb060', 70, -21, 0.95] }); blockTiles(r.x0 + tx, r.y0 + ty, 1, 1); }
     for (const [tx, ty] of [[1, 12], [27, 12]]) { prop({ x: X(tx + 1), y: Y(ty + 1), spr: S.deco.table, draw: sprProp(S.deco.table), light: ['#ffb060', 30, -12, 0.6] }); blockTiles(r.x0 + tx, r.y0 + ty, 2, 1); }
     // the other heroes stand around the fire
     N.CHAR_ORDER.forEach((id, i) => {
       if (id === N.save.char) return;
-      const pos = [[10.5, 11], [19.5, 11], [12, 14], [18, 14]][i];
+      const pos = [[10.5, 10.5], [19.5, 10.5], [11.5, 13.5], [18.5, 13.5], [15, 12]][i];
       prop({ x: X(pos[0]), y: Y(pos[1]), h: 24, hero: id, title: N.CHARS[id].name, titleColor: N.CHARS[id].color, label: () => 'Falar com ' + N.CHARS[id].name, use: () => G.openMenu('hero', { id }), draw: heroNpcDraw(id, i) });
     });
-    prop({ x: X(15), y: Y(15.6), h: 20, hero: N.save.char, title: 'Você: ' + N.CHARS[N.save.char].name, titleColor: '#8a8090', label: () => 'Ver herói atual', use: () => G.openMenu('hero', { id: N.save.char }), draw: () => {} });
+    prop({ x: X(15), y: Y(16.4), h: 20, hero: N.save.char, title: 'Você: ' + N.CHARS[N.save.char].name, titleColor: '#8a8090', label: () => 'Ver herói atual', use: () => G.openMenu('hero', { id: N.save.char }), draw: () => {} });
     N.R.dress(G.map, 'lobby', { corner: null, patches: false });
     G.map.patches.push({ x: X(15), y: Y(12.5), v: 0 });
     N.music.play('lobby');
@@ -128,9 +128,11 @@
   G.trainingClear = () => { G.enemies = G.enemies.filter((e) => e.dummy); G.projs.length = 0; };
 
   // ================================================================ run
-  G.startRun = () => G.transition(() => {
+  G.startRun = (first) => G.transition(() => {
     G.scene = 'run';
-    G.run = { world: 0, level: 0, kills: 0, crystals: 0, rooms: 0, char: N.save.char, t0: G.time, time: 0 };
+    const d = N.clamp(N.save.lastDiff || 0, 0, N.save.diff || 0);
+    G.diff = N.DIFFICULTIES[d];
+    G.run = { world: 0, level: 0, kills: 0, crystals: 0, rooms: 0, char: N.save.char, t0: G.time, time: 0, diff: d, worlds: [N.LAYER_WORLDS[0].includes(first) ? first : N.pick(N.LAYER_WORLDS[0])] };
     N.save.stats.runs++; N.writeSave();
     G.p = N.makePlayer(N.save.char, 0, 0, G.run);
     G.p.gold = 15 * (N.save.upg.fortuna || 0);
@@ -139,9 +141,12 @@
     loadLevel();
   });
   const L = () => G.run.world * 3 + G.run.level; // depth 0..8
+  // The world of the current layer (each layer has two possible worlds).
+  G.curWorld = () => { const r = G.run; if (r.worlds[r.world] === undefined) r.worlds[r.world] = N.pick(N.LAYER_WORLDS[r.world]); return N.WORLDS[r.worlds[r.world]]; };
 
   function loadLevel() {
-    const r = G.run, w = N.WORLDS[r.world];
+    const r = G.run, w = G.curWorld();
+    N.save.worldsSeen = N.save.worldsSeen || {}; N.save.worldsSeen[w.id] = 1;
     resetWorld();
     G.theme = w.id; G.bulletColor = w.bullet;
     const seed = (Math.random() * 2 ** 31) >>> 0;
@@ -153,7 +158,8 @@
     for (const id of G.p.weapons) if (id) N.save.codex.w[id] = 1;
     for (const room of G.map.rooms) setupRoom(room);
     N.R.dress(G.map, w.id);
-    banner(`${w.name}  ${r.world + 1}-${r.level + 1}`, r.level === 2 ? 'Um chefe aguarda no fim deste nível...' : w.sub, r.level === 2 ? '#ff8a9a' : '#ffd166');
+    if (G.p.stats.reveal) for (const room of G.map.rooms) room.seen = true;
+    banner(`${w.name}  ${r.world + 1}-${r.level + 1}`, (r.level === 2 ? 'Um chefe aguarda no fim deste nível...' : w.sub) + (G.diff && G.diff.id !== 'normal' ? '  ·  ' + G.diff.name : ''), r.level === 2 ? '#ff8a9a' : '#ffd166');
     N.music.play(w.music);
     N.writeSave();
     snapCamera();
@@ -319,16 +325,16 @@
     G.combat = { room, wave: 0, waves: big || (L() >= 5 && Math.random() < 0.5) ? 3 : 2, t: 0.35 };
   }
   function spawnWave(c) {
-    const room = c.room, depth = L(), w = N.WORLDS[G.run.world];
-    const n = N.clamp(3 + Math.floor(depth * 0.55) + N.randi(0, 2) - (c.wave === 0 ? 0 : 1), 3, 10);
+    const room = c.room, depth = L(), w = G.curWorld(), df = G.diff || N.DIFFICULTIES[0];
+    const n = N.clamp(3 + Math.floor(depth * 0.55) + N.randi(0, 2) - (c.wave === 0 ? 0 : 1) + df.extra, 3, 13);
     const counts = {};
     for (let i = 0; i < n; i++) {
       const id = N.weighted(w.enemies, (k) => { const ai = N.ENEMIES[k].ai; const base = ai === 'turret' ? 0.45 : ai === 'tank' || ai === 'slammer' ? 0.6 : 1; return (counts[k] || 0) >= (ai === 'turret' || ai === 'slammer' ? 1 : 3) ? 0.02 : base; });
       counts[id] = (counts[id] || 0) + 1;
       const q = N.randomPoint(room, 62, G.p.x, G.p.y);
-      const elite = depth >= 2 && Math.random() < 0.05 + depth * 0.015;
+      const elite = (depth >= 2 || df.elite > 0) && Math.random() < 0.05 + depth * 0.015 + df.elite;
       G.pendingSpawns++;
-      N.delayed(0.75 + i * 0.05, () => { G.pendingSpawns--; if (G.combat && G.combat.room === room) { N.spawnEnemy(id, q.x, q.y, { hpMul: 1 + depth * 0.2, elite }); N.spark(q.x, q.y, '#ffffff', 8, 50); } },
+      N.delayed(0.75 + i * 0.05, () => { G.pendingSpawns--; if (G.combat && G.combat.room === room) { N.spawnEnemy(id, q.x, q.y, { hpMul: (1 + depth * 0.2) * df.hp, elite }); N.spark(q.x, q.y, '#ffffff', 8, 50); } },
         (ctx, k) => { ctx.strokeStyle = elite ? '#ffcf40' : '#ff4a5e'; ctx.globalAlpha = 0.4 + 0.6 * k; ctx.lineWidth = 1; ctx.beginPath(); ctx.ellipse(q.x, q.y + 2, 10 * (1 - k) + 3, (10 * (1 - k) + 3) * 0.6, 0, 0, TAU); ctx.stroke(); ctx.globalAlpha = 1; if (Math.random() < 0.3) N.part(q.x + N.rand(-4, 4), q.y, 0, -30, '#ffffff', 0.3, 1); });
     }
     N.sfx('spawn');
@@ -340,14 +346,19 @@
     N.text(p.x, p.y - 26, 'Sala limpa!', '#7cf07a');
     N.dropPickup('crystal', c.x, c.y);
     if (p.stats.roomHeal && Math.random() < p.stats.roomHeal) N.healPlayer(1);
+    p.roomsCleared = (p.roomsCleared || 0) + 1;
+    if (p.stats.roomRegen && p.roomsCleared % p.stats.roomRegen === 0) N.healPlayer(1);
     if (room === G.map.exit && !G.map.boss) spawnPortal(room);
     else if (Math.random() < 0.28) smallChest(c.x, c.y);
     N.writeSave(); N.checkAch();
   }
-  function spawnPortal(room, offY = 0) {
-    const c = rc(room);
-    G.portal = prop({ x: c.x, y: c.y + offY, h: 30, r: 22, room, title: 'Portal', titleColor: '#7cf07a', draw: drawPortal, label: () => 'Entrar no portal', use: () => { N.sfx('portal'); G.transition(nextLevel); } });
-    N.sfx('portal'); N.spark(c.x, c.y, '#7cf07a', 30, 100, 0.8, 2);
+  function spawnPortal(room, offY = 0, offX = 0, next) {
+    const c = rc(room), nw = next !== undefined ? N.WORLDS[next] : null;
+    const pr = prop({ x: c.x + offX, y: c.y + offY, h: 30, r: 22, room, next, title: nw ? nw.name : 'Portal', titleColor: nw ? N.mix(nw.bullet, '#ffffff', 0.3) : '#7cf07a', cols: nw ? [nw.bullet, '#ffffff', N.mix(nw.bullet, '#000000', 0.3)] : null, draw: drawPortal,
+      light: [nw ? nw.bullet : '#7cf07a', 60, -14, 0.8],
+      label: () => (nw ? 'Seguir para ' + nw.name : 'Entrar no portal'), use: () => { if (next !== undefined) G.run.worlds[G.run.world + 1] = next; N.sfx('portal'); G.transition(nextLevel); } });
+    if (!G.portal) G.portal = pr;
+    N.sfx('portal'); N.spark(pr.x, pr.y, '#7cf07a', 30, 100, 0.8, 2);
   }
   function nextLevel() {
     const r = G.run; r.level++;
@@ -357,10 +368,10 @@
     loadLevel();
   }
   function startBoss(room) {
-    const w = N.WORLDS[G.run.world];
+    const w = G.curWorld();
     G.combat = { room, boss: true };
     G.boss = N.spawnBoss(w.boss, room);
-    if (w.boss === 'kharun') setView(1.3);
+    if (w.boss === 'kharun' || w.boss === 'ignavar') setView(1.25);
     G.bossHp0 = G.runHpLost;
     banner(G.boss.def.name, G.boss.def.title, '#ff8a9a', 3);
     N.sfx('boss'); N.music.play('boss'); N.shake(5);
@@ -373,12 +384,17 @@
     for (const m of G.enemies) if (m !== e && m.alive) { m.alive = false; N.spark(m.x, m.y, '#ffffff', 8, 50); }
     N.save.stats.bossKills[e.id] = (N.save.stats.bossKills[e.id] || 0) + 1;
     if (G.runHpLost <= G.bossHp0 + 0.001) G.flawless = true;
-    const cr = [15, 25, 40][r.world];
+    const cr = Math.round([15, 25, 40][r.world] * (G.diff ? G.diff.crystals : 1));
     for (let i = 0; i < 12; i++) N.dropPickup('coin', e.x, e.y);
     for (let i = 0; i < Math.round(cr / 3); i++) N.dropPickup('crystal', e.x, e.y, { v: 3 });
     room.cleared = true; G.map.locked = null; G.combat = null; G.boss = null;
-    banner(e.def.name + ' foi derrotado!', r.world < 2 ? 'Um portal se abre para o próximo mundo' : 'O caminho para o Núcleo Estelar está livre', '#7cf07a', 3);
-    N.delayed(1.4, () => { giftChest(rc(room).x - 40, rc(room).y + 20, 0.6, 'weapon'); spawnPortal(room, 20); N.music.play(N.WORLDS[r.world].music); setView(1); });
+    banner(e.def.name + ' foi derrotado!', r.world < 2 ? 'Escolha o portal: dois mundos esperam na próxima camada' : 'O caminho para o Núcleo Estelar está livre', '#7cf07a', 3);
+    N.delayed(1.4, () => {
+      giftChest(rc(room).x, rc(room).y - 30, 0.6, 'weapon');
+      if (r.world < 2) N.LAYER_WORLDS[r.world + 1].forEach((wi, i) => spawnPortal(room, 34, i ? 60 : -60, wi));
+      else spawnPortal(room, 34);
+      N.music.play(G.curWorld().music); setView(1);
+    });
     N.writeSave(); N.checkAch(); G.flawless = false;
   };
   G.onPlayerDeath = () => { if (G.scene !== 'run') { const p = G.p; p.alive = true; p.hp = p.maxHp; return; } G.dying = true; G.dyingT = 0; G.slowmo = 1.5; N.sfx('lose'); N.shake(8); N.spark(G.p.x, G.p.y - 6, '#ff4a5e', 30, 100, 0.8, 2); };
@@ -386,14 +402,20 @@
     const r = G.run; if (!r || r.ended) return;
     r.ended = true; r.time = G.time - r.t0;
     const u = N.save.upg, mult = 1 + 0.1 * (u.colheita || 0);
-    const bonus = (r.world * 3 + r.level) * 3 + (win ? 100 : 0);
+    const dm = G.diff ? G.diff.crystals : 1;
+    const bonus = Math.round(((r.world * 3 + r.level) * 3 + (win ? 100 : 0)) * dm);
     const crystals = Math.round((r.crystals + bonus) * mult);
     N.save.crystals += crystals; N.save.stats.crystalsTotal += crystals;
-    if (win) { N.save.stats.wins++; N.save.stats.winsBy[r.char] = (N.save.stats.winsBy[r.char] || 0) + 1; N.sfx('win'); N.music.play('victory'); }
+    let unlocked = null;
+    if (win) {
+      N.save.stats.wins++; N.save.stats.winsBy[r.char] = (N.save.stats.winsBy[r.char] || 0) + 1; N.sfx('win'); N.music.play('victory');
+      N.save.stats.winsDiff = N.save.stats.winsDiff || {}; N.save.stats.winsDiff[r.diff] = (N.save.stats.winsDiff[r.diff] || 0) + 1;
+      if (r.diff >= (N.save.diff || 0) && r.diff < N.DIFFICULTIES.length - 1) { N.save.diff = r.diff + 1; unlocked = N.DIFFICULTIES[r.diff + 1]; N.save.lastDiff = r.diff + 1; }
+    }
     else if (!quit) N.save.stats.deaths++;
     N.save.stats.best = Math.max(N.save.stats.best, r.world * 3 + r.level);
     N.writeSave(); N.checkAch();
-    G.openMenu('result', { win, quit, res: { char: r.char, world: r.world, level: r.level, kills: r.kills, rooms: r.rooms, equips: G.p.equip.length, time: r.time, crystals, bonus: Math.round(bonus * mult) } });
+    G.openMenu('result', { win, quit, unlocked, res: { char: r.char, world: r.world, level: r.level, worldName: G.curWorld().name, diff: r.diff, kills: r.kills, rooms: r.rooms, equips: G.p.equip.length, time: r.time, crystals, bonus: Math.round(bonus * mult) } });
   };
 
   // ================================================================ achievements
@@ -414,6 +436,9 @@
     if (G.run && G.p && G.p.gold >= 300) unlock('tycoon');
     if (Object.values(s.upg).reduce((a, b) => a + b, 0) >= 20) unlock('ascend');
     if (st.dragonKills >= 30) unlock('dragon');
+    if (Object.keys(s.worldsSeen || {}).length >= N.WORLDS.length) unlock('explorer');
+    const wd = st.winsDiff || {};
+    if (wd[1]) unlock('diff_dificil'); if (wd[2]) unlock('diff_pesadelo'); if (wd[3]) unlock('diff_lenda');
   };
 
   // ================================================================ update
@@ -423,6 +448,9 @@
     G.state = G.menu ? 'menu' : G.scene === 'title' ? 'title' : G.dying ? 'dead' : 'play';
     if (backLink) backLink.style.display = G.scene === 'title' ? '' : 'none';
     if (G.fade) { G.fade.t += dt; if (!G.fade.done && G.fade.t >= 0.32) { G.fade.done = true; G.closeMenu(); G.fade.fn(); } if (G.fade.t >= 0.64) G.fade = null; }
+    if (I.hit.map && G.scene === 'run' && !G.menu) G.bigMap = !G.bigMap;
+    if (I.hit.pause && G.bigMap) { G.bigMap = false; I.hit.pause = false; }
+    if (G.menu || G.scene !== 'run') G.bigMap = false;
     if (I.hit.pause) { if (G.menu) { if (G.menu.type !== 'result') { if (G.menu.back) G.openMenu(G.menu.back); else G.closeMenu(); } } else if (G.scene !== 'title' && !G.dying) G.openMenu('pause'); }
     if (G.banner) { G.banner.t += dt; if (G.banner.t >= G.banner.life) G.banner = null; }
     for (const t of G.toasts) t.t += dt; G.toasts = G.toasts.filter((t) => t.t < 4);
@@ -455,7 +483,7 @@
   }
   function camTarget() {
     const p = G.p; let tx = p.x - G.VW / 2, ty = p.y - 10 - G.VH / 2;
-    if (!I.usingTouch) { const m = N.mouseWorld(); tx += N.clamp((m.x - p.x) * 0.16, -28, 28); ty += N.clamp((m.y - p.y) * 0.16, -20, 20); }
+    if (!I.usingTouch && N.save.opts.camLead !== false) { const m = N.mouseWorld(); tx += N.clamp((m.x - p.x) * 0.16, -28, 28); ty += N.clamp((m.y - p.y) * 0.16, -20, 20); }
     if (G.boss && G.boss.alive) {
       // frame the boss and the hero together, never pushing the hero off screen
       tx = N.clamp((p.x + G.boss.x) / 2 - G.VW / 2, p.x - G.VW + 40, p.x - 40);
@@ -491,7 +519,8 @@
   // ================================================================ loop
   let last = performance.now();
   function frame(now) {
-    let dt = Math.min(0.05, (now - last) / 1000); last = now;
+    const raw = (now - last) / 1000; let dt = Math.min(0.05, raw); last = now;
+    if (raw > 0) G.fps = G.fps ? G.fps * 0.93 + (1 / raw) * 0.07 : 1 / raw;
     if (G.slowmo > 0) { G.slowmo -= dt; dt *= 0.35; }
     G.time += dt;
     U.begin(uctx, G.UW, G.UH);
@@ -501,6 +530,10 @@
     I.endFrame();
     requestAnimationFrame(frame);
   }
+  // pause automatically when the tab or window loses focus
+  const autoPause = () => { if (N.save.opts.blurPause !== false && (G.scene === 'run' || G.scene === 'training') && !G.menu && !G.dying && G.p) G.openMenu('pause'); };
+  document.addEventListener('visibilitychange', () => { if (document.hidden) autoPause(); });
+  window.addEventListener('blur', autoPause);
   N.music.play('lobby');
   requestAnimationFrame(frame);
 

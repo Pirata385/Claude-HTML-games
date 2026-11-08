@@ -21,11 +21,13 @@
   R.resize = (gcv) => { gcv.width = Math.round(G.VW * RS); gcv.height = Math.round(G.VH * RS); lcv.width = Math.ceil(G.VW); lcv.height = Math.ceil(G.VH); };
 
   // ================================================================ level dressing
-  const OBST = { overworld: ['bush', 'bush', 'rock', 'stump', 'bush', 'rock'], reverso: ['crystals', 'pillar', 'statue', 'mirror', 'crystals'], wasteland: ['rockPile', 'sandPillar', 'crate', 'rockPile', 'rib'], training: ['crate', 'barrel'], lobby: ['barrel', 'table'] };
-  const CORNER = { overworld: 'stoneLantern', reverso: 'candles', wasteland: 'brazier', training: 'brazier', lobby: 'paperLantern' };
-  const BG = { overworld: { p: 0.5, names: ['tree'] }, reverso: { p: 0.22, names: ['crystals', 'pillar', 'statue'] }, wasteland: { p: 0.25, names: ['sandPillar', 'rib', 'rockPile'] } };
-  const WALLDECO = { training: { p: 0.3, pick: (r) => (r < 0.2 ? 'torch' : 'banner') }, lobby: { p: 0.12, pick: () => 'banner' }, reverso: { p: 0.22, pick: (r) => (r < 0.15 ? 'window' : 'torch') }, wasteland: { p: 0.13, pick: () => 'torch' } };
-  const LIGHT = { stoneLantern: ['#ffc870', 66, -19], candles: ['#ffd890', 52, -16], crystals: ['#b07aff', 52, -12], brazier: ['#ff9a40', 74, -15], paperLantern: ['#ffb060', 74, -21], torch: ['#ffa040', 62, -12], window: ['#d05aff', 46, -10] };
+  const OBST = { overworld: ['bush', 'bush', 'rock', 'stump', 'bush', 'rock'], reverso: ['crystals', 'pillar', 'statue', 'mirror', 'crystals'], wasteland: ['rockPile', 'sandPillar', 'crate', 'rockPile', 'rib'], training: ['crate', 'barrel'], lobby: ['barrel', 'table'],
+    pantano: ['mangue', 'juncos', 'cogumelosAzuis', 'juncos', 'stump'], gelo: ['cristalGelo', 'monteNeve', 'pilarGelo', 'monteNeve'], caldeira: ['obsidianaPico', 'cranios', 'rockPile', 'obsidianaPico'] };
+  const CORNER = { overworld: 'stoneLantern', reverso: 'candles', wasteland: 'brazier', training: 'brazier', lobby: 'paperLantern', pantano: 'lanternaPantano', gelo: 'cristalGelo', caldeira: 'ventLava' };
+  const BG = { overworld: { p: 0.5, names: ['tree'] }, reverso: { p: 0.22, names: ['crystals', 'pillar', 'statue'] }, wasteland: { p: 0.25, names: ['sandPillar', 'rib', 'rockPile'] }, pantano: { p: 0.45, names: ['mangue', 'mangue', 'juncos'] }, gelo: { p: 0.3, names: ['pilarGelo', 'cristalGelo'] }, caldeira: { p: 0.3, names: ['obsidianaPico', 'obsidianaPico', 'cranios'] } };
+  const WALLDECO = { training: { p: 0.3, pick: (r) => (r < 0.2 ? 'torch' : 'banner') }, lobby: { p: 0.12, pick: () => 'banner' }, reverso: { p: 0.22, pick: (r) => (r < 0.15 ? 'window' : 'torch') }, wasteland: { p: 0.13, pick: () => 'torch' }, gelo: { p: 0.1, pick: () => 'torch' } };
+  const LIGHT = { stoneLantern: ['#ffc870', 66, -19], candles: ['#ffd890', 52, -16], crystals: ['#b07aff', 52, -12], brazier: ['#ff9a40', 74, -15], paperLantern: ['#ffb060', 74, -21], torch: ['#ffa040', 62, -12], window: ['#d05aff', 46, -10], lanternaPantano: ['#9aff6a', 64, -16], cristalGelo: ['#7ad8ff', 60, -14], ventLava: ['#ff7a2a', 76, -4] };
+  const DOORGLOW = { overworld: '#9aff6a', reverso: '#d05aff', wasteland: '#ff6a3a', pantano: '#9aff4a', gelo: '#7ad8ff', caldeira: '#ff8a2a' };
   const addLight = (map, name, x, y) => { const L = LIGHT[name]; if (L) map.lights.push({ x, y: y + L[2], r: L[1], c: L[0], ph: Math.random() * 10 }); };
   N.deco = (name) => S.deco[name];
 
@@ -43,7 +45,11 @@
       }
       if (o.patches !== false) {
         const n = room.type === 'boss' ? 3 : 1 + Math.floor(h(room.x0, room.y0, 5) * 2);
-        for (let k = 0; k < n; k++) map.patches.push({ x: (room.x0 + 3 + h(room.id, k, 1) * (room.w - 6)) * TS, y: (room.y0 + 3 + h(room.id, k, 2) * (room.h - 6)) * TS, v: Math.floor(h(room.id, k, 3) * 3) });
+        for (let k = 0; k < n; k++) {
+          const pt = { x: (room.x0 + 3 + h(room.id, k, 1) * (room.w - 6)) * TS, y: (room.y0 + 3 + h(room.id, k, 2) * (room.h - 6)) * TS, v: Math.floor(h(room.id, k, 3) * 3) };
+          map.patches.push(pt);
+          if (theme === 'caldeira') map.lights.push({ x: pt.x, y: pt.y, r: 54, c: '#ff6a1a', ph: Math.random() * 10 });
+        }
       }
     }
     const wd = WALLDECO[theme], bg = BG[theme];
@@ -75,7 +81,7 @@
 
   R.drawPortal = (ctx, pr) => {
     const t = G.time, x = pr.x, y = pr.y - 13, lobby = G.scene === 'lobby';
-    const cols = lobby ? ['#ffd166', '#c66bff', '#5fe3d6'] : ['#7cf07a', '#5fe3d6', '#ffffff'];
+    const cols = pr.cols || (lobby ? ['#ffd166', '#c66bff', '#5fe3d6'] : ['#7cf07a', '#5fe3d6', '#ffffff']);
     N.drawShadow(ctx, x, pr.y + 2, 16);
     ctx.fillStyle = '#1a1424'; ctx.beginPath(); ctx.ellipse(x, y, 14, 18, 0, 0, TAU); ctx.fill();
     for (let i = 0; i < 5; i++) { ctx.fillStyle = i % 2 ? '#120a1c' : cols[i % 3]; ctx.beginPath(); ctx.ellipse(x, y, 11.5 - i * 2 + Math.sin(t * 3 + i) * 0.6, 15.5 - i * 2.8 + Math.sin(t * 3 + i) * 0.6, 0, 0, TAU); ctx.fill(); }
@@ -110,6 +116,17 @@
         ctx.fillStyle = '#ffe066'; ctx.beginPath(); ctx.ellipse(z.x, z.y - 1.5, z.r * 0.3, z.r * 0.16, 0, 0, TAU); ctx.fill();
         ctx.globalAlpha = 1;
         if (Math.random() < 0.1) N.part(z.x + N.rand(-4, 4), z.y, 0, -25, '#ffe066', 0.4, 1);
+      } else if (z.kind === 'poison') {
+        const k = z.life / z.max; ctx.globalAlpha = Math.min(1, k * 2) * 0.8;
+        ctx.fillStyle = '#2a6a1a'; ctx.beginPath(); ctx.ellipse(z.x, z.y, z.r, z.r * 0.6, 0, 0, TAU); ctx.fill();
+        ctx.fillStyle = '#6ad83a'; ctx.beginPath(); ctx.ellipse(z.x, z.y - 0.5, z.r * 0.7, z.r * 0.38, 0, 0, TAU); ctx.fill();
+        ctx.globalAlpha = 1;
+        if (Math.random() < 0.12) { const a = Math.random() * TAU; N.part(z.x + Math.cos(a) * z.r * 0.5, z.y + Math.sin(a) * z.r * 0.3, 0, -12, '#b8ff7a', 0.5, 1); }
+      } else if (z.kind === 'sand') {
+        const k = z.life / z.max; ctx.globalAlpha = Math.min(1, k * 3) * 0.55;
+        for (let i = 0; i < 3; i++) { ctx.strokeStyle = i % 2 ? '#e8c890' : '#c8955a'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.ellipse(z.x, z.y, z.r * (0.4 + i * 0.3), z.r * (0.25 + i * 0.18), G.time * (2 + i), 0, TAU * 0.7); ctx.stroke(); }
+        ctx.globalAlpha = 1;
+        if (Math.random() < 0.5) { const a = Math.random() * TAU; N.part(z.x + Math.cos(a) * z.r, z.y + Math.sin(a) * z.r * 0.6, -Math.sin(a) * 40, Math.cos(a) * 25, '#e8c890', 0.5, 1); }
       } else if (z.draw) z.draw(ctx, z);
     }
   }
@@ -168,7 +185,7 @@
     }
     // locked doors: energy bars rising from the floor
     if (map.locked) {
-      const glow = { overworld: '#9aff6a', reverso: '#d05aff', wasteland: '#ff6a3a' }[G.theme] || '#ffd166';
+      const glow = DOORGLOW[G.theme] || '#ffd166';
       for (const i of map.locked) {
         const tx = i % W, ty = (i / W) | 0; if (tx < x0 || tx > x1 || ty < y0 || ty > y1 + 2) continue;
         const bx = tx * TS, by = ty * TS + TS;
@@ -222,6 +239,7 @@
     ctx.globalAlpha = 1; ctx.globalCompositeOperation = 'source-over';
     for (const b of G.projs) N.drawProj(ctx, b);
     for (const f of G.fx) if (!f.floor && f.draw) f.draw(ctx, Math.min(1, f.t / f.life), f);
+    if (N.drawAimIndicators) N.drawAimIndicators(ctx);
     for (const q of G.parts) { ctx.globalAlpha = Math.min(1, q.life / q.max * 1.5); ctx.fillStyle = q.c; ctx.fillRect(q.x, q.y, q.size * 0.75, q.size * 0.75); }
     ctx.globalAlpha = 1;
     ctx.setTransform(1, 0, 0, 1, 0, 0);
@@ -257,8 +275,9 @@
     for (const b of G.projs) add(b.x, b.y, b.team === 'e' ? 16 : 20, b.team === 'e' ? (G.bulletColor || '#ff6a3a') : (b.glow || '#9fd8ff'), 0.55);
     for (const f of G.flashes || []) add(f.x, f.y, f.r, f.c, Math.max(0, 1 - f.t / f.life));
     for (const k of G.pickups) if (k.type === 'crystal') add(k.x, k.y - 6, 14, '#5fe3d6', 0.6);
-    for (const e of G.enemies) if (e.boss) add(e.x, e.y, 70, e.id === 'nyxara' ? '#d05aff' : e.id === 'kharun' ? '#ffb02e' : '#c8ff9a', 0.45);
-    for (const z of G.areas) if (z.kind === 'fire') add(z.x, z.y, 22, '#ff8a2a', 0.5);
+    const BL = { nyxara: '#d05aff', kharun: '#ffb02e', musgo: '#c8ff9a', gorgulho: '#9aff4a', glacia: '#9fe8ff', ignavar: '#ff7a2a' };
+    for (const e of G.enemies) if (e.boss) add(e.x, e.y, 70, BL[e.id] || '#ffffff', 0.45);
+    for (const z of G.areas) if (z.kind === 'fire') add(z.x, z.y, 22, '#ff8a2a', 0.5); else if (z.kind === 'poison') add(z.x, z.y, 20, '#6ad83a', 0.35);
     lctx.globalAlpha = 1;
     ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.globalCompositeOperation = 'multiply'; ctx.imageSmoothingEnabled = true;
     ctx.drawImage(lcv, 0, 0, lcv.width, lcv.height, 0, 0, ctx.canvas.width * lcv.width / VW, ctx.canvas.height * lcv.height / VH);
@@ -275,11 +294,14 @@
   // Screen-space finish: vignette, colour grade, hurt and death tints.
   R.post = (ctx, W, H) => {
     const g = ctx.createRadialGradient(W / 2, H / 2, Math.min(W, H) * 0.32, W / 2, H / 2, Math.max(W, H) * 0.72);
-    const edge = { reverso: 'rgba(24,4,44,0.62)', wasteland: 'rgba(36,14,4,0.5)', overworld: 'rgba(2,10,6,0.55)' }[G.theme] || 'rgba(6,3,10,0.45)';
+    const edge = { reverso: 'rgba(24,4,44,0.62)', wasteland: 'rgba(36,14,4,0.5)', overworld: 'rgba(2,10,6,0.55)', pantano: 'rgba(2,14,12,0.6)', gelo: 'rgba(4,14,30,0.5)', caldeira: 'rgba(40,6,2,0.55)' }[G.theme] || 'rgba(6,3,10,0.45)';
     g.addColorStop(0, 'rgba(0,0,0,0)'); g.addColorStop(1, edge);
     ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
     if (G.theme === 'wasteland' && Math.random() < 0.5) N.part(G.camX + G.VW + 4, G.camY + Math.random() * G.VH, -N.rand(40, 90), N.rand(-5, 5), 'rgba(232,200,144,0.5)', 4, 1);
     if (G.theme === 'overworld' && Math.random() < 0.08) N.part(G.camX + Math.random() * G.VW, G.camY + Math.random() * G.VH, N.rand(-6, 6), N.rand(-8, -2), '#d8ff9a', 3, 1);
+    if (G.theme === 'pantano' && Math.random() < 0.15) N.part(G.camX + Math.random() * G.VW, G.camY + Math.random() * G.VH, N.rand(-8, 8), N.rand(-6, 6), '#c8ff6a', 2.5, 1);
+    if (G.theme === 'gelo' && Math.random() < 0.6) N.part(G.camX + Math.random() * (G.VW + 60) - 30, G.camY - 2, N.rand(-12, 4), N.rand(14, 28), '#ffffff', 6, 1);
+    if (G.theme === 'caldeira' && Math.random() < 0.35) N.part(G.camX + Math.random() * G.VW, G.camY + G.VH + 2, N.rand(-6, 6), -N.rand(14, 30), Math.random() < 0.5 ? '#ff8a2a' : '#ffd060', 5, 1);
     if (G.theme === 'reverso' && Math.random() < 0.12) N.part(G.camX + Math.random() * G.VW, G.camY + G.VH, N.rand(-4, 4), -N.rand(8, 18), '#d05aff', 5, 1);
     if (G.hurtFlash > 0) { ctx.fillStyle = `rgba(255,40,60,${G.hurtFlash * 0.7})`; ctx.fillRect(0, 0, W, H); }
     if (G.dying) { ctx.fillStyle = `rgba(20,0,10,${Math.min(0.6, G.dyingT * 0.4)})`; ctx.fillRect(0, 0, W, H); }
@@ -300,7 +322,7 @@
     const fx = W / 2, fy = H - 30;
     const glow = ctx.createRadialGradient(fx, fy, 0, fx, fy, 60); glow.addColorStop(0, 'rgba(255,160,60,0.35)'); glow.addColorStop(1, 'rgba(255,160,60,0)'); ctx.fillStyle = glow; ctx.fillRect(fx - 60, fy - 60, 120, 90);
     R.drawCampfire(ctx, { x: fx, y: fy + 2 });
-    N.CHAR_ORDER.forEach((id, i) => { const spr = S.ch[id][Math.sin(t * 2.5 + i) > 0.6 ? 4 : 0], x = fx + [-46, -24, 24, 46][i]; ctx.save(); ctx.translate(sn(x), sn(fy + 1)); if (i >= 2) ctx.scale(-1, 1); ctx.drawImage(spr, -8, -20.5); ctx.restore(); });
+    N.CHAR_ORDER.forEach((id, i) => { const spr = S.ch[id][Math.sin(t * 2.5 + i) > 0.6 ? 4 : 0], x = fx + [-46, -24, 24, 46][i]; ctx.save(); ctx.translate(sn(x), sn(fy + 1)); if (i >= 2) ctx.scale(-1, 1); ctx.drawImage(spr, -11, -21); ctx.restore(); });
     for (const q of G.parts) { ctx.globalAlpha = Math.min(1, q.life / q.max * 1.5); ctx.fillStyle = q.c; ctx.fillRect(q.x, q.y, 1, 1); }
     ctx.globalAlpha = 1;
   };

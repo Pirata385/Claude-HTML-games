@@ -101,11 +101,11 @@
   /**
    * Generate one level.
    * opts.boss: append a boss room after the deepest room.
-   * opts.rooms: force the number of rooms (otherwise 9..15, start room not counted).
+   * opts.rooms: force the number of rooms (otherwise 7..10, start room not counted).
    */
   N.genLevel = function (seed, opts = {}) {
     const r = N.makeRng(seed);
-    const count = opts.rooms || r.int(9, 15);
+    const count = opts.rooms || r.int(7, 10);
     const cells = new Map(), rooms = [];
     const key = (x, y) => x + ',' + y;
     const occupiedAround = (x, y) => DIRS.reduce((n, [dx, dy]) => n + (cells.has(key(x + dx, y + dy)) ? 1 : 0), 0);

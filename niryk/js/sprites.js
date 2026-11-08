@@ -88,6 +88,17 @@
       }
       this.x.putImageData(id, 0, 0); return this;
     }
+    // Rim shading of the whole silhouette (used by the chibi dragon).
+    shade(dark = 0.7, light = 0.22) {
+      const id = this.x.getImageData(0, 0, this.w, this.h), d = id.data, src = new Uint8ClampedArray(d), w = this.w, h = this.h;
+      const a = (x, y) => (x < 0 || y < 0 || x >= w || y >= h ? 0 : src[(y * w + x) * 4 + 3]);
+      for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+        const i = (y * w + x) * 4; if (!src[i + 3]) continue;
+        if (!a(x, y + 1) || !a(x + 1, y)) { d[i] *= dark; d[i + 1] *= dark; d[i + 2] *= dark; }
+        else if (!a(x, y - 1) || !a(x - 1, y)) { d[i] += (255 - d[i]) * light; d[i + 1] += (255 - d[i + 1]) * light; d[i + 2] += (255 - d[i + 2]) * light; }
+      }
+      this.x.putImageData(id, 0, 0); return this;
+    }
     // Paint one volume on its own layer, cel-shade it, then composite it.
     layer(mat, fn, o) { const q = new Painter(this.w, this.h); fn(q); q.cel(mat, o); this.x.drawImage(q.c, 0, 0); return this; }
     out(col = OUT) { return fin(outline(this.c, col)); }
@@ -144,132 +155,73 @@
   };
   N.MAT = M;
 
-  // ================================================================ HEROES (hand-placed pixel maps, 28x39)
+  // ================================================================ HEROES (chibi pixel maps, 20x19, shown at 2x)
   const HERO = {
     emberian: {
-      hand: [20, 23], legs: { x0: 10, x1: 20, y0: 25, split: 15 },
-      pal: { r: '#f4ead2', R: '#b8a07a', h: '#d22a3e', H: '#8a1430', i: '#ff6a5a', s: '#fde0c8', S: '#f0b090', T: '#c87a66', e: '#2a1020', y: '#ffb21e', Y: '#d07a10', w: '#ffffff', p: '#f49090', m: '#a83040', c: '#3fa07a', C: '#257058', D: '#163f38', g: '#f2c14e', l: '#8a5232', L: '#55301e', k: '#3a2a3a', K: '#24182a', b: '#5a3426', B: '#36201a', t: '#d22a3e', u: '#8a1430', v: '#f5a040' },
-      rows: [
-        '......r....r................', '......Rr...Rr...............', '.......Rr...Rr..............', '........Rr..hRrhhh..........',
-        '.......hhRrhhhhhiihhh.......', '......HhhhhhhhiiiihhhH......', '......Hhhhhhhhhhhhhhhh......', '.....HhhhhhhHsshssshsh......',
-        '.....HhhhhhHSeesseessS......', '.....HhhhhhHSywssywssS......', '.....hhhhhhHSYyssYysSs......', '.....hhhhhhHsspssspssS......',
-        '......hhhhhHSsssssmsS.......', '......hhhhhHHTsssssS........', '......hhhhhH..TSS...........', '......hhhhHDCcgsgccCcC......',
-        '......hhhhHDCccgcccCsS......', '......hhhhHDCcccgccCsS......', '......hhhhHDCccccgcCsS......', '.......hhhHDCcccccgCsS......',
-        '.......hhhHTlllglllLsS......', '........hhH.kkkkkkkKlL......', '........tu.kkkkkkkkKlL......', '......ttu..kkkkKkkkKsS......',
-        '....tttuv.kkkkkKkkkkK.......', '...ttuv....TsS..sss.........', '..ttu......TsS..ssS.........', '.ttv.......TsS..ssS.........',
-        '..vt.......TsS..ssS.........', '...........TsS..ssS.........', '...........TsS..ssS.........', '...........bbB..bbB.........',
-        '...........bgB..bgB.........', '...........bbB..bbB.........', '...........bbB..bbB.........', '...........bbB..bbB.........',
-        '...........bbB..bbB.........', '..........bbbB..bbbB........', '..........BBBB..BBBB........',
-      ],
+      pal: { r: '#efe3c8', R: '#b39874', h: '#d8364a', H: '#8c1d36', i: '#ff7d7d', s: '#f7cfa8', S: '#dba07e', e: '#2b1631', w: '#ffffff', y: '#ffb21e', p: '#f39191', m: '#a2393f', c: '#3e9a6f', C: '#286a52', a: '#e6b53e', A: '#fff1a6', l: '#8d5733', L: '#5f3920', b: '#4a2b23', t: '#d8364a', T: '#f59a3c' },
+      rows: ['......r........r....', '......rr......rr....', '.......RhhhhhhR.....', '......hhhhhhhhhh....', '.....hhhiihhhhhhh...', '.....hhhhhhhhhhhh...', '.....hhhHsssssHhh...', '.....hhsssssssssh...', '.....hsssewssewsh...', '.....hsssyyssyysh...', '.....hSpssssmspsh...', '.....HhSsssssSShH...', '......HHcccccccHH...', '.......scccCcccs....', '.....ttsaaaAaaas....', '...tttt.lllLlll.....', '.tttT...lLl.lLl.....', 'tTT.....bb..bb......', '........bb..bb......'],
     },
     sylvar: {
-      hand: [20, 23], legs: { x0: 11, x1: 19, y0: 24, split: 15 },
-      pal: { h: '#e8eef8', H: '#a8b2cc', i: '#ffffff', E: '#f7d6bc', F: '#d8a088', s: '#f7d6bc', S: '#e0aa8c', T: '#b87c66', e: '#13283a', y: '#3fe0cc', Y: '#1f9a8c', w: '#ffffff', p: '#f0a8a0', m: '#a85050', a: '#e8c860', g: '#5fe3d6', c: '#3e8a4a', C: '#25603a', D: '#163c28', v: '#9fd36a', V: '#6aa848', l: '#8a5a36', L: '#5a3620', n: '#3a3f66', N: '#262a48', b: '#5a3a28', B: '#3a2418' },
-      rows: [
-        '............................', '............................', '...........hhhhh............', '.........hhhhhhhhh..........',
-        '........hhhhiiiihhhh........', '.......HhhhhhhiiihhhhH......', '....E.Hhhhaaaagaaaahhh......', '.....EEhhhhhHsshssshsh......',
-        '......EFEhhHSeesseessS......', '.....hhFEEhHSywssywssS......', '.....hhhhFEHSYyssYysSs......', '.....hhhhhhHsspssspssS......',
-        '.....hhhhhhHSsssssmsS.......', '.....hhhhhhHHTsssssS........', '.....hhhhhhH..TSS...........', '.....hhhhhcDCvvavvvCvC......',
-        '.....hhhhccDCvvlvvvVsS......', '.....hhhcccDCvvvlvvVsS......', '.....hhhcccDCvvvvlvVsS......', '......hccccDCvvvvvlVsS......',
-        '......cccccDLlllalllsS......', '......cccccD.vvVvvvVlL......', '.......ccccD.vvVvvvVlL......', '.......cccC.nnnNnnnNsS......',
-        '........ccCnnN..nnN.........', '.........cCnnN..nnN.........', '...........nnN..nnN.........', '...........nnN..nnN.........',
-        '...........NnN..nnN.........', '...........NnN..nnN.........', '...........bbB..bbB.........', '...........bbB..bbB.........',
-        '...........lbB..lbB.........', '...........bbB..bbB.........', '...........bbB..bbB.........', '...........bbB..bbB.........',
-        '...........bbB..bbB.........', '..........bbbB..bbbB........', '..........BBBB..BBBB........',
-      ],
+      pal: { h: '#e4ebf5', i: '#ffffff', H: '#a3adc8', E: '#f3d2b4', s: '#f3d2b4', S: '#d6a88c', e: '#173040', w: '#ffffff', y: '#43d6c6', p: '#f0a0a0', m: '#a04848', a: '#d9b65a', g: '#5fe3d6', A: '#fff3b0', c: '#3e7d3f', C: '#285429', v: '#86c75a', l: '#4a4f78', L: '#33365a', b: '#5b3b2a' },
+      rows: ['....................', '....................', '........hhhhhh......', '......hhhhhhhhhh....', '.....hhhiihhhhhhh...', '.....haaaagaaaaah...', '...E.hhhHsssssHhh.E.', '...EEhhssssssssshEE.', '....EhsssewssewshE..', '.....hsssyyssyysh...', '.....hSpssssmspsh...', '.....hhSsssssSShh...', '.....hhCcvvvvvcChh..', '......hCsvvavvsCh...', '.......CaaaAaaaC....', '.......CllllLllC....', '........lll.lll.....', '........bb..bb......', '........bb..bb......'],
     },
     kestrus: {
-      hand: [20, 23], legs: { x0: 10, x1: 20, y0: 24, split: 15 },
-      pal: { f: '#6a9ae8', F: '#3f68b8', G: '#253f80', i: '#b8d8ff', q: '#f4ead2', Q: '#cdbb98', k: '#ffbe3a', K: '#c87a1a', e: '#1a1020', y: '#ffd23a', Y: '#c89010', w: '#ffffff', c: '#e8dcc0', C: '#bfa880', a: '#d04040', A: '#902a30', n: '#2c3a66', N: '#1c2648', t: '#f0b040', T: '#b07020', x: '#2a2020', W: '#3a5a9c', V: '#8ab0e8', X: '#223a70' },
-      rows: [
-        '............................', '......fF....................', '.......fFF..fF..............', '........fFFFfFFff...........',
-        '.........FFfffiiiff.........', '........GFFffffiiiff........', '.......GFFFfffffffff........', '.......GFFFFffffqqqff.......',
-        '......GGFFFFfffqqeeqqf......', '......GFFFFFffqqqywqqkk.....', '......GFFFFffqqqqYeqkkkk....', '.......GFFFffqqqqqqKkkK.....',
-        '........GFFfQqqqqqQ.KK......', '.........GFFfQQQQQ..........', '..........GFffff............', '.....XWWWVV.CcccaccCcC......',
-        '....XWWWWVVCccaacccCfF......', '....XWWWWVVCcccaaccCfF......', '....XWWWWVVCccccaacCfF......', '....XWWWWVVCccccccaaCfF.....',
-        '....XWWWWVVAaaaaaaaAfF......', '....XWWWVVVCcccCcccCfF......', '.....XWWVVVCcccCcccCtT......', '.....XWVVV..nnnNnnnNtT......',
-        '......XVVV.nnN..nnN.........', '.......VV..nnN..nnN.........', '........V..nnN..nnN.........', '...........nnN..nnN.........',
-        '...........NnN..NnN.........', '...........TtT..TtT.........', '............tT...tT.........', '............tT...tT.........',
-        '............tT...tT.........', '............tT...tT.........', '............tT...tT.........', '............tT...tT.........',
-        '...........ttT..ttT.........', '..........xttTx.xttTx.......', '..........x.x.x.x.x.x.......',
-      ],
+      pal: { f: '#4f7cc4', F: '#2c4a85', i: '#9cc8ff', q: '#f4ead2', e: '#1d1830', w: '#ffffff', y: '#ffd23a', k: '#ffb63a', K: '#d0781c', W: '#3a5d9c', V: '#cfe2ff', s: '#f4ead2', c: '#e7d6ac', C: '#bfa77a', a: '#d0463c', l: '#2e3a62', L: '#222a48', t: '#f0a63a' },
+      rows: ['.........f..f.......', '........fF.fF.......', '.......fffffff......', '......fffffffff.....', '.....ffffffffffff...', '.....ffiiffffffff...', '.....fFqqqqqqqqFf...', '.....fqqqqqqqqqqf...', '.....fqqqewqqewqf...', '.....fqqqyyqqyyqf...', '.....fFqqqqqkkkFf...', '......FFqqqqqKkFF...', '....WWW.ccccccc.WWW.', '...WWWVscaaaaacsVWWW', '...WWV.scccCcccsVWW.', '....WV..lllLlll.VW..', '.....V..lll.lll.V...', '........tt..tt......', '.......ttt.ttt......'],
     },
     haldor: {
-      hand: [22, 23], legs: { x0: 10, x1: 19, y0: 24, split: 15 },
-      pal: { f: '#a0582e', F: '#6e3a1e', p: '#e89a8a', m: '#3a2620', M: '#22160f', i: '#7a5a48', s: '#e8b48a', S: '#c88c64', T: '#9a6448', e: '#1a1010', y: '#a0682a', Y: '#6a4018', w: '#ffffff', o: '#8a3a32', c: '#c8d0dc', C: '#8a96aa', D: '#556074', v: '#3a6ac8', V: '#244a96', a: '#e8b84a', l: '#7a4a2a', L: '#4a2a16', n: '#3a3040', N: '#241c2a', r: '#2e2018', R: '#1a120c', K: '#4a4044', H: '#2a2226' },
-      rows: [
-        '........f...f...............', '........fF..fF..............', '........fpF.fpF.............', '........mfFmmfFmm...........',
-        '.......mmmmmmmmiimm.........', '......Mmmmmmmmmiiimmm.......', '......Mmmmmmmmmmmmmmmm......', '.....MmmmmmmMssmsssmsm......',
-        '.....MmmmmmMSeesseessS......', '.....MmmmmmMSywssywssS......', '.....mmmmmmMSYyssYysSs......', '.....mmmmmmMsssssssssS......',
-        '......mmmmmMSssssoosS.......', '......mmmmmMMTsssssS........', '......mmmmmM..TSS...........', '.....mmmmmDcCCvvavvCCcD.....',
-        '.....mmmmDccCvvvavvvCccD....', '.....mmmmDDCcvvvavvvcCsS....', '.....mmmm.DCcvvvavvvcCsS....', '.....mmm..DCcvvvavvvcCsS....',
-        '.....mmm..DLllllallllLsS....', '......mm..DvvvvVvvvvV.lL....', '.......mmrDvvvvVvvvvV.lL....', '........MrDvvvvVvvvvV.sS....',
-        '.......rrr.nnN..nnN.........', '......rrR..nnN..nnN.........', '.....rrR...nnN..nnN.........', '.....rRR...nnN..nnN.........',
-        '.....rR....nnN..nnN.........', '....rrR....cCD..cCD.........', '....rR.....cCD..cCD.........', '....rR.....cCD..cCD.........',
-        '.....R.....fFf..fFf.........', '..........fffF.fffF.........', '...........fF...fF..........', '...........fF...fF..........',
-        '...........KH...KH..........', '..........KKHH.KKHH.........', '..........HHHH.HHHH.........',
-      ],
+      pal: { f: '#9a5530', F: '#6e3a1e', p: '#e89a8a', m: '#2e211e', M: '#1c1412', i: '#5a4038', s: '#e4ad80', S: '#c48a62', e: '#2a1a14', w: '#ffffff', y: '#b07a2a', o: '#8a3a32', c: '#aab6c6', v: '#2f62b8', a: '#e0b040', A: '#fff0a0', T: '#2e211e', b: '#2a2224' },
+      rows: ['.......f.....f......', '.......fp...pf......', '......mffmmmffm.....', '.....mmmmmmmmmmm....', '.....mmmiimmmmmmm...', '.....mmmmmmmmmmmm...', '.....mmmMsssssMmm...', '.....mmsssssssssm...', '.....msssewssewsm...', '.....msssyyssyysm...', '.....mSpssssospsm...', '.....MmSsssssSSmM...', '......MMcvvvvvcMM...', '.......scvvavvcs....', '.....TTsaaaAaaas....', '....TTT.fffFfff.....', '...TTT..fFf.fFf.....', '....T...ff...ff.....', '........bb...bb.....'],
+    },
+    // Kazan, the ronin from the Hot Lands: straw hat, red scarf, dark kimono and hakama.
+    kazan: {
+      pal: { k: '#d8b060', K: '#9a7430', i: '#f4dca0', h: '#22181c', H: '#3a2a30', s: '#c8865a', S: '#9e6440', x: '#7a3a2a', e: '#1e1010', w: '#f4eee4', y: '#ff9a2a', m: '#6a2a20', r: '#d83a2a', R: '#8a1a1a', c: '#3a3a6e', C: '#24224a', a: '#a02a2a', A: '#e8c050', l: '#4a3a52', L: '#2e2438', b: '#5a3a24' },
+      rows: ['........kk..........', '......kkkkkk........', '....kkkkikkkkk......', '..KkkkkkkkkkkkkkkK..', '...KKKKKKKKKKKKKK...', '.....hhhhhhhhhhhh...', '.....hhhHsssssHhh...', '.....hhsssssssssh...', '.....hsssewssewsh...', '.....hsssyyssyysh...', '.....hSsxsssmsssh...', '.....HhSsssssSShH...', '...rrRRRcccccccR....', '.rrR...scCwwwCcs....', 'rR.....saaaAaaas....', '........lllLlll.....', '........lLl.lLl.....', '........bb..bb......', '........bb..bb......'],
     },
   };
-  // Rim light on the top-left silhouette edge, shade on the bottom-right edge, and a slow fall-off toward the feet.
-  function volume(P, dark, light, fall) {
-    const w = P.w, h = P.h, id = P.x.getImageData(0, 0, w, h), d = id.data, src = new Uint8ClampedArray(d);
-    const a = (x, y) => (x < 0 || y < 0 || x >= w || y >= h ? 0 : src[(y * w + x) * 4 + 3]);
-    for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
-      const i = (y * w + x) * 4; if (!src[i + 3]) continue;
-      let m = 1 - Math.max(0, y / h - 0.45) * fall;
-      if (!a(x + 1, y) || !a(x, y + 1)) m *= dark;
-      if (!a(x - 1, y) || !a(x, y - 1)) { for (let k = 0; k < 3; k++) d[i + k] = d[i + k] + (255 - d[i + k]) * light; }
-      for (let k = 0; k < 3; k++) d[i + k] *= m;
-    }
-    P.x.putImageData(id, 0, 0);
-  }
-  // Walk cycle: legs move independently, the upper body bobs by stretching the hip row.
+  const up2 = (c) => { const u = cv(c.width * 2, c.height * 2), x = u.getContext('2d'); x.imageSmoothingEnabled = false; x.drawImage(c, 0, 0, u.width, u.height); return fin(u); };
+  const chibi = (rows, pal) => { const w = Math.max(...rows.map((r) => r.length)), P = new Painter(w, rows.length); P.map(rows, pal); return up2(outline(P.c)); };
+  // Walk cycle: one foot lifted, then the other.
   function heroFrames(def) {
-    const rows = ['............................'].concat(def.rows), H = rows.length, W = 28, L = def.legs, y0 = L.y0 + 1;
-    const at = (x, y) => (y >= 0 && y < H && rows[y][x]) || '.';
-    const isLeg = (x, y) => y >= y0 && x >= L.x0 && x <= L.x1;
-    const frame = (lx, ly, rx, ry, bob) => {
-      const g = []; for (let y = 0; y < H; y++) g.push(new Array(W).fill('.'));
-      const put = (x, y, ch) => { if (ch !== '.' && x >= 0 && x < W && y >= 0 && y < H) g[y][x] = ch; };
-      for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) { if (!isLeg(x, y)) continue; const ch = at(x, y); if (x < L.split) put(x + lx, y + ly, ch); else put(x + rx, y + ry, ch); }
-      for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
-        if (isLeg(x, y)) continue;
-        if (bob < 0) { if (y < y0 - 1) put(x, y, at(x, y + 1)); else put(x, y, at(x, y)); }
-        else put(x, y, at(x, y));
-      }
-      const P = new Painter(W, H).map(g.map((r) => r.join('')), def.pal);
-      volume(P, 0.78, 0.16, 0.2);
-      return P.out();
-    };
-    return [frame(0, 0, 0, 0, 0), frame(1, -2, -1, 0, -1), frame(0, 0, 0, 0, 0), frame(-1, 0, 1, -2, -1), frame(0, 0, 0, 0, -1)];
+    const rows = def.rows, last = rows.length - 1, mid = 11;
+    const strip = (keepLeft) => rows.map((r, i) => (i === last ? r.split('').map((ch, x) => ((keepLeft ? x >= mid : x < mid) ? '.' : ch)).join('') : r));
+    const base = chibi(rows, def.pal);
+    return [base, chibi(strip(false), def.pal), base, chibi(strip(true), def.pal), base];
   }
-  for (const k in HERO) { S.ch[k] = heroFrames(HERO[k]); S.hero[k] = { hand: [HERO[k].hand[0] + 1, HERO[k].hand[1] + 2] }; }
-  // Portrait: the head, cropped for the HUD.
-  for (const k in HERO) { const src = S.ch[k][0], c = cv(20, 18); c.getContext('2d').drawImage(src, -4, 0); S.hero[k].face = fin(c); }
+  // ox/oy: sprite offset from the hero's feet point; hand: where weapons are held (sprite px).
+  for (const k in HERO) {
+    S.ch[k] = heroFrames(HERO[k]);
+    const face = cv(16, 13); face.getContext('2d').drawImage(outline(new Painter(20, 19).map(HERO[k].rows, HERO[k].pal).c), -3, 0);
+    S.hero[k] = { ox: 11, oy: 19, hand: [32, 30], face: up2(face) };
+  }
 
-  // Emberian's dragon form (cel-shaded volumes), three walk frames.
+  // Emberian's dragon form (chibi): a quadruped dragon, three frames.
   function dragon(step) {
-    const P = new Painter(62, 46);
-    const leg = (i) => (step === 0 ? 0 : (i % 2 === (step === 1 ? 0 : 1) ? -2 : 0));
-    P.layer(['#4a0c1c', '#7a1a2a', '#9a2434', '#c03a40'], (q) => { q.ell(22, 36 + leg(1), 3.5, 7, '#fff'); q.ell(42, 36 + leg(3), 3.5, 7, '#fff'); });
-    P.layer(M.red, (q) => q.stroke([[3, 16], [6, 24], [12, 30], [20, 32]], 2, 9, '#fff'), { r: 4 });
-    P.poly([[0, 14], [3, 8], [6, 15]], '#f59a3c');
-    P.layer(['#4a0a1a', '#7a1428', '#a0283a', '#d04a50'], (q) => q.poly([[22, 24], [28, 4], [36, 10], [44, 3], [44, 22]], '#fff'), { r: 4 });
-    P.line(28, 4, 31, 22, '#3a0612').line(44, 3, 41, 22, '#3a0612');
-    P.layer(M.red, (q) => q.ell(32, 30, 16, 9.5, '#fff'), { r: 8, rim: '#ff8a5a' });
-    P.layer(M.ember, (q) => q.ell(32, 35.5, 11, 3.6, '#fff'), { r: 3 });
-    for (const sx of [19, 25, 31, 37]) P.poly([[sx, 22], [sx + 2.5, 15.5], [sx + 5, 22]], '#f59a3c');
-    P.layer(M.red, (q) => { q.ell(46, 20, 5.5, 9, '#fff'); }, { r: 5 });
-    P.layer(M.red, (q) => { q.ell(51, 12, 8.5, 7, '#fff'); q.poly([[52, 8], [62, 12], [61, 17], [50, 18]], '#fff'); }, { r: 6, rim: '#ff8a5a' });
-    P.layer(M.bone, (q) => { q.stroke([[47, 7], [43, 3], [40, 0]], 3, 1, '#fff'); q.stroke([[51, 6], [49, 2], [48, 0]], 2.6, 1, '#fff'); }, { r: 2 });
-    P.rect(52, 9, 3, 2, '#1a0810').px(53, 9, '#ffd23a').px(54, 9, '#ffd23a').px(60, 12, '#3a0612');
-    P.rect(53, 17, 1, 2, '#ffffff').rect(57, 17, 1, 2, '#ffffff').line(51, 16, 61, 16, '#5a0c1c');
-    P.layer(M.red, (q) => { q.ell(25, 37 + leg(0), 4, 7, '#fff'); q.ell(45, 37 + leg(2), 4, 7, '#fff'); }, { r: 4 });
-    P.rect(22, 43 + leg(0), 7, 2, '#efe3c8').rect(42, 43 + leg(2), 7, 2, '#efe3c8');
-    return P.out();
+    const P = new Painter(32, 23);
+    const R = '#d8364a', D = '#a3243a', O = '#f59a3c', H = '#efe3c8';
+    const ly = (i) => (step === 0 ? 0 : (i % 2 === (step === 1 ? 0 : 1) ? -1 : 0));
+    P.rect(10, 15 + ly(1), 3, 5, D).rect(20, 15 + ly(3), 3, 5, D);
+    [[1, 8, 1.2], [2.5, 10.5, 1.6], [4.5, 12.5, 2], [7, 13.5, 2.6], [9.5, 13.5, 3]].forEach(([x, y, r]) => P.circ(x, y, r, R));
+    P.poly([[0, 8], [1, 4], [3, 8]], O);
+    P.poly([[12, 11], [14, 2], [17, 4], [20, 2], [20, 10]], '#9c2238');
+    P.line(14, 2, 15, 10, '#6a1428').line(20, 2, 19, 10, '#6a1428');
+    P.ell(16, 13, 7.5, 4.6, R);
+    P.ell(16, 15.6, 5.8, 2, O);
+    for (const sx of [10, 13, 16]) P.poly([[sx, 9.5], [sx + 1.5, 6.5], [sx + 3, 9.5]], O);
+    P.ell(22.5, 9.5, 2.8, 4, R);
+    P.ell(25, 6.5, 4.2, 3.4, R);
+    P.rect(27, 6, 4, 3, R).rect(27, 8, 4, 1, O);
+    P.px(30, 6, '#5a1020');
+    P.line(23, 4, 20, 0, H).line(24, 4, 22, 1, H).line(26, 3, 25, 0, H);
+    P.rect(26, 5, 2, 2, '#2b1631').px(27, 5, '#ffd23a');
+    P.px(28, 9, '#ffffff').px(30, 9, '#ffffff');
+    P.rect(12, 16 + ly(0), 3, 5, R).rect(22, 16 + ly(2), 3, 5, R);
+    for (const lx of [12, 22]) P.rect(lx, 21 + ly(lx === 12 ? 0 : 2), 4, 1, H);
+    P.shade(0.75, 0.18);
+    return up2(outline(P.c));
   }
   S.ch.dragon = [dragon(0), dragon(1), dragon(0), dragon(2), dragon(0)];
+  S.hero.dragon = { ox: 17, oy: 21 };
 
   // ================================================================ ENEMIES (cel-shaded volumes, 2 frames)
   const E = {};
@@ -988,6 +940,28 @@
       return q(N.clamp(v, 0, 0.999), x, y);
     });
   }
+  function floorSwamp(seed) {
+    const n = fbm(seed), m = fbm(seed + 7), q = quant(['#16201a', '#1c2a1e', '#243424', '#2c3e28', '#36482c', '#425432']), w = quant(['#0e2a2a', '#123636', '#184444', '#205252']);
+    const c = texture(TEX, TEX, (x, y) => { const v = n(x, y), wet = m(x, y); if (wet > 0.62) return w(N.clamp((wet - 0.62) * 3 + (v - 0.5) * 0.3, 0, 0.999), x, y); if (wet > 0.6) return [90, 120, 90]; return q(N.clamp((v - 0.2) * 1.5, 0, 0.999), x, y); });
+    const ctx = c.getContext('2d'), r = N.makeRng(seed + 3);
+    for (let i = 0; i < 500; i++) { const x = r() * TEX, y = r() * TEX; if (m(x, y) > 0.58) continue; ctx.fillStyle = r() < 0.5 ? '#4a6a34' : '#2e4a26'; ctx.fillRect(Math.floor(x), Math.floor(y), 1, 2 + Math.floor(r() * 2)); }
+    return c;
+  }
+  function floorIce(seed) {
+    const c = floorStone(seed, ['#1e3450', '#25405e', '#2c4c6c', '#36587a', '#426888', '#527c9a'], 32, '#14243a', '#9ad0f0');
+    const ctx = c.getContext('2d'), r = N.makeRng(seed + 1);
+    for (let i = 0; i < 260; i++) { ctx.fillStyle = r() < 0.6 ? 'rgba(220,240,255,0.55)' : '#ffffff'; ctx.fillRect(Math.floor(r() * TEX), Math.floor(r() * TEX), 1, 1); }
+    for (let i = 0; i < 14; i++) { const x = r() * TEX, y = r() * TEX; ctx.fillStyle = 'rgba(200,235,255,0.18)'; ctx.fillRect(Math.floor(x), Math.floor(y), 10 + Math.floor(r() * 18), 2); }
+    return c;
+  }
+  function floorBasalt(seed) {
+    const c = floorStone(seed, ['#141012', '#1a1416', '#22191a', '#2a1f1e', '#342624', '#3e2e2a'], 32, '#0a0606', '#ff6a1a');
+    const ctx = c.getContext('2d'), r = N.makeRng(seed + 9);
+    ctx.strokeStyle = 'rgba(255,170,60,0.55)'; ctx.lineWidth = 1;
+    for (let i = 0; i < 10; i++) { let px = r() * TEX, py = r() * TEX; ctx.beginPath(); ctx.moveTo(px, py); for (let k = 0; k < 5; k++) { px += (r() - 0.5) * 24; py += (r() - 0.5) * 24; ctx.lineTo(px, py); } ctx.stroke(); }
+    for (let i = 0; i < 80; i++) { ctx.fillStyle = r() < 0.7 ? '#4a3a36' : '#ff8a2a'; ctx.fillRect(Math.floor(r() * TEX), Math.floor(r() * TEX), 1, 1); }
+    return c;
+  }
   // Wall faces are 32x48 (one tile wide, WH tall); caps are 32x32.
   function wallFace(kind, v, seed) {
     const P = new Painter(32, 48), r = N.makeRng(seed + v * 13);
@@ -1006,6 +980,22 @@
       for (let y = 0; y < 48; y++) { const b = bands[Math.floor((y + Math.sin(y * 0.4 + v) * 2) / 7) % bands.length]; P.rect(0, y, 32, 1, b); }
       for (let i = 0; i < 6; i++) P.line(r() * 32, r() * 48, r() * 32, r() * 48, '#2e1a0e');
       P.layer(M.sand, (q) => q.rect(0, 0, 32, 5, '#fff'), { r: 2 });
+    } else if (kind === 'pantano') {
+      P.rect(0, 0, 32, 48, '#0a1612');
+      P.layer(['#1a120c', '#2e2016', '#463020', '#5e442c'], (q) => { q.stroke([[6 + v * 2, 48], [8 + v * 2, 30], [4 + v, 16]], 6, 3, '#fff'); q.stroke([[22 - v, 48], [20, 34], [26, 20]], 5, 2, '#fff'); q.stroke([[14, 48], [16, 40], [12, 34]], 3, 2, '#fff'); }, { r: 3 });
+      P.layer(['#081a16', '#0e2a22', '#163c30', '#22523e'], (q) => { for (let i = 0; i < 7; i++) q.circ(r() * 32, r() * 20, 6 + r() * 5, '#fff'); q.rect(0, 0, 32, 10, '#fff'); }, { r: 6 });
+      for (let i = 0; i < 6; i++) P.rect(Math.floor(r() * 32), 18 + Math.floor(r() * 20), 1, 4 + Math.floor(r() * 5), '#2a5a3a');
+    } else if (kind === 'gelo') {
+      P.layer(['#1a3858', '#2a5478', '#4a7ca0', '#8ab8d8'], (q) => q.rect(0, 0, 32, 48, '#fff'), { r: 4 });
+      for (let y = 10; y < 48; y += 12) { P.rect(0, y, 32, 1, '#132a44'); const o = (y / 12) % 2 ? 9 : 0; for (let x = o; x < 32; x += 18) P.rect(x, y - 11, 1, 11, '#132a44'); }
+      for (let i = 0; i < 4; i++) P.line(r() * 32, r() * 48, r() * 32, r() * 48, '#c8ecff');
+      if (v === 2) P.layer(M.crystal, (q) => { q.poly([[6, 48], [10, 26], [14, 48]], '#fff'); q.poly([[14, 48], [19, 20], [24, 48]], '#fff'); }, { r: 3 });
+      P.layer(['#a8c8e0', '#d8ecf8', '#f4fbff', '#ffffff'], (q) => { q.rect(0, 0, 32, 4, '#fff'); for (let x = 2; x < 32; x += 7) q.poly([[x, 4], [x + 3, 4], [x + 1.5, 9 + (x % 3)]], '#fff'); }, { r: 2 });
+    } else if (kind === 'caldeira') {
+      const bands = ['#1a1012', '#24161a', '#2e1c1e', '#1e1214', '#2a1a1a'];
+      for (let y = 0; y < 48; y++) P.rect(0, y, 32, 1, bands[Math.floor((y + Math.sin(y * 0.5 + v) * 2) / 6) % bands.length]);
+      for (let i = 0; i < 2 + v % 2; i++) { const x = 3 + r() * 26; P.line(x, 6 + r() * 10, x + (r() - 0.5) * 4, 48, '#ff6a1a', 1.2); P.line(x, 6, x, 12, '#ffd060'); }
+      P.layer(['#0e0808', '#1e1214', '#2e2020', '#463232'], (q) => q.rect(0, 0, 32, 5, '#fff'), { r: 2 });
     } else if (kind === 'lobby') {
       P.layer(M.dwood, (q) => q.rect(0, 0, 32, 48, '#fff'), { r: 4 });
       if (v % 2) P.x.drawImage(D.shoji, 0, 4); else { P.rect(14, 0, 4, 48, '#22140c'); for (let y = 6; y < 48; y += 10) P.rect(0, y, 32, 1, '#22140c'); }
@@ -1025,6 +1015,9 @@
     else if (kind === 'reverso') { P.layer(['#1a1228', '#2a2040', '#3a2e58', '#56467c'], (q) => q.rect(0, 0, 32, 32, '#fff'), { r: 4 }); P.rect(0, 30, 32, 2, '#c09a40'); }
     else if (kind === 'wasteland') { P.layer(['#6a4426', '#8a5a32', '#a87240', '#c89458'], (q) => q.rect(0, 0, 32, 32, '#fff'), { r: 4 }); for (let i = 0; i < 6; i++) P.rect(Math.floor(r() * 30), Math.floor(r() * 30), 3, 2, '#5a3820'); }
     else if (kind === 'lobby') { P.layer(['#1e1210', '#2e1c16', '#42281e', '#5a3828'], (q) => q.rect(0, 0, 32, 32, '#fff'), { r: 4 }); for (let y = 0; y < 32; y += 6) P.rect(0, y, 32, 1, '#140a08'); }
+    else if (kind === 'pantano') { P.rect(0, 0, 32, 32, '#0e2420'); P.layer(['#0c201a', '#143228', '#1e4634', '#326048'], (q) => { for (let i = 0; i < 9; i++) q.circ(r() * 32, r() * 32, 5 + r() * 5, '#fff'); }, { r: 6 }); }
+    else if (kind === 'gelo') { P.layer(['#a8c8e0', '#d0e6f4', '#ecf6fc', '#ffffff'], (q) => q.rect(0, 0, 32, 32, '#fff'), { r: 5 }); for (let i = 0; i < 8; i++) P.rect(Math.floor(r() * 30), Math.floor(r() * 30), 2, 1, '#9ab8d0'); }
+    else if (kind === 'caldeira') { P.layer(['#120a0a', '#1e1414', '#2c1e1e', '#3e2c2a'], (q) => q.rect(0, 0, 32, 32, '#fff'), { r: 4 }); for (let i = 0; i < 6; i++) P.rect(Math.floor(r() * 30), Math.floor(r() * 30), 1, 1, '#ff8a2a'); }
     else { P.layer(['#262a36', '#363b4c', '#4a5066', '#646c86'], (q) => q.rect(0, 0, 32, 32, '#fff'), { r: 4 }); P.rect(0, 0, 32, 1, '#7a84a0'); }
     return P.c;
   }
@@ -1034,9 +1027,12 @@
       const q = quant(['#050c07', '#08120a', '#0c1a0f', '#112414', '#163018']);
       return texture(TEX, TEX, (x, y) => { const k = Math.sin(x * 0.11 + n(x, y) * 8) * Math.cos(y * 0.13 + n(y, x) * 8); return q(N.clamp(n(x, y) * 0.8 + k * 0.15, 0, 0.999), x, y); });
     }
-    const base = { reverso: ['#06040c', '#0a0614', '#100a1e'], wasteland: ['#0c0604', '#140a06', '#1c0e08'], lobby: ['#060408', '#0a070c', '#0e0a10'], training: ['#06070a', '#0a0b10', '#0e1016'] }[kind];
+    if (kind === 'caldeira') { const q = quant(['#0a0404', '#140606', '#220a06', '#3a1206', '#6a2208']); return texture(TEX, TEX, (x, y) => q(N.clamp(Math.pow(n(x, y), 2.2) * 1.6, 0, 0.999), x, y)); }
+    if (kind === 'pantano') { const q = quant(['#040a0a', '#061010', '#0a1818', '#0e2020']); const c = texture(TEX, TEX, (x, y) => q(N.clamp(n(x, y) * 0.9 + Math.sin(y * 0.4 + n(x, y) * 10) * 0.08, 0, 0.999), x, y)); return c; }
+    const base = { reverso: ['#06040c', '#0a0614', '#100a1e'], wasteland: ['#0c0604', '#140a06', '#1c0e08'], lobby: ['#060408', '#0a070c', '#0e0a10'], training: ['#06070a', '#0a0b10', '#0e1016'], gelo: ['#04080e', '#081018', '#0c1824'] }[kind];
     const q = quant(base), c = texture(TEX, TEX, (x, y) => q(N.clamp(n(x, y), 0, 0.999), x, y)), x = c.getContext('2d');
     if (kind === 'reverso') for (let i = 0; i < 90; i++) { x.fillStyle = r() < 0.7 ? '#3a2a6a' : '#d05aff'; x.fillRect(Math.floor(r() * TEX), Math.floor(r() * TEX), 1, 1); }
+    if (kind === 'gelo') for (let i = 0; i < 70; i++) { x.fillStyle = r() < 0.7 ? '#2a4a6a' : '#bfe8ff'; x.fillRect(Math.floor(r() * TEX), Math.floor(r() * TEX), 1, 1); }
     return c;
   }
   // Floor decals (small, drawn by hash) and big room patches.
@@ -1056,6 +1052,17 @@
       P(18, 8, (p) => p.layer(M.bone, (q) => q.stroke([[1, 6], [9, 3], [17, 2]], 2.6, 2, '#fff'), { r: 2 }));
       P(12, 8, (p) => p.layer(M.sand, (q) => q.ell(6, 4, 5, 3, '#fff'), { r: 2 }));
       P(10, 16, (p) => p.layer(M.green, (q) => { q.rect(4, 2, 3, 13, '#fff'); q.rect(0, 6, 3, 4, '#fff'); q.rect(7, 4, 3, 4, '#fff'); }, { r: 2 }));
+    } else if (kind === 'pantano') {
+      P(14, 10, (p) => p.layer(M.green, (q) => { q.ell(7, 5, 6, 4, '#fff'); }, { r: 3 }));
+      P(12, 14, (p) => { for (let i = 0; i < 4; i++) p.line(3 + i * 2, 14, 2 + i * 2.6, 2 + i, i % 2 ? '#4a6a34' : '#6a8a40'); p.rect(4, 1, 2, 3, '#7a4a2a'); });
+      P(10, 8, (p) => p.layer(['#2a5a6a', '#3a8a8a', '#5ab8a8', '#a8f0e0'], (q) => q.circ(5, 4, 3, '#fff'), { r: 2 }));
+    } else if (kind === 'gelo') {
+      P(14, 8, (p) => p.layer(['#a8c8e0', '#d8ecf8', '#f4fbff', '#ffffff'], (q) => q.ell(7, 4, 6.5, 3, '#fff'), { r: 2 }));
+      P(10, 14, (p) => p.layer(M.crystal, (q) => { q.poly([[2, 14], [4, 4], [6, 14]], '#fff'); q.poly([[5, 14], [8, 6], [10, 14]], '#fff'); }, { r: 2 }));
+    } else if (kind === 'caldeira') {
+      P(10, 10, (p) => { p.circ(5, 5, 3, '#ff6a1a').circ(5, 5, 1.6, '#ffd060'); });
+      P(16, 14, (p) => p.layer(M.bone, (q) => { q.circ(8, 6, 5.5, '#fff'); q.rect(5, 9, 6, 4, '#fff'); }, { r: 3 }));
+      P(14, 8, (p) => p.layer(['#140c0c', '#241818', '#342626', '#4a3838'], (q) => q.ell(7, 4, 6, 3, '#fff'), { r: 2 }));
     } else if (kind === 'lobby') {
       P(12, 6, (p) => p.rect(0, 2, 12, 2, '#2a180e'));
     } else {
@@ -1065,7 +1072,7 @@
   }
   function patch(kind, seed) {
     const w = 96, h = 64, P = new Painter(w, h), id = P.x.createImageData(w, h), n = fbm(seed);
-    const col = { overworld: ['#5a4a2e', '#6e5a36', '#4a3c26'], reverso: ['#3a1e5a', '#4a2a72', '#2a1442'], wasteland: ['#7a4a26', '#94602e', '#5a3418'], lobby: ['#5a1a22', '#7a2a2e', '#3e1018'], training: ['#3a3f52', '#464e62', '#2e3242'] }[kind].map(hexRgb);
+    const col = { overworld: ['#5a4a2e', '#6e5a36', '#4a3c26'], reverso: ['#3a1e5a', '#4a2a72', '#2a1442'], wasteland: ['#7a4a26', '#94602e', '#5a3418'], lobby: ['#5a1a22', '#7a2a2e', '#3e1018'], training: ['#3a3f52', '#464e62', '#2e3242'], pantano: ['#123c3a', '#1a4e4a', '#0c2c2a'], gelo: ['#c8e0f0', '#e8f6ff', '#a8c8e0'], caldeira: ['#e0561a', '#ffa030', '#a02a10'] }[kind].map(hexRgb);
     for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
       const dx = (x - w / 2) / (w / 2), dy = (y - h / 2) / (h / 2), d = Math.sqrt(dx * dx + dy * dy) + (n(x * 2.6, y * 2.6) - 0.5) * 0.6;
       if (kind !== 'lobby' && d > 0.95 + bayer(x, y) * 0.15) continue;
@@ -1076,6 +1083,7 @@
     P.x.putImageData(id, 0, 0);
     if (kind === 'lobby') { P.x.strokeStyle = '#e8b84a'; P.x.lineWidth = 2; P.x.strokeRect(11, 11, w - 22, h - 22); }
     if (kind === 'reverso') { P.ring(w / 2, h / 2, 26, '#d05aff', 1); P.ring(w / 2, h / 2, 20, '#7a4ac0', 1); }
+    if (kind === 'caldeira') { const r2 = N.makeRng(seed); for (let i = 0; i < 20; i++) P.rect(Math.floor(w * 0.3 + r2() * w * 0.4), Math.floor(h * 0.3 + r2() * h * 0.4), 2, 1, '#fff2a0'); }
     return fin(P.c);
   }
 
@@ -1085,9 +1093,14 @@
     reverso: { void: '#06040c', ambient: '#6e5e90', light: '#d05aff', floor: () => floorStone(31, ['#140e22', '#1a1430', '#221a3c', '#2c224a', '#382c5a', '#46386c'], 32, '#0a0612', '#0c0816') },
     wasteland: { void: '#0c0604', ambient: '#a08070', light: '#ffa040', floor: () => floorSand(41) },
     training: { void: '#06070a', ambient: '#7e7e9a', light: '#ffb060', floor: () => floorStone(51, ['#1e222e', '#262a38', '#2e3444', '#3a4152', '#464e62', '#565f76'], 32, '#14161e', '#181a24') },
+    pantano: { void: '#040a0a', ambient: '#62807a', light: '#9aff6a', floor: () => floorSwamp(61) },
+    gelo: { void: '#04080e', ambient: '#8098b8', light: '#9fe8ff', floor: () => floorIce(71) },
+    caldeira: { void: '#0a0404', ambient: '#7a5654', light: '#ff8a2a', floor: () => floorBasalt(81) },
   };
+  // Helpers shared with sprites2.js (new worlds' creatures, weapons and items).
+  N.ART = { cv, fin, outline, mix, hexRgb, sp: (w, h, fn) => { const P = new Painter(w, h); fn(P); return P.out(); }, eyes, M, D };
   for (const k in THEMES) {
-    const t = THEMES[k], seed = k.length * 101;
+    const t = THEMES[k], seed = k.length * 101 + k.charCodeAt(0);
     S.tiles[k] = { floor: t.floor(), faces: [0, 1, 2, 3].map((v) => wallFace(k, v, seed)), cap: wallCap(k, seed + 5), void: voidTex(k, seed + 9), decals: decals(k), patches: [0, 1, 2].map((i) => patch(k, seed + i * 7)) };
   }
 })();

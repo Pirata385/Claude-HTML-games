@@ -7,15 +7,19 @@
   const gctx = gcv.getContext('2d'), uctx = ucv.getContext('2d');
   Object.assign(G, { time: 0, camX: 0, camY: 0, props: [], toasts: [], scene: 'title', theme: 'lobby', menu: null, shakeA: 0 });
 
+  N.R.init(gctx);
   function resize() {
     const w = innerWidth, h = innerHeight, asp = w / h;
-    if (asp >= 1) { G.VH = 216; G.VW = Math.round(N.clamp(216 * asp, 260, 520)); } else { G.VW = 240; G.VH = Math.round(N.clamp(240 / asp, 240, 520)); }
-    gcv.width = G.VW; gcv.height = G.VH;
+    const z = G.viewScale || 1;
+    if (asp >= 1) { G.VH = Math.round(166 * z); G.VW = Math.round(N.clamp(166 * z * asp, 220, 520)); } else { G.VW = Math.round(190 * z); G.VH = Math.round(N.clamp(190 * z / asp, 190, 520)); }
+    N.R.resize(gcv);
     const dpr = Math.min(2, devicePixelRatio || 1);
     ucv.width = Math.round(w * dpr); ucv.height = Math.round(h * dpr);
-    G.UW = G.VW * 3; G.UH = G.VH * 3;
+    if (asp >= 1) { G.UH = 648; G.UW = Math.round(648 * G.VW / G.VH); } else { G.UW = 720; G.UH = Math.round(720 * G.VH / G.VW); }
   }
   addEventListener('resize', resize); resize();
+  // Wider view for the colossal boss fight.
+  const setView = (z) => { if ((G.viewScale || 1) !== z) { G.viewScale = z; resize(); } };
 
   // ================================================================ menus & transitions
   G.openMenu = (type, o = {}) => { G.menu = Object.assign({ type }, o); };
@@ -29,11 +33,14 @@
     G.enemies.length = 0; G.projs.length = 0; G.allies.length = 0; G.areas.length = 0; G.pickups.length = 0;
     G.fx.length = 0; G.parts.length = 0; G.texts.length = 0; G.props = [];
     G.combat = null; G.boss = null; G.portal = null; G.near = null; G.curRoom = null; G.lastRoom = null; G.flow = null; G.pendingSpawns = 0;
+    setView(1);
   }
   const prop = (o) => { const pr = Object.assign({ r: 18, h: 16 }, o); G.props.push(pr); return pr; };
   const removeProp = (pr) => { G.props = G.props.filter((x) => x !== pr); if (G.near === pr) G.near = null; };
   const blockTiles = (tx, ty, w, h) => { G.map.hidden = G.map.hidden || new Set(); for (let y = ty; y < ty + h; y++) for (let x = tx; x < tx + w; x++) { const i = y * G.map.W + x; if (G.map.tiles[i] === T.FLOOR) { G.map.tiles[i] = T.BLOCK; G.map.hidden.add(i); } } };
-  const sprProp = (spr) => (ctx, pr) => { N.drawShadow(ctx, pr.x, pr.y, spr.width * 0.35); ctx.drawImage(spr, Math.round(pr.x - spr.width / 2), Math.round(pr.y - spr.height + 2)); };
+  const sprProp = (spr) => N.R.sprProp(spr);
+  const drawPortal = (ctx, pr) => N.R.drawPortal(ctx, pr), drawCampfire = (ctx, pr) => N.R.drawCampfire(ctx, pr), drawRack = (ctx, pr) => N.R.drawRack(ctx, pr);
+  const heroNpcDraw = (id, i) => (ctx, pr) => { const spr = S.ch[id][Math.sin(G.time * 2 + i) > 0.5 ? 4 : 0]; N.drawShadow(ctx, pr.x, pr.y + 2, 7); ctx.save(); ctx.translate(N.snap(pr.x), N.snap(pr.y)); if (G.p && G.p.x < pr.x) ctx.scale(-1, 1); ctx.drawImage(spr, -8, -18.5); ctx.restore(); };
 
   // ================================================================ title
   G.goTitle = () => { G.scene = 'title'; G.run = null; G.p = null; resetWorld(); N.music.play('lobby'); };
@@ -48,31 +55,35 @@
     const r = G.map.rooms[0], X = (tx) => (r.x0 + tx) * TS, Y = (ty) => (r.y0 + ty) * TS;
     G.p = N.makePlayer(N.save.char, keep && old ? old.x : X(15), keep && old ? old.y : Y(12.5), null);
     N.save.codex.w[N.CHARS[N.save.char].weapon] = 1;
-    // stations
-    blockTiles(r.x0 + 1, r.y0, 2, 1);
-    prop({ x: X(2), y: Y(1.2), h: 26, title: 'Códice', draw: sprProp(S.misc.bookshelf), label: () => 'Ler o Códice', use: () => G.openMenu('codex') });
-    prop({ x: X(6), y: Y(1.4), h: 26, title: 'Conquistas', draw: sprProp(S.misc.trophy), label: () => 'Salão das Conquistas', use: () => G.openMenu('achievements') });
+    // stations (2.5D props; the tiles under them are solid)
+    blockTiles(r.x0 + 1, r.y0, 3, 1);
+    prop({ x: X(2.5), y: Y(1), h: 30, spr: S.misc.bookshelf, title: 'Códice', draw: sprProp(S.misc.bookshelf), label: () => 'Ler o Códice', use: () => G.openMenu('codex') });
+    prop({ x: X(6.5), y: Y(1.2), h: 28, spr: S.misc.trophy, title: 'Conquistas', draw: sprProp(S.misc.trophy), label: () => 'Salão das Conquistas', use: () => G.openMenu('achievements') });
     blockTiles(r.x0 + 6, r.y0, 1, 1);
-    prop({ x: X(11), y: Y(0.4), iy: Y(0.9), h: 30, title: 'Treinamento', draw: sprProp(S.misc.gate), label: () => 'Ir ao campo de treino', use: () => G.transition(setupTraining) });
-    prop({ x: X(15), y: Y(2.6), h: 30, r: 22, title: 'Portal', titleColor: '#ffd166', draw: drawPortal, label: () => 'Iniciar aventura', use: () => G.openMenu('runStart') });
-    prop({ x: X(20), y: Y(2), h: 22, title: 'Grimório', draw: sprProp(S.misc.grimoire), label: () => 'Escolher habilidades', use: () => G.openMenu('loadout') });
+    prop({ x: X(11), y: Y(0.3), iy: Y(1), h: 34, title: 'Treinamento', draw: sprProp(S.misc.gate), label: () => 'Ir ao campo de treino', use: () => G.transition(setupTraining) });
+    prop({ x: X(15), y: Y(2.8), h: 34, r: 22, title: 'Portal', titleColor: '#ffd166', draw: drawPortal, light: ['#ffd166', 70, -14, 0.8], label: () => 'Iniciar aventura', use: () => G.openMenu('runStart') });
+    blockTiles(r.x0 + 14, r.y0 + 1, 2, 1);
+    prop({ x: X(20.5), y: Y(2), h: 24, spr: S.misc.grimoire, title: 'Grimório', draw: sprProp(S.misc.grimoire), light: ['#ff9a40', 30, -20, 0.7], label: () => 'Escolher habilidades', use: () => G.openMenu('loadout') });
     blockTiles(r.x0 + 20, r.y0 + 1, 1, 1);
-    prop({ x: X(25), y: Y(2), h: 22, r: 22, title: 'Altar dos Ancestrais', draw: sprProp(S.misc.starAltar), label: () => 'Melhorias permanentes', use: () => G.openMenu('upgrades') });
+    prop({ x: X(25), y: Y(2), h: 24, r: 22, spr: S.misc.starAltar, title: 'Altar dos Ancestrais', draw: sprProp(S.misc.starAltar), light: ['#5fe3d6', 40, -16, 0.7], label: () => 'Melhorias permanentes', use: () => G.openMenu('upgrades') });
     blockTiles(r.x0 + 24, r.y0 + 1, 2, 1);
-    // decoration: campfire, tents, banners
-    prop({ x: X(15), y: Y(8.6), draw: drawCampfire });
+    // campfire, tents, banners, lanterns and tables
+    prop({ x: X(15), y: Y(8.6), draw: drawCampfire, light: ['#ff9a40', 120, -6, 1] });
     blockTiles(r.x0 + 14, r.y0 + 8, 2, 1);
-    prop({ x: X(5), y: Y(9), draw: sprProp(S.misc.tent) }); blockTiles(r.x0 + 4, r.y0 + 7, 2, 2);
-    prop({ x: X(25), y: Y(9), draw: sprProp(S.misc.tent) }); blockTiles(r.x0 + 24, r.y0 + 7, 2, 2);
-    N.CHAR_ORDER.forEach((id, i) => prop({ x: X(1 + i * 9.3), y: Y(16.8), draw: sprProp(S.misc.banner(N.CHARS[id].color)) }));
+    prop({ x: X(5), y: Y(9), spr: S.misc.tent, draw: sprProp(S.misc.tent) }); blockTiles(r.x0 + 3, r.y0 + 7, 4, 2);
+    prop({ x: X(25), y: Y(9), spr: S.misc.tent, draw: sprProp(S.misc.tent) }); blockTiles(r.x0 + 23, r.y0 + 7, 4, 2);
+    N.CHAR_ORDER.forEach((id, i) => prop({ x: X(1.5 + i * 9), y: Y(16.8), spr: S.misc.banner(N.CHARS[id].color), draw: sprProp(S.misc.banner(N.CHARS[id].color)) }));
+    for (const [tx, ty] of [[9, 6], [21, 6], [9, 15], [21, 15]]) { prop({ x: X(tx + 0.5), y: Y(ty + 1), spr: S.misc.paperLantern, draw: sprProp(S.misc.paperLantern), light: ['#ffb060', 70, -21, 0.95] }); blockTiles(r.x0 + tx, r.y0 + ty, 1, 1); }
+    for (const [tx, ty] of [[1, 12], [27, 12]]) { prop({ x: X(tx + 1), y: Y(ty + 1), spr: S.deco.table, draw: sprProp(S.deco.table), light: ['#ffb060', 30, -12, 0.6] }); blockTiles(r.x0 + tx, r.y0 + ty, 2, 1); }
     // the other heroes stand around the fire
     N.CHAR_ORDER.forEach((id, i) => {
       if (id === N.save.char) return;
-      const pos = [[10, 11], [20, 11], [12, 14], [18, 14]][i];
-      prop({ x: X(pos[0]), y: Y(pos[1]), h: 22, hero: id, title: N.CHARS[id].name, titleColor: N.CHARS[id].color, label: () => 'Falar com ' + N.CHARS[id].name, use: () => G.openMenu('hero', { id }),
-        draw: (ctx, pr) => { const spr = S.ch[id][0], b = Math.sin(G.time * 2 + i) > 0.4 ? 1 : 0; N.drawShadow(ctx, pr.x, pr.y + 2, 7); ctx.save(); ctx.translate(Math.round(pr.x), Math.round(pr.y + b)); if (G.p.x < pr.x) ctx.scale(-1, 1); ctx.drawImage(spr, -11, -19); ctx.restore(); } });
+      const pos = [[10.5, 11], [19.5, 11], [12, 14], [18, 14]][i];
+      prop({ x: X(pos[0]), y: Y(pos[1]), h: 24, hero: id, title: N.CHARS[id].name, titleColor: N.CHARS[id].color, label: () => 'Falar com ' + N.CHARS[id].name, use: () => G.openMenu('hero', { id }), draw: heroNpcDraw(id, i) });
     });
     prop({ x: X(15), y: Y(15.6), h: 20, hero: N.save.char, title: 'Você: ' + N.CHARS[N.save.char].name, titleColor: '#8a8090', label: () => 'Ver herói atual', use: () => G.openMenu('hero', { id: N.save.char }), draw: () => {} });
+    N.R.dress(G.map, 'lobby', { corner: null, patches: false });
+    G.map.patches.push({ x: X(15), y: Y(12.5), v: 0 });
     N.music.play('lobby');
     if (!keep) {
       banner('Acampamento Estelar', 'Fale com os heróis, escolha habilidades e entre no portal', '#ffd166');
@@ -95,13 +106,14 @@
     G.map = N.genSingleRoom(24, 14);
     const r = G.map.rooms[0], X = (tx) => (r.x0 + tx) * TS, Y = (ty) => (r.y0 + ty) * TS;
     G.p = N.makePlayer(N.save.char, X(4), Y(7), null);
-    prop({ x: X(2), y: Y(0.4), iy: Y(0.9), h: 30, title: 'Acampamento', draw: sprProp(S.misc.gate), label: () => 'Voltar ao acampamento', use: () => G.transition(() => setupLobby()) });
-    prop({ x: X(7), y: Y(1.6), h: 18, title: 'Terminal', draw: sprProp(S.misc.altar), label: () => 'Invocar monstros', use: () => G.openMenu('training') });
+    prop({ x: X(2), y: Y(0.3), iy: Y(1), h: 34, title: 'Acampamento', draw: sprProp(S.misc.gate), label: () => 'Voltar ao acampamento', use: () => G.transition(() => setupLobby()) });
+    prop({ x: X(7), y: Y(1.8), h: 20, spr: S.misc.altar, title: 'Terminal', draw: sprProp(S.misc.altar), light: ['#c66bff', 34, -10, 0.7], label: () => 'Invocar monstros', use: () => G.openMenu('training') });
     blockTiles(r.x0 + 6, r.y0 + 1, 2, 1);
-    prop({ x: X(11), y: Y(1.6), h: 20, title: 'Arsenal', draw: drawRack, label: () => 'Trocar de arma', use: () => G.openMenu('rack') });
+    prop({ x: X(11), y: Y(1.8), h: 22, title: 'Arsenal', draw: drawRack, label: () => 'Trocar de arma', use: () => G.openMenu('rack') });
     blockTiles(r.x0 + 10, r.y0 + 1, 2, 1);
-    prop({ x: X(15), y: Y(1.8), h: 22, title: 'Grimório', draw: sprProp(S.misc.grimoire), label: () => 'Escolher habilidades', use: () => G.openMenu('loadout') });
+    prop({ x: X(15.5), y: Y(1.9), h: 24, spr: S.misc.grimoire, title: 'Grimório', draw: sprProp(S.misc.grimoire), light: ['#ff9a40', 30, -20, 0.7], label: () => 'Escolher habilidades', use: () => G.openMenu('loadout') });
     blockTiles(r.x0 + 15, r.y0 + 1, 1, 1);
+    N.R.dress(G.map, 'training', { patches: false });
     for (const [tx, ty] of [[16, 6], [19, 9], [16, 11]]) {
       G.enemies.push({ kind: 'enemy', id: 'dummy', dummy: true, def: { ai: 'dummy', r: 7, world: 0 }, x: X(tx), y: Y(ty), r: 7, hp: 1e9, maxHp: 1e9, vx: 0, vy: 0, kx: 0, ky: 0, face: -1, t: 0, st: {}, flash: 0, alive: true, anim: 0, dps: 0 });
     }
@@ -140,6 +152,7 @@
     if (G.p.form) { G.p.form = null; G.p.r = 5; }
     for (const id of G.p.weapons) if (id) N.save.codex.w[id] = 1;
     for (const room of G.map.rooms) setupRoom(room);
+    N.R.dress(G.map, w.id);
     banner(`${w.name}  ${r.world + 1}-${r.level + 1}`, r.level === 2 ? 'Um chefe aguarda no fim deste nível...' : w.sub, r.level === 2 ? '#ff8a9a' : '#ffd166');
     N.music.play(w.music);
     N.writeSave();
@@ -347,6 +360,7 @@
     const w = N.WORLDS[G.run.world];
     G.combat = { room, boss: true };
     G.boss = N.spawnBoss(w.boss, room);
+    if (w.boss === 'kharun') setView(1.3);
     G.bossHp0 = G.runHpLost;
     banner(G.boss.def.name, G.boss.def.title, '#ff8a9a', 3);
     N.sfx('boss'); N.music.play('boss'); N.shake(5);
@@ -364,7 +378,7 @@
     for (let i = 0; i < Math.round(cr / 3); i++) N.dropPickup('crystal', e.x, e.y, { v: 3 });
     room.cleared = true; G.map.locked = null; G.combat = null; G.boss = null;
     banner(e.def.name + ' foi derrotado!', r.world < 2 ? 'Um portal se abre para o próximo mundo' : 'O caminho para o Núcleo Estelar está livre', '#7cf07a', 3);
-    N.delayed(1.4, () => { giftChest(rc(room).x - 40, rc(room).y + 20, 0.6, 'weapon'); spawnPortal(room, 20); N.music.play(N.WORLDS[r.world].music); });
+    N.delayed(1.4, () => { giftChest(rc(room).x - 40, rc(room).y + 20, 0.6, 'weapon'); spawnPortal(room, 20); N.music.play(N.WORLDS[r.world].music); setView(1); });
     N.writeSave(); N.checkAch(); G.flawless = false;
   };
   G.onPlayerDeath = () => { if (G.scene !== 'run') { const p = G.p; p.alive = true; p.hp = p.maxHp; return; } G.dying = true; G.dyingT = 0; G.slowmo = 1.5; N.sfx('lose'); N.shake(8); N.spark(G.p.x, G.p.y - 6, '#ff4a5e', 30, 100, 0.8, 2); };
@@ -412,7 +426,11 @@
     if (I.hit.pause) { if (G.menu) { if (G.menu.type !== 'result') { if (G.menu.back) G.openMenu(G.menu.back); else G.closeMenu(); } } else if (G.scene !== 'title' && !G.dying) G.openMenu('pause'); }
     if (G.banner) { G.banner.t += dt; if (G.banner.t >= G.banner.life) G.banner = null; }
     for (const t of G.toasts) t.t += dt; G.toasts = G.toasts.filter((t) => t.t < 4);
-    if (G.scene === 'title') { if (!G.menu && (I.typed.includes('Enter') || I.typed.includes('Space'))) G.goLobby(); return; }
+    N.R.update(dt);
+    if (G.scene === 'title') {
+      for (const q of G.parts) { q.x += q.vx * dt; q.y += q.vy * dt; q.life -= dt; } G.parts = G.parts.filter((q) => q.life > 0);
+      if (!G.menu && (I.typed.includes('Enter') || I.typed.includes('Space'))) G.goLobby(); return;
+    }
     if (G.menu || !G.p) return;
     const p = G.p;
     if (G.dying) { G.dyingT += dt; if (G.dyingT > 1.8) { G.dying = false; G.endRun(false); } }
@@ -438,7 +456,11 @@
   function camTarget() {
     const p = G.p; let tx = p.x - G.VW / 2, ty = p.y - 10 - G.VH / 2;
     if (!I.usingTouch) { const m = N.mouseWorld(); tx += N.clamp((m.x - p.x) * 0.16, -28, 28); ty += N.clamp((m.y - p.y) * 0.16, -20, 20); }
-    if (G.boss && G.boss.alive) { tx += N.clamp((G.boss.x - p.x) * 0.4, -G.VW * 0.3, G.VW * 0.3); ty += N.clamp((G.boss.y - p.y) * 0.4, -G.VH * 0.32, G.VH * 0.32); }
+    if (G.boss && G.boss.alive) {
+      // frame the boss and the hero together, never pushing the hero off screen
+      tx = N.clamp((p.x + G.boss.x) / 2 - G.VW / 2, p.x - G.VW + 40, p.x - 40);
+      ty = N.clamp((p.y + G.boss.y - 30) / 2 - G.VH / 2, p.y - G.VH + 26, p.y - 40);
+    }
     if (G.scene !== 'run') {
       const mw = G.map.W * TS, mh = G.map.H * TS;
       tx = mw <= G.VW ? (mw - G.VW) / 2 : N.clamp(tx, TS, mw - G.VW - TS);
@@ -450,132 +472,7 @@
   function snapCamera() { if (!G.p) return; const [tx, ty] = camTarget(); G.camX = tx; G.camY = ty; }
 
   // ================================================================ rendering
-  function drawPortal(ctx, pr) {
-    const t = G.time, x = pr.x, y = pr.y - 12;
-    N.drawShadow(ctx, x, pr.y + 2, 14);
-    const cols = G.scene === 'lobby' ? ['#ffd166', '#c66bff', '#5fe3d6'] : ['#7cf07a', '#5fe3d6', '#ffffff'];
-    for (let i = 0; i <= 4; i++) { ctx.fillStyle = i % 2 ? '#170f1f' : cols[i % 3]; ctx.beginPath(); ctx.ellipse(x, y, 12 - i * 2 + Math.sin(t * 3 + i) * 0.8, 16 - i * 2.6 + Math.sin(t * 3 + i) * 0.8, 0, 0, TAU); ctx.fill(); }
-    for (let i = 0; i < 6; i++) { const a = t * 2 + i * TAU / 6; ctx.fillStyle = cols[i % 3]; ctx.fillRect(Math.round(x + Math.cos(a) * 15), Math.round(y + Math.sin(a) * 19), 2, 2); }
-    if (Math.random() < 0.3) N.part(x + N.rand(-8, 8), y + N.rand(-10, 10), 0, -18, cols[N.randi(0, 2)], 0.7, 1);
-  }
-  function drawCampfire(ctx, pr) {
-    const x = pr.x, y = pr.y;
-    ctx.fillStyle = 'rgba(255,160,60,0.10)'; ctx.beginPath(); ctx.arc(x, y - 4, 40 + Math.sin(G.time * 6) * 2, 0, TAU); ctx.fill();
-    ctx.drawImage(S.misc.campfire, Math.round(x - 10), Math.round(y - 8));
-    for (let i = 0; i < 3; i++) { const h = 8 + Math.sin(G.time * 12 + i * 2) * 2.5; ctx.fillStyle = ['#ff6a2a', '#ffb03a', '#fff2a0'][i]; ctx.beginPath(); ctx.moveTo(x - 5 + i * 1.5, y - 3); ctx.lineTo(x + Math.sin(G.time * 9 + i) * 1.5, y - 3 - h + i * 2); ctx.lineTo(x + 5 - i * 1.5, y - 3); ctx.fill(); }
-    if (Math.random() < 0.3) N.part(x + N.rand(-3, 3), y - 8, N.rand(-5, 5), -30, '#ffb03a', 0.8, 1);
-  }
-  function drawRack(ctx, pr) {
-    N.drawShadow(ctx, pr.x, pr.y, 12);
-    ctx.fillStyle = '#5a3a20'; ctx.fillRect(Math.round(pr.x - 14), Math.round(pr.y - 20), 28, 3); ctx.fillRect(Math.round(pr.x - 14), Math.round(pr.y - 20), 2, 22); ctx.fillRect(Math.round(pr.x + 12), Math.round(pr.y - 20), 2, 22);
-    ['espada_bronze', 'machado', 'besta'].forEach((id, i) => { const s = S.wp[id]; ctx.save(); ctx.translate(Math.round(pr.x - 8 + i * 8), Math.round(pr.y - 2)); ctx.rotate(-Math.PI / 2); ctx.drawImage(s, 0, -s.height / 2); ctx.restore(); });
-  }
-
-  function drawTiles(ctx, cx, cy) {
-    const m = G.map, th = N.THEMES[G.theme], tl = S.tiles[G.theme];
-    const x0 = Math.floor(cx / TS) - 1, y0 = Math.floor(cy / TS) - 1, x1 = x0 + Math.ceil(G.VW / TS) + 2, y1 = y0 + Math.ceil(G.VH / TS) + 3;
-    const glow = { overworld: '#9aff6a', reverso: '#d05aff', wasteland: '#ffb02e' }[G.theme] || '#ffd166';
-    for (let ty = y0; ty <= y1; ty++) for (let tx = x0; tx <= x1; tx++) {
-      const t = N.tileAt(m, tx, ty); if (t === T.VOID) continue;
-      const px = tx * TS, py = ty * TS, i = ty * m.W + tx;
-      if (t === T.WALL) { const b = N.tileAt(m, tx, ty + 1); ctx.drawImage(b === T.FLOOR || b === T.DOOR || b === T.BLOCK ? tl.face : tl.top, px, py); continue; }
-      const h = N.hash2(tx, ty);
-      ctx.drawImage(tl.floor[Math.floor(h * 4)], px, py);
-      if (N.tileAt(m, tx, ty - 1) === T.WALL) { ctx.fillStyle = 'rgba(10,6,16,0.32)'; ctx.fillRect(px, py, TS, 4); }
-      if (t === T.FLOOR) { const h2 = N.hash2(tx + 77, ty + 31); if (h2 < 0.08) { const d = tl.decor[Math.floor(h2 * 997) % tl.decor.length]; ctx.drawImage(d, px + 4 + Math.floor(h * 5), py + 4 + Math.floor(h2 * 50) % 6); } }
-      else if (t === T.BLOCK) { if (!(m.hidden && m.hidden.has(i))) { ctx.drawImage(tl.block, px - 1, py - 2); } }
-      else if (t === T.DOOR) {
-        if (m.locked && m.locked.has(i)) {
-          const horiz = N.tileAt(m, tx - 1, ty) === T.WALL || N.tileAt(m, tx + 1, ty) === T.WALL;
-          ctx.fillStyle = glow; ctx.globalAlpha = 0.25 + Math.sin(G.time * 6 + tx + ty) * 0.1; ctx.fillRect(px, py, TS, TS); ctx.globalAlpha = 1;
-          ctx.fillStyle = '#2a2236';
-          if (horiz) for (let k = 2; k < TS; k += 5) ctx.fillRect(px + k, py, 2, TS); else for (let k = 2; k < TS; k += 5) ctx.fillRect(px, py + k, TS, 2);
-          ctx.fillStyle = glow; if (horiz) ctx.fillRect(px, py + ((G.time * 20) % TS), TS, 1); else ctx.fillRect(px + ((G.time * 20) % TS), py, 1, TS);
-        } else { ctx.fillStyle = 'rgba(10,6,16,0.18)'; ctx.fillRect(px, py, TS, TS); }
-      }
-    }
-  }
-  function drawAreas(ctx) {
-    for (const z of G.areas) {
-      if (z.kind === 'fire') {
-        const k = z.life / z.max; ctx.globalAlpha = Math.min(1, k * 2) * 0.8;
-        ctx.fillStyle = '#ff6a2a'; ctx.beginPath(); ctx.ellipse(z.x, z.y, z.r, z.r * 0.6, 0, 0, TAU); ctx.fill();
-        ctx.fillStyle = '#ffb03a'; ctx.beginPath(); ctx.ellipse(z.x, z.y, z.r * 0.6, z.r * 0.35, 0, 0, TAU); ctx.fill();
-        ctx.globalAlpha = 1;
-        if (Math.random() < 0.08) N.part(z.x + N.rand(-4, 4), z.y, 0, -25, '#ffe066', 0.4, 1);
-      } else if (z.draw) z.draw(ctx, z);
-    }
-  }
-  function renderWorld() {
-    const ctx = gctx, th = N.THEMES[G.theme] || N.THEMES.lobby;
-    ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.imageSmoothingEnabled = false;
-    ctx.fillStyle = th.void; ctx.fillRect(0, 0, G.VW, G.VH);
-    if (G.scene === 'title') return drawTitleBg(ctx);
-    if (!G.map) return;
-    drawBackdrop(ctx);
-    const sa = G.shakeA || 0, sx = sa ? N.rand(-sa, sa) * 0.5 : 0, sy = sa ? N.rand(-sa, sa) * 0.5 : 0;
-    const cx = Math.round(G.camX + sx), cy = Math.round(G.camY + sy);
-    ctx.translate(-cx, -cy);
-    drawTiles(ctx, cx, cy);
-    drawAreas(ctx);
-    for (const f of G.fx) if (f.floor && f.draw) f.draw(ctx, Math.min(1, f.t / f.life), f);
-    // y-sorted world objects
-    const list = [];
-    for (const pr of G.props) list.push([pr.y, 0, pr]);
-    for (const k of G.pickups) list.push([k.y, 1, k]);
-    for (const e of G.enemies) list.push([e.y + (e.boss && e.id === 'kharun' ? -999 : 0), 2, e]);
-    for (const a of G.allies) list.push([a.y, 3, a]);
-    if (G.p && (G.p.alive || G.dying)) list.push([G.p.y, 4, G.p]);
-    list.sort((a, b) => a[0] - b[0]);
-    for (const [, k, o] of list) {
-      if (k === 0) { if (o.draw) o.draw(ctx, o); }
-      else if (k === 1) drawPickup(ctx, o);
-      else if (k === 2) N.drawEnemy(ctx, o);
-      else if (k === 3) { if (o.draw) o.draw(ctx, o); }
-      else if (G.p.alive) N.drawPlayer(ctx, o);
-    }
-    for (const b of G.projs) N.drawProj(ctx, b);
-    for (const f of G.fx) if (!f.floor && f.draw) f.draw(ctx, Math.min(1, f.t / f.life), f);
-    for (const q of G.parts) { ctx.globalAlpha = Math.min(1, q.life / q.max * 1.5); ctx.fillStyle = q.c; ctx.fillRect(Math.round(q.x), Math.round(q.y), q.size, q.size); }
-    ctx.globalAlpha = 1;
-    ctx.setTransform(1, 0, 0, 1, 0, 0);
-    drawLighting(ctx);
-  }
-  function drawPickup(ctx, k) {
-    const y = Math.round(k.y - k.z);
-    if (k.type === 'coin') { const f = Math.floor((G.time * 8 + k.x) % 3); ctx.drawImage(S.misc.coin[f], Math.round(k.x - 4), y - 6); }
-    else if (k.type === 'crystal') { N.drawShadow(ctx, k.x, k.y + 1, 3); ctx.drawImage(S.misc.crystal[Math.floor(G.time * 3 + k.x) % 2], Math.round(k.x - 4), y - 10 + Math.round(Math.sin(G.time * 4 + k.x) * 1.5)); }
-    else if (k.type === 'potion') { N.drawShadow(ctx, k.x, k.y + 1, 4); ctx.drawImage(S.misc.potion, Math.round(k.x - 5), y - 12); }
-  }
-  function drawBackdrop(ctx) {
-    if (G.theme === 'reverso') { for (let i = 0; i < 50; i++) { const x = ((N.hash2(i, 3) * 900 - G.camX * 0.2) % G.VW + G.VW) % G.VW, y = ((N.hash2(i, 9) * 600 - G.camY * 0.2) % G.VH + G.VH) % G.VH; ctx.fillStyle = i % 3 ? '#3a2a6a' : '#d05aff'; ctx.fillRect(Math.round(x), Math.round(y), 1 + (i % 4 === 0), 1 + (i % 4 === 0)); } }
-    if (G.theme === 'wasteland') { ctx.fillStyle = '#1e120a'; for (let i = 0; i < 30; i++) { const x = ((N.hash2(i, 4) * 900 - G.camX * 0.3) % G.VW + G.VW) % G.VW, y = ((N.hash2(i, 8) * 600 - G.camY * 0.3) % G.VH + G.VH) % G.VH; ctx.fillRect(Math.round(x), Math.round(y), 3, 2); } }
-    if (G.theme === 'overworld') { ctx.fillStyle = '#16261a'; for (let i = 0; i < 40; i++) { const x = ((N.hash2(i, 5) * 900 - G.camX * 0.3) % G.VW + G.VW) % G.VW, y = ((N.hash2(i, 7) * 600 - G.camY * 0.3) % G.VH + G.VH) % G.VH; ctx.fillRect(Math.round(x), Math.round(y), 2, 2); } }
-  }
-  function drawLighting(ctx) {
-    const W = G.VW, H = G.VH;
-    const g = ctx.createRadialGradient(W / 2, H / 2, Math.min(W, H) * 0.35, W / 2, H / 2, Math.max(W, H) * 0.75);
-    g.addColorStop(0, 'rgba(0,0,0,0)'); g.addColorStop(1, G.theme === 'reverso' ? 'rgba(30,0,50,0.55)' : G.theme === 'wasteland' ? 'rgba(40,16,0,0.45)' : G.scene === 'lobby' ? 'rgba(5,3,10,0.3)' : 'rgba(5,3,10,0.45)');
-    ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
-    if (G.theme === 'reverso') { ctx.fillStyle = 'rgba(120,40,200,0.07)'; ctx.fillRect(0, 0, W, H); }
-    if (G.theme === 'wasteland') { ctx.fillStyle = 'rgba(255,150,60,0.06)'; ctx.fillRect(0, 0, W, H); if (Math.random() < 0.5) N.part(G.camX + G.VW + 4, G.camY + Math.random() * G.VH, -N.rand(40, 90), N.rand(-5, 5), 'rgba(232,200,144,0.5)', 4, 1); }
-    if (G.hurtFlash > 0) { ctx.fillStyle = `rgba(255,40,60,${G.hurtFlash * 0.8})`; ctx.fillRect(0, 0, W, H); }
-    if (G.dying) { ctx.fillStyle = `rgba(20,0,10,${Math.min(0.6, G.dyingT * 0.4)})`; ctx.fillRect(0, 0, W, H); }
-  }
-  // Title backdrop: stars, the broken planet in three layers, the four heroes on a ledge.
-  function drawTitleBg(ctx) {
-    const W = G.VW, H = G.VH, t = G.time;
-    ctx.fillStyle = '#0b0818'; ctx.fillRect(0, 0, W, H);
-    for (let i = 0; i < 120; i++) { const x = N.hash2(i, 1) * W, y = N.hash2(i, 2) * H; ctx.fillStyle = `rgba(255,255,255,${0.3 + 0.7 * Math.abs(Math.sin(t * 0.8 + i))})`; ctx.fillRect(Math.round(x), Math.round(y), 1, 1); }
-    const px = W * 0.5, py = H * 1.25, R = H * 0.9;
-    const layers = [['#4f8a3c', 1], ['#7aa84a', 0.985], ['#3a2a6a', 0.93], ['#5a3a9a', 0.915], ['#8a5a30', 0.86], ['#c8955a', 0.845], ['#ff8a3a', 0.8]];
-    for (const [c, k] of layers) { ctx.fillStyle = c; ctx.beginPath(); ctx.arc(Math.round(px), Math.round(py), Math.round(R * k), Math.PI, TAU); ctx.fill(); }
-    ctx.fillStyle = '#fff2a0'; ctx.beginPath(); ctx.arc(Math.round(px), Math.round(py), Math.round(R * 0.78 + Math.sin(t * 2) * 1.5), Math.PI, TAU); ctx.fill();
-    for (let i = 0; i < 3; i++) { const a = t * 0.1 + i * 2.1; ctx.fillStyle = ['#e8e0ff', '#ffc8a0', '#a0e8ff'][i]; ctx.beginPath(); ctx.arc(Math.round(W * 0.15 + i * W * 0.33 + Math.cos(a) * 8), Math.round(H * 0.12 + i * 6), 4 + i, 0, TAU); ctx.fill(); }
-    ctx.fillStyle = '#1a1028'; ctx.fillRect(0, H - 34, W, 34); ctx.fillStyle = '#2a1d42'; ctx.fillRect(0, H - 34, W, 3);
-    N.CHAR_ORDER.forEach((id, i) => { const spr = S.ch[id][Math.sin(t * 3 + i) > 0.6 ? 1 : 0]; const x = Math.round(W / 2 - 66 + i * 44), y = H - 54 + (Math.sin(t * 2 + i) > 0.5 ? 1 : 0); ctx.save(); ctx.translate(x, y); if (i >= 2) ctx.scale(-1, 1); ctx.drawImage(spr, -11, 0); ctx.restore(); });
-    ctx.fillStyle = 'rgba(255,160,60,0.12)'; ctx.beginPath(); ctx.arc(W / 2, H - 30, 26 + Math.sin(t * 6), 0, TAU); ctx.fill();
-  }
+  function renderWorld() { N.R.world(gctx); }
 
   function renderUI() {
     uctx.setTransform(1, 0, 0, 1, 0, 0); uctx.clearRect(0, 0, ucv.width, ucv.height);

@@ -129,7 +129,7 @@
       N.sfx('arrow');
       if (s.mod === 2) {
         N.delayed(0.6, () => { N.explosion(c.x, c.y, 46, '#cfe8ff'); N.sfx('explode'); N.shake(6); const r = AD(40); N.areaDamage(c.x, c.y, 48, r.dmg, { crit: r.crit, knock: 200 }); },
-          (ctx, k) => { ctx.strokeStyle = '#cfe8ff'; ctx.globalAlpha = 0.6; ctx.beginPath(); ctx.arc(c.x, c.y, 46, 0, TAU); ctx.stroke(); ctx.globalAlpha = 1; ctx.save(); ctx.translate(c.x, c.y - 120 * (1 - k) - 10); ctx.rotate(Math.PI / 2); ctx.scale(3, 3); ctx.drawImage(S.proj.arrow, -10, -2); ctx.restore(); });
+          (ctx, k) => { ctx.strokeStyle = '#cfe8ff'; ctx.globalAlpha = 0.6; ctx.beginPath(); ctx.arc(c.x, c.y, 46, 0, TAU); ctx.stroke(); ctx.globalAlpha = 1; ctx.save(); ctx.translate(c.x, c.y - 120 * (1 - k) - 10); ctx.rotate(Math.PI / 2); ctx.scale(3, 3); ctx.drawImage(S.proj.arrow, -10, -1.5); ctx.restore(); });
         return;
       }
       const R = s.mod === 1 ? 52 : 40, n = s.mod === 1 ? 28 : 14, dur = s.mod === 1 ? 2.4 : 1.2;
@@ -137,7 +137,7 @@
       for (let i = 0; i < n; i++) {
         const a = Math.random() * TAU, d = Math.sqrt(Math.random()) * R, x = c.x + Math.cos(a) * d, y = c.y + Math.sin(a) * d;
         N.delayed(0.15 + (i / n) * dur, () => { N.spark(x, y, '#cfe8ff', 3, 40); const r = AD(4); N.areaDamage(x, y, 10, r.dmg, { crit: r.crit, slow: s.mod === 0 ? 2 : 0 }); if (s.mod === 0) N.spark(x, y, '#9fe8ff', 3, 30); },
-          (ctx, k) => { ctx.save(); ctx.translate(x, y - 70 * (1 - k)); ctx.rotate(Math.PI / 2); ctx.drawImage(S.proj.arrow, -10, -2); ctx.restore(); });
+          (ctx, k) => { ctx.save(); ctx.translate(x, y - 70 * (1 - k)); ctx.rotate(Math.PI / 2); ctx.drawImage(S.proj.arrow, -10, -1.5); ctx.restore(); });
       }
     },
   };
@@ -148,7 +148,7 @@
       if (s.mod === 0) {
         const ent = { x: p.x + Math.cos(p.aim) * 14, y: p.y + Math.sin(p.aim) * 14, life: 12, hp: 60, maxHp: 60, taunt: true, r: 7, cd: 0,
           upd: (a, dt) => { a.cd -= dt; if (a.cd <= 0) { const e = N.nearestEnemy(a.x, a.y, 160, true); if (e) { a.cd = 0.6; const r = AD(4); N.shoot({ x: a.x, y: a.y - 8, a: Math.atan2(e.y - a.y + 8, e.x - a.x), speed: 200, dmg: r.dmg, crit: r.crit, team: 'p', spr: S.proj.seedP, life: 1.2, r: 3 }); } } },
-          draw: (ctx, a) => { N.drawShadow(ctx, a.x, a.y + 2, 7); const spr = S.misc.ent[Math.floor(a.t * 3) % 2]; ctx.drawImage(spr, Math.round(a.x - spr.width / 2), Math.round(a.y - spr.height + 3)); bar(ctx, a); } };
+          draw: (ctx, a) => { N.drawShadow(ctx, a.x, a.y + 2, 7); const spr = S.misc.ent[Math.floor(a.t * 3) % 2]; ctx.drawImage(spr, Math.round(a.x - spr.W / 2), Math.round(a.y - spr.H + 3)); bar(ctx, a); } };
         G.allies.push(ent); N.spark(ent.x, ent.y, '#7ed05a', 12, 50);
         return;
       }
@@ -162,7 +162,7 @@
             if (Math.random() < 0.2) N.part(a.x, a.y, 0, 10, '#5fe3d6', 0.4, 1);
           },
           onEnd: () => { if (s.mod === 2) N.healPlayer(1); },
-          draw: (ctx, a) => { const sc = a.small ? 0.75 : 1; ctx.drawImage(S.misc.wisp, Math.round(a.x - 5 * sc), Math.round(a.y - 5 * sc), 10 * sc, 10 * sc); } };
+          draw: (ctx, a) => { const sc = a.small ? 0.75 : 1; ctx.drawImage(S.misc.wisp, a.x - 4.5 * sc, a.y - 4.5 * sc, 9 * sc, 9 * sc); } };
         G.allies.push(w);
       }
     },
@@ -181,7 +181,7 @@
         const spr = N.silhouette(S.ch[p.char][0], '#7ad8c8');
         G.allies.push({ x: ox, y: oy, life: 3, hp: 30, maxHp: 30, taunt: true, r: 6,
           onEnd: (d) => { N.explosion(d.x, d.y - 4, 34, '#5fe3d6'); N.sfx('explode'); const r = AD(15); N.areaDamage(d.x, d.y, 36, r.dmg, { crit: r.crit, knock: 150 }); },
-          draw: (ctx, d) => { ctx.globalAlpha = 0.65 + Math.sin(d.t * 10) * 0.15; ctx.drawImage(spr, Math.round(d.x - 11), Math.round(d.y - 19)); ctx.globalAlpha = 1; bar(ctx, d); } });
+          draw: (ctx, d) => { ctx.globalAlpha = 0.65 + Math.sin(d.t * 10) * 0.15; ctx.drawImage(spr, d.x - 8, d.y - 18.5); ctx.globalAlpha = 1; bar(ctx, d); } });
       }
       if (s.mod === 2) for (const [cx, cy] of [[ox, oy], [x, y]]) for (let i = 0; i < 10; i++) { const r = AD(4); N.shoot({ x: cx, y: cy - 4, a: i / 10 * TAU, speed: 190, dmg: r.dmg, crit: r.crit, team: 'p', spr: S.proj.leaf, life: 0.55, pierce: 1, r: 3 }); }
     },
@@ -321,7 +321,7 @@
             o.x = N.lerp(o.x, p.x + Math.cos(a + Math.PI / 2) * 20 * o.side, dt * 10); o.y = N.lerp(o.y, p.y + Math.sin(a + Math.PI / 2) * 20 * o.side, dt * 10); o.face = Math.cos(a) >= 0 ? 1 : -1;
             for (const e of G.enemies) if (e.alive && !e.intangible && Math.hypot(e.x - o.x, e.y - o.y) < e.r + 8 && (o.hitm.get(e) || 0) < G.time) { o.hitm.set(e, G.time + 0.5); const r = AD(6); N.hurtEnemy(e, r.dmg, { crit: r.crit, knock: 160, ax: o.x, ay: o.y }); }
           },
-          draw: (ctx, o) => { const spr = S.misc.horse[Math.floor(o.t * 10) % 2]; ctx.save(); ctx.globalAlpha = 0.7; ctx.translate(Math.round(o.x), Math.round(o.y)); if (o.face < 0) ctx.scale(-1, 1); ctx.drawImage(spr, -spr.width / 2, -spr.height + 2); ctx.restore(); } });
+          draw: (ctx, o) => { const spr = S.misc.horse[Math.floor(o.t * 10) % 2]; ctx.save(); ctx.globalAlpha = 0.7; ctx.translate(Math.round(o.x), Math.round(o.y)); if (o.face < 0) ctx.scale(-1, 1); ctx.drawImage(spr, -spr.W / 2, -spr.H + 2); ctx.restore(); } });
       }
     },
     update(p, s, dt) {

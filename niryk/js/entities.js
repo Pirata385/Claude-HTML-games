@@ -86,11 +86,20 @@
   N.text = (x, y, txt, c = '#ffffff', big = false) => { G.texts.push({ x: x + N.rand(-3, 3), y, txt: String(txt), c, big, t: 0, life: big ? 0.9 : 0.7 }); };
   N.shake = (a) => { if (N.save.opts.shake !== false) G.shakeA = Math.max(G.shakeA || 0, a); };
   N.ringFx = (x, y, r, c, life = 0.35, w = 2) => N.addFx({ life, draw: (ctx, k) => { ctx.globalAlpha = 1 - k; ctx.strokeStyle = c; ctx.lineWidth = w * (1 - k) + 0.5; ctx.beginPath(); ctx.arc(x, y, r * (0.3 + 0.7 * Math.sqrt(k)), 0, TAU); ctx.stroke(); ctx.globalAlpha = 1; } });
-  N.slashFx = (x, y, ang, arc, range, c) => N.addFx({ life: 0.16, draw: (ctx, k) => {
-    ctx.globalAlpha = 0.9 * (1 - k); ctx.fillStyle = c;
-    const a0 = ang - arc / 2, a1 = ang - arc / 2 + arc * Math.min(1, k * 2.2);
-    ctx.beginPath(); ctx.arc(x, y, range, a0, a1); ctx.arc(x, y, range * 0.55, a1, a0, true); ctx.fill();
-    ctx.globalAlpha = 1;
+  // Sweeping crescent slash: a bright edge fading into the weapon colour, added on top of the lit scene.
+  N.slashFx = (x, y, ang, arc, range, c) => N.addFx({ life: 0.2, draw: (ctx, k) => {
+    const a0 = ang - arc / 2, sweep = arc * Math.min(1, k * 2.4), a1 = a0 + sweep, fade = 1 - Math.max(0, (k - 0.35) / 0.65);
+    ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = 0.95 * fade;
+    const g = ctx.createRadialGradient(x, y, range * 0.35, x, y, range * 1.05);
+    g.addColorStop(0, 'rgba(0,0,0,0)'); g.addColorStop(0.42, c); g.addColorStop(0.9, '#ffffff'); g.addColorStop(1, 'rgba(255,255,255,0.2)');
+    ctx.fillStyle = g; ctx.beginPath(); ctx.arc(x, y, range * 1.05, a0, a1); ctx.arc(x, y, range * (0.45 + 0.2 * k), a1, a0, true); ctx.fill();
+    ctx.globalAlpha = fade; ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 1.2; ctx.beginPath(); ctx.arc(x, y, range, Math.max(a0, a1 - 0.6), a1); ctx.stroke();
+    ctx.restore();
+  } });
+  // Little impact star where hits land.
+  N.impact = (x, y, c = '#ffffff', s = 7) => N.addFx({ life: 0.14, draw: (ctx, k) => {
+    ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = 1 - k; ctx.strokeStyle = c; ctx.lineWidth = 1.4;
+    const r = s * (0.5 + k); ctx.beginPath(); for (let i = 0; i < 4; i++) { const a = i * Math.PI / 2 + 0.4; ctx.moveTo(x + Math.cos(a) * r * 0.3, y + Math.sin(a) * r * 0.3); ctx.lineTo(x + Math.cos(a) * r, y + Math.sin(a) * r); } ctx.stroke(); ctx.restore();
   } });
   N.lightning = (x0, y0, x1, y1, c = '#ffe066') => {
     const pts = [[x0, y0]], n = Math.max(3, Math.floor(Math.hypot(x1 - x0, y1 - y0) / 10));
@@ -101,6 +110,7 @@
   N.explosion = (x, y, r, c = '#ff8a3a') => {
     N.addFx({ life: 0.3, draw: (ctx, k) => { ctx.globalAlpha = 1 - k; ctx.fillStyle = k < 0.25 ? '#ffffff' : c; ctx.beginPath(); ctx.arc(x, y, r * (0.4 + 0.6 * k), 0, TAU); ctx.fill(); ctx.globalAlpha = 1; } });
     N.spark(x, y, c, 14, r * 3, 0.45, 2); N.spark(x, y, '#3a2a2a', 6, r * 1.5, 0.6, 2);
+    if (N.flash) N.flash(x, y, r * 3, c, 0.35);
   };
   // Run fn after `delay` seconds while drawing a telegraph.
   N.delayed = (delay, fn, draw) => N.addFx({ life: delay, draw: draw || null, done: fn });
@@ -225,7 +235,7 @@
       if (I.hit.dash && p.dashCd <= 0 && p.alive) {
         const dx = mv.x || mv.y ? mv.x : Math.cos(p.aim), dy = mv.x || mv.y ? mv.y : Math.sin(p.aim), l = Math.hypot(dx, dy) || 1;
         p.dashDx = dx / l; p.dashDy = dy / l; p.dashT = 0.17; p.dashCd = 0.85 * (1 - p.stats.dashCdr); N.sfx('dash');
-        if (p.stats.dashBomb) { const bx = p.x, by = p.y; N.delayed(0.6, () => { N.explosion(bx, by, 26, '#a070ff'); N.areaDamage(bx, by, 28, 10 * p.stats.dmg, { knock: 120 }); N.sfx('explode'); }, (ctx, k) => { ctx.globalAlpha = 0.5; ctx.drawImage(N.silhouette(N.heroSprite(p), '#3a2a5a'), bx - 11, by - 19); ctx.globalAlpha = 1; }); }
+        if (p.stats.dashBomb) { const bx = p.x, by = p.y; N.delayed(0.6, () => { N.explosion(bx, by, 26, '#a070ff'); N.areaDamage(bx, by, 28, 10 * p.stats.dmg, { knock: 120 }); N.sfx('explode'); }, (ctx, k) => { ctx.globalAlpha = 0.5; ctx.drawImage(N.silhouette(N.heroSprite(p), '#3a2a5a'), bx - 8, by - 18.5); ctx.globalAlpha = 1; }); }
       }
     }
     p.moving = Math.hypot(p.vx, p.vy) > 10 || p.dashT > 0;
@@ -236,7 +246,7 @@
   };
   N.heroSprite = (p) => {
     const fr = p.form === 'dragon' ? S.ch.dragon : S.ch[p.char];
-    const f = p.moving ? 1 + (Math.floor(p.anim * 9) % 2) : 0;
+    const f = p.moving ? 1 + (Math.floor(p.anim * 10) % 4) : (Math.sin(p.anim * 2.5) > 0.6 ? 4 : 0);
     return fr[f];
   };
   N.mouseWorld = () => {
@@ -258,7 +268,7 @@
     if (p.form === 'dragon') return N.dragonAttack(p);
     const w = N.weaponOf(p), rate = w.rate * N.atkRate(p);
     p.atkCd = 1 / rate;
-    const hx = p.x + p.face * 5, hy = p.y - 5, a = p.aim;
+    const hp = N.handPos(p), hx = hp.x, hy = hp.y, a = p.aim;
     N.sfx(w.sfx || 'shoot');
     if (w.kind === 'melee') {
       p.swing = { t: 0, dur: Math.min(0.22, 0.8 / rate), arc: w.arc };
@@ -444,9 +454,10 @@
     if (e.dummy) e.dps = (e.dps || 0) + dmg;
     const kb = (o.knock || 0) * (e.boss ? 0 : e.def && (e.def.ai === 'tank' || e.def.ai === 'slammer' || e.def.ai === 'turret') ? 0.25 : 1);
     if (kb && o.ax !== undefined) { const a = Math.atan2(e.y - o.ay, e.x - o.ax); e.kx += Math.cos(a) * kb; e.ky += Math.sin(a) * kb; if (o.wallBonus) e.wallBonus = o.wallBonus; }
-    N.text(e.x, e.y - e.r - 6, Math.max(1, Math.round(dmg)), o.crit ? '#ffe066' : o.color || '#ffffff', o.crit);
+    N.text(e.x, e.y - e.r - 10, Math.max(1, Math.round(dmg)), o.crit ? '#ffb02e' : o.color || '#ffffff', o.crit);
     N.sfx(o.crit ? 'crit' : 'hit');
     N.spark(e.x, e.y - 3, o.crit ? '#ffe066' : '#ffffff', o.crit ? 6 : 3, 50, 0.25);
+    N.impact(e.x + N.rand(-3, 3), e.y - e.r - N.rand(0, 4), o.crit ? '#ffcf5a' : '#ffffff', o.crit ? 11 : 7);
     if (o.burn) e.st.burn = Math.max(e.st.burn || 0, 4);
     if (o.slow) e.st.slow = Math.max(e.st.slow || 0, typeof o.slow === 'number' ? o.slow : 2);
     if (o.bleed) e.st.bleed = 3;
@@ -735,17 +746,18 @@
   N.fireZone = (x, y, r = 9, life = 3) => G.areas.push({ x, y, r, life, max: life, tick: 0.45, onTick: (e) => N.hurtEnemy(e, 2 * G.p.stats.dmg * G.p.stats.abilDmg, { burn: true, color: '#ff8a3a' }), kind: 'fire' });
 
   // ================================================================ drawing
-  const SH = 'rgba(10,6,16,0.35)';
-  N.drawShadow = (ctx, x, y, w) => { ctx.fillStyle = SH; ctx.beginPath(); ctx.ellipse(x, y, w, w * 0.4, 0, 0, TAU); ctx.fill(); };
+  N.snap = (v) => Math.round(v * N.RS) / N.RS;
+  N.drawShadow = (ctx, x, y, w) => { ctx.globalAlpha = 0.55; ctx.drawImage(N.shadowTex, x - w * 1.25, y - w * 0.5, w * 2.5, w); ctx.globalAlpha = 1; };
+  N.handPos = (p) => { const h = S.hero[p.char].hand; return { x: p.x + p.face * (h[0] / N.RS - 8), y: p.y - 18.5 + h[1] / N.RS - (p.bob || 0) }; };
   N.drawWeapon = (ctx, p) => {
     const w = N.weaponOf(p); if (!w || p.form === 'dragon' || p.air > 6) return;
-    const spr = S.wp[w.id], hx = Math.round(p.x + p.face * 5), hy = Math.round(p.y - 5 - (p.bob || 0));
+    const spr = S.wp[w.id], hp = N.handPos(p), hx = hp.x, hy = hp.y;
     let a = p.aim;
     if (p.swing && !p.swing.thrust) { const k = p.swing.t / p.swing.dur; a += (k - 0.5) * p.swing.arc * p.face * (p.face > 0 ? 1 : 1); }
     ctx.save(); ctx.translate(hx, hy); ctx.rotate(a);
     if (Math.cos(a) < 0) ctx.scale(1, -1);
     let ox = 0; if (p.swing && p.swing.thrust) ox = Math.sin(p.swing.t / p.swing.dur * Math.PI) * 10; if (p.kick) { ox -= p.kick; p.kick = Math.max(0, p.kick - 0.5); }
-    ctx.drawImage(spr, Math.round(-spr.grip[0] + ox), -spr.grip[1]);
+    ctx.drawImage(spr, -spr.grip[0] / N.RS + ox, -spr.grip[1] / N.RS, spr.W, spr.H);
     ctx.restore();
   };
   N.drawPlayer = (ctx, p) => {
@@ -758,8 +770,8 @@
     const behind = Math.sin(p.aim) < -0.2;
     if (behind) N.drawWeapon(ctx, p);
     ctx.save();
-    const ox = drag ? 17 : 11, oy = drag ? 21 : 19;
-    ctx.translate(Math.round(p.x), Math.round(p.y - p.air + p.bob));
+    const ox = drag ? 17 : 8, oy = drag ? 22 : 18.5;
+    ctx.translate(N.snap(p.x), N.snap(p.y - p.air + p.bob));
     if (p.face < 0) ctx.scale(-1, 1);
     ctx.drawImage(spr, -ox, -oy);
     if (p.hitTint) { ctx.globalAlpha = 0.5; ctx.drawImage(N.silhouette(spr, p.hitTint), -ox, -oy); }
@@ -782,10 +794,10 @@
     const fly = e.def && e.def.fly, hover = fly ? 6 + Math.sin(e.anim * 4) * 2 : 0, air = e.air || 0;
     if (!(e.mode === 'under' || e.mode === 'rise')) N.drawShadow(ctx, e.x, e.y + 2, e.r);
     if (e.intangible && e.id !== 'verme') return;
-    let x = Math.round(e.x + (e.mode === 'wind' ? Math.sin(e.t * 50) : 0)), y = Math.round(e.y - hover - air);
+    let x = N.snap(e.x + (e.mode === 'wind' ? Math.sin(e.t * 50) * 0.5 : 0)), y = N.snap(e.y - hover - air);
     if (e.mode === 'rise') x += Math.round(Math.sin(e.t * 60));
     ctx.save(); ctx.translate(x, y + 3); if (e.face < 0) ctx.scale(-1, 1);
-    const w = spr.width, h = spr.height;
+    const w = spr.W, h = spr.H;
     if (e.elite) { const g = N.silhouette(spr, '#ffcf40'); for (const [dx, dy] of [[-1, 0], [1, 0], [0, -1], [0, 1]]) ctx.drawImage(g, -w / 2 + dx, -h + dy); }
     if (e.mode === 'fuse' && Math.floor(e.t * 16) % 2) ctx.drawImage(N.silhouette(spr, '#ff4a3a'), -w / 2, -h);
     else ctx.drawImage(spr, -w / 2, -h);
@@ -794,7 +806,7 @@
     else if (e.st.slow > 0) { ctx.globalAlpha = 0.3; ctx.drawImage(N.silhouette(spr, '#9fe8ff'), -w / 2, -h); ctx.globalAlpha = 1; }
     else if (e.st.poison > 0) { ctx.globalAlpha = 0.3; ctx.drawImage(N.silhouette(spr, '#9aff4a'), -w / 2, -h); ctx.globalAlpha = 1; }
     ctx.restore();
-    N.drawStatus(ctx, e, y - spr.height + 3);
+    N.drawStatus(ctx, e, y - spr.H + 3);
     if (e.dummy) return;
     if (e.hp < e.maxHp && !e.minionNoBar) { const bw = Math.max(10, e.r * 2); ctx.fillStyle = '#170f1f'; ctx.fillRect(Math.round(e.x - bw / 2) - 1, y + 5, bw + 2, 3); ctx.fillStyle = e.elite ? '#ffcf40' : '#ff4a5e'; ctx.fillRect(Math.round(e.x - bw / 2), y + 6, Math.ceil(bw * e.hp / e.maxHp), 1); }
   };
@@ -808,9 +820,9 @@
   };
   N.drawProj = (ctx, b) => {
     const spr = b.spr; if (!spr) return;
-    if (b.round) { ctx.drawImage(spr, Math.round(b.x - spr.width / 2), Math.round(b.y - spr.height / 2)); return; }
-    ctx.save(); ctx.translate(Math.round(b.x), Math.round(b.y)); ctx.rotate(b.spin ? b.t * b.spin : Math.atan2(b.vy, b.vx));
+    if (b.round) { ctx.drawImage(spr, N.snap(b.x - spr.W / 2), N.snap(b.y - spr.H / 2)); return; }
+    ctx.save(); ctx.translate(N.snap(b.x), N.snap(b.y)); ctx.rotate(b.spin ? b.t * b.spin : Math.atan2(b.vy, b.vx));
     if (b.alpha) ctx.globalAlpha = b.alpha;
-    ctx.drawImage(spr, -spr.width / 2, -spr.height / 2); ctx.restore();
+    ctx.drawImage(spr, -spr.W / 2, -spr.H / 2); ctx.restore();
   };
 })();

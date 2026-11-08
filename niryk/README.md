@@ -1,6 +1,15 @@
 # Niryk — Lendas do Planeta Partido
 
-Um roguelike de ação em pixel art, desenhado inteiro em **canvas 2D** (nenhuma imagem externa: cada sprite é pintado em código ao abrir o jogo). A inspiração vem de *Otherworld Legends*, *Soul Knight* e *The Binding of Isaac*: heróis chibi com contorno escuro e cores saturadas, salas que se trancam até o último inimigo cair, chefes com padrões de projéteis e progressão permanente entre as runs.
+Um roguelike de ação em pixel art 2.5D, desenhado inteiro em **canvas 2D** (nenhuma imagem externa: cada sprite e textura é pintado em código ao abrir o jogo). A jogabilidade lembra *Soul Knight* e *The Binding of Isaac* (salas que se trancam até o último inimigo cair, chefes com padrões de projéteis, progressão permanente entre as runs); a direção de arte segue *Otherworld Legends*.
+
+## Direção de arte
+
+- **Heróis** com proporções mais realistas (cerca de 4,5 cabeças de altura), pintados pixel a pixel, com luz de borda vinda do alto à esquerda e pernas animadas em ciclo de caminhada.
+- **Inimigos, chefes, armas e itens** montados em volumes com **sombreamento cel automático**: cada volume é iluminado pela distância até a borda na direção da luz, quantizado em 4 tons com pontilhado ordenado, e recebe contorno escuro.
+- **Cenário 2.5D**: paredes altas com face e topo; as que ficam à frente dos personagens são desenhadas por cima deles, com transparência quando escondem o herói. Árvores, pilares, lanternas de pedra, cristais, braseiros, caixas e costelas de colosso têm volume e **projetam sombras**.
+- **Iluminação**: um mapa de luz multiplica a cena com uma ambientação escura por mundo, e lanternas, tochas, braseiros, cristais, o portal, a fogueira, explosões e projéteis acendem focos de luz quente ou colorida. Projéteis e golpes brilham por cima da escuridão.
+- **Chão pintado** em texturas contínuas (grama com pontilhado, pedras chanfradas, areia rachada, tábuas de madeira), com decalques e manchas de terra, além de oclusão de ambiente junto às paredes.
+- **Interface** no estilo do jogo: retrato do herói em moldura dourada, barras de vida e escudo em degradê, faixa de local com o botão de pausa, e botões redondos de habilidade em pincel e tinta.
 
 Abra `index.html` no navegador (ou pelo menu da raiz do repositório). Funciona com mouse e teclado ou com toque no celular (de preferência na horizontal). O progresso fica salvo no `localStorage`.
 

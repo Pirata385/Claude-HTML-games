@@ -12,7 +12,7 @@
       alive: true, anim: 0, room, last: '', p2: false, minions: [],
     };
     if (id === 'kharun') {
-      e.x = (room.x0 + room.w / 2) * TS; e.y = (room.y0 + 3.2) * TS; e.r = 26;
+      e.x = (room.x0 + room.w / 2) * TS; e.y = (room.y0 + 4.6) * TS; e.r = 26;
       e.fists = [-1, 1].map((s) => ({ s, hx: e.x + s * 78, hy: e.y + 26, x: e.x + s * 78, y: e.y + 26, z: 0, mode: 'home', mt: 0 }));
     }
     G.enemies.push(e);
@@ -161,8 +161,8 @@
   function drawClone(ctx, c) {
     const spr = S.boss.nyxara[0];
     ctx.save(); ctx.globalAlpha = 0.55 * (c.alpha === undefined ? 1 : Math.max(0, c.alpha)); ctx.translate(Math.round(c.x), Math.round(c.y + Math.sin(c.t * 3) * 2));
-    ctx.drawImage(spr, -spr.width / 4, -spr.height / 2 - 4, spr.width / 2, spr.height / 2);
-    if (c.flash > 0) ctx.drawImage(N.silhouette(spr, '#ffffff'), -spr.width / 4, -spr.height / 2 - 4, spr.width / 2, spr.height / 2);
+    ctx.drawImage(spr, -spr.W / 4, -spr.H / 2 - 4, spr.W / 2, spr.H / 2);
+    if (c.flash > 0) ctx.drawImage(N.silhouette(spr, '#ffffff'), -spr.W / 4, -spr.H / 2 - 4, spr.W / 2, spr.H / 2);
     ctx.restore();
   }
 
@@ -234,9 +234,9 @@
     if (e.id === 'kharun') {
       for (const f of e.fists) { N.drawShadow(ctx, f.x, f.y + 6, 12 + f.z * 0.05); if (f.mode === 'track') { ctx.strokeStyle = 'rgba(255,74,94,0.7)'; ctx.beginPath(); ctx.arc(f.x, f.y + 4, 22, 0, TAU); ctx.stroke(); } }
       if (e.laserOn) drawBeam(ctx, e.x, e.y, e.la, '#ffb02e', 7);
-      ctx.drawImage(spr, Math.round(e.x - spr.width / 2), Math.round(e.y - spr.height / 2 + Math.sin(e.t * 1.5) * 2));
-      if (e.flash > 0) ctx.drawImage(N.silhouette(spr, '#ffffff'), Math.round(e.x - spr.width / 2), Math.round(e.y - spr.height / 2 + Math.sin(e.t * 1.5) * 2));
-      for (const f of e.fists) { const fs = S.boss.fist[f.mode === 'ground' ? 1 : 0]; ctx.save(); ctx.translate(Math.round(f.x), Math.round(f.y - f.z)); if (f.s > 0) ctx.scale(-1, 1); ctx.drawImage(fs, -fs.width / 2, -fs.height + 6); ctx.restore(); }
+      ctx.drawImage(spr, Math.round(e.x - spr.W / 2), Math.round(e.y - spr.H / 2 + Math.sin(e.t * 1.5) * 2));
+      if (e.flash > 0) ctx.drawImage(N.silhouette(spr, '#ffffff'), Math.round(e.x - spr.W / 2), Math.round(e.y - spr.H / 2 + Math.sin(e.t * 1.5) * 2));
+      for (const f of e.fists) { const fs = S.boss.fist[f.mode === 'ground' ? 1 : 0]; ctx.save(); ctx.translate(Math.round(f.x), Math.round(f.y - f.z)); if (f.s > 0) ctx.scale(-1, 1); ctx.drawImage(fs, -fs.W / 2, -fs.H + 6); ctx.restore(); }
       return;
     }
     if (e.id === 'nyxara') {
@@ -244,8 +244,8 @@
       N.drawShadow(ctx, e.x, e.y + 26, 14);
       ctx.globalAlpha = e.alpha === undefined ? 1 : N.clamp(e.alpha, 0, 1);
       const y = Math.round(e.y + Math.sin(e.t * 2) * 3);
-      ctx.drawImage(spr, Math.round(e.x - spr.width / 2), y - spr.height / 2);
-      if (e.flash > 0) ctx.drawImage(N.silhouette(spr, '#ffffff'), Math.round(e.x - spr.width / 2), y - spr.height / 2);
+      ctx.drawImage(spr, Math.round(e.x - spr.W / 2), y - spr.H / 2);
+      if (e.flash > 0) ctx.drawImage(N.silhouette(spr, '#ffffff'), Math.round(e.x - spr.W / 2), y - spr.H / 2);
       for (let i = 0; i < 6; i++) { const a = e.t * 1.2 + i * TAU / 6; ctx.drawImage(S.misc.shard, Math.round(e.x + Math.cos(a) * 32 - 5), Math.round(y + Math.sin(a) * 26 - 7)); }
       ctx.globalAlpha = 1;
       return;
@@ -255,8 +255,8 @@
     const sx = e.wind ? Math.sin(e.t * 50) : 0;
     ctx.save(); ctx.translate(Math.round(e.x + sx), Math.round(e.y + 6)); if (e.face < 0) ctx.scale(-1, 1);
     if (e.rolling) ctx.rotate(e.t * 10);
-    ctx.drawImage(spr, -spr.width / 2, -spr.height + 4);
-    if (e.flash > 0) ctx.drawImage(N.silhouette(spr, '#ffffff'), -spr.width / 2, -spr.height + 4);
+    ctx.drawImage(spr, -spr.W / 2, -spr.H + 4);
+    if (e.flash > 0) ctx.drawImage(N.silhouette(spr, '#ffffff'), -spr.W / 2, -spr.H + 4);
     ctx.restore();
   };
   function drawBeam(ctx, x, y, a, c, w) {

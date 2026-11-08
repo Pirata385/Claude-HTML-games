@@ -148,6 +148,14 @@ footer { text-align: center; color: var(--muted); font-weight: 500; font-size: 0
       palette: ['#0d1020', '#2b2350', '#4caf6a', '#8a5a3a', '#c48cff'],
       scene: 'singularita',
     },
+    {
+      path: 'niryk/index.html',
+      title: 'Niryk — Lendas do Planeta Partido',
+      desc: 'A pixel-art roguelike drawn in canvas 2D, inspired by Otherworld Legends, Soul Knight and The Binding of Isaac: four heroes (a dragon-blooded woman with a tree-trunk club, an elf archer, an avian man and a horse-folk knight), each with 4 abilities and 3 passives per ability, three procedurally generated worlds with bosses, 16 weapons and 20 pieces of equipment, and a camp with a codex, achievements, training ground and permanent upgrades. In Portuguese; mouse, keyboard and touch.',
+      tags: ['roguelike', 'pixel art', 'canvas 2D', 'procedural', 'mobile'],
+      palette: ['#0d0a1c', '#4f8a3c', '#5a3a9a', '#c8955a', '#ffd166'],
+      scene: 'niryk',
+    },
   ];
   // App registry: entries for the "Apps" tab (tools rather than games; each in its own root folder).
   const APPS = [
@@ -386,6 +394,24 @@ footer { text-align: center; color: var(--muted); font-weight: 500; font-size: 0
       ctx.fillStyle = '#9ff0ff'; ctx.fillRect(43, 12, 1, 7); ctx.fillStyle = '#fff'; ctx.fillRect(43, 12, 1, 1);
       // Two slimes approaching from the right.
       for (const [x, c] of [[80, '#7ee07e'], [87, '#5fc8e0']]) { ctx.fillStyle = c; ctx.fillRect(x, 21, 5, 3); ctx.fillRect(x + 1, 20, 3, 1); ctx.fillStyle = '#10141c'; ctx.fillRect(x + 1, 21, 1, 1); ctx.fillRect(x + 3, 21, 1, 1); }
+    } else if (g.scene === 'niryk') {
+      // Three moons over the broken planet: green surface, purple Reverse World, desert Wasteland.
+      ctx.fillStyle = P[0]; ctx.fillRect(0, 0, W, H);
+      for (let i = 0; i < 30; i++) { ctx.fillStyle = rnd() < 0.8 ? '#8c86b8' : P[4]; ctx.fillRect(Math.floor(rnd() * W), Math.floor(rnd() * 22), 1, 1); }
+      ctx.fillStyle = '#e8e0ff'; ctx.fillRect(10, 4, 3, 3); ctx.fillStyle = '#ffc8a0'; ctx.fillRect(46, 3, 2, 2); ctx.fillStyle = '#a0e8ff'; ctx.fillRect(80, 6, 4, 4);
+      for (let x = 0; x < W; x++) {
+        const h = 25 + Math.round(Math.sin(x * 0.15) * 1.5);
+        ctx.fillStyle = P[1]; ctx.fillRect(x, h, 1, 4); ctx.fillStyle = P[2]; ctx.fillRect(x, h + 4, 1, 4); ctx.fillStyle = P[3]; ctx.fillRect(x, h + 8, 1, H - h - 8);
+      }
+      // Emberian: horns, red hair, tail and her tree-trunk club
+      ctx.fillStyle = '#efe3c8'; ctx.fillRect(40, 14, 1, 2); ctx.fillRect(45, 14, 1, 2);
+      ctx.fillStyle = '#d8364a'; ctx.fillRect(40, 16, 6, 3); ctx.fillRect(37, 21, 3, 1); ctx.fillRect(36, 22, 1, 1);
+      ctx.fillStyle = '#f7cfa8'; ctx.fillRect(42, 18, 3, 2); ctx.fillStyle = '#000'; ctx.fillRect(43, 18, 1, 1);
+      ctx.fillStyle = '#3e9a6f'; ctx.fillRect(41, 20, 4, 2); ctx.fillStyle = '#4a2b23'; ctx.fillRect(41, 22, 1, 2); ctx.fillRect(44, 22, 1, 2);
+      ctx.fillStyle = '#a8743e'; ctx.fillRect(46, 18, 7, 2); ctx.fillStyle = '#7ed05a'; ctx.fillRect(50, 17, 1, 1);
+      // a slime and an enemy bullet
+      ctx.fillStyle = '#5fcf4f'; ctx.fillRect(62, 21, 6, 3); ctx.fillRect(63, 20, 4, 1); ctx.fillStyle = '#000'; ctx.fillRect(63, 21, 1, 1); ctx.fillRect(66, 21, 1, 1);
+      ctx.fillStyle = '#ff6a3a'; ctx.fillRect(57, 17, 2, 2);
     } else if (g.scene === 'motion') {
       ctx.fillStyle = P[0]; ctx.fillRect(0, 0, W, H);
       ctx.fillStyle = 'rgba(20, 20, 20, 0.12)'; for (let x = 8; x < W; x += 8) ctx.fillRect(x, 0, 1, H);

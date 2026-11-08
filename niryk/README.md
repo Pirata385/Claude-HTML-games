@@ -4,7 +4,7 @@ Um roguelike de ação em pixel art 2.5D, desenhado inteiro em **canvas 2D** (ne
 
 ## Direção de arte
 
-- **Heróis em estilo chibi**: cabeça grande, corpo pequeno, mapas de pixels de 20×19 com contorno escuro, ampliados 2× e animados em ciclo de caminhada. A Forma Dracônica da Emberian segue o mesmo estilo.
+- **Heróis em estilo chibi**: cabeça grande, corpo pequeno, mapas de pixels de 20×19 com contorno escuro, ampliados 2× e animados em ciclo de caminhada. A Forma Dracônica da Emberian e Glub, o Mercador, seguem o mesmo estilo.
 - **Inimigos, chefes, armas e itens** montados em volumes com **sombreamento cel automático**: cada volume é iluminado pela distância até a borda na direção da luz, quantizado em 4 tons com pontilhado ordenado, e recebe contorno escuro.
 - **Cenário 2.5D**: paredes altas com face e topo; as que ficam à frente dos personagens são desenhadas por cima deles, com transparência quando escondem o herói. Árvores, pilares, lanternas, cristais, braseiros, juncos, estalagmites de gelo, rochas vulcânicas e costelas de colosso têm volume e **projetam sombras**.
 - **Iluminação**: um mapa de luz multiplica a cena com uma ambientação escura por mundo, e lanternas, tochas, braseiros, cristais, lava, o portal, a fogueira, explosões e projéteis acendem focos de luz quente ou colorida. Projéteis e golpes brilham por cima da escuridão.

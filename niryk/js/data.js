@@ -9,7 +9,8 @@
     'Niryk é um planeta partido em três camadas.',
     'Na superfície, o Overworld ainda respira; abaixo dele, o Mundo Reverso devolve tudo invertido;',
     'e no fundo jazem as Wastelands, onde os Colossos tombaram quando o Núcleo Estelar começou a se apagar.',
-    'Quatro heróis descem pelas camadas para reacender o Núcleo — de novo, e de novo, e de novo.',
+    'Cada camada tem dois caminhos — o Pântano Sombrio, as Cavernas de Gelo e a Caldeira Vulcânica também esperam.',
+    'Cinco heróis descem pelas camadas para reacender o Núcleo — de novo, e de novo, e de novo.',
   ];
 
   N.RARITY = [
@@ -46,7 +47,13 @@
       bio: 'Cavaleiro de um povo equino — orelhas, crina, cauda e cascos de cavalo, mas mãos e coração de gente. Empunha a Lança Trovejante e nunca recua de uma carga.',
     },
   };
-  N.CHAR_ORDER = ['emberian', 'sylvar', 'kestrus', 'haldor'];
+  N.CHARS.kazan = {
+    name: 'Kazan', title: 'O Ronin das Terras Quentes', color: '#ff7a3a',
+    hp: 6, shield: 4, speed: 72, crit: 0.12, weapon: 'katana_escaldante',
+    abilities: ['iai', 'postura', 'milcortes', 'areia'],
+    bio: 'Um samurai sem mestre vindo das Terras Quentes, onde o sol derrete pedra. Carrega uma katana forjada em lava e o chapéu de palha do mestre que perdeu. Fala pouco e corta rápido.',
+  };
+  N.CHAR_ORDER = ['emberian', 'sylvar', 'kestrus', 'haldor', 'kazan'];
 
   // ---------------------------------------------------------------- abilities (4 per hero, 3 passives each)
   N.ABILITIES = {
@@ -136,7 +143,31 @@
     ] },
   };
 
-  // ---------------------------------------------------------------- weapons (16)
+  // Kazan (the ronin)
+  Object.assign(N.ABILITIES, {
+    iai: { char: 'kazan', name: 'Iai: Corte Relâmpago', cd: 7, desc: 'Avança na direção da mira cortando todos no caminho (14 de dano).', mods: [
+      { name: 'Sem Retorno', desc: 'Se o corte derrotar alguém, a recarga zera.' },
+      { name: 'Corte Duplo', desc: 'Um segundo corte volta pelo mesmo caminho logo depois.' },
+      { name: 'Lâmina Ardente', desc: 'Deixa uma linha de fogo no caminho do corte.' },
+    ] },
+    postura: { char: 'kazan', name: 'Postura do Sol', cd: 9, desc: 'Guarda por 1,2s: o primeiro golpe ou projétil é anulado e respondido com um contra-ataque em volta (18 de dano).', mods: [
+      { name: 'Reflexo Solar', desc: 'Durante a guarda, projéteis que tocarem você são refletidos.' },
+      { name: 'Contra-ataque Ardente', desc: 'O contra-ataque alcança mais longe e incendeia.' },
+      { name: 'Meditação', desc: 'Ao contra-atacar, recupera todo o Escudo.' },
+    ] },
+    milcortes: { char: 'kazan', name: 'Mil Cortes', cd: 8, desc: 'Uma rajada de cortes à frente por 0,8s (4 de dano por corte).', mods: [
+      { name: 'Tornado de Aço', desc: 'Os cortes giram ao seu redor.' },
+      { name: 'Fio do Deserto', desc: 'Os cortes causam sangramento.' },
+      { name: 'Vento Quente', desc: 'Cada corte também lança uma lâmina de ar.' },
+    ] },
+    areia: { char: 'kazan', name: 'Areia Escaldante', cd: 10, desc: 'Um cone de areia em brasa: 6 de dano, incendeia e atordoa por 1s.', mods: [
+      { name: 'Miragem', desc: 'Deixa uma miragem sua que atrai os inimigos por 3s.' },
+      { name: 'Tempestade de Areia', desc: 'Uma tempestade fica no lugar por 4s, ferindo e deixando lento quem estiver dentro.' },
+      { name: 'Brasa Viva', desc: 'O dano inicial dobra e o incêndio dura o dobro.' },
+    ] },
+  });
+
+  // ---------------------------------------------------------------- weapons
   // kind: melee (arc swing), thrust (line), ranged (projectiles), cast (spell at the cursor)
   N.WEAPONS = {
     tronco: { name: 'Tronco de Árvore', rarity: 0, kind: 'melee', dmg: 8, rate: 1.7, range: 30, arc: 2.2, knock: 120, owner: 'emberian', sfx: 'heavy', fx: '#ffcf7a', desc: 'Um tronco arrancado com raiz e tudo. Emberian o gira como um porrete.' },
@@ -155,6 +186,15 @@
     tomo: { name: 'Tomo das Raízes', rarity: 2, kind: 'cast', dmg: 10, rate: 1.6, radius: 20, root: 0.35, sfx: 'magic', desc: 'Faz espinhos brotarem na mira; podem prender inimigos.' },
     mosquete: { name: 'Mosquete Rúnico', rarity: 3, kind: 'ranged', dmg: 20, rate: 1.05, speed: 440, pierce: 5, proj: 'rune', sfx: 'gun', desc: 'Um tiro rúnico que atravessa fileiras inteiras.' },
     bacamarte: { name: 'Bacamarte de Cristal', rarity: 3, kind: 'ranged', dmg: 4, rate: 1.5, speed: 250, count: 8, spread: 0.65, speedVar: 0.3, life: 0.7, proj: 'shard', sfx: 'gun', desc: 'Uma explosão de estilhaços do Mundo Reverso.' },
+    katana_escaldante: { name: 'Katana Escaldante', rarity: 0, kind: 'melee', dmg: 7, rate: 2.8, range: 28, arc: 2.0, knock: 45, burnChance: 0.2, owner: 'kazan', sfx: 'swing', fx: '#ffa04a', desc: 'Forjada em lava das Terras Quentes. 20% de chance de incendiar.' },
+    leque: { name: 'Leque de Guerra', rarity: 1, kind: 'ranged', dmg: 6, rate: 1.6, speed: 210, count: 2, spread: 0.4, boomerang: 0.4, pierce: 99, life: 2, proj: 'fan', sfx: 'swing', desc: 'Dois leques de aço que vão e voltam cortando tudo pelo caminho.' },
+    arpao: { name: 'Arpão de Osso', rarity: 1, kind: 'ranged', dmg: 14, rate: 1, speed: 320, pierce: 3, knock: -160, proj: 'harpoon', sfx: 'arrow', desc: 'Atravessa até três inimigos e os puxa para perto.' },
+    tridente: { name: 'Tridente Abissal', rarity: 2, kind: 'thrust', dmg: 9, rate: 2, range: 48, width: 15, knock: 70, zap: 0, owner: null, sfx: 'swing', fx: '#5fe3d6', desc: 'Uma estocada larga de três pontas que acerta fileiras inteiras.' },
+    lanterna_fatuo: { name: 'Lanterna de Fogo-Fátuo', rarity: 2, kind: 'ranged', dmg: 5, rate: 2.2, speed: 120, count: 3, spread: 0.9, homing: 6, life: 2.2, proj: 'wisp', sfx: 'magic', desc: 'Solta fogos-fátuos que caçam os inimigos sozinhos.' },
+    chakram: { name: 'Chakram de Gelo', rarity: 1, kind: 'ranged', dmg: 6, rate: 2, speed: 240, bounce: 4, slow: true, pierce: 2, life: 2, proj: 'chakram', sfx: 'shoot', desc: 'Um disco gelado que ricocheteia nas paredes e deixa lento.' },
+    canhao: { name: 'Canhão de Mão', rarity: 2, kind: 'ranged', dmg: 16, rate: 0.8, speed: 180, explode: 34, proj: 'cannon', sfx: 'gun', desc: 'Uma bala de canhão que explode em uma área grande.' },
+    foice: { name: 'Foice Sombria', rarity: 3, kind: 'melee', dmg: 13, rate: 1.3, range: 36, arc: 3.2, knock: -90, sfx: 'heavy', fx: '#b07aff', desc: 'Um arco enorme que puxa todos os inimigos para perto.' },
+    arco_vulcanico: { name: 'Arco Vulcânico', rarity: 3, kind: 'ranged', dmg: 6, rate: 1.6, speed: 300, burst: 3, burn: true, proj: 'firearrow', sfx: 'arrow', desc: 'Rajadas de três flechas incendiárias.' },
   };
 
   // ---------------------------------------------------------------- equipment (20)
@@ -179,6 +219,16 @@
     capa: { name: 'Capa das Sombras', rarity: 1, fx: { dashCdr: 0.4, dashBomb: 1 }, desc: 'A esquiva recarrega 40% mais rápido e deixa uma sombra que explode.' },
     ima: { name: 'Pedra-Ímã', rarity: 0, fx: { magnet: 1, maxShield: 1 }, desc: 'Atrai moedas e cristais de longe. +1 de Escudo máximo.' },
     orvalho: { name: 'Frasco de Orvalho', rarity: 1, fx: { roomHeal: 0.25 }, desc: 'Ao limpar uma sala, 25% de chance de recuperar 1 de Vida.' },
+    mascara_oni: { name: 'Máscara Oni', rarity: 2, fx: { dmg: 0.3, maxShield: -1 }, desc: '+30% de dano, mas -1 de Escudo máximo.' },
+    sino_vento: { name: 'Sino dos Ventos', rarity: 1, fx: { dashWind: 1 }, desc: 'A esquiva solta uma rajada que empurra inimigos e apaga projéteis próximos.' },
+    escama: { name: 'Escama de Dragão', rarity: 2, fx: { dodge: 0.15 }, desc: '15% de chance de ignorar um golpe.' },
+    bussola: { name: 'Bússola Estelar', rarity: 0, fx: { reveal: 1 }, desc: 'Revela o mapa inteiro de cada nível.' },
+    gema_sangue: { name: 'Gema de Sangue', rarity: 1, fx: { critShield: 1 }, desc: 'Acertos críticos recuperam 1 de Escudo (no máximo a cada 2s).' },
+    sandalias: { name: 'Sandálias Aladas', rarity: 0, fx: { dashCdr: 0.3, dashLen: 0.35 }, desc: 'Esquiva 30% mais frequente e 35% mais longa.' },
+    pergaminho: { name: 'Pergaminho Ancestral', rarity: 1, fx: { abilDmg: 0.35 }, desc: '+35% de dano das habilidades.' },
+    raiz_vital: { name: 'Raiz Vital', rarity: 1, fx: { roomRegen: 3 }, desc: 'A cada 3 salas limpas, recupera 1 de Vida.' },
+    orbe_tempestade: { name: 'Orbe da Tempestade', rarity: 2, fx: { stormOrb: 1 }, desc: 'A cada 3s, um raio cai sobre um inimigo próximo.' },
+    adaga_veneno: { name: 'Adaga Envenenada', rarity: 0, fx: { poisonChance: 0.2 }, desc: 'Ataques têm 20% de chance de envenenar.' },
   };
 
   // ---------------------------------------------------------------- blessings (upgrade rooms)
@@ -207,7 +257,7 @@
     // Mundo Reverso
     imp: { world: 1, name: 'Diabrete Sombrio', hp: 24, speed: 46, r: 6, ai: 'blinker', touch: 1, desc: 'Some numa nuvem de sombra e reaparece ao seu lado com as garras prontas.' },
     olho: { world: 1, name: 'Olho Flutuante', hp: 22, speed: 30, r: 7, ai: 'floater', fly: true, shot: { n: 3, speed: 120, cd: 2, burst: 3 }, desc: 'Vê tudo, invertido. Dispara rajadas de luz roxa.' },
-    cavaleiro: { world: 1, name: 'Cavaleiro Espelhado', hp: 58, speed: 30, r: 8, ai: 'knight', touch: 2, desc: 'Seu escudo de espelho bloqueia projéteis vindos da frente. Ataque pelos lados.' },
+    cavaleiro: { world: 1, name: 'Cavaleiro Espelhado', hp: 76, speed: 30, r: 8, ai: 'knight', touch: 2, desc: 'Uma armadura de espelho vazia que empunha um montante. Resistente, avança em investidas pesadas.' },
     morcego: { world: 1, name: 'Morcego do Vazio', hp: 11, speed: 72, r: 5, ai: 'bat', fly: true, touch: 1, desc: 'Voa em zigue-zague e chega sempre em bando.' },
     mago: { world: 1, name: 'Mago Invertido', hp: 28, speed: 30, r: 6, ai: 'caster', shot: { n: 10, speed: 80, cd: 3 }, desc: 'Conjura espirais de projéteis e se teleporta quando acuado.' },
     aranha: { world: 1, name: 'Aranha de Cristal', hp: 26, speed: 50, r: 7, ai: 'jumper', touch: 1, shot: { n: 6, speed: 90 }, desc: 'Salta sobre a presa e espalha estilhaços ao aterrissar.' },
@@ -218,6 +268,27 @@
     poeira: { world: 2, name: 'Espírito de Poeira', hp: 16, speed: 80, r: 5, ai: 'kamikaze', fly: true, desc: 'Um redemoinho ressentido que explode ao chegar perto.' },
     abutre: { world: 2, name: 'Abutre de Ossos', hp: 30, speed: 56, r: 7, ai: 'bomber', fly: true, desc: 'Circula no alto e larga ossos explosivos.' },
     sentinela: { world: 2, name: 'Sentinela Colossal', hp: 70, speed: 0, r: 9, ai: 'turret', shot: { n: 2, speed: 95, cd: 0.16 }, desc: 'Torre antiga que ainda obedece aos Colossos. Gira disparando jatos de energia.' },
+    // Pântano Sombrio
+    sapo: { world: 3, name: 'Sapo Venenoso', hp: 16, speed: 34, r: 6, ai: 'toad', touch: 1, shot: { n: 3, spread: 0.3, speed: 90 }, desc: 'Pula sobre a presa e cospe bolhas de veneno ao aterrissar.' },
+    sanguessuga: { world: 3, name: 'Sanguessuga Gigante', hp: 26, speed: 30, r: 7, ai: 'lunger', touch: 1, desc: 'Rasteja devagar em círculos e dá botes que sugam a vida.' },
+    mosquito: { world: 3, name: 'Mosquito-Lâmina', hp: 9, speed: 82, r: 4, ai: 'bat', fly: true, touch: 1, desc: 'Zumbe em zigue-zague, rápido demais para acertar com calma.' },
+    jacare: { world: 3, name: 'Homem-Jacaré', hp: 44, speed: 36, r: 8, ai: 'charger', touch: 2, desc: 'Um caçador do brejo que investe de mandíbula aberta.' },
+    bruxa: { world: 3, name: 'Bruxa do Brejo', hp: 26, speed: 30, r: 6, ai: 'witch', shot: { n: 5, spread: 0.5, speed: 85, cd: 2.6 }, desc: 'Lança feitiços em leque e faz brotar poças venenosas sob os pés da presa.' },
+    planta: { world: 3, name: 'Planta Carnívora', hp: 32, speed: 0, r: 7, ai: 'shooter', shot: { n: 4, spread: 0.4, speed: 100, cd: 1.8 }, desc: 'Enraizada no lodo, cospe sementes ácidas em quem passar perto.' },
+    // Cavernas de Gelo
+    yeti: { world: 4, name: 'Yeti Filhote', hp: 42, speed: 24, r: 8, ai: 'tank', touch: 1, shot: { n: 8, speed: 75, cd: 3 }, desc: 'Pequeno para um yeti, enorme para todo o resto. Arremessa bolas de neve em todas as direções.' },
+    golem_gelo: { world: 4, name: 'Golem de Gelo', hp: 84, speed: 20, r: 10, ai: 'slammer', touch: 2, desc: 'Gelo antigo que aprendeu a andar. Seus socos racham o chão em ondas.' },
+    nevasca: { world: 4, name: 'Espírito da Nevasca', hp: 22, speed: 32, r: 6, ai: 'floater', fly: true, shot: { n: 3, speed: 115, cd: 2, burst: 3 }, desc: 'Um rosto no meio da neve que sopra rajadas de granizo.' },
+    pinguim: { world: 4, name: 'Pinguim Lanceiro', hp: 22, speed: 40, r: 6, ai: 'charger', touch: 1, desc: 'Desliza de barriga em linha reta com a lança em riste.' },
+    morcego_gelo: { world: 4, name: 'Morcego Glacial', hp: 12, speed: 74, r: 5, ai: 'bat', fly: true, touch: 1, desc: 'Asas finas como gelo; chega em bandos.' },
+    cristal_vivo: { world: 4, name: 'Cristal Vivo', hp: 58, speed: 0, r: 8, ai: 'turret', shot: { n: 3, speed: 90, cd: 0.2 }, desc: 'Um cristal que pulsa e gira disparando estilhaços de gelo.' },
+    // Caldeira Vulcânica
+    salamandra: { world: 5, name: 'Salamandra de Fogo', hp: 30, speed: 66, r: 6, ai: 'lunger', touch: 1, trail: true, desc: 'Corre em volta da presa deixando um rastro de fogo.' },
+    magma: { world: 5, name: 'Gosma de Magma', hp: 26, speed: 34, r: 7, ai: 'hopper', touch: 1, split: true, desc: 'Ao morrer, se divide em duas gosmas menores.' },
+    cinzas: { world: 5, name: 'Diabrete de Cinzas', hp: 26, speed: 48, r: 6, ai: 'blinker', touch: 1, desc: 'Some numa nuvem de fuligem e reaparece com as garras em brasa.' },
+    obsidiana: { world: 5, name: 'Golem de Obsidiana', hp: 72, speed: 22, r: 9, ai: 'tank', touch: 2, shot: { n: 10, speed: 80, cd: 3.2 }, desc: 'Vidro vulcânico vivo. Explode em anéis de lascas afiadas.' },
+    elemental: { world: 5, name: 'Elemental de Fogo', hp: 30, speed: 32, r: 6, ai: 'caster', fly: true, shot: { n: 10, speed: 85, cd: 3 }, desc: 'Uma chama com vontade própria que dispara espirais de fogo.' },
+    morteiro: { world: 5, name: 'Morteiro de Lava', hp: 52, speed: 0, r: 8, ai: 'mortar', shot: { cd: 2.4 }, desc: 'Uma chaminé de rocha que arremessa bombas de lava sobre a presa.' },
   };
 
   // ---------------------------------------------------------------- bosses
@@ -225,6 +296,9 @@
     musgo: { world: 0, name: 'Mãe-Musgo', title: 'Guardiã da Floresta Ancestral', hp: 720, r: 18, desc: 'Um golem de pedra e musgo tão antigo quanto o Overworld. Faz o chão tremer, cospe sementes em espiral e chama os Gosmos para protegê-la.' },
     nyxara: { world: 1, name: "Nyx'ara", title: 'O Espelho Partido', hp: 1150, r: 15, desc: 'O reflexo de algo que nunca existiu. Teleporta-se entre cacos de espelho, cria cópias de si mesma e corta a sala com feixes de luz.' },
     kharun: { world: 2, name: 'Kharun', title: 'O Último Colosso', hp: 1700, r: 24, desc: 'A cabeça do último Colosso ainda pensa. Seus punhos de pedra esmagam o chão e seu olho dispara o resto do Núcleo Estelar.' },
+    gorgulho: { world: 3, name: 'Gorgulho', title: 'O Rei-Sapo do Pântano', hp: 780, r: 20, desc: 'Um sapo do tamanho de uma casa, coroado de juncos. Salta sobre os intrusos, chicoteia com a língua e cospe bolhas que viram poças de veneno.' },
+    glacia: { world: 4, name: 'Glacia', title: 'A Rainha do Inverno Eterno', hp: 1180, r: 15, desc: 'Ela congelou o próprio reflexo para nunca envelhecer. Faz brotar lanças de gelo do chão e transforma a sala numa nevasca.' },
+    ignavar: { world: 5, name: 'Ignavar', title: 'O Dragão de Magma', hp: 1750, r: 22, desc: 'Nasceu dentro do Núcleo Estelar e não quer que ele se apague. Cospe rios de fogo e faz chover meteoros.' },
   };
 
   // ---------------------------------------------------------------- worlds
@@ -232,6 +306,20 @@
     { id: 'overworld', name: 'Overworld', sub: 'A superfície viva de Niryk', enemies: ['gosmo', 'cogumelo', 'goblin', 'lobo', 'kobold', 'besouro'], boss: 'musgo', music: 'overworld', bullet: '#ff6a3a' },
     { id: 'reverso', name: 'Mundo Reverso', sub: 'O reflexo invertido da superfície', enemies: ['imp', 'olho', 'cavaleiro', 'morcego', 'mago', 'aranha'], boss: 'nyxara', music: 'reverso', bullet: '#d05aff' },
     { id: 'wasteland', name: 'Wasteland dos Colossos', sub: 'Onde os gigantes tombaram', enemies: ['escorpiao', 'verme', 'golem', 'poeira', 'abutre', 'sentinela'], boss: 'kharun', music: 'wasteland', bullet: '#ff3a5a' },
+    { id: 'pantano', name: 'Pântano Sombrio', sub: 'O brejo onde a superfície apodrece', enemies: ['sapo', 'sanguessuga', 'mosquito', 'jacare', 'bruxa', 'planta'], boss: 'gorgulho', music: 'pantano', bullet: '#9aff4a' },
+    { id: 'gelo', name: 'Cavernas de Gelo', sub: 'Um reflexo congelado sob a terra', enemies: ['yeti', 'golem_gelo', 'nevasca', 'pinguim', 'morcego_gelo', 'cristal_vivo'], boss: 'glacia', music: 'gelo', bullet: '#7ad8ff' },
+    { id: 'caldeira', name: 'Caldeira Vulcânica', sub: 'Onde o Núcleo ainda sangra lava', enemies: ['salamandra', 'magma', 'cinzas', 'obsidiana', 'elemental', 'morteiro'], boss: 'ignavar', music: 'caldeira', bullet: '#ff7a2a' },
+  ];
+  // A run crosses three layers; each layer has two possible worlds.
+  N.WORLDS.forEach((w, i) => { w.layer = i % 3; });
+  N.LAYER_WORLDS = [[0, 3], [1, 4], [2, 5]];
+
+  // ---------------------------------------------------------------- difficulties (each unlocks by winning the previous one)
+  N.DIFFICULTIES = [
+    { id: 'normal', name: 'Normal', color: '#7cf07a', hp: 1, dmg: 1, tempo: 1, shot: 1, extra: 0, elite: 0, crystals: 1, desc: 'A descida como foi pensada.' },
+    { id: 'dificil', name: 'Difícil', color: '#ffd166', hp: 1.4, dmg: 1, tempo: 1.1, shot: 1.12, extra: 1, elite: 0.05, crystals: 1.4, desc: 'Inimigos com +40% de vida, mais ágeis e com tiros mais rápidos. +40% de cristais.' },
+    { id: 'pesadelo', name: 'Pesadelo', color: '#ff8a3a', hp: 1.9, dmg: 1.5, tempo: 1.18, shot: 1.24, extra: 2, elite: 0.1, crystals: 1.9, desc: '+90% de vida, golpes mais fortes, ondas maiores e mais elites. +90% de cristais.' },
+    { id: 'lenda', name: 'Lenda', color: '#ff4a5e', hp: 2.5, dmg: 2, tempo: 1.25, shot: 1.35, extra: 3, elite: 0.16, crystals: 2.5, furious: true, desc: '+150% de vida, dano dobrado, ondas enormes e chefes furiosos desde o início. +150% de cristais.' },
   ];
   N.LEVELS_PER_WORLD = 3;
 
@@ -269,6 +357,14 @@
     { id: 'tycoon', name: 'Magnata', desc: 'Tenha 300 de ouro ao mesmo tempo.', reward: 20 },
     { id: 'ascend', name: 'Ascensão', desc: 'Compre 20 níveis no Altar dos Ancestrais.', reward: 50 },
     { id: 'dragon', name: 'Dragão Desperto', desc: 'Derrote 30 inimigos na forma dracônica.', reward: 25 },
+    { id: 'boss_gorgulho', name: 'Coroa de Juncos', desc: 'Derrote Gorgulho, o Rei-Sapo.', reward: 20 },
+    { id: 'boss_glacia', name: 'Degelo', desc: 'Derrote Glacia, a Rainha do Inverno.', reward: 35 },
+    { id: 'boss_ignavar', name: 'Matador de Dragões', desc: 'Derrote Ignavar, o Dragão de Magma.', reward: 50 },
+    { id: 'win_kazan', name: 'Caminho do Ronin', desc: 'Vença uma run com Kazan.', reward: 40 },
+    { id: 'explorer', name: 'Cartógrafo de Niryk', desc: 'Visite os seis mundos.', reward: 40 },
+    { id: 'diff_dificil', name: 'Sem Moleza', desc: 'Vença uma run no Difícil.', reward: 60 },
+    { id: 'diff_pesadelo', name: 'Acordado no Pesadelo', desc: 'Vença uma run no Pesadelo.', reward: 90 },
+    { id: 'diff_lenda', name: 'Lenda Viva', desc: 'Vença uma run no Lenda.', reward: 150 },
   ];
 
   // Give every entry its own key as id.

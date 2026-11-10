@@ -15,7 +15,7 @@ button:focus-visible, input:focus-visible, select:focus-visible, .chip:focus-vis
 input, select { font: inherit; color: inherit; }
 .ic { width: 1.15em; height: 1.15em; flex: none; vertical-align: -0.2em; }
 #game { position: fixed; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; }
-#fade { position: fixed; inset: 0; background: #06100e; opacity: 0; pointer-events: none; transition: opacity 0.35s ease; z-index: 90; }
+#fade { position: fixed; inset: 0; background: #06100e; opacity: 0; pointer-events: none; transition: opacity 0.35s ease; z-index: 90; display: grid; place-items: center; font: italic 1.2em var(--serif); color: #cfe0d0; }
 #fade.on { opacity: 1; pointer-events: auto; }
 
 /* ============================== HUD ============================== */

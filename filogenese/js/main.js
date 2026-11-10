@@ -21,7 +21,7 @@
       const q = new URLSearchParams(location.search);
       if (q.get('quick')) {   // atalho de desenvolvimento: ?quick=H|C|O&seed=123
         const seed = +(q.get('seed') || 7), diet = q.get('quick');
-        G.start({ seed, name: 'Testus', genome: FG.Parts.starterGenome('HCO'.includes(diet) ? diet : 'O', seed + 3), diff: 'normal', slot: 2 });
+        G.start({ seed, name: 'Testus', genome: FG.Parts.starterGenome('HCO'.includes(diet) ? diet : 'O', seed + 3), diff: 'normal', slot: 9 });   // espaço fora dos três do menu
         Main.state = 'play'; UI.sync();
       } else UI.open('menu');
       window.addEventListener('resize', () => R.resize());
@@ -50,14 +50,14 @@
         G.save();
         UI.banner(FG.spName(G.playerSp), T('t.intro'));
         setTimeout(() => UI.toast(T(I.touch ? 't.howTouch' : 't.howKeys'), 'info', 'info'), 2600);
-      }, 300);
+      }, 300, T('t.generating'));
     },
     loadSlot(i) {
       UI.fade(() => {
         UI.closeAll();
         if (G.load(i)) { Main.state = 'play'; UI.sync(); UI.toast(T('t.loaded'), 'good', 'check'); }
         else { Main.state = 'menu'; UI.open('menu'); UI.toast(T('t.loadFail'), 'bad', 'alert'); }
-      }, 300);
+      }, 300, T('t.generating'));
     },
     toMenu() {
       if (G.active) G.save();

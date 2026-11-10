@@ -204,6 +204,51 @@ section('níveis, bando, migração, viagem e despertar', () => {
   ok(G.save() && G.load(0) && G.won && G.home === 2 && G.level === 5, 'save pós-final');
 });
 
+section('habilidades de combate, salto e ovos', () => {
+  newGame(7, 'C');
+  let P = G.player;
+  Object.assign(G.playerSp.genome.parts, { horn: 'h_ariete', gland: 'g_acida', arms: 'a_garra', feet: 'f_mola', back: 'b_asas' });
+  FG.Species.refresh(G.playerSp); P.rebuild();
+  ok(P.stats.charge === 4 && P.stats.spit === 3 && P.stats.strike === 2 && P.stats.jump >= 4 && P.stats.glide === 3, 'partes dão as habilidades esperadas');
+  G.setStance('combat');
+  const sp = G.fauna.list.find((q) => !q.isTitan && FG.Species.NICHES[q.niche].react === 'neutral');
+  const dummy = (dx) => { const c = new FG.Creature(sp, P.x + dx, P.y); FG.AI.init(c, { x: c.x, y: c.y }); c.maxHp = c.hp = 5000; G.creatures.push(c); return c; };
+  const keep = () => { P.hp = P.maxHp; G.hunger = 90; };
+  // cuspe à distância, com veneno
+  let t = dummy(210); G.setTarget(t);
+  I.events.push('a3'); run(1.2, keep);
+  ok(t.hp < 5000 && t.poison > 0, 'cuspe acerta e envenena');
+  ok(G.rel(sp).anger > 0, 'atacar irrita a espécie');
+  // investida: avança, acerta e atordoa
+  t.x = P.x + 230; t.y = P.y; t.vx = t.vy = 0; t.stun = 0; t.ai.st = 'idle';
+  const hp1 = t.hp, x1 = P.x;
+  P.cd.charge = 0; I.events.push('a2'); run(0.15, keep);
+  ok(P.dash > 0 || P.x > x1 + 20, 'investida dispara para o alvo');
+  run(0.8, keep);
+  ok(t.hp < hp1 - 20, 'investida causa dano');
+  // golpe em área atinge quem está colado
+  t.x = P.x + P.reach * 0.8; t.y = P.y; P.angle = 0; t.stun = 5;
+  const hp2 = t.hp; P.cd.strike = 0; P.anim = null;
+  G.useAbility(P, 'strike', t); run(0.6, keep);
+  ok(t.hp < hp2, 'golpe atinge o alvo');
+  // espinhos devolvem dano
+  const thorny = G.fauna.list.find((q) => q.stats.thorns > 0);
+  if (thorny) { const c = new FG.Creature(thorny, P.x + 20, P.y); FG.AI.init(c, { x: c.x, y: c.y }); G.creatures.push(c); const h0 = P.hp = P.maxHp; G.hit(P, c, 5, { kind: 'bite' }); ok(P.hp < h0, 'espinhos ferem quem morde'); c.gone = true; }
+  t.gone = true; G.setTarget(null); run(0.2, keep);
+  // salto e planeio
+  I.events.push('jump'); run(0.2, keep);
+  ok(P.jz > 5, 'saltou');
+  let air = 0; run(4, () => { keep(); if (P.jz > 0) air += 1 / 30; else return false; });
+  ok(P.jz === 0 && air > 0.5, 'planou e pousou (' + air.toFixed(2) + ' s no ar)');
+  // comer ovo de outra espécie irrita os donos
+  const n = G.world.nests.find((q) => q.eggs > 0 && G.rel(G.fauna.byId[q.sp]).status === 'neutral' && G.fauna.byId[q.sp] !== sp);
+  G.rel(G.fauna.byId[n.sp]).anger = 0;
+  P.x = n.x + 10; P.y = n.y; P.settle(); P.anim = null; G.hunger = 20; run(0.4, () => { P.hp = P.maxHp; });
+  const e0 = n.eggs, it = G.scanInteract();
+  ok(it && (it.type === 'egg' || it.type === 'meat' || it.type === 'dig'), 'interação no ninho alheio: ' + (it && it.type));
+  if (it && it.type === 'egg') { G.interact(); ok(n.eggs === e0 - 1 && G.hunger > 40 && G.rel(G.fauna.byId[n.sp]).anger > 0, 'comeu o ovo e irritou a espécie'); }
+});
+
 section('simulação longa do ecossistema (sem exceções)', () => {
   for (const [seed, diet, diff] of [[11, 'H', 'easy'], [222, 'C', 'hard'], [3333, 'O', 'normal']]) {
     newGame(seed, diet, diff);

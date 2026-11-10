@@ -276,7 +276,7 @@
       root.innerHTML = UI.card(T('m.help'), `<div class="help-grid">
         <div><h3>${esc(T('h.goal'))}</h3><p>${esc(T('h.goal.d'))}</p><h3>${esc(T('h.social'))}</h3><p>${esc(T('h.social.d'))}</p><h3>${esc(T('h.combat'))}</h3><p>${esc(T('h.combat.d'))}</p></div>
         <div><h3>${esc(T('h.evolve'))}</h3><p>${esc(T('h.evolve.d'))}</p><h3>${esc(T('h.survive'))}</h3><p>${esc(T('h.survive.d'))}</p><h3>${esc(T('h.pack'))}</h3><p>${esc(T('h.pack.d'))}</p></div>
-        <div><h3>${esc(T('h.keys'))}</h3><div class="keys">${k('W A S D', 'k.move')}${k('Shift', 'k.sprint')}${k('Espaço', 'k.jump')}${k('C', 'k.sneak')}${k('Q / Tab', 'k.stance')}${k('1 – 4', 'k.abil')}${k('E', 'k.interact')}${k('Clique', 'k.target')}${k('R / X', 'k.next')}${k('M · B · Esc', 'k.menus')}${k('Roda', 'k.zoom')}</div></div>
+        <div><h3>${esc(T('h.keys'))}</h3><div class="keys">${k('W A S D', 'k.move')}${k('Shift', 'k.sprint')}${k(esc(T('k.kSpace')), 'k.jump')}${k('C', 'k.sneak')}${k('Q / Tab', 'k.stance')}${k('1 – 4', 'k.abil')}${k('E', 'k.interact')}${k(esc(T('k.kClick')), 'k.target')}${k('R / X', 'k.next')}${k('M · B · Esc', 'k.menus')}${k(esc(T('k.kWheel')), 'k.zoom')}</div></div>
         <div><h3>${esc(T('h.touch'))}</h3><div class="keys">${tp('hand', 'k.t.move')}${tp('target', 'k.t.target')}${tp('heart', 'k.t.stance')}${tp('bolt', 'k.t.sprint')}${tp('jump', 'k.jump')}${tp('sneak', 'k.sneak')}${tp('map', 'k.t.pinch')}</div><p class="dim" style="margin-top:10px">${esc(T('h.pad'))}</p></div></div>`,
         btn('close', T('ui.done'), 'mint'), 'wide');
       root.querySelector('.card').style.height = 'auto';

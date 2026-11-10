@@ -61,6 +61,13 @@
     const c = grad(xi, yi + 1, xf, yf - 1, seed), d = grad(xi + 1, yi + 1, xf - 1, yf - 1, seed);
     return U.clamp((a + (b - a) * u + (c - a) * v + (a - b - c + d) * u * v) * 0.7071 + 0.5, 0, 1);
   };
+  /** Ruído de valor (sem trigonometria): mais barato, usado por pixel na textura do chão. */
+  U.vnoise = (x, y, seed) => {
+    const xi = Math.floor(x), yi = Math.floor(y), xf = x - xi, yf = y - yi;
+    const u = xf * xf * (3 - 2 * xf), v = yf * yf * (3 - 2 * yf);
+    const a = U.hash(xi, yi, seed), b = U.hash(xi + 1, yi, seed), c = U.hash(xi, yi + 1, seed), d = U.hash(xi + 1, yi + 1, seed);
+    return (a + (b - a) * u + (c - a) * v + (a - b - c + d) * u * v) / 4294967296;
+  };
   U.fbm = (x, y, seed, oct) => {
     let amp = 0.5, f = 1, sum = 0, norm = 0;
     for (let i = 0; i < oct; i++) { sum += amp * U.noise(x * f, y * f, seed + i * 131); norm += amp; amp *= 0.5; f *= 2.02; }

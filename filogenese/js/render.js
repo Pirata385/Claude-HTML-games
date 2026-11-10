@@ -55,7 +55,8 @@
     adapt(dt) {
       R.ft += (dt * 1000 - R.ft) * 0.05;
       if (!R.auto || R.first > 0) return;
-      if (R.ft > 26) { R.slowT += dt; R.fastT = 0; } else if (R.ft < 13) { R.fastT += dt; R.slowT = 0; } else { R.slowT = Math.max(0, R.slowT - dt); R.fastT = 0; }
+      // lento = abaixo de ~28 fps (um aparelho travado em 30 fps não conta como lento)
+      if (R.ft > 36) { R.slowT += dt; R.fastT = 0; } else if (R.ft < 19) { R.fastT += dt; R.slowT = 0; } else { R.slowT = Math.max(0, R.slowT - dt); R.fastT = 0; }
       if (R.slowT > 3 && R.quality !== 'low') { R.slowT = 0; R.setQuality(R.quality === 'high' ? 'medium' : 'low'); }
       else if (R.fastT > 14 && R.quality === 'low') { R.fastT = 0; R.setQuality('medium'); }
     },
@@ -111,7 +112,7 @@
           else if (gx >= 0 && gy >= 0 && gx * CH < W.SIZE && gy * CH < W.SIZE) ctx.drawImage(map, gx * CH * mk, gy * CH * mk, CH * mk, CH * mk, dx0, dy0, dx1 - dx0, dy1 - dy0);
         }
       }
-      W.pump(R.first > 0 ? 60 : 5);
+      W.pump(R.first > 0 ? 70 : R.quality === 'low' ? 3 : 4.5);
       if (R.first > 0) R.first--;
       ctx.setTransform(k, 0, 0, k, ox, oy);
 

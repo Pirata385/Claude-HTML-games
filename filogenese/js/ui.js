@@ -118,7 +118,9 @@
       el.hud.appendChild(d);
       setTimeout(() => d.remove(), 4200);
     },
-    fade(fn, hold) {
+    /** Escurece a tela, roda `fn` e clareia. `msg` aparece enquanto está escuro (ex.: gerando o mundo). */
+    fade(fn, hold, msg) {
+      el.fade.textContent = msg || '';
       el.fade.classList.add('on');
       setTimeout(() => { fn(); setTimeout(() => el.fade.classList.remove('on'), hold || 120); }, 360);
     },

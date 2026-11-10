@@ -39,7 +39,7 @@
       this.Bm = new Uint8Array(GW * GW); this.reach = new Uint8Array(GW * GW);
       this.explored = new Uint8Array(EXP * EXP);
       this.cells = new Map(); this.fruitState = new Map(); this.frame = 0; this.now = 0;
-      this.chunks = new Map(); this.chunkQ = []; this.tex = 160;
+      this.chunks = new Map(); this.chunkQ = []; this.job = null; this.tex = 160; this.maxChunks = 48;
       this.nests = []; this.fossils = []; this.titanSpots = []; this.ownSites = [];
       this.genTerrain();
       this.pickStart();
@@ -406,18 +406,19 @@
       return out;
     }
 
-    /** Pinta um bloco de chão num ImageData (res x res pixels cobrindo CHUNK unidades). */
-    paintChunk(img, cx, cy, res) {
+    /** Pinta um bloco de chão num ImageData (res x res pixels cobrindo CHUNK unidades); r0..r1 limita as linhas. */
+    paintChunk(img, cx, cy, res, r0, r1) {
       const data = img.data, step = CHUNK / res, col = [0, 0, 0, 255], s = this.seed;
       const x0 = cx * CHUNK, y0 = cy * CHUNK;
-      let p = 0;
-      for (let py = 0; py < res; py++) {
+      if (r0 == null) { r0 = 0; r1 = res; }
+      let p = r0 * res * 4;
+      for (let py = r0; py < r1; py++) {
         const wy = y0 + (py + 0.5) * step;
         for (let px = 0; px < res; px++) {
           const wx = x0 + (px + 0.5) * step;
           const e = this.hAt(wx, wy);
           const sh = e < SEA - 0.004 ? 1 : U.clamp(1 + (this.hAt(wx - 14, wy - 14) - this.hAt(wx + 14, wy + 14)) * 5.5, 0.72, 1.3);
-          const n1 = (U.hash(wx / step | 0, wy / step | 0, s) / 2147483648 - 1) * 0.6 + (U.noise(wx / 46, wy / 46, s + 5) - 0.5) * 2.2;
+          const n1 = (U.hash(wx / step | 0, wy / step | 0, s) / 2147483648 - 1) * 0.6 + (U.vnoise(wx / 38, wy / 38, s + 5) - 0.5) * 2.4;
           this.groundColor(e, this.sample(this.M, wx, wy), this.sample(this.T, wx, wy), n1, sh, col);
           data[p++] = col[0]; data[p++] = col[1]; data[p++] = col[2]; data[p++] = col[3];
         }
@@ -428,18 +429,25 @@
       const key = cx * 4096 + cy, ch = this.chunks.get(key);
       if (ch) { ch.last = this.frame; return ch.cv; }
       if (cx < 0 || cy < 0 || cx * CHUNK >= SIZE || cy * CHUNK >= SIZE) return null;
-      if (!this.chunkQ.includes(key)) this.chunkQ.push(key);
+      if (!this.chunkQ.includes(key) && !(this.job && this.job.key === key)) this.chunkQ.push(key);
       return null;
     }
-    /** Gera blocos da fila dentro do orçamento de tempo (ms). */
+    /** Pinta blocos da fila aos poucos (algumas linhas por vez) dentro do orçamento de tempo em ms, para não engasgar. */
     pump(budget) {
       const t0 = performance.now();
-      while (this.chunkQ.length && performance.now() - t0 < budget) {
-        const key = this.chunkQ.shift(), cx = Math.floor(key / 4096), cy = key % 4096, res = this.tex;
-        const cv = document.createElement('canvas'); cv.width = cv.height = res;
-        const ctx = cv.getContext('2d'), img = ctx.createImageData(res, res);
-        this.paintChunk(img, cx, cy, res); ctx.putImageData(img, 0, 0);
-        this.chunks.set(key, { cv, last: this.frame });
+      while (performance.now() - t0 < budget) {
+        let job = this.job;
+        if (!job) {
+          if (!this.chunkQ.length) break;
+          const key = this.chunkQ.shift(), res = this.tex;
+          const cv = document.createElement('canvas'); cv.width = cv.height = res;
+          const ctx = cv.getContext('2d');
+          job = this.job = { key, cx: Math.floor(key / 4096), cy: key % 4096, res, cv, ctx, img: ctx.createImageData(res, res), row: 0 };
+        }
+        const r1 = Math.min(job.res, job.row + 6);
+        this.paintChunk(job.img, job.cx, job.cy, job.res, job.row, r1);
+        job.row = r1;
+        if (r1 >= job.res) { job.ctx.putImageData(job.img, 0, 0); this.chunks.set(job.key, { cv: job.cv, last: this.frame }); this.job = null; }
       }
       if (this.chunks.size > this.maxChunks) {
         let ok = null, ol = 1e18;
@@ -450,7 +458,7 @@
     setQuality(q) {
       const tex = q === 'high' ? 320 : q === 'low' ? 96 : 160;
       this.maxChunks = q === 'low' ? 30 : 48;
-      if (tex !== this.tex) { this.tex = tex; this.chunks.clear(); this.chunkQ.length = 0; }
+      if (tex !== this.tex) { this.tex = tex; this.chunks.clear(); this.chunkQ.length = 0; this.job = null; }
     }
     /** Mapa-múndi (1 pixel por célula). */
     mapCanvas() {

@@ -574,7 +574,6 @@
         }
       }
     }
-    if (c.sleeping && lod < 2) { /* olhos já fechados via blink */ }
     ctx.restore();
   }
 

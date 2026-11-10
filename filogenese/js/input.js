@@ -138,7 +138,6 @@
       I.mx = mx; I.my = my;
       const hold = FG.Settings.data.holdSprint;
       I.sprint = padSprint || I.sprintHeld || (hold ? !!(K.ShiftLeft || K.ShiftRight) : I.sprintTog);
-      if (!hold && l < 0.1 && I.sprintTog && !I.joy.on) { /* mantém ligado até desligar */ }
       I.sneak = I.sneakTog;
     },
   };

@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="theme-color" content="#16302a">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>Filogênese — Sobrevivência Evolutiva</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<canvas id="game" aria-label="Filogênese"></canvas>
+
+<!-- ============================== HUD ============================== -->
+<div id="hud" hidden>
+  <div id="vignette"></div>
+  <div class="hud-tl">
+    <div class="vital panel">
+      <canvas id="portrait" width="112" height="112"></canvas>
+      <div class="bars">
+        <div class="bar hp" title=""><i id="hpFill"></i><span id="hpTxt"></span></div>
+        <div class="bar hunger"><i id="huFill"></i></div>
+        <div class="bar stam"><i id="stFill"></i></div>
+        <div class="bar breath" id="brBar" hidden><i id="brFill"></i></div>
+      </div>
+      <div id="stateIcons"></div>
+    </div>
+    <div id="packBox"></div>
+    <button id="objBox" class="panel" type="button"><span class="obj-h" data-t="hud.objective"></span><span id="objTxt"></span></button>
+  </div>
+  <div class="hud-tc">
+    <div id="brain" class="panel">
+      <span class="lvl"><span id="icBrain"></span><b id="lvl">1</b></span>
+      <div class="bbar"><i id="brainFill"></i><span id="brainTxt"></span></div>
+      <span class="dna"><span id="icDna"></span><b id="dna">0</b></span>
+    </div>
+    <div id="targetBox" class="panel" hidden>
+      <div class="t-row"><span id="tRel" class="rel"></span><b id="tName"></b><button id="tClose" type="button" aria-label="x"></button></div>
+      <div class="bar hp small"><i id="tHp"></i></div>
+      <div class="t-row t-info"><span id="tNiche"></span><span id="tProg"></span></div>
+    </div>
+    <div id="toasts" aria-live="polite"></div>
+  </div>
+  <div class="hud-tr">
+    <div class="mm-wrap"><canvas id="minimap" width="148" height="148"></canvas><span id="clock"></span></div>
+    <div class="tbtns">
+      <button id="btnMap" type="button"></button>
+      <button id="btnBook" type="button"></button>
+      <button id="btnPause" type="button"></button>
+    </div>
+  </div>
+  <div id="prompt" hidden><button id="btnInteract" type="button"></button></div>
+  <div id="actionBar">
+    <button id="btnStance" type="button"></button>
+    <div id="abRow"></div>
+  </div>
+  <div id="touchBtns">
+    <button id="btnSneak" type="button"></button>
+    <button id="btnNext" type="button"></button>
+    <button id="btnJump" type="button"></button>
+    <button id="btnSprint" type="button"></button>
+  </div>
+  <div id="joy" hidden><i></i></div>
+  <div id="fps" hidden></div>
+  <div id="saveInd"></div>
+</div>
+
+<!-- telas sobrepostas (montadas pelo JS) -->
+<div id="screens"></div>
+<div id="fade"></div>
+<noscript><p style="color:#fff;padding:2em">Este jogo precisa de JavaScript.</p></noscript>
+
+<script src="js/util.js"></script>
+<script src="js/settings.js"></script>
+<script src="js/i18n.js"></script>
+<script src="js/icons.js"></script>
+<script src="js/parts.js"></script>
+<script src="js/species.js"></script>
+<script src="js/creaturedraw.js"></script>
+<script src="js/creature.js"></script>
+<script src="js/world.js"></script>
+<script src="js/fx.js"></script>
+<script src="js/audio.js"></script>
+<script src="js/ai.js"></script>
+<script src="js/game.js"></script>
+<script src="js/progress.js"></script>
+<script src="js/sprites.js"></script>
+<script src="js/render.js"></script>
+<script src="js/input.js"></script>
+<script src="js/ui.js"></script>
+<script src="js/screens.js"></script>
+<script src="js/editor.js"></script>
+<script src="js/main.js"></script>
+</body>
+</html>

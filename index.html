@@ -156,6 +156,14 @@ footer { text-align: center; color: var(--muted); font-weight: 500; font-size: 0
       palette: ['#0d0a1c', '#4f8a3c', '#5a3a9a', '#c8955a', '#ffd166'],
       scene: 'niryk',
     },
+    {
+      path: 'filogenese/index.html',
+      title: 'Filogênese — Sobrevivência Evolutiva',
+      desc: 'A top-down survival and evolution game drawn in canvas 2D: leave the water as a small creature, eat, sing and dance to befriend other species or hunt them, collect DNA and reshape your body in a creature editor with 71 parts. Seeded procedural worlds with biomes, rivers and day/night, 8 families and about 30 species per world in 12 ecological niches, fully procedural animation (spine chains, stepping legs with IK), packs, titans, migrations and an ending. In Portuguese and English; mouse, keyboard, touch and gamepad; synthesised sound, settings and three save slots.',
+      tags: ['survival', 'evolution', 'procedural', 'creature editor', 'mobile'],
+      palette: ['#16302a', '#5f9a58', '#2d7ea8', '#e2d096', '#7cf0c0'],
+      scene: 'filo',
+    },
   ];
   // App registry: entries for the "Apps" tab (tools rather than games; each in its own root folder).
   const APPS = [
@@ -412,6 +420,25 @@ footer { text-align: center; color: var(--muted); font-weight: 500; font-size: 0
       // a slime and an enemy bullet
       ctx.fillStyle = '#5fcf4f'; ctx.fillRect(62, 21, 6, 3); ctx.fillRect(63, 20, 4, 1); ctx.fillStyle = '#000'; ctx.fillRect(63, 21, 1, 1); ctx.fillRect(66, 21, 1, 1);
       ctx.fillStyle = '#ff6a3a'; ctx.fillRect(57, 17, 2, 2);
+    } else if (g.scene === 'filo') {
+      // A shore seen from above: sea, sand, meadow, a nest with eggs and two creatures meeting.
+      for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+        const c = x + Math.round(Math.sin(y * 0.35) * 3) + y * 0.5;
+        ctx.fillStyle = c > 84 ? P[2] : c > 79 ? '#7fc4d6' : c > 74 ? P[3] : (x * 7 + y * 13) % 11 === 0 ? '#6fae62' : P[1];
+        ctx.fillRect(x, y, 1, 1);
+      }
+      for (let i = 0; i < 5; i++) { const x = 4 + Math.floor(rnd() * 22), y = 3 + Math.floor(rnd() * 30); ctx.fillStyle = '#2f6a3c'; ctx.fillRect(x, y, 6, 5); ctx.fillStyle = '#3f8a4a'; ctx.fillRect(x + 1, y, 4, 3); }
+      ctx.fillStyle = '#6b4a2b'; ctx.fillRect(56, 26, 9, 6); ctx.fillStyle = '#4a321c'; ctx.fillRect(57, 27, 7, 4);
+      ctx.fillStyle = '#f3ead2'; ctx.fillRect(58, 28, 2, 2); ctx.fillRect(61, 28, 2, 2);
+      const critter = (x, y, body, mark, dir) => {
+        ctx.fillStyle = '#1c2a22'; ctx.fillRect(x + 1, y - 2, 1, 2); ctx.fillRect(x + 5, y - 2, 1, 2); ctx.fillRect(x + 1, y + 3, 1, 2); ctx.fillRect(x + 5, y + 3, 1, 2);
+        ctx.fillStyle = body; ctx.fillRect(x, y, 8, 3); ctx.fillRect(dir > 0 ? x + 8 : x - 3, y, 3, 3); ctx.fillRect(dir > 0 ? x - 3 : x + 8, y + 1, 3, 1);
+        ctx.fillStyle = mark; ctx.fillRect(x + 2, y, 1, 3); ctx.fillRect(x + 5, y, 1, 3);
+        ctx.fillStyle = '#000'; ctx.fillRect(dir > 0 ? x + 10 : x - 3, y, 1, 1);
+      };
+      critter(34, 12, '#d8a23c', '#7a5a1c', 1); critter(52, 13, '#c94a5a', '#7a1c2c', -1);
+      ctx.fillStyle = P[4]; ctx.fillRect(47, 7, 1, 3); ctx.fillRect(48, 7, 2, 1); ctx.fillRect(46, 10, 2, 1);
+      ctx.fillStyle = '#ff8fb0'; ctx.fillRect(43, 5, 1, 1); ctx.fillRect(45, 5, 1, 1); ctx.fillRect(43, 6, 3, 1); ctx.fillRect(44, 7, 1, 1);
     } else if (g.scene === 'motion') {
       ctx.fillStyle = P[0]; ctx.fillRect(0, 0, W, H);
       ctx.fillStyle = 'rgba(20, 20, 20, 0.12)'; for (let x = 8; x < W; x += 8) ctx.fillRect(x, 0, 1, H);

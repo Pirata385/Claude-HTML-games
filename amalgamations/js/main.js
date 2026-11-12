@@ -300,7 +300,7 @@
         const roll = G.world.rollWild(rng, biome, s.level);
         if (i === 0 && L.elite) { roll.rank = 'elite'; roll.affix = rng.pick(AM.ELITE_AFFIXES); }
         const e = E.spawnWild(G, s.x + Math.cos(a) * 3, s.z + Math.sin(a) * 3, roll, { biome: s.biome });
-        e.structId = s.id; e.campId = s.id; e.aggressive = true;
+        e.structId = s.id; e.campId = s.id;
       }
     } else if (s.type === 'ruin') {
       if (!G.state.opened.has(sm.layout.chest.id) && !G.spawnedFor.has(s.id)) {
@@ -469,6 +469,7 @@
       case 'chest': {
         if (it.locked) { G.hud.toast('This chest is sealed until the boss falls.', 'bad'); return; }
         st.opened.add(it.id);
+        if (it.struct) for (const e of G.entities) if (e.structId === it.struct.id && !e.dead && e.ai) AM.Ent.provoke(G, e);
         const level = it.level || G.world.dangerAt(it.x, it.z);
         const drops = AM.rollChest(AM.makeRng((Math.random() * 1e9) | 0), level, G.player.stats, it.big);
         G.prog.spawnDrops(drops, it.x, it.z);

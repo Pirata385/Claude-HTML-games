@@ -147,13 +147,20 @@
     const it = G.focus;
     const ib = el('interact-btn'), ip = el('prompt');
     const show = (e, v) => { if (e.style.display !== v) e.style.display = v; };
+    // The touch action button is always on screen (CSS): dimmed with "Action" when there is nothing to use.
     if (it) {
       const label = G.interactLabel(it);
-      setT('interact-btn', label); show(ib, '');
-      const html = G.gather ? `${label}… ${Math.round(G.gather.t / G.gather.need * 100)}%` : `<b>F</b> ${label}`;
+      const gathering = G.gather ? `${label}… ${Math.round(G.gather.t / G.gather.need * 100)}%` : null;
+      setT('interact-btn', gathering || label);
+      if (ib.classList.contains('idle')) ib.classList.remove('idle');
+      const html = gathering || `<b>F</b> ${label}`;
       if (valCache.prompt !== html) { valCache.prompt = html; ip.innerHTML = html; }
       show(ip, document.body.classList.contains('touch') ? 'none' : '');
-    } else { show(ib, 'none'); show(ip, 'none'); }
+    } else {
+      setT('interact-btn', 'Action');
+      if (!ib.classList.contains('idle')) ib.classList.add('idle');
+      show(ip, 'none');
+    }
     // boss bar
     const boss = G.entities.find((e) => e.rank === 'boss' && !e.dead && AM.dist(e.x, e.z, p.x, p.z) < 22);
     const bb = el('bossbar');
@@ -219,7 +226,8 @@
     }
     for (const e of G.entities) {
       if (e.dead || e === p) continue;
-      dot(e.x, e.z, e.kind === 'npc' ? '#7af0ff' : e.team === 0 ? '#c8a0ff' : e.rank === 'boss' ? '#ff2a2a' : e.rank === 'elite' ? '#ffb020' : '#ff6a5a', e.rank === 'boss' ? 4 : 2.4);
+      const hostile = e.team === 1 && (e.ai && e.ai.state === 'chase' || AM.wildIsHostile(e, G.state.level));
+      dot(e.x, e.z, e.kind === 'npc' ? '#7af0ff' : e.team === 0 ? '#c8a0ff' : e.rank === 'boss' ? '#ff2a2a' : hostile ? '#ff4a3a' : e.rank === 'elite' ? '#ffb020' : '#f0d8a0', e.rank === 'boss' ? 4 : 2.4);
     }
     if (G.mode === 'interior' && G.interior) dot(G.interior.exit.x, G.interior.exit.z, '#6fe3ff', 3.5);
     c.restore();
@@ -273,7 +281,8 @@
       if (e.dead || e === p) continue;
       if (e.emote) { e.emote.t -= dt; if (e.emote.t <= 0) e.emote = null; }
       const d = AM.dist(e.x, e.z, p.x, p.z);
-      const show = (e.kind === 'npc' && d < 14) || ((e.rank === 'elite' || e.quest) && d < 22) || e.emote || (e.team === 1 && e.hp < e.maxHp && d < 18);
+      e.hostileNow = e.team === 1 && (e.ai && e.ai.state === 'chase' || AM.wildIsHostile(e, G.state.level));
+      const show = (e.kind === 'npc' && d < 14) || ((e.rank === 'elite' || e.quest) && d < 22) || e.emote || (e.team === 1 && e.hp < e.maxHp && d < 18) || (e.hostileNow && d < 16);
       if (show) want.push(e);
     }
     want.sort((a, b) => AM.dist(a.x, a.z, p.x, p.z) - AM.dist(b.x, b.z, p.x, p.z));
@@ -288,7 +297,7 @@
       const name = e.emote ? e.emote.text : e.kind === 'npc' ? `${e.name}` : `${e.rank === 'elite' ? '★ ' : ''}${e.affix ? e.affix.name + ' ' : ''}${e.name} · ${e.level}`;
       const tn = t.firstChild;
       if (tn.textContent !== name) tn.textContent = name;
-      t.className = 'tag ' + (e.emote ? 'emote' : e.kind === 'npc' ? 'npc' : e.rank === 'elite' ? 'elite' : '');
+      t.className = 'tag ' + (e.emote ? 'emote' : e.kind === 'npc' ? 'npc' : e.hostileNow ? 'hostile' : e.rank === 'elite' ? 'elite' : '');
       const bar = t.lastChild;
       bar.style.display = e.team === 1 && !e.emote ? '' : 'none';
       bar.firstChild.style.width = (100 * e.hp / e.maxHp) + '%';

@@ -760,7 +760,7 @@
           <li><b>Space / Shift / right click</b> dodge roll</li><li><b>1–4 or Q E R T</b> powers</li><li><b>F</b> interact · <b>H</b> potion</li>
           <li><b>Z / X</b> rotate camera · <b>wheel / − =</b> zoom · <b>V</b> isometric / third person</li>
           <li>Third person: <b>drag with the right or middle mouse button</b> to orbit (a right click without dragging still dodges)</li><li><b>I</b> inventory · <b>P</b> powers · <b>K</b> skills · <b>M / Tab</b> map · <b>J</b> quests · <b>Esc</b> pause</li></ul></div>
-          <div><h3>Touch</h3><ul><li>Left side: floating joystick</li><li>Big button: attack (hold)</li><li>Power buttons: tap to auto-aim, or drag to aim and release</li><li>Pinch to zoom</li><li>Third person: drag one finger on the right side to orbit the camera</li></ul>
+          <div><h3>Touch</h3><ul><li>Left side: floating joystick</li><li>Big button: attack (hold)</li><li>Action button (above the powers): talk, open, mine, enter</li><li>Power buttons: tap to auto-aim, or drag to aim and release</li><li>Pinch to zoom</li><li>Third person: drag one finger on the right side to orbit the camera</li></ul>
           <h3>Gamepad</h3><ul><li>Left stick move · right stick aim</li><li>A attack · B dodge · X interact · Y potion</li><li>LB RB LT RT powers · Start pause · Back map · D-pad camera/zoom</li><li>Third person: the right stick orbits the camera (powers use auto-aim)</li></ul></div></div>`;
       } else if (st.tab === 'saves') {
         body = G.state ? `<p>Your game saves automatically every minute, when you level up, enter or leave places, and when you leave the tab.</p>
@@ -835,7 +835,7 @@
         <div><h3>Grow</h3><p>Levels give skill points for the six-branch tree. Gear drops with random bonuses; Blacksmiths forge and upgrade it.</p>
         <h3>Camera</h3><p>Press <b>V</b> (or the camera button) to switch between the isometric view and a third-person camera behind your creature. In third person, drag to orbit and scroll or pinch to zoom.</p>
         <h3>Explore</h3><p>The world never ends. The farther from Hearthmoor, the higher the danger level and the better the loot. Villages have waypoints, caves have ore and treasure, dungeons have bosses.</p>
-        <h3>Tips</h3><ul><li>Night makes creatures one level stronger.</li><li>Elites (★) and bosses drop the most DNA.</li><li>Hover creatures can fly over deep water.</li><li>Use Settings → Graphics if the game runs slowly.</li></ul></div></div></div>`;
+        <h3>Tips</h3><ul><li>Wild creatures only attack if you provoke them (or their pack) or if they are 5+ levels above you; those show in red. Dungeon guards always fight.</li><li>Night makes creatures one level stronger.</li><li>Elites (★) and bosses drop the most DNA.</li><li>Hover creatures can fly over deep water.</li><li>Use Settings → Graphics if the game runs slowly.</li></ul></div></div></div>`;
     },
   };
 

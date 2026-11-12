@@ -22,7 +22,7 @@ The farther you go from spawn, the higher the **danger level** (shown under the 
 | Attack | left click / L (hold) | big button (hold) | A |
 | Dodge roll (untouchable) | Space / Shift / right click | dodge button | B |
 | Powers | 1–4 or Q E R T | power buttons | LB RB LT RT |
-| Interact | F | contextual button | X |
+| Interact | F | **Action** button (always shown; lights up with the action's name near something usable) | X |
 | Potion | H | potion button | Y |
 | Camera | Z / X rotate · wheel or − = zoom · **V** isometric ↔ third person | pinch to zoom · camera button | D-pad |
 | Orbit (third person) | drag with the right or middle mouse button (a right click without dragging still dodges) | drag one finger on the right side | right stick |
@@ -43,6 +43,12 @@ The farther you go from spawn, the higher the **danger level** (shown under the 
   - Some shape pairs have special results: multishot, meteor shower, double nova and others. That makes 342 ordered fusions.
 - **Combat** (`js/game/combat.js`) is real time, with crits, defence, lifesteal and thorns.
   - **Statuses:** burn, poison, bleed, slow, freeze, stun, shock, soak, blind, root, fear, knockback, pull, vulnerability, weaken, execute and spread.
+  - **Peaceful until provoked:** wild creatures leave you alone unless they are provoked or far stronger.
+    - They attack if you (or your summons) hurt them or their pack: the same camp, or the same kind of creature close by.
+    - Opening a ruin's chest wakes its guardian.
+    - A creature 5 or more levels above you hunts you on sight.
+    - Dungeon and cave inhabitants and bosses still defend their lairs.
+    - Creatures that will attack you are red on the minimap and show a red nameplate.
   - **Enemy warnings:** enemies telegraph attacks and powers with red ground markings.
   - **Elites** have affixes (Vampiric, Explosive, Swift, Armoured, Frenzied, Arcane). **Bosses** have three phases: they call minions at 66% and enrage with ground slams at 33%.
 - **World** (`js/worldgen.js`, `js/render/world.js`): infinite and flat, streamed in 32 m chunks.

@@ -48,3 +48,12 @@ test('monsters scale by rank', () => {
   const n = AM.monsterStats(g, 5, 'normal'), e = AM.monsterStats(g, 5, 'elite'), b = AM.monsterStats(g, 5, 'boss');
   assert.ok(b.maxHp > e.maxHp && e.maxHp > n.maxHp);
 });
+
+test('wild creatures attack only when provoked, guarding, or far stronger', () => {
+  assert.strictEqual(AM.wildIsHostile({ level: 1 }, 1), false);
+  assert.strictEqual(AM.wildIsHostile({ level: 1 + AM.HOSTILE_GAP - 1 }, 1), false);
+  assert.strictEqual(AM.wildIsHostile({ level: 1 + AM.HOSTILE_GAP }, 1), true);
+  assert.strictEqual(AM.wildIsHostile({ level: 3, provoked: true }, 10), true);
+  assert.strictEqual(AM.wildIsHostile({ level: 3, guard: true }, 10), true);
+  assert.strictEqual(AM.wildIsHostile({ level: 12 }, 10), false, 'levelling up makes creatures leave you alone again');
+});

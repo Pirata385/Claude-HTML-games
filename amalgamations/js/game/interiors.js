@@ -115,7 +115,7 @@
         const [x, z] = this.toWorld(sp.x, sp.z);
         const roll = G.world.rollWild(AM.makeRng(AM.hash2(sp.x, sp.z, s.seed)), biome, s.level);
         const e = AM.Ent.spawnWild(G, x, z, roll, { biome: s.biome });
-        e.interior = true; e.aggressive = true;
+        e.interior = true; e.guard = true;
         if (sp.gate) this.gate.push(e);
       }
       if (L.boss && !G.state.cleared.has(s.id)) {

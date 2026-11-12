@@ -165,6 +165,13 @@
     return dmg * (1 - d / (d + 40 * LV(attackerLevel)));
   }
 
-  Object.assign(AM, { LV, xpToNext, killXp, itemNumbers, traitTotals, computeStats, monsterStats, basicDamage, basicCooldown, powerDamage, mitigate });
+  // Wild creatures leave you alone unless they were provoked (you or an ally hurt them or their pack),
+  // they guard a dungeon or cave, or they outlevel you by HOSTILE_GAP or more.
+  const HOSTILE_GAP = 5;
+  function wildIsHostile(e, playerLevel) {
+    return !!(e.provoked || e.guard || e.level >= (playerLevel || 1) + HOSTILE_GAP);
+  }
+
+  Object.assign(AM, { HOSTILE_GAP, wildIsHostile, LV, xpToNext, killXp, itemNumbers, traitTotals, computeStats, monsterStats, basicDamage, basicCooldown, powerDamage, mitigate });
   if (typeof module !== 'undefined' && module.exports) module.exports = AM;
 })(typeof window !== 'undefined' ? window : globalThis);

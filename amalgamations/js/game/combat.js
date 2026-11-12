@@ -92,7 +92,7 @@
       if (tgt.kind === 'player') { G.shake(0.18); G.audio.sfx('hurt'); }
       G.fx.burst(tgt.x, 0.8 * tgt.scale, tgt.z, crit ? '#ffe45c' : elColor(o.element), crit ? 8 : 4, 3, 0.12, 0.4);
     }
-    if (tgt.ai) { tgt.provoked = true; if (tgt.ai.state === 'idle' || tgt.ai.state === 'return') tgt.ai.state = 'chase'; }
+    if (tgt.ai && src && src.team !== tgt.team) AM.Ent.provoke(G, tgt);
     if (o.knock && src) knock(G, tgt, o.fromX != null ? o.fromX : src.x, o.fromZ != null ? o.fromZ : src.z, o.knock);
     if (ss && ss.lifesteal && !dot && src && !src.dead) heal(G, src, dmg * ss.lifesteal);
     if (o.kind === 'melee' && tgt.stats.thorns && src && !src.dead && !o.noThorns) C.damage(G, tgt, src, dmg * tgt.stats.thorns, { kind: 'true', noThorns: true });
@@ -572,7 +572,7 @@
         } else if (src.team === 1 && G.entities.filter((e) => e.minionOf === src && !e.dead).length < 3) {
           for (let i = 0; i < 2; i++) {
             const m = AM.Ent.spawnWild(G, src.x + (i ? 1.5 : -1.5), src.z + 1, { mother: src.genome.parents[0], father: src.genome.parents[1], variant: src.genome.variant, level: Math.max(1, src.level - 2), rank: 'normal' }, { scale: 0.65, noLoot: true });
-            m.minionOf = src; m.life = p.dur; m.noLoot = true; m.ai.state = 'chase';
+            m.minionOf = src; m.life = p.dur; m.noLoot = true; m.ai.state = 'chase'; m.provoked = true;
           }
         }
         G.fx.burst(src.x, 0.8, src.z, color, 16, 3.5, 0.15, 0.6);

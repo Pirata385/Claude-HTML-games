@@ -19,7 +19,6 @@
     cactus: ['thornsnare', 'boomerang'], mushroom: ['venomspit', 'healingbloom'], ghost: ['shadowstep', 'blackhole'], golem: ['quakeslam', 'ironskin'],
     dragon: ['fireball', 'starfall'], slime: ['healingbloom', 'venomspit'], eye: ['sunbeam', 'arcanemissiles'],
   };
-  const AGGRESSIVE = new Set(['wolf', 'shark', 'scorpion', 'bat', 'dragon', 'rhino', 'eye', 'ghost', 'chest', 'golem', 'octopus', 'cactus']);
 
   let nextId = 1;
   class Entity {
@@ -43,7 +42,7 @@
       this.cd = { attack: 0, dodge: 0, power: 2 + Math.random() * 3, powers: {} };
       this.dodgeCharges = 1;
       this.ai = { state: 'idle', t: Math.random() * 2, tx: o.x, tz: o.z, homeX: o.x, homeZ: o.z };
-      this.aggressive = o.aggressive != null ? o.aggressive : true;
+      this.guard = !!o.guard; // dungeon/cave inhabitants and bosses defend their lair
       this.attackT = -1; this.attackKind = null;
       this.dead = false; this.deathT = 0; this.hitT = 0; this.iframes = 0; this.shield = 0; this.shieldT = 0;
       this.buffs = {};
@@ -161,8 +160,7 @@
     const powers = [];
     if (roll.level >= 4 || roll.rank !== 'normal') powers.push(AM.makeRng(AM.hashStr(g.key)).pick(AFFINITY[roll.mother]));
     if (roll.level >= 14 || roll.rank === 'boss') powers.push(AFFINITY[roll.father][1]);
-    const aggressive = roll.rank !== 'normal' || roll.level > 3 || AGGRESSIVE.has(roll.mother) || AGGRESSIVE.has(roll.father) ? true : Math.random() < 0.35;
-    const e = new Entity(G, Object.assign({ kind: roll.rank === 'boss' ? 'boss' : 'wild', genome: g, level: roll.level, rank: roll.rank, affix: roll.affix, x, z, powers: powers.filter(Boolean), aggressive }, extra || {}));
+    const e = new Entity(G, Object.assign({ kind: roll.rank === 'boss' ? 'boss' : 'wild', genome: g, level: roll.level, rank: roll.rank, affix: roll.affix, x, z, powers: powers.filter(Boolean), guard: roll.rank === 'boss' }, extra || {}));
     e.biome = extra && extra.biome;
     e.coward = roll.rank === 'normal' && Math.random() < 0.3;
     if (extra && extra.noLoot) e.noLoot = true;
@@ -219,7 +217,7 @@
       G.hud.toast(`${e.name} calls for help!`, 'bad');
       for (let i = 0; i < 2; i++) {
         const m = spawnWild(G, e.x + (i ? 2 : -2), e.z + 1.5, { mother: e.genome.parents[0], father: e.genome.parents[1], variant: e.genome.variant, level: Math.max(1, e.level - 2), rank: 'normal' }, { scale: 0.7, noLoot: true, biome: e.biome });
-        m.ai.state = 'chase'; m.interior = e.interior; m.minionOf = e;
+        m.ai.state = 'chase'; m.interior = e.interior; m.minionOf = e; m.guard = true;
       }
       G.fx.ringBurst(e.x, e.z, 4, '#ff5a5a', 20);
     }
@@ -278,12 +276,12 @@
         if (ai.t <= 0) { ai.t = 2 + Math.random() * 4; const a = Math.random() * 6.28, r = Math.random() * 7; ai.tx = ai.homeX + Math.cos(a) * r; ai.tz = ai.homeZ + Math.sin(a) * r; }
         const dd = AM.dist(e.x, e.z, ai.tx, ai.tz);
         if (dd > 0.6) { wantX = (ai.tx - e.x) / dd; wantZ = (ai.tz - e.z) / dd; mv = 0.35; }
-        if (target && e.aggressive && d < aggro && !p.dead) { ai.state = 'chase'; G.hud.emote(e, '!'); }
-        if (target && !e.aggressive && e.provoked) ai.state = 'chase';
+        // Only provoked creatures, lair guards and much stronger creatures come after you.
+        if (target && !p.dead && (e.provoked || (AM.wildIsHostile(e, G.state.level) && d < aggro))) { ai.state = 'chase'; G.hud.emote(e, '!'); }
         break;
       }
       case 'chase': {
-        if (!target || p.dead) { ai.state = 'return'; break; }
+        if (!target || p.dead || !AM.wildIsHostile(e, G.state.level)) { ai.state = 'return'; break; }
         const fromHome = AM.dist(e.x, e.z, ai.homeX, ai.homeZ);
         if ((fromHome > 42 || d > 30) && !e.quest && e.rank !== 'boss' && !e.interior) { ai.state = 'return'; break; }
         if (e.hp < e.maxHp * 0.18 && e.coward && !ai.fled) { ai.state = 'flee'; ai.t = 3; ai.fled = true; break; }
@@ -346,13 +344,33 @@
     else e.tele = G.fx.decal('cone', e.x, e.z, reach, '#ff4040', 0.25, { yaw: e.yaw, angle: Math.min(A.arc, 3.0) });
   }
 
+  // Provoke a creature and its pack: same camp, same boss, or the same kind of creature close by.
+  function provoke(G, e) {
+    if (!e.ai || e.dead) return;
+    const first = !e.provoked;
+    e.provoked = true;
+    if (e.ai.state === 'idle' || e.ai.state === 'return') { e.ai.state = 'chase'; if (first) G.hud.emote(e, '!'); }
+    if (!first) return;
+    for (const o of G.entities) {
+      if (o === e || o.dead || !o.ai || o.provoked || o.team !== e.team) continue;
+      const near = AM.dist(o.x, o.z, e.x, e.z);
+      const pack = (e.campId && o.campId === e.campId) || (o.minionOf && (o.minionOf === e || o.minionOf === e.minionOf)) || e.minionOf === o
+        || (near < 8 && o.genome.key === e.genome.key);
+      if (pack && near < 24) { o.provoked = true; if (o.ai.state === 'idle' || o.ai.state === 'return') { o.ai.state = 'chase'; G.hud.emote(o, '!'); } }
+    }
+  }
+
   // ---------- summons ----------
   function summonUpdate(G, e, dt) {
     e.life -= dt;
     if (e.life <= 0) { e.dead = true; e.remove = true; G.fx.burst(e.x, 0.6, e.z, '#d07bff', 10, 3); return; }
     e.cd.attack -= dt;
     let best = null, bd = 12;
-    for (const o of G.entities) { if (o.team === 0 || o.dead || o.kind === 'npc') continue; const d = AM.dist(e.x, e.z, o.x, o.z); if (d < bd) { bd = d; best = o; } }
+    for (const o of G.entities) {
+      if (o.team === 0 || o.dead || o.kind === 'npc') continue;
+      if (o.ai && o.ai.state !== 'chase' && !o.provoked) continue; // leave peaceful creatures alone
+      const d = AM.dist(e.x, e.z, o.x, o.z); if (d < bd) { bd = d; best = o; }
+    }
     const p = G.player;
     let wx = 0, wz = 0, mv = 0;
     if (best) {
@@ -406,5 +424,5 @@
     }
   }
 
-  AM.Ent = { Entity, genomeFor, moveEntity, separate, spawnWild, spawnNpc, spawnAround, aiUpdate, summonUpdate, dropPickup, updatePickups, AFFINITY };
+  AM.Ent = { Entity, genomeFor, moveEntity, separate, spawnWild, spawnNpc, spawnAround, aiUpdate, summonUpdate, dropPickup, updatePickups, provoke, AFFINITY };
 })(typeof window !== 'undefined' ? window : globalThis);

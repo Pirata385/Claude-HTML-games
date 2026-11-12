@@ -256,6 +256,7 @@
       if (n.t >= n.life) { if (n.el.style.display !== 'none') n.el.style.display = 'none'; continue; }
       n.t += dt;
       v.set(n.x, n.y + n.t * 1.4, n.z).project(cam);
+      if (v.z > 1) { n.el.style.opacity = 0; continue; } // behind the perspective camera
       const k = n.t / n.life;
       n.el.style.transform = `translate(${(v.x + 1) / 2 * W}px, ${(1 - v.y) / 2 * Hh}px) translate(-50%,-50%) scale(${k < 0.15 ? 0.6 + k * 4 : 1.2 - k * 0.3})`;
       n.el.style.opacity = k > 0.7 ? (1 - k) / 0.3 : 1;
@@ -281,6 +282,7 @@
       if (!t) { t = document.createElement('div'); t.className = 'tag'; t.innerHTML = '<div class="tn"></div><div class="tb"><i></i></div>'; H.tagsEl.appendChild(t); H.tags.push(t); }
       i++;
       v.set(e.x, (e.genome.height + 0.5) * e.scale + 0.3, e.z).project(cam);
+      if (v.z > 1 || Math.abs(v.x) > 1.2 || Math.abs(v.y) > 1.2) { t.style.display = 'none'; continue; }
       t.style.display = 'block';
       t.style.transform = `translate(${(v.x + 1) / 2 * W}px, ${(1 - v.y) / 2 * Hh}px) translate(-50%,-100%)`;
       const name = e.emote ? e.emote.text : e.kind === 'npc' ? `${e.name}` : `${e.rank === 'elite' ? '★ ' : ''}${e.affix ? e.affix.name + ' ' : ''}${e.name} · ${e.level}`;

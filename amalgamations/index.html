@@ -26,6 +26,8 @@ small { color: var(--muted); }
 /* ---------- HUD ---------- */
 #hud { position: fixed; inset: 0; pointer-events: none; display: none; font-size: calc(14px * var(--ui)); }
 #hud > * { pointer-events: auto; }
+/* only real controls take touches: the rest of the HUD lets drags reach the game (camera orbit, joystick) */
+#topleft, #topright, #tracker, #bossbar, #mapinfo { pointer-events: none !important; } #minimap { pointer-events: auto; }
 #topleft { position: absolute; left: max(10px, env(safe-area-inset-left)); top: max(10px, env(safe-area-inset-top)); width: calc(250px * var(--ui)); }
 .pcard { display: flex; gap: 8px; align-items: center; background: rgba(15,18,32,0.72); border: 1px solid var(--line); border-radius: 14px; padding: 7px 10px 7px 7px; }
 .lvl { width: calc(40px * var(--ui)); height: calc(40px * var(--ui)); border-radius: 50%; background: radial-gradient(circle at 35% 30%, #c8a8ff, #6a3ab0); display: grid; place-items: center; font-weight: 700; font-size: 1.15em; border: 2px solid rgba(255,255,255,0.4); flex: none; }
@@ -280,6 +282,7 @@ body.portrait .labtabs { top: auto; bottom: calc(46vh + 14px); }
     <button class="mbtn" data-open="skills" title="Skills (K)"><svg viewBox="0 0 24 24"><circle cx="12" cy="5" r="2"/><circle cx="5" cy="18" r="2"/><circle cx="19" cy="18" r="2"/><path d="M12 7v5M12 12l-6 5M12 12l6 5"/></svg><span class="badge" id="pts" style="display:none"></span><kbd>K</kbd></button>
     <button class="mbtn" data-open="quests" title="Quests (J)"><svg viewBox="0 0 24 24"><path d="M6 3h9l3 3v15H6z"/><path d="M9 9h6M9 13h6M9 17h4"/></svg><kbd>J</kbd></button>
     <button class="mbtn" data-open="pause" title="Menu (Esc)"><svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16"/></svg><kbd>Esc</kbd></button>
+    <button class="mbtn" data-open="camera" title="Switch camera: isometric / third person (V)"><svg viewBox="0 0 24 24"><path d="M3 8h4l2-3h6l2 3h4v11H3z"/><circle cx="12" cy="13" r="3.5"/></svg><kbd>V</kbd></button>
     <button class="mbtn" data-open="fullscreen" title="Fullscreen"><svg viewBox="0 0 24 24"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg></button>
   </div>
   <div id="bossbar"><div id="boss-name"></div><div class="bar"><i id="boss-fill"></i></div></div>

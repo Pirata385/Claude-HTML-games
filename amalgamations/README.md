@@ -1,6 +1,6 @@
 # Amalgamations
 
-An isometric 3D action RPG about fusion, played in the browser on desktop and mobile. You pick a **mother** and a **father** and play as their fusion. You explore an endless, seeded open world, fight in real time, and fuse your powers too. The game takes its core mechanics from creature-fusion games like Hybrid Animals; the name, creatures, art and interface are all its own.
+An isometric 3D action RPG about fusion, played in the browser on desktop and mobile, with an optional third-person camera. You pick a **mother** and a **father** and play as their fusion. You explore an endless, seeded open world, fight in real time, and fuse your powers too. The game takes its core mechanics from creature-fusion games like Hybrid Animals; the name, creatures, art and interface are all its own.
 
 Open `index.html` directly or through any static server. Everything runs locally: there is no build step and no network access (the UI font comes from Google Fonts and falls back to the system font offline).
 
@@ -24,7 +24,8 @@ The farther you go from spawn, the higher the **danger level** (shown under the 
 | Powers | 1–4 or Q E R T | power buttons | LB RB LT RT |
 | Interact | F | contextual button | X |
 | Potion | H | potion button | Y |
-| Camera | Z / X rotate · wheel or − = zoom | pinch to zoom | D-pad |
+| Camera | Z / X rotate · wheel or − = zoom · **V** isometric ↔ third person | pinch to zoom · camera button | D-pad |
+| Orbit (third person) | drag with the right or middle mouse button (a right click without dragging still dodges) | drag one finger on the right side | right stick |
 | Menus | I inventory · P powers · K skills · M/Tab map · J quests · Esc pause | side buttons | Start / Back |
 
 ## Systems
@@ -53,6 +54,15 @@ The farther you go from spawn, the higher the **danger level** (shown under the 
   - **Gear:** 8 weapon types float beside your creature as "bound weapons", so every body plan can wield one. There are 4 armour slots, 5 rarities, 20 affixes and 8 legendaries with unique effects.
   - **Materials and crafting:** materials come from mining, herbs and logs. You can craft potions anywhere; Blacksmiths forge gear and upgrade it from +1 to +10. Salvage turns gear back into materials, and the Merchant's stock changes daily.
 - **Progression** (`js/stats.js`, `js/data/skilltree.js`, `js/quests.js`): levels have no cap. The skill tree has 66 nodes on a radial graph with **6 roots** (Brawler, Ranger, Elementalist, Guardian, Primal, Wanderer), plus notables and keystones (Chimera Heart, Overflow, Glass Cannon…). Elders give procedural daily quests, and a 21-step goal chain doubles as the tutorial and achievements.
+
+## Cameras
+
+The game starts in the **isometric** view: a fixed-angle orthographic camera that rotates in 45° steps. Press **V**, tap the camera button, or pick it in Settings → Gameplay to switch to the **third-person** camera. It is a perspective camera behind your creature, close to the ground with the horizon in view:
+
+- **Orbit and zoom:** drag to orbit (mouse right/middle button, one finger on the right half of the screen, or the right stick) and scroll or pinch to zoom.
+- **Follow:** while you run, the camera drifts back behind you. You can turn this off in Settings, where you can also set the orbit sensitivity.
+- **Distance and aim:** the view reaches at least 3 chunks, with fog hiding the edge, and mouse aim is limited to 22 m.
+- **Gamepad:** the right stick orbits the camera, and powers use auto-aim.
 
 ## Performance and options
 

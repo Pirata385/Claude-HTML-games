@@ -23,7 +23,9 @@
       // instanced props
       this.inst = {};
       const caps = { tree: 1800, pine: 900, pineSnow: 700, deadtree: 500, cactus: 400, bush: 400, flowers: 1600, grass: 2600, reeds: 900, deadbush: 400, rock: 700, log: 250, bones: 200, iceSpike: 400, mushroomS: 700, giantShroom: 500, glowShroom: 400, crystal: 600, lavarock: 500, vent: 150, ore_iron: 120, ore_goldore: 120, ore_crystal: 120, ore_stone: 120 };
-      const k = this.radius >= 4 ? 2.2 : this.radius === 3 ? 1.5 : 1;
+      // sized for the largest radius this view may use (third person needs at least 3)
+      const capR = Math.max(this.radius, opts.capRadius || 0);
+      const k = capR >= 4 ? 2.2 : capR === 3 ? 1.5 : 1;
       for (const t of R.PROP_TYPES) {
         const geo = R.propGeo(t);
         const mats = this.structMats;
@@ -330,8 +332,13 @@
       this._c1 = new THREE.Color(); this._c2 = new THREE.Color();
       this.darkness = 0;
     }
-    // time: 0 sunrise, 0.25 noon, 0.5 sunset, 0.75 midnight. fogHex: biome fog colour.
-    update(time, x, z, fogHex, camDist, playerGlow) {
+    setShadowArea(half) {
+      const cam = this.sun.shadow.camera;
+      cam.left = -half; cam.right = half; cam.top = half; cam.bottom = -half;
+      cam.updateProjectionMatrix();
+    }
+    // time: 0 sunrise, 0.25 noon, 0.5 sunset, 0.75 midnight. fogHex: biome fog colour; fog distances from the camera.
+    update(time, x, z, fogHex, fogNear, fogFar, playerGlow) {
       const sunUp = Math.sin(time * Math.PI * 2);
       const day = AM.clamp(sunUp * 2.2 + 0.35, 0, 1);
       this.darkness = 1 - day;
@@ -350,7 +357,7 @@
       fog.lerp(this._c2, (1 - day) * 0.65);
       this.scene.fog.color.copy(fog);
       this.scene.background.copy(fog);
-      this.scene.fog.near = camDist + 18; this.scene.fog.far = camDist + 70;
+      this.scene.fog.near = fogNear; this.scene.fog.far = fogFar;
       this.night.position.set(x, 3, z);
       this.night.intensity = playerGlow ? (1 - day) * 2.2 : (1 - day) * 0.6;
       return day;

@@ -8,17 +8,20 @@
     KeyW: 'up', ArrowUp: 'up', KeyS: 'down', ArrowDown: 'down', KeyA: 'left', ArrowLeft: 'left', KeyD: 'right', ArrowRight: 'right',
     Space: 'dodge', ShiftLeft: 'dodge', ShiftRight: 'dodge', KeyF: 'interact', KeyH: 'potion', KeyJ: 'quests', KeyI: 'inventory', KeyB: 'inventory',
     KeyP: 'powers', KeyK: 'skills', KeyM: 'map', Tab: 'map', Escape: 'pause', KeyZ: 'camL', KeyX: 'camR', Minus: 'zoomOut', Equal: 'zoomIn', NumpadSubtract: 'zoomOut', NumpadAdd: 'zoomIn',
-    Digit1: 'p0', Digit2: 'p1', Digit3: 'p2', Digit4: 'p3', KeyQ: 'p0', KeyE: 'p1', KeyR: 'p2', KeyT: 'p3', KeyL: 'attackKey',
+    Digit1: 'p0', Digit2: 'p1', Digit3: 'p2', Digit4: 'p3', KeyQ: 'p0', KeyE: 'p1', KeyR: 'p2', KeyT: 'p3', KeyL: 'attackKey', KeyV: 'camView',
   };
 
   const I = {
     move: { x: 0, y: 0 }, mouse: { x: 0, y: 0, inside: false }, hasMouse: false, device: 'kb',
     attack: false, pressed: new Set(), keys: new Set(), zoomDelta: 0,
     stick: null, aimDrag: null, padAim: null, touchUsed: false, enabled: true,
+    camDX: 0, camDY: 0, look: null, drag: null,
     onAction: null,
   };
 
   function press(a) { if (I.enabled) { I.pressed.add(a); if (I.onAction) I.onAction(a); } }
+  // Third-person camera: dragging (right/middle mouse, one finger on the right side, right stick) orbits it.
+  const thirdPerson = () => !!(AM.settings && AM.settings.camera === 'third-person');
 
   function init(canvas, touchRoot) {
     I.canvas = canvas;
@@ -32,14 +35,25 @@
     });
     root.addEventListener('keyup', (e) => { I.keys.delete(e.code); });
     root.addEventListener('blur', () => { I.keys.clear(); I.attack = false; });
-    canvas.addEventListener('mousemove', (e) => { I.mouse.x = e.clientX; I.mouse.y = e.clientY; I.mouse.inside = true; I.hasMouse = true; if (I.device !== 'kb') I.device = 'kb'; });
+    canvas.addEventListener('mousemove', (e) => {
+      if (I.drag) { const dx = e.clientX - I.drag.x, dy = e.clientY - I.drag.y; I.camDX += dx; I.camDY += dy; I.drag.moved += Math.abs(dx) + Math.abs(dy); I.drag.x = e.clientX; I.drag.y = e.clientY; }
+      I.mouse.x = e.clientX; I.mouse.y = e.clientY; I.mouse.inside = true; I.hasMouse = true; if (I.device !== 'kb') I.device = 'kb';
+    });
     canvas.addEventListener('mouseleave', () => { I.mouse.inside = false; });
     canvas.addEventListener('mousedown', (e) => {
       I.hasMouse = true; I.device = 'kb';
       if (e.button === 0) I.attack = true;
+      else if (thirdPerson() && (e.button === 2 || e.button === 1)) { I.drag = { x: e.clientX, y: e.clientY, moved: 0, button: e.button }; e.preventDefault(); }
       else if (e.button === 2) press('dodge');
     });
-    root.addEventListener('mouseup', (e) => { if (e.button === 0) I.attack = false; });
+    root.addEventListener('mouseup', (e) => {
+      if (e.button === 0) I.attack = false;
+      if (I.drag && e.button === I.drag.button) {
+        // in third person a right click without dragging is still a dodge
+        if (I.drag.button === 2 && I.drag.moved < 6) press('dodge');
+        I.drag = null;
+      }
+    });
     canvas.addEventListener('contextmenu', (e) => e.preventDefault());
     canvas.addEventListener('wheel', (e) => { I.zoomDelta += e.deltaY > 0 ? -1 : 1; e.preventDefault(); }, { passive: false });
 
@@ -56,6 +70,7 @@
           showStick(true);
         } else if (!onJoySide) {
           pinch.ids.push(t.identifier);
+          if (thirdPerson() && !I.look) I.look = { id: t.identifier, x: t.clientX, y: t.clientY };
         }
       }
       if (pinch.ids.length >= 2) { pinch.active = true; const ts = touchesById(e, pinch.ids); if (ts.length >= 2) pinch.d = Math.hypot(ts[0].clientX - ts[1].clientX, ts[0].clientY - ts[1].clientY); }
@@ -64,6 +79,7 @@
       e.preventDefault();
       for (const t of e.changedTouches) {
         if (I.stick && t.identifier === I.stick.id) { I.stick.x = t.clientX; I.stick.y = t.clientY; showStick(true); }
+        if (I.look && t.identifier === I.look.id && pinch.ids.length < 2) { I.camDX += (t.clientX - I.look.x) * 1.3; I.camDY += (t.clientY - I.look.y) * 1.3; I.look.x = t.clientX; I.look.y = t.clientY; }
       }
       if (pinch.active) {
         const ts = touchesById(e, pinch.ids);
@@ -78,6 +94,7 @@
         if (I.stick && t.identifier === I.stick.id) { I.stick = null; showStick(false); }
         const k = pinch.ids.indexOf(t.identifier);
         if (k >= 0) pinch.ids.splice(k, 1);
+        if (I.look && t.identifier === I.look.id) I.look = null;
       }
       if (pinch.ids.length < 2) pinch.active = false;
     };
@@ -157,7 +174,8 @@
     const map = { 1: 'dodge', 2: 'interact', 3: 'potion', 4: 'p0', 5: 'p1', 6: 'p2', 7: 'p3', 9: 'pause', 8: 'map', 14: 'camL', 15: 'camR', 12: 'zoomIn', 13: 'zoomOut' };
     for (const k in map) { const b = btn(+k); if (b && !prevPad[k]) press(map[k]); prevPad[k] = b; }
     I.padAttack = btn(0);
-    I.padAim = rx || ry ? { x: rx, y: ry } : null;
+    if (thirdPerson()) { I.padAim = null; I.camDX += rx * 9; I.camDY += ry * 6; }
+    else I.padAim = rx || ry ? { x: rx, y: ry } : null;
     return { x: lx, y: -ly };
   }
 
@@ -180,8 +198,8 @@
     I.move.x = x; I.move.y = y;
     I.attackHeld = I.attack || I.padAttack || I.keys.has('KeyL');
   }
-  function endFrame() { I.pressed.clear(); I.zoomDelta = 0; I.castAim = null; }
-  function reset() { I.keys.clear(); I.attack = false; I.stick = null; I.aimDrag = null; I.pressed.clear(); showStick(false); }
+  function endFrame() { I.pressed.clear(); I.zoomDelta = 0; I.castAim = null; I.camDX = 0; I.camDY = 0; }
+  function reset() { I.keys.clear(); I.attack = false; I.stick = null; I.aimDrag = null; I.look = null; I.drag = null; I.pressed.clear(); showStick(false); }
 
   Object.assign(I, { init, update, endFrame, reset, KEYMAP });
   AM.Input = I;

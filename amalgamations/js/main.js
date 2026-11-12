@@ -10,6 +10,7 @@
     preset: 'auto', renderScale: 1, dynRes: true, shadows: 'low', viewDist: 2, particles: 'medium', antialias: true, fpsCap: 60, showFps: false,
     maxCreatures: 22, volMaster: 0.8, volMusic: 0.5, volSfx: 0.8, shake: true, damageNumbers: true, autoAim: true, autoLoot: true, uiScale: 1,
     leftHanded: false, touchControls: 'auto', btnOpacity: 0.85, btnSize: 1, camRotate: true, dprCap: 1.5,
+    camera: 'isometric', camFollow: true, camSens: 1,
   };
   const PRESETS = {
     low: { renderScale: 0.65, shadows: 'off', viewDist: 2, particles: 'low', antialias: false, maxCreatures: 14, dprCap: 1 },
@@ -51,9 +52,14 @@
     renderer.shadowMap.enabled = G.settings.shadows !== 'off';
     renderer.shadowMap.type = G.settings.shadows === 'high' ? THREE.PCFSoftShadowMap : THREE.PCFShadowMap;
     G.scene = new THREE.Scene();
-    G.camera = new THREE.OrthographicCamera(-10, 10, 10, -10, 0.5, 200);
+    // Two cameras: the isometric one (orthographic) and an optional third-person follow camera.
+    G.isoCamera = new THREE.OrthographicCamera(-10, 10, 10, -10, 0.5, 200);
+    G.tpCamera = new THREE.PerspectiveCamera(55, 1, 0.1, 220);
+    G.camera = G.isoCamera;
+    G.tp = { pitch: 0.42, zoom: 1, lastManual: -10, ty: 1 };
     G.sky = new R.Sky(G.scene, G.settings.shadows !== 'off', G.settings.shadows === 'high' ? 2048 : 1024);
     G.fx = new R.FX(G.scene, { particles: PARTICLES[G.settings.particles] || 500 });
+    G.realTime = 0;
     G.audio = AM.Audio;
     G.hud = AM.HUD; G.hud.init(G);
     G.input = AM.Input; G.input.init(canvas, document.getElementById('touch'));
@@ -89,20 +95,47 @@
     G.renderer.setSize(w, h, false);
     G.aspect = w / h;
     updateCameraFrustum();
+    G.tpCamera.aspect = G.aspect; G.tpCamera.fov = G.aspect < 1 ? 70 : 55; G.tpCamera.updateProjectionMatrix();
     if (G.preview) { G.preview.camera.aspect = w / h; G.preview.camera.updateProjectionMatrix(); }
     document.body.classList.toggle('portrait', h > w);
   }
   function updateCameraFrustum() {
     const base = G.aspect < 1 ? 6.0 / Math.max(0.55, G.aspect) * 0.62 : 6.2;
     const hh = base / G.camZoom;
-    const cam = G.camera;
+    const cam = G.isoCamera;
     cam.left = -hh * G.aspect; cam.right = hh * G.aspect; cam.top = hh; cam.bottom = -hh;
     cam.updateProjectionMatrix();
   }
   G.setRenderScale = function (s) { G.renderScale = AM.clamp(s, 0.4, 1); resize(); };
 
+  // ---------- camera mode ----------
+  G.isThird = () => G.settings.camera === 'third-person';
+  G.viewRadius = () => (G.isThird() ? Math.max(3, G.settings.viewDist) : G.settings.viewDist);
+  G.setCameraMode = function (mode) {
+    const was = G.camera;
+    G.settings.camera = mode === 'third-person' ? 'third-person' : 'isometric';
+    const third = G.isThird();
+    G.camera = third ? G.tpCamera : G.isoCamera;
+    if (third) {
+      // start behind the player, looking where they look
+      if (was !== G.camera && G.player) G.camYaw = G.player.yaw + Math.PI;
+      G.camYawTarget = G.camYaw;
+    } else {
+      const step = Math.PI / 4;
+      G.camYawTarget = Math.round(G.camYaw / step) * step;
+    }
+    if (G.view) G.view.setRadius(G.viewRadius());
+    if (G.sky && G.settings.shadows !== 'off') G.sky.setShadowArea(third ? 30 : 22);
+  };
+  G.toggleCamera = function () {
+    G.setCameraMode(G.isThird() ? 'isometric' : 'third-person');
+    AM.saveSettings(G.settings);
+    if (G.hud && G.player) G.hud.toast(G.isThird() ? 'Third-person camera (V to switch back)' : 'Isometric camera (V to switch)', 'info');
+  };
+
   G.applySettings = function () {
     const s = G.settings;
+    G.setCameraMode(s.camera);
     AM.saveSettings(s);
     G.audio.setVolumes(s);
     G.setRenderScale(s.dynRes ? Math.min(G.renderScale, s.renderScale) : s.renderScale);
@@ -174,7 +207,7 @@
     G.prog = AM.makeProg(G);
     const removed = new Set();
     for (const id in state.mined) removed.add(id);
-    G.view = new R.WorldView(G.scene, G.world, { radius: G.settings.viewDist, shadows: G.settings.shadows !== 'off', removed });
+    G.view = new R.WorldView(G.scene, G.world, { radius: G.viewRadius(), capRadius: 3, shadows: G.settings.shadows !== 'off', removed });
     G.view.onStructure = onStructure;
     G.view.onChunk = (c, loaded) => { if (!loaded) onChunkUnload(c); };
     G.level = G.view;
@@ -188,6 +221,7 @@
     if (state.energy != null) G.player.energy = state.energy;
     G.player.dodgeCharges = G.player.stats.dodgeCharges;
     G.makeWeapon();
+    if (G.isThird()) { G.camYaw = G.player.yaw + Math.PI; G.camYawTarget = G.camYaw; }
     G.view.loadAllNow(G.player.x, G.player.z);
     G.camTarget = { x: G.player.x, z: G.player.z };
     G.hud.show(true);
@@ -501,10 +535,16 @@
     else if (a === 'skills') G.ui.open('skills');
     else if (a === 'map') G.ui.open('map');
     else if (a === 'quests') G.ui.open('quests');
-    else if (a === 'camL' && G.settings.camRotate) G.camYawTarget -= Math.PI / 4;
-    else if (a === 'camR' && G.settings.camRotate) G.camYawTarget += Math.PI / 4;
-    else if (a === 'zoomIn') { G.camZoom = AM.clamp(G.camZoom * 1.12, 0.6, 1.7); updateCameraFrustum(); }
-    else if (a === 'zoomOut') { G.camZoom = AM.clamp(G.camZoom / 1.12, 0.6, 1.7); updateCameraFrustum(); }
+    else if (a === 'camView') G.toggleCamera();
+    else if (a === 'camL' && G.settings.camRotate && !G.isThird()) G.camYawTarget -= Math.PI / 4;
+    else if (a === 'camR' && G.settings.camRotate && !G.isThird()) G.camYawTarget += Math.PI / 4;
+    else if (a === 'zoomIn') zoomBy(1);
+    else if (a === 'zoomOut') zoomBy(-1);
+  }
+
+  function zoomBy(dir) {
+    if (G.isThird()) G.tp.zoom = AM.clamp(G.tp.zoom * (dir > 0 ? 1 / 1.12 : 1.12), 0.5, 1.9);
+    else { G.camZoom = AM.clamp(G.camZoom * (dir > 0 ? 1.12 : 1 / 1.12), 0.6, 1.7); updateCameraFrustum(); }
   }
 
   // ---------- aiming ----------
@@ -517,7 +557,16 @@
     if (I.device === 'kb' && I.hasMouse) {
       G.v2.set((I.mouse.x / root.innerWidth) * 2 - 1, -(I.mouse.y / root.innerHeight) * 2 + 1);
       G.raycaster.setFromCamera(G.v2, G.camera);
-      if (G.raycaster.ray.intersectPlane(G.plane, G.v3)) return { x: G.v3.x, z: G.v3.z, manual: true };
+      const hit = G.raycaster.ray.intersectPlane(G.plane, G.v3);
+      if (!G.isThird()) { if (hit) return { x: G.v3.x, z: G.v3.z, manual: true }; }
+      else {
+        // in perspective the cursor can point at the horizon or the sky: keep the aim within reach
+        let dx, dz;
+        if (hit) { dx = G.v3.x - p.x; dz = G.v3.z - p.z; }
+        else { const d = G.raycaster.ray.direction; dx = d.x; dz = d.z; }
+        const len = Math.hypot(dx, dz) || 1, r = hit ? Math.min(len, 22) : 12;
+        return { x: p.x + dx / len * r, z: p.z + dz / len * r, manual: true };
+      }
     }
     if (I.padAim) { const [wx, wz] = screenToWorldDir(I.padAim.x, -I.padAim.y); return { x: p.x + wx * 6, z: p.z + wz * 6, manual: true }; }
     return autoAim(8);
@@ -723,7 +772,38 @@
       G.weaponMesh.visible = !p.dead;
     }
   }
+  // Third-person follow camera: orbits with drags/keys/right stick, zooms, and drifts behind you while you run.
+  function updateThirdPerson(dt) {
+    const p = G.player, I = G.input, T = G.tp, s = G.settings;
+    const sens = s.camSens || 1;
+    let manual = false;
+    if (I.camDX || I.camDY) { G.camYaw -= I.camDX * 0.0055 * sens; T.pitch = AM.clamp(T.pitch + I.camDY * 0.004 * sens, 0.05, 1.2); manual = true; }
+    if (!G.paused) {
+      if (I.keys.has('KeyZ')) { G.camYaw += dt * 2.2 * sens; manual = true; }
+      if (I.keys.has('KeyX')) { G.camYaw -= dt * 2.2 * sens; manual = true; }
+    }
+    if (manual) T.lastManual = G.realTime;
+    if (s.camFollow && !manual && !G.paused && !p.dead && G.realTime - T.lastManual > 1.2 && (p.move || 0) > 0.3 && I.move.y > -0.3) {
+      G.camYaw = AM.approachAngle(G.camYaw, p.yaw + Math.PI, dt * 1.6 * Math.min(1, p.move));
+    }
+    G.camYawTarget = G.camYaw;
+    if (I.zoomDelta) zoomBy(I.zoomDelta);
+    const k = Math.min(1, dt * 10);
+    G.camTarget.x += (p.x - G.camTarget.x) * k; G.camTarget.z += (p.z - G.camTarget.z) * k;
+    const h = p.genome.height * p.scale;
+    T.ty += (h * 0.7 + 0.45 - T.ty) * Math.min(1, dt * 4);
+    const D = AM.clamp(3.4 + h * 2.4, 4.6, 11) * T.zoom;
+    let sx = 0, sy = 0;
+    if (G.shakeT > 0 && s.shake) { G.shakeT -= dt; sx = (Math.random() - 0.5) * G.shakeT * 0.8; sy = (Math.random() - 0.5) * G.shakeT * 0.8; }
+    const tx = G.camTarget.x + sx, tz = G.camTarget.z, ty = T.ty + sy;
+    const cy = Math.max(0.7, ty + Math.sin(T.pitch) * D);
+    const cam = G.tpCamera;
+    cam.position.set(tx + Math.sin(G.camYaw) * Math.cos(T.pitch) * D, G.mode === 'interior' ? Math.max(cy, 2.1) : cy, tz + Math.cos(G.camYaw) * Math.cos(T.pitch) * D);
+    // look a little ahead of the creature so the horizon stays in view
+    cam.lookAt(tx - Math.sin(G.camYaw) * 1.6, ty + 0.35, tz - Math.cos(G.camYaw) * 1.6);
+  }
   function updateCamera(dt) {
+    if (G.isThird()) { updateThirdPerson(dt); return; }
     const p = G.player;
     G.camYaw += (G.camYawTarget - G.camYaw) * Math.min(1, dt * 8);
     const k = Math.min(1, dt * 7);
@@ -734,7 +814,7 @@
     const tx = G.camTarget.x + sx, tz = G.camTarget.z + sy;
     G.camera.position.set(tx + Math.sin(G.camYaw) * Math.cos(pitch) * D, Math.sin(pitch) * D + 0.8, tz + Math.cos(G.camYaw) * Math.cos(pitch) * D);
     G.camera.lookAt(tx, 0.8, tz);
-    if (G.input.zoomDelta) { G.camZoom = AM.clamp(G.camZoom * (G.input.zoomDelta > 0 ? 1.1 : 1 / 1.1), 0.6, 1.7); updateCameraFrustum(); }
+    if (G.input.zoomDelta) zoomBy(G.input.zoomDelta);
   }
   G.shake = function (v) { G.shakeT = Math.max(G.shakeT, v); };
 
@@ -743,14 +823,17 @@
       const T = AM.INTERIOR_THEMES[G.interior.kind];
       G.sky.hemi.intensity = 0.55; G.sky.hemi.color.set(0x8a8aa8); G.sky.sun.intensity = 0.55;
       G.sky.sun.position.set(G.player.x + 6, 30, G.player.z + 10); G.sky.sun.target.position.set(G.player.x, 0, G.player.z);
-      G.scene.fog.color.set(T.fog); G.scene.background.set(T.fog); G.scene.fog.near = 52; G.scene.fog.far = 90;
+      G.scene.fog.color.set(T.fog); G.scene.background.set(T.fog);
+      if (G.isThird()) { G.scene.fog.near = 9; G.scene.fog.far = 30; } else { G.scene.fog.near = 52; G.scene.fog.far = 90; }
       G.sky.night.position.set(G.player.x, 3, G.player.z); G.sky.night.intensity = 2.6; G.sky.night.distance = 16;
       return;
     }
     const p = G.player;
     const fog = AM.BIOMES[G.view.biomeAt(p.x, p.z)].fog;
     G.sky.night.distance = 14;
-    G.sky.update(G.state.time, p.x, p.z, fog, 48, p.stats.light > 0);
+    // fog hides the edge of the loaded chunks: far in isometric view, closer in third person
+    if (G.isThird()) G.sky.update(G.state.time, p.x, p.z, fog, 24, 70, p.stats.light > 0);
+    else G.sky.update(G.state.time, p.x, p.z, fog, 66, 118, p.stats.light > 0);
   }
 
   // ---------- frame ----------
@@ -759,6 +842,7 @@
     const cap = G.settings.fpsCap;
     if (cap && cap < 200 && now - (G.lastRender || 0) < 1000 / cap - 2) return;
     let dt = Math.min(0.066, (now - G.last) / 1000);
+    G.realTime += dt;
     G.last = now; G.lastRender = now;
     G.input.update();
     if ((G.mode === 'play' || G.mode === 'interior') && G.player) {
@@ -783,7 +867,10 @@
         R.animateCreature(P.rig, { move: P.walk ? 0.6 : 0 }, dt);
       }
       P.island.rotation.y = P.rig ? P.rig.holder.rotation.y : 0;
-      if (G.mode === 'title') { G.showcaseT -= dt; if (G.showcaseT <= 0) G.showcase(); }
+      // The title screen cycles random fusions, but never while the player is choosing their own
+      // (Fusion Lab) or picking a path: those screens share this preview scene.
+      const choosing = G.ui.stack.some((s) => s.name === 'lab' || s.name === 'path');
+      if (G.mode === 'title' && !choosing) { G.showcaseT -= dt; if (G.showcaseT <= 0) G.showcase(); }
       G.renderer.render(P.scene, P.camera);
     }
     G.input.endFrame();

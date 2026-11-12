@@ -15,7 +15,7 @@
     U.el.addEventListener('change', onInput);
     document.getElementById('hud').addEventListener('click', (e) => {
       const b = e.target.closest('[data-open]');
-      if (b) { G.audio.sfx('ui'); if (b.dataset.open === 'fullscreen') G.toggleFullscreen(); else U.open(b.dataset.open); }
+      if (b) { G.audio.sfx('ui'); if (b.dataset.open === 'fullscreen') G.toggleFullscreen(); else if (b.dataset.open === 'camera') G.toggleCamera(); else U.open(b.dataset.open); }
     });
   };
   U.top = () => (U.stack.length ? U.stack[U.stack.length - 1].name : null);
@@ -740,6 +740,9 @@
     ],
     audio: [['volMaster', 'Master volume', 'range', [0, 1, 0.05]], ['volMusic', 'Music', 'range', [0, 1, 0.05]], ['volSfx', 'Effects', 'range', [0, 1, 0.05]]],
     gameplay: [
+      ['camera', 'Camera (V to switch)', 'select', ['isometric', 'third-person']],
+      ['camFollow', 'Third person: camera follows behind you', 'check'],
+      ['camSens', 'Third person: camera sensitivity', 'range', [0.4, 2, 0.1]],
       ['autoAim', 'Auto-aim on touch and gamepad', 'check'], ['autoLoot', 'Auto-loot (pickups fly to you from farther)', 'check'],
       ['damageNumbers', 'Damage numbers', 'check'], ['shake', 'Screen shake', 'check'], ['camRotate', 'Allow camera rotation (Z/X)', 'check'],
       ['uiScale', 'Interface size', 'range', [0.75, 1.4, 0.05]], ['touchControls', 'Touch controls', 'select', ['auto', 'on', 'off']],
@@ -755,9 +758,10 @@
         body = `<div class="controls"><div><h3>Keyboard & mouse</h3><ul>
           <li><b>WASD / arrows</b> move</li><li><b>Left click / L</b> attack (hold to keep attacking)</li><li><b>Mouse</b> aim</li>
           <li><b>Space / Shift / right click</b> dodge roll</li><li><b>1–4 or Q E R T</b> powers</li><li><b>F</b> interact · <b>H</b> potion</li>
-          <li><b>Z / X</b> rotate camera · <b>wheel / − =</b> zoom</li><li><b>I</b> inventory · <b>P</b> powers · <b>K</b> skills · <b>M / Tab</b> map · <b>J</b> quests · <b>Esc</b> pause</li></ul></div>
-          <div><h3>Touch</h3><ul><li>Left side: floating joystick</li><li>Big button: attack (hold)</li><li>Power buttons: tap to auto-aim, or drag to aim and release</li><li>Pinch to zoom</li></ul>
-          <h3>Gamepad</h3><ul><li>Left stick move · right stick aim</li><li>A attack · B dodge · X interact · Y potion</li><li>LB RB LT RT powers · Start pause · Back map · D-pad camera/zoom</li></ul></div></div>`;
+          <li><b>Z / X</b> rotate camera · <b>wheel / − =</b> zoom · <b>V</b> isometric / third person</li>
+          <li>Third person: <b>drag with the right or middle mouse button</b> to orbit (a right click without dragging still dodges)</li><li><b>I</b> inventory · <b>P</b> powers · <b>K</b> skills · <b>M / Tab</b> map · <b>J</b> quests · <b>Esc</b> pause</li></ul></div>
+          <div><h3>Touch</h3><ul><li>Left side: floating joystick</li><li>Big button: attack (hold)</li><li>Power buttons: tap to auto-aim, or drag to aim and release</li><li>Pinch to zoom</li><li>Third person: drag one finger on the right side to orbit the camera</li></ul>
+          <h3>Gamepad</h3><ul><li>Left stick move · right stick aim</li><li>A attack · B dodge · X interact · Y potion</li><li>LB RB LT RT powers · Start pause · Back map · D-pad camera/zoom</li><li>Third person: the right stick orbits the camera (powers use auto-aim)</li></ul></div></div>`;
       } else if (st.tab === 'saves') {
         body = G.state ? `<p>Your game saves automatically every minute, when you level up, enter or leave places, and when you leave the tab.</p>
           <div class="btns"><button class="pri" data-do="savenow">Save now</button><button data-do="export">Export save code</button></div>` : '<p>Load or start a game to manage its save. Saves can also be exported from the Load screen.</p>';
@@ -829,6 +833,7 @@
         <h3>Fight</h3><p>Attack, dodge-roll through attacks (you are untouchable while rolling) and cast up to four powers. Red markings on the ground show where enemies are about to strike.</p>
         <h3>Fuse powers</h3><p>At a Lab Keeper, fuse two powers: the first decides how it travels, the second what happens when it lands. Their elements combine too (fire + frost = Steam).</p></div>
         <div><h3>Grow</h3><p>Levels give skill points for the six-branch tree. Gear drops with random bonuses; Blacksmiths forge and upgrade it.</p>
+        <h3>Camera</h3><p>Press <b>V</b> (or the camera button) to switch between the isometric view and a third-person camera behind your creature. In third person, drag to orbit and scroll or pinch to zoom.</p>
         <h3>Explore</h3><p>The world never ends. The farther from Hearthmoor, the higher the danger level and the better the loot. Villages have waypoints, caves have ore and treasure, dungeons have bosses.</p>
         <h3>Tips</h3><ul><li>Night makes creatures one level stronger.</li><li>Elites (★) and bosses drop the most DNA.</li><li>Hover creatures can fly over deep water.</li><li>Use Settings → Graphics if the game runs slowly.</li></ul></div></div></div>`;
     },

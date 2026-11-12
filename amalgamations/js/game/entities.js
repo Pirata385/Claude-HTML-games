@@ -210,10 +210,48 @@
   }
 
   // ---------- wild AI ----------
+  // Bosses change phase at 66% (call minions) and 33% health (enrage and telegraphed ground slams).
+  function bossPhases(G, e, dt) {
+    const k = e.hp / e.maxHp;
+    e.phase = e.phase || 1;
+    if (e.phase === 1 && k < 0.66) {
+      e.phase = 2;
+      G.hud.toast(`${e.name} calls for help!`, 'bad');
+      for (let i = 0; i < 2; i++) {
+        const m = spawnWild(G, e.x + (i ? 2 : -2), e.z + 1.5, { mother: e.genome.parents[0], father: e.genome.parents[1], variant: e.genome.variant, level: Math.max(1, e.level - 2), rank: 'normal' }, { scale: 0.7, noLoot: true, biome: e.biome });
+        m.ai.state = 'chase'; m.interior = e.interior; m.minionOf = e;
+      }
+      G.fx.ringBurst(e.x, e.z, 4, '#ff5a5a', 20);
+    }
+    if (e.phase === 2 && k < 0.33) {
+      e.phase = 3;
+      G.hud.toast(`${e.name} is enraged!`, 'bad');
+      e.addBuff('enrage', { atk: 0.3, haste: 0.25 }, 9999);
+      e.slamT = 2;
+      G.shake(0.3);
+    }
+    if (e.phase === 3 && e.ai.state === 'chase' && e.attackT < 0) {
+      e.slamT -= dt;
+      if (e.slamT <= 0) {
+        e.slamT = 6;
+        const x = e.x, z = e.z, r = 5.5;
+        const d = G.fx.decal('circle', x, z, r, '#ff2a2a', 0.3);
+        G.hud.emote(e, 'Ground Slam!');
+        AM.Combat.after(G, 1.0, () => {
+          d.remove();
+          if (e.dead) return;
+          G.fx.ringBurst(x, z, r, '#ff7a4a', 26); G.fx.pulse(x, z, r, '#ff7a4a', 0.5); G.shake(0.35); G.audio.sfx('boom');
+          AM.Combat.aoe(G, e, x, z, r, e.stats.atk * 1.6, [{ type: 'knock', power: 5 }], { kind: 'power', knock: 5, fromX: x, fromZ: z });
+        });
+      }
+    }
+  }
+
   function aiUpdate(G, e, dt) {
     const p = G.player, ai = e.ai;
     const s = e.status;
     e.cd.attack -= dt; e.cd.power -= dt;
+    if (e.rank === 'boss' && !e.dead) bossPhases(G, e, dt);
     if (!e.canAct()) { e.move = 0; return; }
     const target = pickTarget(G, e);
     const tx = target ? target.x : p.x, tz = target ? target.z : p.z;

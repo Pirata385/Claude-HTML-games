@@ -195,7 +195,7 @@
     loadStructure(s, chunkKey) {
       if (this.structMeshes.has(s.id)) return;
       const geo = R.structureGeo(this.world, s);
-      const mesh = new THREE.Mesh(geo, this.structMats);
+      const mesh = geo ? new THREE.Mesh(geo, this.structMats) : new THREE.Group();
       mesh.position.set(s.x, 0, s.z);
       mesh.castShadow = this.shadows; mesh.receiveShadow = this.shadows;
       mesh.updateMatrix(); mesh.matrixAutoUpdate = false;
@@ -338,15 +338,16 @@
       const ang = time * Math.PI * 2;
       this.sun.position.set(x + Math.cos(ang) * 30, 20 + Math.max(0, sunUp) * 30, z + 18);
       this.sun.target.position.set(x, 0, z);
-      this.sun.intensity = 0.25 + 1.5 * day;
+      this.sun.intensity = 0.5 + 1.25 * day;
       this._c1.set(0xffffff); this._c2.set(0xffb070);
       this.sun.color.copy(this._c1).lerp(this._c2, AM.clamp(1 - Math.abs(sunUp) * 3, 0, 1) * 0.6);
-      this.hemi.intensity = 0.45 + 0.65 * day;
-      this._c1.set(0xdff3ff); this._c2.set(0x5a6aa8);
+      if (day < 0.5) { this._c2.set(0x9ab0ff); this.sun.color.lerp(this._c2, 1 - day * 2); }
+      this.hemi.intensity = 0.75 + 0.35 * day;
+      this._c1.set(0xdff3ff); this._c2.set(0x8a9ad8);
       this.hemi.color.copy(this._c2).lerp(this._c1, day);
       const fog = this._c1.set(fogHex);
       this._c2.set(0x1a2040);
-      fog.lerp(this._c2, (1 - day) * 0.82);
+      fog.lerp(this._c2, (1 - day) * 0.65);
       this.scene.fog.color.copy(fog);
       this.scene.background.copy(fog);
       this.scene.fog.near = camDist + 18; this.scene.fog.far = camDist + 70;

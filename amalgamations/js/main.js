@@ -568,14 +568,14 @@
       const shallow = G.level.waterAt(p.x, p.z) === 1 && !p.flying ? 0.72 : 1;
       if (len > 0.05) {
         const sp = S.speed * p.speedMul() * shallow * Math.min(1, len);
-        E.moveEntity(G, p, wx / len * sp * dt * Math.min(1, len), wz / len * sp * dt * Math.min(1, len));
+        E.moveEntity(G, p, wx / len * sp * dt, wz / len * sp * dt);
         if ((p.faceT || 0) <= 0) p.yaw = AM.approachAngle(p.yaw, Math.atan2(wx, wz), dt * 12);
         mv = Math.min(1, len) * p.speedMul();
         st.stats.distance += sp * dt;
         if (G.gather && AM.dist(p.x, p.z, G.gather.x, G.gather.z) > 0.6) G.gather = null;
       }
       if (p.faceT > 0) { p.faceT -= dt; p.yaw = AM.approachAngle(p.yaw, Math.atan2(aim.x - p.x, aim.z - p.z), dt * 14); }
-      if (I.attackHeld && !(G.focus && G.focus.type === 'npc' && I.device === 'touch' && false)) {
+      if (I.attackHeld) {
         C.playerAttack(G, aim.x, aim.z);
         p.faceT = 0.35;
         G.gather = null;
@@ -758,7 +758,7 @@
     requestAnimationFrame(frame);
     const cap = G.settings.fpsCap;
     if (cap && cap < 200 && now - (G.lastRender || 0) < 1000 / cap - 2) return;
-    let dt = Math.min(0.05, (now - G.last) / 1000);
+    let dt = Math.min(0.066, (now - G.last) / 1000);
     G.last = now; G.lastRender = now;
     G.input.update();
     if ((G.mode === 'play' || G.mode === 'interior') && G.player) {

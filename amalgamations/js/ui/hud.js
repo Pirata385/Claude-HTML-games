@@ -102,25 +102,30 @@
   }
 
   // ---------- per-frame ----------
+  // Cached element lookups and writes: only touch the DOM when a value changes.
+  const elCache = {}, valCache = {};
+  const el = (id) => elCache[id] || (elCache[id] = document.getElementById(id));
+  const setW = (id, pct) => { const v = Math.round(pct * 10) / 10; if (valCache[id] !== v) { valCache[id] = v; el(id).style.width = v + '%'; } };
+  const setT = (id, t) => { if (valCache['t' + id] !== t) { valCache['t' + id] = t; el(id).textContent = t; } };
   H.update = function (G, dt) {
     const p = G.player, st = G.state;
     if (!p) return;
-    // bars
-    $('#hp-fill').style.width = (100 * p.hp / p.maxHp) + '%';
-    $('#hp-text').textContent = `${AM.fmt(Math.max(0, p.hp))} / ${AM.fmt(p.maxHp)}`;
-    $('#sh-fill').style.width = (p.shield > 0 ? Math.min(100, 100 * p.shield / p.maxHp) : 0) + '%';
-    $('#en-fill').style.width = (100 * p.energy / p.stats.maxEnergy) + '%';
-    $('#xp-fill').style.width = (100 * st.xp / AM.xpToNext(st.level)) + '%';
-    $('#lvl').textContent = st.level;
-    $('#pname').textContent = st.formName;
-    $('#gold').textContent = AM.fmt(st.gold);
-    $('#potions').textContent = st.inv.cons.potion || 0;
-    const pts = $('#pts'); pts.textContent = st.points > 0 ? st.points : ''; pts.style.display = st.points > 0 ? '' : 'none';
+    setW('hp-fill', 100 * Math.max(0, p.hp) / p.maxHp);
+    setT('hp-text', `${AM.fmt(Math.max(0, p.hp))} / ${AM.fmt(p.maxHp)}`);
+    setW('sh-fill', p.shield > 0 ? Math.min(100, 100 * p.shield / p.maxHp) : 0);
+    setW('en-fill', 100 * p.energy / p.stats.maxEnergy);
+    setW('xp-fill', 100 * st.xp / AM.xpToNext(st.level));
+    setT('lvl', String(st.level));
+    setT('pname', st.formName);
+    setT('gold', AM.fmt(st.gold));
+    setT('potions', String(st.inv.cons.potion || 0));
+    const pts = el('pts'); setT('pts', st.points > 0 ? String(st.points) : '');
+    const ptsShow = st.points > 0 ? '' : 'none'; if (pts.style.display !== ptsShow) pts.style.display = ptsShow;
     // statuses
     const sts = Object.keys(p.status).filter((k) => p.status[k] && p.status[k].t > 0);
     const buffs = Object.keys(p.buffs);
     const stKey = sts.join(',') + '|' + buffs.join(',');
-    if (stKey !== H.stKey) { H.stKey = stKey; $('#statuses').innerHTML = sts.map((s) => `<span class="st bad">${s}</span>`).join('') + buffs.map((b) => `<span class="st good">${b.replace(/_fx|mini/, '')}</span>`).join(''); }
+    if (stKey !== H.stKey) { H.stKey = stKey; el('statuses').innerHTML = sts.map((s) => `<span class="st bad">${s}</span>`).join('') + buffs.map((b) => `<span class="st good">${b.replace(/_fx|mini/, '')}</span>`).join(''); }
     updatePowers(G);
     // info
     H.infoT = (H.infoT || 0) - dt;
@@ -129,34 +134,36 @@
       const L = G.level;
       const bi = AM.BIOMES[L.biomeAt(p.x, p.z)];
       const danger = G.mode === 'interior' ? G.interior.s.level : G.world.dangerAt(p.x, p.z);
-      const dEl = $('#danger');
-      dEl.textContent = 'Danger ' + danger;
+      const dEl = el('danger');
+      setT('danger', 'Danger ' + danger);
       dEl.className = danger > st.level + 4 ? 'red' : danger > st.level + 1 ? 'orange' : 'green';
-      $('#biome').textContent = G.mode === 'interior' ? G.interior.s.name : bi.name;
+      el('biome').textContent = G.mode === 'interior' ? G.interior.s.name : bi.name;
       const hours = Math.floor(((G.state.time * 24) + 6) % 24), mins = Math.floor((((G.state.time * 24) + 6) % 1) * 60);
-      $('#clock').textContent = `${String(hours).padStart(2, '0')}:${String(mins).padStart(2, '0')} ${G.isNight ? '☾' : '☀'}  ·  ${Math.round(p.x)}, ${Math.round(p.z)}`;
+      el('clock').textContent = `${String(hours).padStart(2, '0')}:${String(mins).padStart(2, '0')} ${G.isNight ? '☾' : '☀'}  ·  ${Math.round(p.x)}, ${Math.round(p.z)}`;
       H.questTracker(G);
     }
     H.minimap(G, dt);
     // interaction prompt
     const it = G.focus;
-    const ib = $('#interact-btn'), ip = $('#prompt');
+    const ib = el('interact-btn'), ip = el('prompt');
+    const show = (e, v) => { if (e.style.display !== v) e.style.display = v; };
     if (it) {
       const label = G.interactLabel(it);
-      ib.textContent = label; ib.style.display = '';
-      ip.innerHTML = `<b>F</b> ${label}`; ip.style.display = document.body.classList.contains('touch') ? 'none' : '';
-      if (G.gather) { ip.innerHTML = `${label}… ${Math.round(G.gather.t / G.gather.need * 100)}%`; }
-    } else { ib.style.display = 'none'; ip.style.display = 'none'; }
+      setT('interact-btn', label); show(ib, '');
+      const html = G.gather ? `${label}… ${Math.round(G.gather.t / G.gather.need * 100)}%` : `<b>F</b> ${label}`;
+      if (valCache.prompt !== html) { valCache.prompt = html; ip.innerHTML = html; }
+      show(ip, document.body.classList.contains('touch') ? 'none' : '');
+    } else { show(ib, 'none'); show(ip, 'none'); }
     // boss bar
     const boss = G.entities.find((e) => e.rank === 'boss' && !e.dead && AM.dist(e.x, e.z, p.x, p.z) < 22);
-    const bb = $('#bossbar');
-    if (boss) { bb.style.display = ''; $('#boss-name').textContent = `${boss.name} · Lv ${boss.level}`; $('#boss-fill').style.width = (100 * boss.hp / boss.maxHp) + '%'; }
-    else bb.style.display = 'none';
+    const bb = el('bossbar');
+    if (boss) { show(bb, ''); setT('boss-name', `${boss.name} · Lv ${boss.level}`); setW('boss-fill', 100 * boss.hp / boss.maxHp); }
+    else show(bb, 'none');
     H.updateNumbers(G, dt);
     H.updateTags(G, dt);
     // fps
     H.fps.t += dt; H.fps.n++;
-    if (H.fps.t >= 0.5) { H.fps.v = Math.round(H.fps.n / H.fps.t); H.fps.t = 0; H.fps.n = 0; const f = $('#fps'); f.style.display = G.settings.showFps ? '' : 'none'; if (G.settings.showFps) f.textContent = `${H.fps.v} fps · ${G.renderer.info.render.calls} calls · ${Math.round(G.renderScale * 100)}%`; }
+    if (H.fps.t >= 0.5) { H.fps.v = Math.round(H.fps.n / H.fps.t); H.fps.t = 0; H.fps.n = 0; const f = el('fps'); f.style.display = G.settings.showFps ? '' : 'none'; if (G.settings.showFps) f.textContent = `${H.fps.v} fps · ${G.renderer.info.render.calls} calls · ${Math.round(G.renderScale * 100)}%`; }
   };
 
   H.questTracker = function (G) {

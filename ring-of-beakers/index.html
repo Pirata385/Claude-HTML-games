@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="theme-color" content="#23314a">
+<title>Ring of Beakers</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #23314a; overflow: hidden; overscroll-behavior: none; }
+  canvas { display: block; position: fixed; inset: 0; width: 100%; height: 100%; touch-action: none; outline: none;
+    user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; -webkit-tap-highlight-color: transparent; }
+  noscript { color: #f6ead2; font: 16px sans-serif; display: block; padding: 24px; }
+</style>
+</head>
+<body>
+<canvas id="game" tabindex="0" aria-label="Ring of Beakers"></canvas>
+<noscript>Ring of Beakers needs JavaScript.</noscript>
+<!-- Plain scripts in dependency order, so the game also runs straight from the file system. -->
+<script src="js/core.js"></script>
+<script src="js/genome.js"></script>
+<script src="js/species.js"></script>
+<script src="js/phenotype.js"></script>
+<script src="js/pose.js"></script>
+<script src="js/physics.js"></script>
+<script src="js/creature.js"></script>
+<script src="js/fight.js"></script>
+<script src="js/items.js"></script>
+<script src="js/world.js"></script>
+<script src="js/npc.js"></script>
+<script src="js/economy.js"></script>
+<script src="js/lab.js"></script>
+<script src="js/state.js"></script>
+<script src="js/birdart.js"></script>
+<script src="js/props.js"></script>
+<script src="js/input.js"></script>
+<script src="js/ui.js"></script>
+<script src="js/audio.js"></script>
+<script src="js/save.js"></script>
+<script src="js/common.js"></script>
+<script src="js/scenes/title.js"></script>
+<script src="js/scenes/coop.js"></script>
+<script src="js/scenes/ring.js"></script>
+<script src="js/scenes/map.js"></script>
+<script src="js/scenes/sites.js"></script>
+<script src="js/scenes/lab.js"></script>
+<script src="js/scenes/codex.js"></script>
+<script src="js/main.js"></script>
+</body>
+</html>

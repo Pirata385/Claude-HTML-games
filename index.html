@@ -172,6 +172,14 @@ footer { text-align: center; color: var(--muted); font-weight: 500; font-size: 0
       palette: ['#1b2236', '#5fae4a', '#b48aff', '#ffd166', '#ff8ac8'],
       scene: 'amalgam',
     },
+    {
+      path: 'sinuca-do-alem/index.html',
+      title: 'Sinuca do Além',
+      desc: 'A 2.5D pool roguelike set in a haunted Brazilian bar, drawn in a hand-inked, semi-realistic style: each table has a points target and a handful of shots, and combos, bank shots and streaks multiply the score. Between tables you buy amulets, special balls (bomb, ghost, magnet, amoeba…) and one-shot chalks, then pick a door to ever stranger tables with bumpers, portals, a black hole, wind or a blackout, and six bosses. Three acts, an endless mode, seeded and daily runs, two control schemes, saves and settings. In Portuguese; mouse, keyboard and touch, portrait or landscape.',
+      tags: ['pool', 'roguelike', '2.5D', 'physics', 'mobile'],
+      palette: ['#140d0a', '#2f8a57', '#f0c02c', '#d8382e', '#8a5a2e'],
+      scene: 'sinuca',
+    },
   ];
   // App registry: entries for the "Apps" tab (tools rather than games; each in its own root folder).
   const APPS = [
@@ -527,6 +535,20 @@ footer { text-align: center; color: var(--muted); font-weight: 500; font-size: 0
       ctx.fillStyle = P[2]; ctx.fillRect(44, 25, 7, 5); ctx.fillRect(49, 22, 4, 4); ctx.fillStyle = '#f4a3b0'; ctx.fillRect(47, 21, 2, 2); ctx.fillRect(52, 24, 2, 1); ctx.fillRect(38, 27, 6, 1); ctx.fillRect(43, 30, 2, 1); ctx.fillRect(49, 30, 2, 1);
       ctx.fillStyle = '#111'; ctx.fillRect(51, 23, 1, 1);
       ctx.fillStyle = P[4]; ctx.fillRect(50, 15, 3, 3); ctx.fillStyle = '#fff'; ctx.fillRect(49, 14, 1, 1); ctx.fillRect(53, 14, 1, 1); ctx.fillRect(51, 13, 1, 1);
+    } else if (g.scene === 'sinuca') {
+      ctx.fillStyle = P[0]; ctx.fillRect(0, 0, W, H);
+      for (let y = 0; y < H; y += 8) for (let x = (y / 8) % 2 ? 0 : 8; x < W; x += 16) { ctx.fillStyle = '#2a1c16'; ctx.fillRect(x, y, 8, 8); }
+      ctx.fillStyle = '#4e2f16'; ctx.fillRect(13, 6, 70, 31);
+      ctx.fillStyle = P[4]; ctx.fillRect(13, 5, 70, 29);
+      ctx.fillStyle = P[1]; ctx.fillRect(17, 8, 62, 23);
+      ctx.fillStyle = '#3fa56a'; ctx.fillRect(30, 12, 36, 14);
+      ctx.fillStyle = '#000';
+      for (const q of [[15, 6], [47, 6], [79, 6], [15, 30], [47, 30], [79, 30]]) ctx.fillRect(q[0], q[1], 3, 3);
+      const balls = [[60, 19, P[2]], [63, 17, P[3]], [63, 21, '#2f62c9'], [66, 15, '#7443b3'], [66, 19, '#111'], [66, 23, '#ee7b22'], [44, 12, '#e56a9c'], [52, 26, P[3]]];
+      for (const q of balls) { ctx.fillStyle = q[2]; ctx.fillRect(q[0], q[1], 3, 3); ctx.fillStyle = '#fff'; ctx.fillRect(q[0], q[1], 1, 1); }
+      ctx.fillStyle = '#f4eede'; ctx.fillRect(34, 19, 3, 3);
+      for (let i = 0; i < 16; i++) { ctx.fillStyle = i < 2 ? '#4a8fd0' : i < 11 ? '#e6c88a' : '#5b3a1e'; ctx.fillRect(31 - i, 20 + Math.round(i * 0.45), 1, 1); }
+      ctx.fillStyle = P[2]; ctx.fillRect(40, 20, 1, 1); ctx.fillRect(44, 20, 1, 1); ctx.fillRect(48, 20, 1, 1); ctx.fillRect(52, 20, 1, 1); ctx.fillRect(56, 20, 1, 1);
     } else {
       ctx.fillStyle = '#5ea8c9'; ctx.fillRect(0, 0, W, H);
       ctx.fillStyle = '#f7e3a1'; ctx.fillRect(74, 5, 6, 6);

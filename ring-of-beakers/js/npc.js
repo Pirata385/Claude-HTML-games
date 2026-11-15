@@ -1,0 +1,128 @@
+// npc.js — the people: shopkeepers, villagers who want a bird, breeders, collectors, rival
+// trainers and the sheriff. People carry the same genome as everything else, so a netted person
+// is just another creature in the cage. No DOM.
+(function () {
+  'use strict';
+  const RB = globalThis.RB;
+  const { Rng, clamp01, hashStr } = RB.core;
+
+  const FIRST_M = ['Ze', 'Tonho', 'Juca', 'Chico', 'Tiao', 'Zeca', 'Nando', 'Raimundo', 'Gil', 'Bento', 'Quito', 'Dito', 'Valdo', 'Nico'];
+  const FIRST_F = ['Bia', 'Neide', 'Lurdes', 'Dirce', 'Marlene', 'Jurema', 'Ivete', 'Odila', 'Rosa', 'Nair', 'Cleide', 'Socorro', 'Zilda', 'Dalva'];
+  const SHIRTS = ['#2a9d8f', '#e76f51', '#e9b44c', '#6d4c7d', '#7fb069', '#3d6fa5', '#b5523b', '#d98cab', '#f2efe6'];
+  const PANTS = ['#23314a', '#4a3b32', '#5a6472', '#2f4a3a', '#6b4a2e'];
+  const darker = (hex) => '#' + [1, 3, 5].map((i) => Math.round(parseInt(hex.slice(i, i + 2), 16) * 0.8).toString(16).padStart(2, '0')).join('');
+  // Fixed people at the sites: [site, name, sex, hat]
+  const KEEPERS = [['feed', 'Dona Cida', 'F', null], ['tools', 'Seu Juca', 'M', 'cowboy'], ['garage', 'Biu', 'M', 'bandana'], ['hatter', 'Madame Odete', 'F', 'tophat'], ['vet', 'Dr. Ivo', 'M', null],
+    ['bank', 'Big Wattle', 'M', 'tophat'], ['lab', 'Prof. Bequer', 'F', null], ['market', 'Zarolho', 'M', 'bandana'], ['carnival', 'Mestre Pipoca', 'M', 'party'],
+    ['backyard', 'Old Bira', 'M', 'cowboy'], ['county', 'Dona Zefa', 'F', null], ['city', 'Dr. Quill', 'M', 'tophat'], ['cellar', 'The Butcher', 'M', 'bandana'], ['grand', 'Madame Plume', 'F', 'crown']];
+  const HOUSE_ROLES = ['villager', 'breeder', 'trainer', 'villager', 'collector', 'trainer', 'breeder', 'villager', 'villager', 'collector', 'trainer', 'breeder'];
+
+  function personGenome(r, sex) {
+    const t = Object.assign({}, RB.species.SPECIES.human.t, { size: r.range(2.05, 2.5), bodyDepth: r.range(0.8, 1.25), bodyLen: r.range(0.88, 1.02), hue: r.range(0.04, 0.09), sat: r.range(0.3, 0.6),
+      lit: r.range(0.3, 0.8), litHead: r.range(-0.3, 0.25), hueHead: r.range(-0.03, 0.06), crest: sex === 'F' ? r.range(0.5, 1) : r.range(0, 0.8), muscle: r.range(0.8, 1.25), courage: r.range(0.15, 0.7), aggression: r.range(0.2, 0.7) });
+    return RB.genome.fromTargets(t, ['arms', 'bare', 'knee'], r, { sex, variation: 0.3, carrier: 0 });
+  }
+  function clothes(r, hat) { const shirt = r.pick(SHIRTS), pants = r.pick(PANTS); return { shirt, shirtDark: darker(shirt), pants, pantsDark: darker(pants), hat: hat || null }; }
+
+  // All the people of a world. Called by world.generate with the world's own rng.
+  function populate(world, r) {
+    const list = [];
+    const add = (id, name, role, site, sex, hat) => {
+      const npc = { id, name, role, site, sex, g: personGenome(r, sex), clothes: clothes(r, hat), wealth: +r.range(0.7, 1.6).toFixed(2), seed: r.int(1, 2e9) };
+      list.push(npc); return npc;
+    };
+    for (const k of KEEPERS) add('k_' + k[0], k[1], 'keeper', k[0], k[2], k[3]);
+    const usedM = FIRST_M.slice(), usedF = FIRST_F.slice();
+    r.shuffle(usedM); r.shuffle(usedF);
+    HOUSE_ROLES.forEach((role, i) => {
+      const sex = r.chance(0.5) ? 'M' : 'F', name = (sex === 'M' ? usedM : usedF).pop() || 'Neighbour';
+      const npc = add('h_' + i, name, role, 'house' + i, sex, r.chance(0.3) ? r.pick(['cowboy', 'bandana']) : null);
+      if (role === 'collector') npc.wealth = +(npc.wealth * 1.6).toFixed(2);
+    });
+    const sh = add('sheriff', 'Sheriff Tavares', 'sheriff', 'bank', 'M', 'star');
+    sh.clothes.shirt = '#8a7a52'; sh.clothes.shirtDark = '#6e6142';
+    return list;
+  }
+
+  // ---- wishes: what a buyer is after, and how well a creature fits (0..1)
+  const WISHES = [
+    { id: 'tall', text: 'something tall', score: (P) => clamp01((P.LLv + P.NL + P.TL * 0.5 - 60) / 140) },
+    { id: 'tiny', text: 'something tiny', score: (P) => clamp01((1.0 - P.S) / 0.55) },
+    { id: 'legs', text: 'long legs', score: (P) => clamp01((P.t.legLen - 1) / 1.3) },
+    { id: 'neck', text: 'a long neck', score: (P) => clamp01((P.t.neckLen - 1) / 1.2) },
+    { id: 'beak', text: 'a big beak', score: (P) => clamp01((P.t.beakLen * P.t.beakDepth - 1) / 2) },
+    { id: 'bright', text: 'bright colours', score: (P) => clamp01((P.t.sat - 0.45) / 0.45) },
+    { id: 'white', text: 'a white bird', score: (P) => clamp01((P.t.lit - 0.6) / 0.3) * clamp01(1.3 - P.t.sat * 1.5) },
+    { id: 'black', text: 'a black bird', score: (P) => clamp01((0.35 - P.t.lit) / 0.22) },
+    { id: 'tail', text: 'a showy tail', score: (P) => clamp01(P.t.tailLen * (0.4 + P.t.tailFan) / 2.2) },
+    { id: 'crest', text: 'a fancy crest', score: (P) => clamp01((P.crest - 0.3) / 0.6) },
+    { id: 'fast', text: 'a fast runner', score: (P) => P.rate.speed / 100 },
+    { id: 'tough', text: 'a tough one', score: (P) => P.rate.tough / 100 },
+    { id: 'mean', text: 'a mean fighter', score: (P, c) => clamp01(P.rate.fury / 100 * 0.6 + c.wins * 0.15) },
+    { id: 'champ', text: 'a proven winner', score: (P, c) => clamp01(c.wins / 4) },
+    { id: 'odd', text: 'something strange', score: (P) => clamp01(P.odd.length / 2 + (P.species.pure ? 0 : 0.4)) },
+    { id: 'chick', text: 'a chick to raise', score: (P) => (P.stage === 'chick' ? 1 : P.stage === 'young' ? 0.5 : 0) },
+    { id: 'layer', text: 'a good laying hen', score: (P) => (P.sex === 'F' ? clamp01((P.t.fertility - 0.6) / 0.5) : 0) },
+  ];
+  const WISH_SPECIES = ['duck', 'goose', 'turkey', 'peafowl', 'pheasant', 'quail', 'swan', 'parrot', 'toucan', 'owl', 'falcon', 'flamingo', 'penguin', 'heron', 'ostrich'];
+  const info = (S, id) => (S.npc[id] = S.npc[id] || { rel: 0, gone: false, n: 0, sold: {}, fought: 0, met: false });
+  const period = (S) => Math.floor((S.day - 1) / 3);
+
+  function wishOf(S, npc) {
+    const st = info(S, npc.id);
+    const r = new Rng((npc.seed ^ Math.imul(period(S) + 1, 7919) ^ Math.imul(st.n + 1, 104729)) >>> 0);
+    if (npc.role === 'collector') return WISHES.find((w) => w.id === 'odd');
+    if (r.chance(0.3)) {
+      const id = r.pick(WISH_SPECIES), s = RB.species.SPECIES[id], name = RB.species.nameOf(s, 'F').toLowerCase();
+      return { id: 'sp:' + id, text: (/^[aeiou]/.test(name) ? 'an ' : 'a ') + name, score: (P) => (P.species.id === id ? (P.species.pure ? 1 : 0.6) : 0) };
+    }
+    return r.pick(WISHES);
+  }
+  // What this person pays for a creature today.
+  function offer(S, npc, c) {
+    if (c.person) return 0;
+    const P = RB.state.pheno(c), st = info(S, npc.id), m = wishOf(S, npc).score(P, c);
+    const k = npc.role === 'collector' ? 0.5 + 2.6 * m : 0.85 + 1.9 * m;
+    return Math.max(3, Math.round(RB.economy.value(c) * k * npc.wealth * (1 + st.rel / 250)));
+  }
+  const fitText = (m) => (m > 0.8 ? 'Exactly what I wanted!' : m > 0.45 ? 'That would do nicely.' : m > 0.15 ? 'Not quite what I had in mind.' : 'Not what I am after, but I will take it off your hands.');
+
+  // A breeder's birds for sale this period: [{ key, g, price, name }]
+  function stockOf(S, world, npc) {
+    const st = info(S, npc.id), site = world.site[npc.site], out = [];
+    const biome = RB.world.biomeAt(world, site.x, site.y), fauna = RB.world.FAUNA[biome === 'water' ? 'farm' : biome].day;
+    for (let i = 0; i < 2; i++) {
+      const key = period(S) + ':' + i;
+      if (st.sold[key]) continue;
+      const r = new Rng((npc.seed ^ Math.imul(period(S) + 3, 15485863) ^ i) >>> 0);
+      const id = r.weighted(fauna, (e) => e[1])[0];
+      const g = RB.species.make(id, r, { sport: 0.25 });
+      const c = { g, age: 3, train: { muscle: 0, lungs: 0, reflex: 0, courage: 0 }, cond: 1, wins: 0, hp: 1, _P: null };
+      out.push({ key, g, name: r.pick(RB.state.BIRD_NAMES), price: Math.round(RB.economy.value(c) * 1.7 * (1 - st.rel / 400)), P: RB.state.pheno(c) });
+    }
+    return out;
+  }
+  // A rival trainer's challenge for today, or null if already fought.
+  function challengeOf(S, npc) {
+    const st = info(S, npc.id);
+    if (st.fought === S.day) return null;
+    let tier = 0;
+    for (const a of RB.economy.ARENAS) if (RB.economy.arenaOpen(S, a)) tier = a.tier;
+    const arena = RB.economy.ARENAS[tier], r = new Rng((npc.seed ^ Math.imul(S.day, 6151)) >>> 0);
+    const wc = r.pick(arena.classes), stake = Math.round(30 * (1 + tier) * (1 + tier) * npc.wealth / 5) * 5;
+    const opp = RB.economy.makeOpponent((npc.seed + S.day * 31) >>> 0, wc, tier, arena.id === 'cellar');
+    opp.trainer = npc.name;
+    return { key: 'duel:' + npc.id + ':' + S.day, wc, mode: 'pit', open: arena.id === 'cellar', fee: stake, purse: stake * 2, tier, duel: npc.id, opp };
+  }
+
+  const GREET = { villager: ['Morning! I am looking for {w}.', 'You catch birds, right? I want {w}.', 'If you ever find {w}, think of me.'],
+    breeder: ['Fresh from my own yard. Have a look.', 'Good stock, fair prices.'], collector: ['I collect the strange and the old. Show me {w}.', 'Bones, relics, oddities. What have you dug up?'],
+    trainer: ['My bird would flatten yours. Care to prove me wrong?', 'Put your money where your beak is.'] };
+  function greeting(S, npc) {
+    const r = new Rng((npc.seed ^ S.day) >>> 0), list = GREET[npc.role] || ['Hello.'];
+    return r.pick(list).replace('{w}', wishOf(S, npc).text);
+  }
+  const SCREAMS = ['Hey! HEY!', 'Not the net!', 'I have a family!', 'This is a kidnapping!', 'Put me down!', 'My back!'];
+
+  RB.npc = { populate, personGenome, clothes, WISHES, info, wishOf, offer, fitText, stockOf, challengeOf, greeting, SCREAMS, period, hashStr };
+})();

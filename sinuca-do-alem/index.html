@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#140d0a">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>Sinuca do Além</title>
+<link rel="preload" href="fonts/lilita-one.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="fonts/patrick-hand.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<canvas id="cv" aria-label="Mesa de sinuca"></canvas>
+
+<!-- Interface da mesa -->
+<div id="hud" class="hidden">
+  <div id="topbar" class="lousa">
+    <button id="btn-pause" class="ico" aria-label="Pausa">☰</button>
+    <div id="meta">
+      <div id="score-line"><b id="score">0</b><span class="sep">/</span><span id="target">0</span></div>
+      <div id="bar"><i id="bar-fill"></i></div>
+    </div>
+    <div id="shots" aria-label="Tacadas restantes"></div>
+    <div id="coins" class="chip">🪙 <b id="coin-n">0</b></div>
+    <div id="tname"></div>
+  </div>
+  <div id="status"></div>
+  <div id="tally" class="hidden"><span id="t-chips">0</span><i>×</i><span id="t-mult">1</span><em id="t-total"></em></div>
+  <div id="relics" aria-label="Amuletos"></div>
+  <div id="side">
+    <div id="chalks" aria-label="Gizes"></div>
+    <div id="tools">
+      <button id="btn-spin" class="tool" aria-label="Efeito na branca"><span id="spin-dot"></span></button>
+      <button id="btn-fast" class="tool" aria-label="Acelerar">⏩</button>
+      <button id="btn-bag" class="tool" aria-label="Saco de bolas">🎱</button>
+      <button id="btn-fs" class="tool" aria-label="Tela cheia">⛶</button>
+    </div>
+  </div>
+  <div id="power" class="hidden" aria-label="Força"><div id="power-track"><i id="power-fill"></i><b id="power-knob"></b></div><span>FORÇA</span></div>
+  <div id="hint"></div>
+</div>
+
+<div id="banner" class="hidden"><h2></h2><p></p></div>
+<div id="toast" class="hidden"></div>
+<div id="spinpad" class="hidden"><div id="spin-ball"><i id="spin-mark"></i></div><p>Efeito: para cima a branca segue, para baixo ela volta; para os lados muda o rebote na tabela.</p></div>
+<div id="pop" class="hidden"></div>
+
+<!-- Telas -->
+<div id="screens">
+  <section id="s-menu" class="screen hidden">
+    <div class="logo"><span class="l1">SINUCA</span><span class="l2">do</span><span class="l3">ALÉM</span></div>
+    <p class="tag">roguelike de boteco · tacada por tacada até a conta fechar</p>
+    <div class="menu-btns">
+      <button id="m-continue" class="btn big gold hidden">Continuar a noite</button>
+      <button id="m-new" class="btn big">Nova noite</button>
+      <button id="m-almanac" class="btn">Almanaque</button>
+      <button id="m-how" class="btn">Como jogar</button>
+      <button id="m-settings" class="btn">Configurações</button>
+      <button id="m-fs" class="btn">Tela cheia</button>
+    </div>
+    <p id="m-stats" class="small"></p>
+    <a class="back" href="../index.html">← coleção de jogos</a>
+  </section>
+
+  <section id="s-new" class="screen hidden">
+    <div class="panel lousa wide">
+      <h2>Escolha seu taco</h2>
+      <div id="cue-list" class="cards"></div>
+      <div class="row wrap">
+        <div class="field"><label>Dificuldade</label><div id="diff-list" class="seg"></div></div>
+        <div class="field"><label for="seed-in">Semente (opcional)</label><div class="row" style="margin:0"><input id="seed-in" type="text" maxlength="24" placeholder="aleatória" autocomplete="off"><button id="seed-day" class="btn" type="button">📅 Do dia</button></div></div>
+      </div>
+      <div class="row end"><button class="btn ghost" data-close="menu">Voltar</button><button id="new-go" class="btn big gold">Abrir a noite</button></div>
+    </div>
+  </section>
+
+  <section id="s-cleared" class="screen hidden">
+    <div class="panel comanda">
+      <h2 id="cl-title">Mesa vencida!</h2>
+      <p id="cl-sub" class="small"></p>
+      <div id="cl-lines"></div>
+      <div id="cl-total"></div>
+      <div id="cl-extra" class="small"></div>
+      <div class="row end" id="cl-btns"></div>
+    </div>
+  </section>
+
+  <section id="s-shop" class="screen hidden">
+    <div class="panel lousa wide tall">
+      <div class="shop-head"><h2>O Balcão</h2><div class="chip big">🪙 <b id="shop-coins">0</b></div></div>
+      <p class="small" id="shop-sub">Gaste as moedas da noite. O que sobrar vai com você.</p>
+      <div id="shop-items" class="cards"></div>
+      <h3>Seus amuletos <span class="small" id="shop-rel-n"></span></h3>
+      <div id="shop-relics" class="inv"></div>
+      <h3>Seus gizes</h3>
+      <div id="shop-chalks" class="inv"></div>
+      <div class="row end wrap sticky">
+        <button class="btn ghost" data-exit>Sair</button>
+        <button id="shop-bag" class="btn">🎱 Saco de bolas</button>
+        <button id="shop-reroll" class="btn">🔄 Trocar</button>
+        <button id="shop-next" class="btn big gold">Próxima mesa →</button>
+      </div>
+    </div>
+  </section>
+
+  <section id="s-doors" class="screen hidden">
+    <div class="panel lousa wide">
+      <h2 id="doors-title">Qual mesa?</h2>
+      <p class="small" id="doors-sub"></p>
+      <div id="door-list" class="cards doors"></div>
+      <div class="row"><button class="btn ghost" data-exit>Salvar e sair</button></div>
+    </div>
+  </section>
+
+  <section id="s-over" class="screen hidden">
+    <div class="panel comanda">
+      <h2 id="ov-title"></h2>
+      <p id="ov-sub"></p>
+      <div id="ov-stats"></div>
+      <div class="row end wrap"><button id="ov-menu" class="btn ghost">Menu</button><button id="ov-copy" class="btn">Copiar resultado</button><button id="ov-again" class="btn big gold">Outra noite</button></div>
+    </div>
+  </section>
+
+  <section id="s-pause" class="screen hidden">
+    <div class="panel lousa narrow">
+      <h2>Pausa</h2>
+      <p class="small" id="pause-info"></p>
+      <div class="menu-btns">
+        <button class="btn big gold" data-close="back">Voltar à mesa</button>
+        <button id="p-how" class="btn">Como jogar</button>
+        <button id="p-settings" class="btn">Configurações</button>
+        <button id="p-menu" class="btn">Salvar e sair para o menu</button>
+        <button id="p-quit" class="btn danger">Desistir da noite</button>
+      </div>
+    </div>
+  </section>
+
+  <section id="s-settings" class="screen hidden">
+    <div class="panel lousa narrow">
+      <h2>Configurações</h2>
+      <div class="set"><label>Volume geral</label><input id="set-master" type="range" min="0" max="1" step="0.05"></div>
+      <div class="set"><label>Música</label><input id="set-music" type="range" min="0" max="1" step="0.05"></div>
+      <div class="set"><label>Efeitos</label><input id="set-sfx" type="range" min="0" max="1" step="0.05"></div>
+      <div class="set"><label>Controle</label><div id="set-control" class="seg"><button data-v="sling">Estilingue</button><button data-v="classic">Mira + força</button></div></div>
+      <div class="set"><label>Gráficos</label><div id="set-quality" class="seg"><button data-v="auto">Auto</button><button data-v="low">Leve</button><button data-v="med">Médio</button><button data-v="high">Alto</button></div></div>
+      <div class="set"><label>Guia de mira</label><button id="set-guide" class="tog"></button></div>
+      <div class="set"><label>Tremor de tela</label><button id="set-shake" class="tog"></button></div>
+      <div class="set"><label>Vibração</label><button id="set-vibrate" class="tog"></button></div>
+      <div class="set"><label>Modo canhoto</label><button id="set-lefty" class="tog"></button></div>
+      <div class="row wrap"><button id="set-fs" class="btn">Tela cheia</button><button id="set-reset" class="btn danger">Apagar progresso</button></div>
+      <div class="row end"><button class="btn big gold" data-close="back">Pronto</button></div>
+    </div>
+  </section>
+
+  <section id="s-how" class="screen hidden">
+    <div class="panel comanda">
+      <h2>Como jogar</h2>
+      <ol class="how">
+        <li><b>Mire e bata.</b> No modo estilingue, toque em qualquer lugar, arraste para trás e solte. Quanto mais longe, mais forte. No modo mira + força, arraste para girar o taco e puxe a barra de força.</li>
+        <li><b>Feche a conta.</b> Cada mesa tem uma meta de pontos e poucas tacadas. Bateu a meta, a mesa está vencida; acabaram as tacadas, a noite acabou.</li>
+        <li><b>Pontos × multiplicador.</b> Cada bola vale pontos. Combos, tabelas, carambolas e sequências aumentam o multiplicador.</li>
+        <li><b>Monte sua noite.</b> No balcão, compre amuletos (efeitos permanentes), bolas especiais para o seu saco e gizes de uso único.</li>
+        <li><b>Escolha a porta.</b> Mesas mais esquisitas pagam prêmios melhores. A terceira mesa de cada ato é de um chefe.</li>
+      </ol>
+      <p class="small">Teclado: ← → miram (Shift = fino) · Espaço carrega e solta a tacada · 1–3 usam giz · Tab acelera · F tela cheia · Esc pausa.</p>
+      <div class="row end"><button class="btn big gold" data-close="back">Entendi</button></div>
+    </div>
+  </section>
+
+  <section id="s-almanac" class="screen hidden">
+    <div class="panel lousa wide tall">
+      <h2>Almanaque</h2>
+      <div id="alm-tabs" class="seg"><button data-v="r">Amuletos</button><button data-v="b">Bolas</button><button data-v="c">Gizes</button><button data-v="m">Mesas</button></div>
+      <div id="alm-list" class="cards"></div>
+      <div class="row end sticky"><button class="btn big gold" data-close="back">Fechar</button></div>
+    </div>
+  </section>
+
+  <section id="s-bag" class="screen hidden">
+    <div class="panel lousa wide">
+      <h2>Saco de bolas <span class="small" id="bag-n"></span></h2>
+      <p class="small" id="bag-sub"></p>
+      <div id="bag-list"></div>
+      <div id="bag-actions" class="row wrap"></div>
+      <div class="row end"><button class="btn big gold" data-close="back">Fechar</button></div>
+    </div>
+  </section>
+</div>
+
+<script src="js/util.js"></script>
+<script src="js/data.js"></script>
+<script src="js/audio.js"></script>
+<script src="js/physics.js"></script>
+<script src="js/render.js"></script>
+<script src="js/game.js"></script>
+<script src="js/ui.js"></script>
+<script src="js/main.js"></script>
+</body>
+</html>

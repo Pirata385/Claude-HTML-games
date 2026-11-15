@@ -117,7 +117,7 @@
     $('power').classList.toggle('hidden', G.settings.control !== 'classic');
     $('btn-fast').classList.toggle('on', G.fast);
     const hint = $('hint');
-    if (run.stats.shots < 2 && G.state === 'aim') { hint.textContent = G.settings.control === 'sling' ? 'Toque, arraste para trás e solte' : 'Arraste para mirar · puxe a barra de força e solte'; hint.style.opacity = 0.9; } else hint.style.opacity = 0;
+    if (run.stats.shots < 2 && G.state === 'aim') { hint.textContent = G.settings.control === 'sling' ? 'Toque em qualquer lugar, arraste para trás e solte' : 'Arraste para mirar · puxe a barra de força e solte'; hint.style.opacity = 0.9; } else hint.style.opacity = 0;
     UI.spinDot();
   };
   UI.spinDot = function () {

@@ -34,7 +34,7 @@ Há seis tacos para começar a noite (três liberados ao vencer atos), três dif
 
 | Modo | Mira | Força |
 | --- | --- | --- |
-| Estilingue (padrão) | Toque ou clique em qualquer lugar e arraste para trás | Distância do arrasto; solte para bater |
+| Estilingue (padrão) | Toque ou clique em qualquer lugar e arraste para trás | Distância do arrasto; solte para bater. No toque, se a borda da tela estiver perto, a força máxima chega antes dela |
 | Mira + força | Toque: arraste para girar o taco. Mouse: o taco segue o cursor | Toque: puxe a barra lateral e solte. Mouse: segure o botão e solte |
 
 Teclado: `←` `→` miram (com `Shift`, ajuste fino), `Espaço` carrega e solta a tacada, `1`–`3` armam um giz, `Tab` acelera as bolas, `F` alterna a tela cheia, `Esc` pausa. A roda do mouse também gira a mira.

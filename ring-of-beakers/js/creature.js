@@ -236,18 +236,23 @@
       const lx = cx / den, ly = cy / den;
       H.x += lx * wH * H.im; H.y += ly * wH * H.im; C.x += lx * wC * C.im; C.y += ly * wC * C.im;
     }
+    // A planted leg is a suspension strut: it holds the attach point up at the strut's height above
+    // the foot (vertical only, so walking never brakes against its own legs) and, as a hard limit,
+    // it cannot stretch past its length. A foot holds only so much sideways pull before it slides.
     solveLeg(leg) {
       const P = this.P, F = leg.foot, ax = this.ax(leg), ay = this.ay(leg);
-      const dx = ax - F.x, dy = ay - F.y, d = Math.hypot(dx, dy) || 1e-6;
-      const rest = P.rest * this.crouch * this.restMul, LL = P.LL;
-      if (d > LL * 1.05) { leg.planted = false; return; } // yanked off its feet
-      let c;
-      if (d < rest) c = (rest - d) * 0.5; else if (d > LL) c = LL - d; else c = (rest - d) * 0.03;
-      let cx = dx / d * c, cy = dy / d * c;
-      // friction cone: a foot can only hold so much sideways pull before it slides
-      const lim = P.traction * Math.abs(cy) + 0.02;
-      if (Math.abs(cx) > lim) { const ex = cx - Math.sign(cx) * lim; F.x -= ex; cx -= ex; leg.slid = true; }
-      this.moveAttach(leg.t, cx, cy);
+      const dx = ax - F.x, dy = ay - F.y, d = Math.hypot(dx, dy) || 1e-6, LL = P.LL;
+      if (d > LL * 1.06) { leg.planted = false; return; } // yanked off its feet
+      const rest = P.rest * this.crouch * this.restMul;
+      const adx = Math.min(Math.abs(dx), rest * 0.6), top = F.y - Math.sqrt(rest * rest - adx * adx);
+      if (ay > top) this.moveAttach(leg.t, 0, (top - ay) * 0.5);
+      if (d > LL) {
+        const c = LL - d;
+        let cx = dx / d * c;
+        const cy = dy / d * c, lim = P.traction * Math.abs(cy) + 0.02;
+        if (Math.abs(cx) > lim) { const ex = cx - Math.sign(cx) * lim; F.x -= ex; cx -= ex; leg.slid = true; }
+        this.moveAttach(leg.t, cx, cy);
+      }
     }
     solveLegLoose(leg) {
       const F = leg.foot, t = leg.t, H = this.H, C = this.C, ax = this.ax(leg), ay = this.ay(leg);
@@ -341,6 +346,12 @@
       this.act = { type: 'punch', t: 0, phase: 0, tgt, hit: false, wind: 0.1 / P.reflex, hand: this.hands[0], v: 560 * Math.pow(P.muscle, 0.7) };
       return true;
     }
+    startBuffet() {
+      if (this.act || this.state !== 'stand' || this.P.WL < 4) return false;
+      this.act = { type: 'buffet', t: 0, phase: 0, hit: false, wind: 0.11 / this.P.reflex };
+      this.wingV = 22;
+      return true;
+    }
     startDuck(dur) {
       if (this.act || this.state !== 'stand') return false;
       this.act = { type: 'duck', t: 0, dur };
@@ -408,6 +419,14 @@
           this.weapon = a.hit ? null : 'fist'; this.weaponHand = h;
           if (a.hit || a.t >= a.wind + 0.15) { a.phase = 2; a.t2 = a.t; this.weapon = null; h.punch = false; }
         } else if (a.t >= a.t2 + 0.16) this.endAct();
+      } else if (a.type === 'buffet') {
+        if (a.phase === 0 && a.t >= a.wind) {
+          a.phase = 1; this.leanT = -0.15;
+          if (this.planted > 0) { const dv = f * 120 * P.muscle; this.H.vx += dv; this.C.vx += dv; }
+        } else if (a.phase === 1) {
+          this.weapon = a.hit ? null : 'wing';
+          if (a.t >= a.wind + 0.14) this.endAct();
+        }
       } else if (a.type === 'duck') {
         if (a.t >= a.dur) this.endAct();
       }

@@ -23,7 +23,7 @@
   const PATTERNS = ['pied', 'barred', 'solid', 'speckled', 'laced'];
   const COMBS = ['casque', 'knob', 'single', 'rose', 'pea'];
   const bucket = (v) => (v < 0.18 ? 0 : v < 0.36 ? 1 : v < 0.64 ? 2 : v < 0.82 ? 3 : 4);
-  const WEIGHT_CLASSES = [['Fly', 0.5], ['Feather', 1.5], ['Light', 4], ['Middle', 12], ['Heavy', 50], ['Titan', Infinity]];
+  const WEIGHT_CLASSES = [['Gnat', 0.15], ['Fly', 0.5], ['Feather', 1.5], ['Light', 4], ['Middle', 12], ['Heavy', 50], ['Titan', Infinity]];
   function weightClass(kg) { for (let i = 0; i < WEIGHT_CLASSES.length; i++) if (kg < WEIGHT_CLASSES[i][1]) return i; return WEIGHT_CLASSES.length - 1; }
 
   // o: { age (days; default adult), train: { muscle, lungs, reflex, courage } as 0..0.15 bonuses, cond (0..1 condition) }
@@ -123,6 +123,7 @@
       : 0.22;
     P.kickSharp = 0.3 + 0.8 * spur + 0.9 * t.talon;
     P.punchSharp = sw.arms ? 0.5 + 0.35 * t.talon : 0;
+    P.wingSharp = P.WL > 4 ? (0.25 + 0.5 * Math.min(2.2, wingSize)) * Math.sqrt(t.bone) : 0; // a wing buffet is blunt but heavy
     const tMin = (0.055 + 0.035 * Math.sqrt(P.LLv / 22)) / P.reflex;
     P.swingMin = tMin;
     P.speedMax = P.hsMax / (0.95 * tMin) * Math.pow(P.muscle, 0.6) / Math.pow(bodyDepth, 0.3) * (P.legPairs > 1 ? 1.15 : 1);
@@ -134,7 +135,7 @@
     P.traction = 0.75 + 0.25 * t.footSize + 0.2 * t.talon;
     P.peckReach = P.NL + P.HR + P.BL;
     P.rate = {
-      power: Math.round(100 * clamp01(Math.max(P.peckSharp, P.kickSharp * 0.9, P.punchSharp) * P.muscle * Math.pow(P.massRel, 0.2) / 2.6)),
+      power: Math.round(100 * clamp01(Math.max(P.peckSharp, P.kickSharp * 0.9, P.punchSharp, P.wingSharp * 0.8) * P.muscle * Math.pow(P.massRel, 0.2) / 2.6)),
       speed: Math.round(100 * clamp01(P.speedMax / 620)),
       tough: Math.round(100 * clamp01(P.hpMax / 330)),
       stamina: Math.round(100 * clamp01((P.stamMax - 40) / 130)),

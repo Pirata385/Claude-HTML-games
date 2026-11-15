@@ -16,7 +16,7 @@
   const COST = { peck: 4.5, kick: 10, punch: 5, buffet: 6, shove: 7, dodge: 5 };
 
   class Fight {
-    // o: { a, b: { P, name, auto (AI trainer; default true), bond (0..1), gear: { spurs, helmet }, hpFrac },
+    // o: { a, b: { P, name, auto (AI trainer; default true), bond (0..1), gear: { spurs, helmet, scarf }, hpFrac, fired (chili) },
     //      mode: 'pit' | 'push' | 'aerial', seed, timeLimit }
     constructor(o) {
       this.mode = o.mode || 'pit';
@@ -61,8 +61,8 @@
       const best = Math.max(wPeck, wKick, wPunch, wWing);
       const prefer = best === wKick ? kickR * 0.7 : best === wPunch ? (P.armL + 0.2 * P.TL) * 0.8 : best === wWing ? P.WL * 0.45 : peckR * 0.8;
       return { side, P, rag, name: o.name || '', hp: P.hpMax * (o.hpFrac === undefined ? 1 : o.hpFrac), hpMax: P.hpMax, stam: P.stamMax, stamMax: P.stamMax,
-        morale: 55 + 45 * P.courage, cd: 0.4 + rng.next() * 0.5, think: rng.next() * 0.2, turnT: 0, want: 0, resting: false, flee: false, fleeT: 0,
-        frenzy: 0, backoff: 0, focusNext: false, cmdCd: { sic: 0, back: 0, whistle: 0 }, auto: o.auto !== false, bond: o.bond || 0, gear: o.gear || {},
+        morale: o.gear && o.gear.scarf ? 100 : 55 + 45 * P.courage, cd: 0.4 + rng.next() * 0.5, think: rng.next() * 0.2, turnT: 0, want: 0, resting: false, flee: false, fleeT: 0,
+        frenzy: o.fired ? 6 : 0, backoff: 0, focusNext: false, cmdCd: { sic: 0, back: 0, whistle: 0 }, auto: o.auto !== false, bond: o.bond || 0, gear: o.gear || {},
         dmg: 0, downs: 0, hits: 0, stag: 0, lastHurt: -9, trainerT: 1 + rng.next(), peckR, kickR, wPeck, wKick, wPunch, wWing, prefer, tg: null };
     }
     targets(fr) {

@@ -159,6 +159,11 @@
     } else if (hat === 'helmet') {
       ctx.fillStyle = '#8b97a8'; ctx.beginPath(); ctx.arc(0, -R * 0.2, R * 1.12, Math.PI, 0); ctx.closePath(); ctx.fill();
       ctx.fillStyle = '#6b7686'; ctx.fillRect(-R * 1.2, -R * 0.32, R * 2.4, R * 0.2);
+    } else if (hat === 'bucket') { // the BFC loyalty reward, worn upside down
+      ctx.fillStyle = WHITE; ctx.beginPath(); ctx.moveTo(-R * 0.7, -R * 2.0); ctx.lineTo(R * 0.7, -R * 2.0); ctx.lineTo(R * 1.0, -R * 0.7); ctx.lineTo(-R * 1.0, -R * 0.7); ctx.closePath(); ctx.fill();
+      ctx.fillStyle = '#d7372f';
+      for (let i = -1; i <= 1; i++) { ctx.beginPath(); ctx.moveTo((i * 0.42 - 0.12) * R, -R * 2.0); ctx.lineTo((i * 0.42 + 0.12) * R, -R * 2.0); ctx.lineTo((i * 0.6 + 0.17) * R, -R * 0.7); ctx.lineTo((i * 0.6 - 0.17) * R, -R * 0.7); ctx.closePath(); ctx.fill(); }
+      ctx.fillRect(-R * 1.08, -R * 0.86, R * 2.16, R * 0.22);
     } else if (hat === 'star') { // sheriff
       ctx.fillStyle = '#6a5136'; ell(ctx, 0, -R * 0.82, R * 1.55, R * 0.24, 0); ctx.fillRect(-R * 0.7, -R * 1.7, R * 1.4, R * 0.9);
       ctx.fillStyle = '#f2c14e'; circ(ctx, R * 0.1, -R * 1.25, R * 0.24);
@@ -298,7 +303,7 @@
     const bodyCol = P.sw.bare ? c.skin : c.body;
     if (P.sw.glow && c === P.css) {
       ctx.save(); ctx.fillStyle = c.accent;
-      ctx.globalAlpha *= 0.13; circ(ctx, mx, my, TL * 1.5); ctx.globalAlpha *= 1.3; circ(ctx, mx, my, TL * 1.05);
+      ctx.globalAlpha *= 0.1; circ(ctx, mx, my, TL * 1.15); ctx.globalAlpha *= 1.3; circ(ctx, mx, my, TL * 0.8);
       ctx.restore();
     }
     drawWing(ctx, P, pose, c, true, mx, my, ang);

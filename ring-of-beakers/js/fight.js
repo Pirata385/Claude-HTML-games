@@ -15,6 +15,9 @@
   const LOC = { head: 1.7, neck: 1.35, body: 1, leg: 0.7 };
   const COST = { peck: 4.5, kick: 10, punch: 5, buffet: 6, shove: 7, dodge: 5 };
 
+  // How far a bird can leap, wings included.
+  function leapReach(P, g) { const vy = P.jumpV * 0.9 + P.flapV; return P.jumpV * 1.1 * 2 * vy / g; }
+
   class Fight {
     // o: { a, b: { P, name, auto (AI trainer; default true), bond (0..1), gear: { spurs, helmet, scarf }, hpFrac, fired (chili) },
     //      mode: 'pit' | 'push' | 'aerial', seed, timeLimit }
@@ -31,12 +34,14 @@
       this.outY = Infinity; this.platforms = [];
       let startX = W * 0.5;
       if (this.mode === 'push') {
-        const wp = W * 0.62, D = Math.max(L, Pa.rest * 1.4, Pb.rest * 1.4);
+        const wp = W * 0.85, D = Math.max(L, Pa.rest * 1.4, Pb.rest * 1.4);
         this.platforms.push(w.box(-wp, 0, wp, 600));
         w.box(-W * 4, D, W * 4, 600);
         this.edge = wp; this.outY = D * 0.3; this.drop = D; startX = wp * 0.55;
       } else if (this.mode === 'aerial') {
-        const D = Math.max(L * 1.3, Pa.rest * 1.6, Pb.rest * 1.6), pw = W * 0.34, gap = W * 0.2, th = Math.max(14, L * 0.12);
+        // the gap is one both birds can leap, so the bout is about who dares and who gets knocked off
+        const D = Math.max(L * 1.3, Pa.rest * 1.6, Pb.rest * 1.6), pw = W * 0.75, th = Math.max(14, L * 0.12);
+        const gap = clamp(0.45 * Math.min(leapReach(Pa, w.g), leapReach(Pb, w.g)), L * 0.2, L * 1.1);
         this.platforms.push(w.box(-gap / 2 - pw, 0, -gap / 2, th), w.box(gap / 2, 0, gap / 2 + pw, th));
         w.box(-W * 4, D, W * 4, 600);
         this.edge = gap / 2 + pw; this.gap = gap; this.outY = D * 0.3; this.drop = D; startX = gap / 2 + pw * 0.6;
@@ -116,6 +121,7 @@
       const rag = me.rag, fr = foe.rag, P = me.P, rng = this.rng, st = rag.state;
       if (st === 'ko' || st === 'down' || st === 'rise') { rag.vxDes = 0; return; }
       const dx = fr.midX() - rag.midX(), dir = dx >= 0 ? 1 : -1;
+      if (this.mode === 'aerial' && st === 'air') this.airControl(me);
       // face the foe (or away from it when running)
       const faceWant = me.flee ? -dir : dir;
       if (faceWant !== rag.f && !rag.act && st === 'stand') { me.turnT += DT; if (me.turnT > 0.15) { rag.flip(); me.turnT = 0; } } else me.turnT = 0;
@@ -144,12 +150,36 @@
         else if (gap < me.prefer * 0.4 && rng.chance(0.3 + 0.5 * P.cunning)) want = -0.5;
         else want = rng.chance(0.2) ? rng.range(-0.25, 0.35) : 0;
         if (want < 0 && this.roomBehind(me, dir) < P.TL * 0.7) want = 0; // back to the wall or the edge
-        if (want > 0 && this.mode !== 'pit' && this.roomAhead(me, dir) < P.TL * 0.4 && !this.samePlatform(me, foe)) want = 0;
+        if (this.mode === 'aerial' && want > 0 && !this.samePlatform(me, foe)) {
+          const room = this.roomAhead(me, dir);
+          if (room < P.TL * 1.2 + Math.abs(rag.vx()) * 0.15) { want = 0; this.leap(me, foe, dir, room); }
+        }
         me.want = want;
       }
       const sp = P.speedMax * (me.stam < 0.1 * me.stamMax ? 0.55 : 1);
       rag.vxDes = rag.act && rag.act.type === 'shove' ? dir * sp : me.want * dir * sp;
       if (rag.act && rag.act.type === 'duck') rag.vxDes = 0;
+    }
+    // Aerial bouts: jump the gap to the other perch, if this bird can make it and feels like it.
+    leap(me, foe, dir, room) {
+      const rag = me.rag, P = me.P, g = this.world.g;
+      if (rag.act || rag.state !== 'stand' || me.resting || me.flee || me.stam < 8 || me.cd > 0) return;
+      const need = this.gap + room + P.TL * 0.9, vy = P.jumpV * 0.9, air = 2 * (vy + P.flapV) / g;
+      if (need > P.jumpV * 1.1 * air || !this.rng.chance(0.2 + 0.6 * P.aggression)) return;
+      rag.hop(dir * need / air, -vy); rag.flap(1);
+      me.stam -= 8; me.cd = 0.5;
+      this.events.push({ type: 'swing', side: me.side, how: 'leap' });
+    }
+    // Over the water and falling: flap back towards the nearest perch.
+    airControl(me) {
+      const rag = me.rag, x = rag.midX();
+      me.flapT = (me.flapT || 0) - DT;
+      if (me.flapT > 0 || rag.vy() < 60 || me.stam < 3 || this.aerialRoom(x, 1) > 0 || rag.midY() < -this.L * 1.5) return;
+      let best = null, bd = 1e9;
+      for (const b of this.platforms) { const c = (b.x0 + b.x1) / 2, d = Math.abs(c - x); if (d < bd) { bd = d; best = c; } }
+      me.flapT = 0.22; me.stam -= 3;
+      rag.flap(0.9);
+      const dv = Math.sign(best - x) * 90; rag.H.vx += dv; rag.C.vx += dv;
     }
     // Free distance behind a fighter before a wall or an edge.
     roomBehind(me, dir) { const x = me.rag.midX(); return this.mode === 'aerial' ? this.aerialRoom(x, -dir) : dir > 0 ? x + this.edge : this.edge - x; }
@@ -177,8 +207,7 @@
         if (this.mode !== 'pit' && this.roomBehind(foe, -dir) < this.L * 1.2) ws += 3;
         opts.push(['shove', ws]);
       }
-      // cross a gap by leaping at the foe
-      if (!opts.length && this.mode === 'aerial' && !this.samePlatform(me, foe) && this.roomAhead(me, dir) < P.TL && gap < me.kickR * 1.6) opts.push(['kick', 1]);
+      if (this.mode === 'aerial' && !this.samePlatform(me, foe)) return; // nothing reaches across the water
       if (!opts.length) return;
       const pick = rng.weighted(opts, (o) => o[1] * o[1])[0];
       const cost = COST[pick] / Math.pow(P.muscle, 0.3) * (me.frenzy > 0 ? 1.3 : 1);
@@ -278,7 +307,8 @@
       if (def.gear.helmet && crit) dmg *= 0.75;
       def.hp -= dmg; att.dmg += dmg; att.hits++; def.lastHurt = this.t;
       att.rag.act.hit = true;
-      const dv = Math.min(340, Math.pow(A.massRel, 0.9) * rel * KNOCK[w] / D.massRel);
+      // on a platform a shove matters more than a launch, so blows carry less
+      const dv = Math.min(340, Math.pow(A.massRel, 0.9) * rel * KNOCK[w] / D.massRel) * (this.mode === 'pit' ? 1 : 0.55);
       def.rag.push(ux * dv, clamp(uy * dv * 0.5 - (w === 'foot' ? dv * 0.12 : 0), -170, 140), crit ? 'head' : 'body');
       if (w === 'beak') { att.rag.head.vx *= -0.2; att.rag.head.vy *= -0.2; }
       def.stag += dv / (420 * D.balance);

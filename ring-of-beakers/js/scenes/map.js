@@ -200,7 +200,7 @@
       for (const p of input.ups) {
         if (p.owner !== 'aim') continue;
         const dx = p.x - p.sx, dy = p.y - p.sy, d = Math.hypot(dx, dy);
-        if (d > 10) { const k = Math.min(1, d / 70); throwNet(car.x + dx / d * range() * k, car.y + dy / d * range() * k); } else autoThrow();
+        if (d > 10) { const k = Math.min(1, d / 70); throwNet(car.x + dx / d * range() * k, car.y + dy / d * range() * k); }
       }
       const tap = input.worldTap();
       if (tap && (!input.touch || tap.sx > v.w * 0.5)) {
@@ -406,7 +406,7 @@
         ui.itemIcon(tl[0], bx + bs / 2, by + bs / 2 - 3, 26);
         ui.text(String(tl[1]), bx + bs - 6, by + bs - 5, { size: 12, align: 'right' });
         for (const p of input.ptrs) if (p.fresh && p.sx >= bx && p.sx <= bx + bs && p.sy >= by && p.sy <= by + bs) { tool = tl[0]; if (isNet) p.owner = 'aim'; }
-        if (!isNet && ui.tapIn(bx, by, bs, bs)) dropSeed();
+        if (ui.tapIn(bx, by, bs, bs)) { tool = tl[0]; if (isNet) autoThrow(); else dropSeed(); } // a plain tap throws at the nearest animal
       }
       if (near) {
         const label = near.kind === 'home' ? 'Go home' : 'Enter ' + (near.kind === 'house' ? (world.npcs.find((q) => q.site === near.id) || {}).name + '\'s' : near.name);

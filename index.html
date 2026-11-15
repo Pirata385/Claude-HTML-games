@@ -180,6 +180,14 @@ footer { text-align: center; color: var(--muted); font-weight: 500; font-size: 0
       palette: ['#140d0a', '#2f8a57', '#f0c02c', '#d8382e', '#8a5a2e'],
       scene: 'sinuca',
     },
+    {
+      path: 'ring-of-beakers/index.html',
+      title: 'Ring of Beakers',
+      desc: 'A bird-fighting and genetics game in flat vector canvas 2D: net wild birds on a seeded map of six biomes, breed them (real two-copy genes on 14 chromosome pairs, ZW sex, hybrids of 34 kinds), dig for relics and fossils, splice genes at a lab with a CRISPR bench, and send physics ragdolls into the ring, where body shape decides the bout and you shout three commands and place bets. Neighbours who buy, breed, duel and can be netted, a sheriff, five arenas with bosses, a sideshow, and BFC, the fried chicken place that takes the birds you are done with. Mouse, keyboard and touch, portrait or landscape.',
+      tags: ['genetics', 'physics', 'breeding', 'open world', 'mobile'],
+      palette: ['#23314a', '#2a9d8f', '#e9b44c', '#e76f51', '#f6ead2'],
+      scene: 'beakers',
+    },
   ];
   // App registry: entries for the "Apps" tab (tools rather than games; each in its own root folder).
   const APPS = [
@@ -535,6 +543,26 @@ footer { text-align: center; color: var(--muted); font-weight: 500; font-size: 0
       ctx.fillStyle = P[2]; ctx.fillRect(44, 25, 7, 5); ctx.fillRect(49, 22, 4, 4); ctx.fillStyle = '#f4a3b0'; ctx.fillRect(47, 21, 2, 2); ctx.fillRect(52, 24, 2, 1); ctx.fillRect(38, 27, 6, 1); ctx.fillRect(43, 30, 2, 1); ctx.fillRect(49, 30, 2, 1);
       ctx.fillStyle = '#111'; ctx.fillRect(51, 23, 1, 1);
       ctx.fillStyle = P[4]; ctx.fillRect(50, 15, 3, 3); ctx.fillStyle = '#fff'; ctx.fillRect(49, 14, 1, 1); ctx.fillRect(53, 14, 1, 1); ctx.fillRect(51, 13, 1, 1);
+    } else if (g.scene === 'beakers') {
+      ctx.fillStyle = '#9fd9ea'; ctx.fillRect(0, 0, W, H);
+      ctx.fillStyle = P[4]; ctx.fillRect(74, 4, 7, 7);
+      for (let x = 0; x < W; x += 6) { ctx.fillStyle = ['#e76f51', '#2a9d8f', '#e9b44c', '#6d4c7d'][(x / 6) % 4]; ctx.fillRect(x, 13, 5, 5); ctx.fillRect(x + 1, 18, 3, 3); }
+      ctx.fillStyle = '#b98a5a'; ctx.fillRect(0, 21, W, 9);
+      ctx.fillStyle = '#96693f'; for (let x = 4; x < W; x += 10) ctx.fillRect(x, 21, 1, 9);
+      ctx.fillStyle = '#e3c98a'; ctx.fillRect(0, 30, W, 10);
+      // two birds squaring up: body, neck and head, comb, beak, tail, legs
+      const bird = (x, f, body, tail) => {
+        ctx.fillStyle = tail; ctx.fillRect(x - f * 6 - (f < 0 ? 2 : 0), 20, 3, 6);
+        ctx.fillStyle = body; ctx.fillRect(x - 4, 23, 9, 5); ctx.fillRect(x + (f > 0 ? 3 : -4), 19, 2, 5); ctx.fillRect(x + (f > 0 ? 3 : -5), 17, 3, 3);
+        ctx.fillStyle = P[3]; ctx.fillRect(x + (f > 0 ? 3 : -5), 15, 3, 2);
+        ctx.fillStyle = P[2]; ctx.fillRect(x + (f > 0 ? 6 : -7), 18, 2, 1); ctx.fillRect(x - 2, 28, 1, 3); ctx.fillRect(x + 2, 28, 1, 3);
+        ctx.fillStyle = '#000'; ctx.fillRect(x + (f > 0 ? 4 : -4), 18, 1, 1);
+      };
+      bird(34, 1, '#b5523b', P[0]); bird(60, -1, P[4], '#5a6472');
+      ctx.fillStyle = '#fff'; ctx.fillRect(46, 20, 1, 1); ctx.fillRect(48, 23, 1, 1); ctx.fillRect(45, 25, 1, 1);
+      // a beaker in the corner
+      ctx.fillStyle = P[1]; ctx.fillRect(7, 31, 8, 6); ctx.fillRect(9, 27, 4, 4);
+      ctx.fillStyle = '#bfe6ef'; ctx.fillRect(9, 26, 4, 2); ctx.fillStyle = P[0]; ctx.fillRect(8, 25, 6, 1);
     } else if (g.scene === 'sinuca') {
       ctx.fillStyle = P[0]; ctx.fillRect(0, 0, W, H);
       for (let y = 0; y < H; y += 8) for (let x = (y / 8) % 2 ? 0 : 8; x < W; x += 16) { ctx.fillStyle = '#2a1c16'; ctx.fillRect(x, y, 8, 8); }

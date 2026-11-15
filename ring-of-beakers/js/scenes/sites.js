@@ -123,12 +123,18 @@
     const role = keeper.role, st = RB.npc.info(S, keeper.id);
     if (role === 'breeder') {
       const stock = RB.npc.stockOf(S, world, keeper);
-      if (!stock.length) { ui.para('Sold out. Come back in a few days.', b.x + 4, b.y + 6, b.w, { size: 13 }); return; }
-      ui.list('stock', b.x, b.y, b.w, b.h, stock.length, 60, (i, x, y, w) => {
-        const s = stock[i];
-        if (row(x, y, w, { P: s.P, title: s.name + ', ' + s.P.species.name.toLowerCase(), sub: common.fmtKg(s.P.weightKg) + ' · power ' + s.P.rate.power + ' · speed ' + s.P.rate.speed + (s.P.odd.length ? ' · ' + s.P.odd.join(', ') : ''), price: s.price, btn: 'Buy' })) {
+      // a swap: hand over a bird for credit towards one of theirs
+      st.credit = st.credit || 0;
+      ui.text('Trade-in credit: $' + st.credit, b.x + 4, b.y + 22, { size: 13 });
+      if (ui.btn(b.x + b.w - 170, b.y, 164, 34, 'Trade in a bird', { icon: 'swap', fill: pal.mustard, color: pal.ink, size: 12 })) {
+        common.pick('Trade in', caged().filter((c) => !c.person), (c) => { st.credit += Math.round(EC.value(c) * 0.9); ST.removeBird(S, c); RB.audio.play('coin'); say = 'A fair swap. That is credit with me.'; }, (c) => ({ text: 'credit $' + Math.round(EC.value(c) * 0.9), ok: true, label: 'Trade' }));
+      }
+      if (!stock.length) { ui.para('Sold out. Come back in a few days.', b.x + 4, b.y + 46, b.w, { size: 13 }); return; }
+      ui.list('stock', b.x, b.y + 42, b.w, b.h - 42, stock.length, 60, (i, x, y, w) => {
+        const s = stock[i], cash = Math.max(0, s.price - st.credit);
+        if (row(x, y, w, { P: s.P, title: s.name + ', ' + s.P.species.name.toLowerCase(), sub: common.fmtKg(s.P.weightKg) + ' · power ' + s.P.rate.power + ' · speed ' + s.P.rate.speed + (s.P.odd.length ? ' · ' + s.P.odd.join(', ') : ''), price: cash, btn: cash < s.price ? 'Swap' : 'Buy' })) {
           if (caged().length >= ST.cageCap(S)) { ui.toast('The cage is full.', pal.coral); return; }
-          if (pay(s.price)) { st.sold[s.key] = true; const c = ST.addBird(S, s.g, { at: 'cage', name: s.name, age: 3, bond: 0.2, origin: 'bought' }); common.discover(S, c); st.rel = Math.min(100, st.rel + 5); }
+          if (pay(cash)) { st.credit -= s.price - cash; st.sold[s.key] = true; const c = ST.addBird(S, s.g, { at: 'cage', name: s.name, age: 3, bond: 0.2, origin: 'bought' }); common.discover(S, c); st.rel = Math.min(100, st.rel + 5); }
         }
       });
       return;

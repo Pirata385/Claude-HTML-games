@@ -16,7 +16,7 @@
     for (let i = 0; i < n; i++) lay.nests.push(80 + i * 150);
     let x = 80 + n * 150;
     if (S.up.dummy) { lay.dummy = x - 10; x += 120; }
-    lay.box = x + 20; lay.right = lay.box + 110; lay.walk0 = -180; lay.walk1 = lay.box - 80;
+    lay.box = x + 20; lay.right = lay.box + 110; lay.walk0 = -400; lay.walk1 = lay.box - 80;
   }
   // Landscape fits the whole yard when it can; portrait stays close and pans.
   function zoom() {

@@ -187,6 +187,14 @@
       rebuild();
       RB.audio.setTune('farm');
       S.pos = null;
+      if (args.passOut) {
+        const tow = Math.min(S.money, 30);
+        S.money -= tow;
+        for (const c of ST.at(S, 'cage')) if (ST.atHome(S).length < ST.coopCap(S)) c.at = 'home';
+        const rep = ST.sleep(S);
+        layout(); rebuild(); RB.game.save();
+        ui.message('Day ' + S.day, 'You nodded off at the wheel. Somebody towed you home for $' + tow + '.\n' + rep.lines.join('\n'), null, { ok: 'Ouch' });
+      }
       if (args.intro) {
         ui.message('A coop of your own', 'Aunt Dalva left you her coop, two chickens, and a debt of $15,000 to Big Wattle.\n\nThe only trade that pays around here is the ring. Catch birds out on the map, breed the good ones, splice the strange ones at the lab, and fight your way from the Backyard Pit to the Grand Ring.\n\nNobody gets hurt for good. Mostly.', null, { ok: 'Let\'s go' });
       }

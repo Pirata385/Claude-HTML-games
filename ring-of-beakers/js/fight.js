@@ -169,7 +169,7 @@
       const dHead = Math.hypot(fr.head.x - rag.C.x, fr.head.y - rag.C.y), b = me.tg.body(), dBody = Math.hypot(b.x - rag.C.x, b.y - rag.C.y) - foe.P.TD * 0.4;
       const headOk = dHead < me.peckR, bodyOk = dBody < me.peckR;
       if (headOk || bodyOk) opts.push(['peck', me.wPeck]);
-      if (gap < me.kickR && gap > P.TD * 0.2 && rag.planted > 0) opts.push(['kick', me.wKick * (me.stam > COST.kick * 2 ? 1 : 0.4)]);
+      if (gap < me.kickR * 0.8 && rag.planted > 0) opts.push(['kick', me.wKick * (me.stam > COST.kick * 2 ? 1 : 0.4)]);
       if (rag.hands.length && gap < P.armL + 0.2 * P.TL) opts.push(['punch', me.wPunch]);
       if (me.wWing > 0 && gap < P.WL * 0.6) opts.push(['buffet', me.wWing]);
       if (gap < P.TD * 0.6 + 4) {
@@ -256,7 +256,7 @@
       if (w === 'beak') {
         if (P.hasBeak) { const tip = rag.beakTip(); x = tip.x; y = tip.y; r = Math.max(1.5, P.BD * 0.5); } else { x = rag.head.x; y = rag.head.y; r = P.HR * 0.9; }
         vx = rag.head.vx; vy = rag.head.vy;
-      } else if (w === 'foot') { const F = rag.weaponLeg.foot; x = F.x; y = F.y; r = P.FL * 0.4 + P.LT; vx = F.vx; vy = F.vy; }
+      } else if (w === 'foot') { const F = rag.weaponLeg.foot; x = F.x; y = F.y; r = P.FL * 0.6 + P.LT * 1.5; vx = F.vx; vy = F.vy; }
       else if (w === 'wing') { x = rag.C.x + rag.f * (P.TD * 0.4 + P.WL * 0.4); y = rag.C.y - P.WL * 0.1; r = P.WL * 0.45; vx = rag.vx() + rag.f * 380 * P.muscle; vy = 60; }
       else { const p = rag.weaponHand.p; x = p.x; y = p.y; r = P.LT * 1.3; vx = p.vx; vy = p.vy; }
       const hit = this.hitTest(def.rag, x, y, r) || this.hitTest(def.rag, x - vx * DT * 0.5, y - vy * DT * 0.5, r);

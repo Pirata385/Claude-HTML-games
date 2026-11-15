@@ -387,8 +387,8 @@
       if (ui.btn(v.w - 96, 6, 42, 34, '', { icon: 'map', fill: pal.ink })) bigMap();
       const caged = ST.at(S, 'cage');
       if (ui.btn(v.w - 96 - 80, 6, 74, 34, caged.length + '/' + ST.cageCap(S), { icon: 'truck', fill: pal.paper, color: pal.ink, iconCol: pal.coral, size: 13 })) cageWindow();
-      ui.text(WD.BIOMES[WD.biomeAt(world, car.x, car.y)].name, 12, 62, { size: 11, color: n > 0.5 ? pal.white : pal.ink, bold: false });
-      if (det !== null) { ui.rect(12, 70, 92, 16, 'rgba(35,49,74,0.7)', 8); ui.icon('detector', 22, 78, 11, pal.white); ui.bar(34, 74, 64, 8, det, pal.mustard, 'rgba(255,255,255,0.25)'); }
+      ui.text(WD.BIOMES[WD.biomeAt(world, car.x, car.y)].name, 12, 84, { size: 11, color: n > 0.5 ? pal.white : pal.ink, bold: false });
+      if (det !== null) { ui.rect(12, 90, 92, 16, 'rgba(35,49,74,0.7)', 8); ui.icon('detector', 22, 98, 11, pal.white); ui.bar(34, 94, 64, 8, det, pal.mustard, 'rgba(255,255,255,0.25)'); }
       // tools, bottom right
       const tools = [['net', ST.count(S, 'net'), 'Digit1']];
       if (ST.count(S, 'bignet')) tools.push(['bignet', ST.count(S, 'bignet')]);

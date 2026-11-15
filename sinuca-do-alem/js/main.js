@@ -43,6 +43,27 @@
   const canAim = () => G.state === 'aim' && !G.paused && G.cueBall && G.cueBall.alive;
   function worldAngle(cx, cy) { const cb = G.cueBall, q = Rn.unproject(cx, cy); return Math.atan2(q.y - cb.y, q.x - cb.x); }
   function maxDrag() { return SA.clamp(Math.min(g.innerWidth, g.innerHeight) * 0.34, 120, 250); }
+  // Espaço livre (em px) do ponto inicial do toque até a borda da tela, na direção em que o dedo anda.
+  // No celular o dedo não passa da borda: se faltar espaço, a força máxima fica mais perto.
+  function roomTo(sx, sy, ux, uy) {
+    const m = 12, x0 = m, x1 = g.innerWidth - m, y0 = m, y1 = g.innerHeight - 22;
+    let t = Infinity;
+    if (ux > 1e-6) t = Math.min(t, (x1 - sx) / ux); else if (ux < -1e-6) t = Math.min(t, (x0 - sx) / ux);
+    if (uy > 1e-6) t = Math.min(t, (y1 - sy) / uy); else if (uy < -1e-6) t = Math.min(t, (y0 - sy) / uy);
+    return Math.max(0, t);
+  }
+  // Devolve a força (0–1) para um arrasto de d px. A zona morta evita tacadas fracas sem querer;
+  // perto da borda ela encolhe, e a força máxima chega antes do dedo bater na borda.
+  function slingPower(drag, dx, dy, d) {
+    let dz = 14, range = maxDrag();
+    if (!drag.mouse && d >= 1) {
+      // o dedo anda na direção oposta à tacada: (-dx, -dy)
+      const room = roomTo(drag.sx, drag.sy, -dx / d, -dy / d);
+      dz = Math.min(14, room * 0.25);
+      range = SA.clamp(room - dz, 20, range);
+    }
+    return SA.clamp((d - dz) / range, 0, 1);
+  }
   function release() {
     if (G.aim.power >= 0.03) G.shoot(); else G.aim.power = 0;
   }
@@ -51,7 +72,7 @@
     if (!canAim()) return;
     e.preventDefault();
     try { cv.setPointerCapture(e.pointerId); } catch (er) { /* ok */ }
-    if (G.settings.control === 'sling') drag = { id: e.pointerId, mode: 'sling', sx: e.clientX, sy: e.clientY };
+    if (G.settings.control === 'sling') drag = { id: e.pointerId, mode: 'sling', sx: e.clientX, sy: e.clientY, mouse: e.pointerType === 'mouse', maxed: false };
     else if (e.pointerType === 'mouse') { G.aim.angle = worldAngle(e.clientX, e.clientY); drag = { id: e.pointerId, mode: 'charge' }; charging = true; chargeT = 0; } else drag = { id: e.pointerId, mode: 'rot', a0: worldAngle(e.clientX, e.clientY), base: G.aim.angle };
   });
   cv.addEventListener('pointermove', (e) => {
@@ -65,7 +86,9 @@
         const cb = G.cueBall, c0 = Rn.project(cb.x, cb.y, 0), q0 = Rn.unproject(c0[0] + (dx / d) * 90, c0[1] + (dy / d) * 90);
         G.aim.angle = Math.atan2(q0.y - cb.y, q0.x - cb.x);
       }
-      G.aim.power = SA.clamp((d - 14) / maxDrag(), 0, 1);
+      G.aim.power = slingPower(drag, dx, dy, d);
+      // um toque de vibração ao chegar na força máxima
+      if (G.aim.power >= 1 && !drag.maxed) { drag.maxed = true; if (G.settings.vibrate && navigator.vibrate) { try { navigator.vibrate(12); } catch (er) { /* ok */ } } } else if (G.aim.power < 0.97) drag.maxed = false;
     } else if (drag.mode === 'rot') {
       let da = worldAngle(e.clientX, e.clientY) - drag.a0;
       while (da > Math.PI) da -= Math.PI * 2; while (da < -Math.PI) da += Math.PI * 2;

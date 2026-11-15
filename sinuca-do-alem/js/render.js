@@ -581,6 +581,11 @@
       const p = pj(cb.x, cb.y, cb.r), rs = (cb.r + 9) * p[2];
       ctx.strokeStyle = 'rgba(0,0,0,0.45)'; ctx.lineWidth = 6; ctx.beginPath(); ctx.arc(p[0], p[1], rs, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * A.power); ctx.stroke();
       ctx.strokeStyle = A.power > 0.85 ? '#ff5a3c' : A.power > 0.5 ? '#ffd766' : '#8fe38a'; ctx.lineWidth = 3.4; ctx.beginPath(); ctx.arc(p[0], p[1], rs, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * A.power); ctx.stroke();
+      // número da força acima da bola (vira "MÁX" no limite)
+      const txt = A.power >= 0.995 ? 'MÁX' : Math.round(A.power * 100) + '%', ty = p[1] - rs - 12;
+      ctx.font = (A.power >= 0.995 ? 17 : 14) + 'px "Lilita One", sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.lineJoin = 'round';
+      ctx.strokeStyle = INK; ctx.lineWidth = 4; ctx.strokeText(txt, p[0], ty);
+      ctx.fillStyle = A.power >= 0.995 ? '#ff7a5c' : '#fff'; ctx.fillText(txt, p[0], ty);
     }
   }
 

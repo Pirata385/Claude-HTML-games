@@ -16,7 +16,7 @@
     grain: { name: 'Grain', kind: 'feed', price: 4, desc: 'Plain feed. Fill the feeder or hand it out.' },
     worm: { name: 'Worms', kind: 'feed', price: 6, desc: 'A treat. Feeds a bird and it trusts you more.' },
     chili: { name: 'Chili', kind: 'feed', price: 25, desc: 'Next bout: much more aggressive.' },
-    tonic: { name: 'Tonic', kind: 'feed', price: 60, desc: 'Heals injuries and clears a daze.' },
+    tonic: { name: 'Tonic', kind: 'feed', price: 60, desc: 'Restores vigour: a worn-out bird can fight again today. Does not heal wounds.' },
     gromash: { name: 'Gro-Mash', kind: 'feed', price: 45, desc: 'A growing bird ages one day at once.' },
     loveseed: { name: 'Love seeds', kind: 'feed', price: 70, desc: 'Next nesting is much more likely to give an egg.' },
     mushroom: { name: 'Odd mushroom', kind: 'feed', price: 40, desc: 'Scrambles a few genes. Who knows.' },

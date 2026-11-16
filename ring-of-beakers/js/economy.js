@@ -42,15 +42,15 @@
 
   // ---- arenas
   const ARENAS = [
-    { id: 'backyard', name: 'Backyard Pit', tier: 0, modes: ['pit'], classes: [1, 2, 3], fee: 15, purse: 70, need: 3, betCap: 100,
+    { id: 'backyard', name: 'Backyard Pit', tier: 0, modes: ['pit'], classes: [1, 2, 3], fee: 15, purse: 70, need: 3, betCap: 300,
       boss: { trainer: 'Old Bira', bird: 'Sete Facas', mix: ['gamecock', 'gamecock'], wc: 3, purse: 400, gear: null } },
-    { id: 'county', name: 'County Ring', tier: 1, modes: ['pit', 'push'], classes: [2, 3, 4], fee: 50, purse: 220, need: 4, betCap: 400,
+    { id: 'county', name: 'County Ring', tier: 1, modes: ['pit', 'push'], classes: [2, 3, 4], fee: 50, purse: 220, need: 4, betCap: 1000,
       boss: { trainer: 'Dona Zefa', bird: 'Tempestade', mix: ['goose', 'swan'], wc: 4, purse: 1400, gear: 'scarf', mode: 'push' } },
-    { id: 'city', name: 'City Arena', tier: 2, modes: ['pit', 'push', 'aerial'], classes: [3, 4, 5], fee: 150, purse: 650, need: 4, betCap: 1200,
+    { id: 'city', name: 'City Arena', tier: 2, modes: ['pit', 'push', 'aerial'], classes: [3, 4, 5], fee: 150, purse: 650, need: 4, betCap: 3000,
       boss: { trainer: 'Dr. Quill', bird: 'Bisturi', mix: ['eagle', 'secretary'], wc: 4, purse: 4000, gear: 'helmet' } },
-    { id: 'cellar', name: 'The Cellar', tier: 3, modes: ['pit', 'push'], classes: [6], fee: 400, purse: 1700, need: 5, betCap: 3000, night: true,
+    { id: 'cellar', name: 'The Cellar', tier: 3, modes: ['pit', 'push'], classes: [6], fee: 400, purse: 1700, need: 5, betCap: 8000, night: true,
       boss: { trainer: 'The Butcher', bird: 'Machado', mix: ['cassowary', 'cassowary'], wc: 6, purse: 9000, gear: 'spurs' } },
-    { id: 'grand', name: 'Grand Ring', tier: 4, modes: ['pit'], classes: [4, 5, 6], fee: 1000, purse: 4500, need: 5, betCap: 8000,
+    { id: 'grand', name: 'Grand Ring', tier: 4, modes: ['pit'], classes: [4, 5, 6], fee: 1000, purse: 4500, need: 5, betCap: 20000,
       boss: { trainer: 'Madame Plume', bird: 'Imperatriz', mix: ['terror', 'cassowary'], wc: 6, purse: 25000, gear: 'spurs', final: true } },
   ];
   const ARENA = {};
@@ -171,16 +171,14 @@
     const P = ST().pheno(c);
     if (!ST().isAdult(c)) return 'Too young.';
     if (c.rest > 0) return 'Still dazed.';
-    if (c.bouts >= 2) return 'Fought twice today.';
+    if (c.tired) return 'Worn out: a tonic, or tomorrow.';
     if (c.person && card.tier < 3) return 'Only the Cellar takes people.';
     if (!card.open && P.weightClass > card.wc) return 'Too heavy for ' + RB.pheno.WEIGHT_CLASSES[card.wc][0] + 'weight.';
     return '';
   }
-  // The bookie's line: a cautious man, he pulls every estimate a quarter of the way back to even
-  // and takes no cut. Backing a clear favourite therefore pays a little better than it should.
-  const bookieLine = (p) => clamp(0.5 + (p - 0.5) * 0.75, 0.06, 0.94);
-  // Payout multiplier (winnings per dollar staked) for a bet on a side the sims give chance p.
-  const odds = (p) => 1 / bookieLine(p) - 1;
+  // Betting: nobody posts odds, so read the fighters' numbers and trust your eye. A winning bet pays
+  // back three times the stake (twice the stake in winnings), whichever side you backed.
+  const BET_RETURN = 3;
 
   // ---- sideshow
   const SHOWS = [
@@ -203,5 +201,5 @@
   }
 
   RB.economy = { value, bfcSpecial, bfcIsSpecial, bfcPrice, ARENAS, ARENA, TRAINERS, speciesByClass, leagueOf, arenaOpen, makeOpponent, makeBoss, cards, opponentFor, exhibition, exhibitionDone,
-    canEnter, odds, bookieLine, fightScore, SHOWS, dashTime, hopHeight, pageantScore, showOfDay };
+    canEnter, BET_RETURN, fightScore, SHOWS, dashTime, hopHeight, pageantScore, showOfDay };
 })();

@@ -68,10 +68,10 @@
 
   function vet(b) {
     const list = caged().filter((c) => c.hp < 0.99 || c.rest > 0 || c.cond < 1);
-    if (!list.length) { ui.para(caged().length ? 'Everyone in your cage is in fine shape.' : 'Bring a hurt or dazed creature in the truck and I will see to it.', b.x + 4, b.y + 6, b.w - 8, { size: 13 }); return; }
+    if (!list.length) { ui.para(caged().length ? 'Everyone in your truck is in fine shape. (A worn-out bird needs a tonic, not me.)' : 'Bring a wounded creature in the truck and I will stitch it up. Wounds do not heal on their own.', b.x + 4, b.y + 6, b.w - 8, { size: 13 }); return; }
     ui.list('vet', b.x, b.y, b.w, b.h, list.length, 60, (i, x, y, w) => {
       const c = list[i], cost = 15 + Math.round((1 - c.hp) * 90) + (c.rest > 0 ? 25 : 0) + Math.round((1 - c.cond) * 40);
-      if (row(x, y, w, { c, title: c.name, sub: common.statusOf(c).map((s) => s[0]).join(', ') || 'Run down', price: cost, btn: 'Heal' })) { if (pay(cost)) { c.hp = 1; c.rest = 0; c.cond = 1; c.hungry = 0; ST.dirty(c); say = c.name + ' will be right as rain.'; } }
+      if (row(x, y, w, { c, title: c.name, sub: common.statusOf(c).map((s) => s[0]).join(', ') || 'Run down', price: cost, btn: 'Heal' })) { if (pay(cost)) { c.hp = 1; c.rest = 0; c.cond = 1; c.hungry = 0; ST.dirty(c); say = c.name + '\'s wounds are healed.'; } }
     });
   }
 
@@ -180,35 +180,61 @@
     common.pick('Who fights?', all, (c) => betWindow(card, arena, opp, c), (c) => { const why = EC.canEnter(S, c, card); return { text: why || RB.pheno.WEIGHT_CLASSES[ST.pheno(c).weightClass][0] + 'weight · ' + c.wins + '–' + c.losses, ok: !why, label: 'Send in' }; });
     void list;
   }
-  // Odds are worked out by quietly running the bout a dozen times, a couple per frame.
+  // Before the bell: the two fighters' numbers side by side, and a bet. Nobody posts odds any more,
+  // so you judge the birds yourself; a winning bet pays back three times the stake.
+  const STATS = [['power', 'Power'], ['speed', 'Speed'], ['tough', 'Toughness'], ['stamina', 'Stamina'], ['guts', 'Guts'], ['wits', 'Wits'], ['fury', 'Fury']];
   function betWindow(card, arena, opp, c, exhibit) {
-    const a = c ? { P: ST.pheno(c), hpFrac: c.hp, gear: c.gear ? { [c.gear]: true } : {}, bond: c.bond } : { P: exhibit.a.P };
-    const b = { P: opp.P, gear: opp.gear || {} };
-    let wins = 0, n = 0, stake = 0, side = 0;
-    const N = 12, cap = arena ? arena.betCap : card.fee * 2;
+    let stake = 0, side = 0;
+    const cap = arena ? arena.betCap : Math.max(100, card.fee * 5);
+    const A = c ? { P: ST.pheno(c), name: c.name, hp: c.hp } : { P: exhibit.a.P, name: exhibit.a.name, hp: 1 };
+    const B = { P: opp.P, name: opp.name, hp: 1 };
     ui.open({ draw() {
-      for (let k = 0; k < 2 && n < N; k++) { const r = new RB.fight.Fight({ a, b, mode: card.mode, seed: 9000 + n * 131 + S.day }).run(); if (r.winner === 0) wins++; n++; }
-      const p = n ? clamp(wins / n, 0.06, 0.94) : 0.5, done = n >= N, line = EC.bookieLine(p);
-      const box = ui.window(exhibit ? 'Place a bet' : 'Before the bell', 380, exhibit ? 360 : 322, {});
+      const box = ui.window((exhibit ? 'Place a bet' : 'Before the bell') + ' · wins pay ' + EC.BET_RETURN + '×', 400, exhibit ? 450 : 410, {});
       if (!box) return;
-      const pw = (box.w - 50) / 2, ph = 82;
-      if (c) common.portrait(c, box.x, box.y, pw, ph); else common.portrait({ P: exhibit.a.P }, box.x, box.y, pw, ph);
-      common.portrait({ P: opp.P }, box.x + pw + 50, box.y, pw, ph, { f: -1 });
-      ui.text('vs', box.x + box.w / 2, box.y + 48, { size: 16, align: 'center', color: pal.coral });
-      ui.text(c ? c.name : exhibit.a.name, box.x + pw / 2, box.y + 98, { size: 13, align: 'center', maxW: pw });
-      ui.text(opp.name, box.x + pw + 50 + pw / 2, box.y + 98, { size: 13, align: 'center', maxW: pw });
-      ui.bar(box.x, box.y + 106, box.w, 12, line, pal.teal, pal.coral);
-      ui.text(done ? 'The bookie gives ' + (c ? c.name : exhibit.a.name) + ' ' + Math.round(line * 100) + '%. He plays it safe.' : 'The bookie is thinking...', box.x + box.w / 2, box.y + 133, { size: 12, align: 'center', bold: false, maxW: box.w });
-      if (exhibit) { if (ui.btn(box.x, box.y + 140, pw + 20, 32, 'Back ' + exhibit.a.name, { fill: side === 0 ? pal.ink : pal.soft, color: side === 0 ? pal.white : pal.ink, size: 12, flat: true })) side = 0; if (ui.btn(box.x + box.w - pw - 20, box.y + 140, pw + 20, 32, 'Back ' + opp.name, { fill: side === 1 ? pal.ink : pal.soft, color: side === 1 ? pal.white : pal.ink, size: 12, flat: true })) side = 1; }
-      const mult = EC.odds(side === 0 ? p : 1 - p), max = Math.max(0, Math.min(cap, S.money - (exhibit ? 0 : card.fee)));
-      const y = box.y + (exhibit ? 178 : 140);
-      ui.text('Bet $' + stake + (stake ? ' to win $' + Math.round(stake * mult) : ''), box.x, y + 14, { size: 13 });
-      [0, 0.25, 0.5, 1].forEach((f, i) => { const bw = (box.w - 18) / 4; if (ui.btn(box.x + i * (bw + 6), y + 22, bw, 34, i === 0 ? 'None' : '$' + Math.floor(max * f / 5) * 5, { fill: pal.mustard, color: pal.ink, size: 12, disabled: !done })) stake = Math.floor(max * f / 5) * 5; });
+      const H = box.h, ph = H > 330 ? 62 : 44, sideH = exhibit ? 40 : 0;
+      const rows = STATS.length + 1, rowH = clamp((H - ph - 30 - sideH - 58 - 50 - 6) / rows, 10, 16);
+      const pw = (box.w - 50) / 2, mid = box.x + box.w / 2;
+      if (c) common.portrait(c, box.x, box.y, pw, ph); else common.portrait({ P: A.P }, box.x, box.y, pw, ph);
+      common.portrait({ P: B.P }, box.x + pw + 50, box.y, pw, ph, { f: -1 });
+      ui.text('vs', mid, box.y + ph / 2 + 6, { size: 16, align: 'center', color: pal.coral });
+      let y = box.y + ph + 14;
+      ui.text(A.name, box.x + pw / 2, y, { size: 13, align: 'center', maxW: pw });
+      ui.text(B.name, box.x + pw + 50 + pw / 2, y, { size: 13, align: 'center', maxW: pw });
+      y += 13;
+      const sub = (F) => F.P.species.name + ' · ' + common.fmtKg(F.P.weightKg);
+      ui.text(sub(A), box.x + pw / 2, y, { size: 10, align: 'center', bold: false, maxW: pw });
+      ui.text(sub(B), box.x + pw + 50 + pw / 2, y, { size: 10, align: 'center', bold: false, maxW: pw });
+      y += 5;
+      // the numbers: each bar grows out from the middle, longer is better
+      const bw = box.w / 2 - 44, fs = Math.min(10, rowH - 2);
+      const row = (label, va, vb, col) => {
+        const ry = y + 1, bh = Math.max(4, rowH - 5);
+        ui.rect(mid - 40 - bw, ry, bw, bh, pal.soft, bh / 2); ui.rect(mid + 40, ry, bw, bh, pal.soft, bh / 2);
+        if (va > 0) ui.rect(mid - 40 - bw * va / 100, ry, bw * va / 100, bh, col, bh / 2);
+        if (vb > 0) ui.rect(mid + 40, ry, bw * vb / 100, bh, col, bh / 2);
+        ui.text(label, mid, ry + bh / 2 + 0.5, { size: fs, align: 'center', base: 'middle', bold: false });
+        ui.text(String(va), mid - 44 - bw, ry + bh / 2 + 0.5, { size: fs, align: 'right', base: 'middle' });
+        ui.text(String(vb), mid + 44 + bw, ry + bh / 2 + 0.5, { size: fs, align: 'left', base: 'middle' });
+        y += rowH;
+      };
+      const cols = [pal.coral, pal.teal, pal.brick, pal.leaf, pal.mustard, pal.plum, '#d7372f'];
+      STATS.forEach((st, i) => row(st[1], A.P.rate[st[0]], B.P.rate[st[0]], cols[i]));
+      row('Health', Math.round(A.hp * 100), Math.round(B.hp * 100), pal.coral);
+      y += 4;
+      if (exhibit) {
+        const half = (box.w - 8) / 2;
+        if (ui.btn(box.x, y, half, 32, 'Back ' + A.name, { fill: side === 0 ? pal.ink : pal.soft, color: side === 0 ? pal.white : pal.ink, size: 12, flat: true })) side = 0;
+        if (ui.btn(box.x + half + 8, y, half, 32, 'Back ' + B.name, { fill: side === 1 ? pal.ink : pal.soft, color: side === 1 ? pal.white : pal.ink, size: 12, flat: true })) side = 1;
+        y += sideH;
+      }
+      const max = Math.max(0, Math.min(cap, S.money - (exhibit ? 0 : card.fee)));
+      ui.text(stake ? 'Bet $' + stake + ' on ' + (side ? B.name : A.name) + ': win $' + stake * EC.BET_RETURN + ' back' : 'No bet (up to $' + max + ' here)', box.x, y + 13, { size: 13, maxW: box.w });
+      [0, 0.25, 0.5, 1].forEach((f, i) => { const sw = (box.w - 18) / 4, v = Math.floor(max * f / 5) * 5; if (ui.btn(box.x + i * (sw + 6), y + 20, sw, 32, i === 0 ? 'None' : '$' + v, { fill: pal.mustard, color: pal.ink, size: 12, disabled: i > 0 && v <= 0 })) stake = v; });
       const fee = exhibit ? 0 : card.fee;
-      if (ui.btn(box.x, box.y + box.h - 44, box.w, 44, exhibit ? (stake ? 'Bet and watch' : 'Just watch') : 'Fight!' + (fee ? ' (entry $' + fee + ')' : ''), { fill: pal.coral, disabled: !done || S.money < fee + stake, key: 'Enter' })) {
+      if (ui.btn(box.x, box.y + box.h - 44, box.w, 44, exhibit ? (stake ? 'Bet and watch' : 'Just watch') : 'Fight!' + (fee ? ' (entry $' + fee + ')' : ''), { fill: pal.coral, disabled: S.money < fee + stake, key: 'Enter' })) {
         S.money -= fee + stake;
         ui.closeAll();
-        RB.game.go('ring', { a: c ? { c } : exhibit.a, b: opp, card, arena, bet: { side, amount: stake, mult }, back: 'site', backArgs: { site: site.id } });
+        RB.game.go('ring', { a: c ? { c } : exhibit.a, b: opp, card, arena, bet: { side, amount: stake, mult: EC.BET_RETURN - 1 }, back: 'site', backArgs: { site: site.id } });
       }
     } });
   }

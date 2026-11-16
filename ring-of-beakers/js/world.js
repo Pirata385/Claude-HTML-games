@@ -133,10 +133,10 @@
   function lootAt(world, cx, cy) {
     for (const m of world.marks) if (m.cx === cx && m.cy === cy) return Object.assign({ metal: m.loot.type !== 'fossil', marked: true }, m.loot);
     const u = hash2(cx, cy, world.seed), v = hash2(cx, cy, world.seed + 91), x = (cx + 0.5) * CELL, y = (cy + 0.5) * CELL;
-    if (u > 0.36) return null;
+    if (u > 0.97) return null; // coming up empty is rare
     const b = biomeAt(world, x, y);
     if (b === 'water') return null;
-    const k = u / 0.36;
+    const k = u / 0.97;
     if (k < 0.34) return { type: 'money', money: 4 + Math.floor(v * 34), metal: true };
     if (k < 0.52) return { type: 'item', id: 'worm', n: 1 + Math.floor(v * 3) };
     if (k < 0.62) return { type: 'item', id: 'cap', metal: true };

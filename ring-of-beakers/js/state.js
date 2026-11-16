@@ -40,7 +40,7 @@
   function addBird(S, genome, o) {
     o = o || {};
     const c = { id: S.nextId++, name: o.name || freeName(S, S._rng), g: genome, age: 0, bond: o.bond === undefined ? 0.1 : o.bond, at: o.at || 'home', origin: o.origin || 'wild',
-      train: { muscle: 0, lungs: 0, reflex: 0, courage: 0 }, cond: 1, hp: 1, rest: 0, fed: false, hungry: 0, bouts: 0, trained: false, wins: 0, losses: 0,
+      train: { muscle: 0, lungs: 0, reflex: 0, courage: 0 }, cond: 1, hp: 1, rest: 0, tired: false, fed: false, hungry: 0, bouts: 0, trained: false, wins: 0, losses: 0,
       hat: null, gear: null, buff: null, love: false, person: o.person || null, clothes: o.clothes || null, mom: o.mom || null, dad: o.dad || null, momKey: o.momKey || null, dadKey: o.dadKey || null, inj: 0 };
     c.age = o.age === undefined ? pheno(c).growDays + 1 : o.age;
     c._P = null;
@@ -119,7 +119,7 @@
     if (item === 'grain') { c.bond = Math.min(1, c.bond + 0.02); return c.name + ' pecks it up and is full.'; }
     if (item === 'worm') { c.bond = Math.min(1, c.bond + 0.08); return c.name + ' loves worms.'; }
     if (item === 'chili') { c.buff = 'chili'; return c.name + ' is fired up for the next bout.'; }
-    if (item === 'tonic') { c.hp = 1; c.rest = 0; c.cond = 1; dirty(c); return c.name + ' looks good as new.'; }
+    if (item === 'tonic') { const was = c.tired || c.rest > 0; c.tired = false; c.rest = 0; return was ? c.name + ' is full of beans again and can fight today.' : c.name + ' was not tired, but enjoys it.'; }
     if (item === 'gromash') { if (P.grow < 1) { c.age++; dirty(c); return c.name + ' shoots up overnight. Well, right now.'; } return c.name + ' enjoys it, but is done growing.'; }
     if (item === 'loveseed') { c.love = true; return c.name + ' is feeling romantic.'; }
     if (item === 'mushroom') { GN.mutate(c.g, r, 4); dirty(c); return c.name + ' feels... different.'; }
@@ -197,9 +197,9 @@
     // a day older
     let held = 0;
     for (const c of S.birds.slice()) {
-      c.fed = false; c.bouts = 0; c.trained = false;
+      c.fed = false; c.bouts = 0; c.trained = false; c.tired = false;
       if (c.rest > 0) c.rest--;
-      c.hp = Math.min(1, c.hp + 0.34);
+      // wounds do not heal on their own: that is the vet's job
       if (c.person) { held++; continue; }
       if (c.hatched === S.day) continue; // hatched this morning: not a day old yet
       const was = pheno(c).stage;

@@ -15,6 +15,7 @@
     ['The lab', 'Three fuses bring the lab to life. Sequence a creature to read its genome, extract a gene into a beaker, edit it at the CRISPR bench, and inject it into another creature or an egg. Four fossil fragments rebuild a lost species.'],
     ['People', 'Neighbours buy birds that match what they want, breed their own, collect relics, or challenge you. You can net them, too. The sheriff takes a dim view.'],
     ['BFC', 'Brazil\'s Fried Chicken pays by the kilo for any bird you are done with, at the counter or through the pick-up box in your yard.'],
+    ['Old age', 'A bird that reaches the end of its lifespan retires instead of dying: no more fights, nests, training or shows. Take it to Sunset Roost, just north-west of home, where Dona Nina looks after retired birds in her garden for free. You can visit them, or take one home again.'],
   ];
 
   function sample(id) {

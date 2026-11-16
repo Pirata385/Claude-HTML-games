@@ -24,13 +24,12 @@
   }
   function clothes(r, hat) { const shirt = r.pick(SHIRTS), pants = r.pick(PANTS); return { shirt, shirtDark: darker(shirt), pants, pantsDark: darker(pants), hat: hat || null }; }
 
+  // One person, drawn from r.
+  const make = (r, id, name, role, site, sex, hat) => ({ id, name, role, site, sex, g: personGenome(r, sex), clothes: clothes(r, hat), wealth: +r.range(0.7, 1.6).toFixed(2), seed: r.int(1, 2e9) });
   // All the people of a world. Called by world.generate with the world's own rng.
   function populate(world, r) {
     const list = [];
-    const add = (id, name, role, site, sex, hat) => {
-      const npc = { id, name, role, site, sex, g: personGenome(r, sex), clothes: clothes(r, hat), wealth: +r.range(0.7, 1.6).toFixed(2), seed: r.int(1, 2e9) };
-      list.push(npc); return npc;
-    };
+    const add = (id, name, role, site, sex, hat) => { const npc = make(r, id, name, role, site, sex, hat); list.push(npc); return npc; };
     for (const k of KEEPERS) add('k_' + k[0], k[1], 'keeper', k[0], k[2], k[3]);
     const usedM = FIRST_M.slice(), usedF = FIRST_F.slice();
     r.shuffle(usedM); r.shuffle(usedF);
@@ -156,5 +155,5 @@
   }
   const SCREAMS = ['Hey! HEY!', 'Not the net!', 'I have a family!', 'This is a kidnapping!', 'Put me down!', 'My back!'];
 
-  RB.npc = { populate, personGenome, clothes, current, WISHES, info, vacancy, wishOf, offer, fitText, stockOf, challengeOf, greeting, SCREAMS, period, hashStr };
+  RB.npc = { populate, make, personGenome, clothes, current, WISHES, info, vacancy, wishOf, offer, fitText, stockOf, challengeOf, greeting, SCREAMS, period, hashStr };
 })();

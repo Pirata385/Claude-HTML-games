@@ -1,6 +1,7 @@
 // pen.js — a small live box of ragdolls drawn inside a screen rectangle: the truck's cage as seen
-// from the map. The creatures stand and shuffle about in their own physics world; you can grab and
-// drag them, tap one for its card, or drag one out of the box to let it go where you drop it.
+// from the map, or the garden of Sunset Roost. The creatures stand and shuffle about in their own
+// physics world; you can grab and drag them, tap one for its card, or drag one out of the box to
+// let it go where you drop it.
 (function () {
   'use strict';
   const RB = globalThis.RB;
@@ -9,7 +10,9 @@
   const DT = RB.fight.DT;
 
   class Pen {
-    // o: { onTap(c), onDropOut(c, screenX, screenY), drawOpts(c) }
+    // o: { onTap(c), onDropOut(c, screenX, screenY), drawOpts(c), canGrab(c),
+    //      bg(ctx, box) to draw your own backdrop (default: the cage), under(ctx, pen) to draw on
+    //      the ground in pen units before the creatures, roomy: zoom out so a crowd has room }
     constructor(o) {
       this.o = o || {};
       this.world = new RB.physics.World();
@@ -31,9 +34,10 @@
     // Fit the pen to its box: scale so the tallest rider stands inside it.
     layout(box, list) {
       this.box = box;
-      let tall = 30;
-      for (const c of list || this.items.map((it) => it.c)) { const P = ST.pheno(c); tall = Math.max(tall, P.rest + P.TD * 0.6 + P.NL * 0.9 + P.HR * 2); }
+      let tall = 30, wide = 0, sum = 0;
+      for (const c of list || this.items.map((it) => it.c)) { const P = ST.pheno(c); tall = Math.max(tall, P.rest + P.TD * 0.6 + P.NL * 0.9 + P.HR * 2); wide = Math.max(wide, P.TL); sum += P.TL; }
       this.s = clamp((box.h - 16) / tall, 0.08, 1.4);
+      if (this.o.roomy) this.s = clamp(Math.min((box.h - 16) / (tall * 1.15), box.w / Math.max(3 * wide, 0.8 * sum)), 0.08, 1.4);
       this.L = box.w / this.s;
     }
     toWorld(px, py) { const b = this.box; return { x: (px - b.x) / this.s, y: (py - (b.y + b.h - 8)) / this.s }; }
@@ -46,6 +50,12 @@
       }
       return best;
     }
+    // Send one to a spot (in pen units); with peck, it pecks at the ground when it gets there.
+    goTo(it, x, peck) {
+      const m = Math.min(it.P.TL * 0.5 + 6, this.L / 2 - 1);
+      it.mode = 'walk'; it.tx = clamp(x, m, Math.max(m, this.L - m)); it.t = 6; it.peck = !!peck;
+    }
+    peckNow(it) { const rag = it.rag, P = it.P; if (!it.c.person && !rag.act) rag.startPeck(() => ({ x: rag.C.x + rag.f * (P.NL * 0.6 + 8), y: -2 })); }
     shift(rag, dx) {
       for (const p of rag.parts) { p.x += dx; p.ox += dx; }
       for (const leg of rag.legs) { if (leg.sw) { leg.sw.x0 += dx; leg.sw.x1 += dx; } if (leg.from) leg.from.x += dx; }
@@ -58,7 +68,7 @@
       for (const p of input.ptrs) {
         if (p.fresh && this.inBox(p.sx, p.sy) && !this.grab) {
           const it = this.pick(this.toWorld(p.x, p.y));
-          if (it) { this.grab = { it, id: p.id, moved: false, vx: 0, vy: 0 }; p.owner = 'pen'; }
+          if (it && (!this.o.canGrab || this.o.canGrab(it.c))) { this.grab = { it, id: p.id, moved: false, vx: 0, vy: 0 }; p.owner = 'pen'; }
         }
         const g = this.grab;
         if (g && g.id === p.id) {
@@ -91,13 +101,14 @@
         const m = Math.min(P.TL * 0.5 + 6, this.L / 2 - 1);
         if (it.t <= 0) {
           const r = this.rng.next();
+          it.peck = false;
           if (r < 0.5) { it.mode = 'walk'; it.tx = this.rng.range(m, Math.max(m, this.L - m)); it.t = this.rng.range(2, 5); }
           else if (r < 0.7 && !it.c.person) { it.mode = 'idle'; it.t = this.rng.range(1, 2); rag.startPeck(() => ({ x: rag.C.x + rag.f * (P.NL * 0.6 + 8), y: -2 })); }
           else { it.mode = 'idle'; it.t = this.rng.range(1, 3); }
         }
         if (it.mode === 'walk') {
           const dx = it.tx - rag.midX();
-          if (Math.abs(dx) < 10) { it.mode = 'idle'; rag.vxDes = 0; }
+          if (Math.abs(dx) < 10) { it.mode = 'idle'; rag.vxDes = 0; if (it.peck) { it.peck = false; it.t = this.rng.range(1.2, 2.4); this.peckNow(it); } }
           else { const dir = Math.sign(dx); if (dir !== rag.f && !rag.act) rag.flip(); rag.vxDes = dir * Math.min(P.speedMax * 0.35, 40 + P.speedMax * 0.1); }
         } else rag.vxDes = 0;
       }
@@ -126,18 +137,22 @@
       if (!b) return;
       ctx.save();
       ui.rr(ctx, b.x, b.y, b.w, b.h, 10); ctx.clip();
-      ctx.fillStyle = '#d9e6e2'; ctx.fillRect(b.x, b.y, b.w, b.h);
-      ctx.fillStyle = 'rgba(35,49,74,0.18)';
-      for (let x = b.x + 8; x < b.x + b.w; x += 18) ctx.fillRect(x, b.y, 3, b.h - 8);
-      ctx.fillStyle = '#96693f'; ctx.fillRect(b.x, b.y + b.h - 8, b.w, 8);
+      if (this.o.bg) this.o.bg(ctx, b);
+      else {
+        ctx.fillStyle = '#d9e6e2'; ctx.fillRect(b.x, b.y, b.w, b.h);
+        ctx.fillStyle = 'rgba(35,49,74,0.18)';
+        for (let x = b.x + 8; x < b.x + b.w; x += 18) ctx.fillRect(x, b.y, 3, b.h - 8);
+        ctx.fillStyle = '#96693f'; ctx.fillRect(b.x, b.y + b.h - 8, b.w, 8);
+      }
       ctx.translate(b.x, b.y + b.h - 8); ctx.scale(this.s, this.s);
+      if (this.o.under) this.o.under(ctx, this);
       const order = this.items.slice().sort((a, c) => c.P.S - a.P.S);
       for (const it of order) {
         if (this.grab && this.grab.it === it && this.grab.out) continue;
         RB.art.drawCreature(ctx, it.P, it.rag.getPose(), this.o.drawOpts ? this.o.drawOpts(it.c) : {});
       }
       ctx.restore();
-      ctx.fillStyle = pal.ink; ctx.fillRect(b.x, b.y, b.w, 3);
+      if (!this.o.bg) { ctx.fillStyle = pal.ink; ctx.fillRect(b.x, b.y, b.w, 3); }
       const g = this.grab;
       if (g && g.out && g.moved) {
         ctx.save(); ctx.globalAlpha = 0.85;

@@ -129,7 +129,7 @@
     const lines = [];
     if (pv.full) {
       lines.push(['Whole genome of ' + v.name + ' (' + v.from + '): a clone, at ' + (isEgg ? 'the egg\'s' : tg.c.name + '\'s') + ' age.', pal.plum]);
-      if (pv.tooOld) lines.push(['Too old for this body: it would not live through the night.', pal.coral]);
+      if (pv.tooOld) lines.push(['Too old for this body: ' + tg.c.name + ' would be retired at once.', pal.coral]);
       if (!isEgg && tg.c.person) lines.push([tg.c.name + ' stops being a person. Their house will stand empty.', pal.coral]);
     } else if (!pv.trait) lines.push(['This gene does nothing anyone can see.', pal.grey]);
     else {

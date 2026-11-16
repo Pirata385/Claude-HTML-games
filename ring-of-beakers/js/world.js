@@ -49,6 +49,8 @@
     ['city', 'arena', 'City Arena', 8040, 5180], ['backyard', 'arena', 'Backyard Pit', 5100, 4880], ['county', 'arena', 'County Ring', 8950, 3300], ['carnival', 'carnival', 'Sideshow', 9850, 4250],
     ['lab', 'lab', 'The Lab', 3950, 3050], ['cellar', 'arena', 'The Cellar', 2450, 6250], ['grand', 'arena', 'Grand Ring', 6000, 1150], ['market', 'shop', 'Night Market', 4350, 6820],
   ];
+  // Opened after the first release: id, kind, name, x, y, road, keeper [name, sex, hat]
+  const LATER = [['roost', 'roost', 'Sunset Roost', 4880, 4120, ['home', 'roost'], ['Dona Nina', 'F', null]]];
   const HOUSES = [[5050, 3700], [4500, 4500], [6400, 5250], [5800, 5600], [6700, 3500], [9700, 2500], [10300, 3500], [2700, 2700], [2900, 5300], [5600, 6700], [8300, 6750], [6900, 1500]];
   const ROADS = [
     ['home', 'feed', 'tools', 'bfc', 'garage', 'hatter', 'vet', 'city'], ['garage', 'bank', 'city'], ['home', 'backyard'], ['bfc', 'county', 'carnival'],
@@ -74,18 +76,19 @@
       const site = { id: 'house' + i, kind: 'house', name: 'House', x: h[0] + r.range(-90, 90), y: h[1] + r.range(-90, 90), r: 100 };
       world.sites.push(site); world.site[site.id] = site;
     });
-    world.roads = ROADS.map((ids) => {
+    const road = (ids, rr) => {
       const pts = [];
       for (let i = 0; i < ids.length; i++) {
         const s = world.site[ids[i]];
         if (i > 0) { // a gentle bend between sites
           const p = pts[pts.length - 1], mx = (p.x + s.x) / 2, my = (p.y + s.y) / 2, d = Math.hypot(s.x - p.x, s.y - p.y);
-          pts.push({ x: mx + r.range(-0.12, 0.12) * d, y: my + r.range(-0.12, 0.12) * d });
+          pts.push({ x: mx + rr.range(-0.12, 0.12) * d, y: my + rr.range(-0.12, 0.12) * d });
         }
         pts.push({ x: s.x, y: s.y + 70 });
       }
       return pts;
-    });
+    };
+    world.roads = ROADS.map((ids) => road(ids, r));
     // treasure marks: a guaranteed find under each
     world.marks = [
       { x: world.site.lab.x + 330, y: world.site.lab.y + 260, loot: { type: 'item', id: 'fuse' } },
@@ -94,6 +97,14 @@
     ];
     for (const m of world.marks) { m.x += r.range(-60, 60); m.y += r.range(-60, 60); m.cx = Math.floor(m.x / CELL); m.cy = Math.floor(m.y / CELL); }
     world.npcs = RB.npc ? RB.npc.populate(world, r) : [];
+    // Sites opened later draw from their own numbers, so the rest of an older save's map stays put.
+    const r2 = new Rng((seed ^ 0x5007e) >>> 0);
+    for (const s of LATER) {
+      const site = { id: s[0], kind: s[1], name: s[2], x: s[3] + r2.range(-40, 40), y: s[4] + r2.range(-40, 40), r: 120 };
+      world.sites.push(site); world.site[site.id] = site;
+      world.roads.push(road(s[5], r2));
+      if (RB.npc) world.npcs.push(RB.npc.make(r2, 'k_' + s[0], s[6][0], 'keeper', s[0], s[6][1], s[6][2]));
+    }
     return world;
   }
 

@@ -116,6 +116,7 @@
     kidnap: ['Finders keepers', 'Net a person.', (S) => S.stats.kidnapped >= 1],
     rich: ['Feathered nest', 'Hold $5000 at once.', (S) => S.money >= 5000],
     clone: ['Send in the clones', 'Turn a creature into a clone with a whole-genome copy.', null],
+    roost: ['Golden years', 'Retire a bird to Sunset Roost.', (S) => (S.roost || []).length >= 1],
     twitcher: ['Twitcher', 'Meet fifteen kinds of bird.', (S) => Object.keys(S.codex.species).length >= 15],
     heads: ['Two heads are better', 'Own a two-headed creature.', (S) => S.birds.some((c) => ST.pheno(c).twoHeads)],
     champ: ['Champion of the Grand Ring', 'Beat Madame Plume.', (S) => RB.economy.leagueOf(S, 'grand').boss],
@@ -138,6 +139,7 @@
   const BARS = [['power', 'Power', pal.coral], ['speed', 'Speed', pal.teal], ['tough', 'Toughness', pal.brick], ['stamina', 'Stamina', pal.leaf], ['guts', 'Guts', pal.mustard], ['wits', 'Wits', pal.plum], ['fury', 'Fury', '#d7372f']];
   common.statusOf = function (c) {
     const out = [];
+    if (ST.isRetired(c)) out.push(['Retired', pal.plum]);
     if (c.rest > 0) out.push(['Dazed', pal.coral]);
     if (c.tired) out.push(['Worn out', pal.grey]);
     if (c.hp < 0.99) out.push(['Wounded ' + Math.round(c.hp * 100) + '%', pal.brick]);
@@ -146,10 +148,11 @@
     if (c.love) out.push(['In love', pal.coral]);
     return out;
   };
-  common.card = function (c, actions) {
+  // o.has(c): whether the creature is still there to show (default: it is one of your birds)
+  common.card = function (c, actions, o) {
     const S = RB.game.S;
     ui.open({ draw() {
-      if (!S.birds.includes(c)) { ui.close(); return; }
+      if (!(o && o.has ? o.has(c) : S.birds.includes(c))) { ui.close(); return; }
       const P = ST.pheno(c), v = ui.view, wide = v.w >= 560;
       const acts = actions ? actions(c) : [];
       const rows = Math.ceil(acts.length / (wide ? 4 : 2));
@@ -163,7 +166,7 @@
       ui.icon(P.sex === 'M' ? 'male' : 'female', tx + 8, ty - 4, 15, P.sex === 'M' ? '#3d6fa5' : pal.coral);
       ui.text(ST.kind(c), tx + 22, ty, { size: 15, maxW: tw - 24 });
       ty += 19;
-      const stage = c.person ? 'not amused' : P.stage + ', day ' + c.age + ' of about ' + P.lifespan;
+      const stage = c.person ? 'not amused' : ST.isRetired(c) ? 'retired at ' + c.age + ' days' + (c.at === 'roost' ? ', at Sunset Roost since day ' + c.since : '') : P.stage + ', day ' + c.age + ' of about ' + P.lifespan;
       ui.text(stage, tx, ty, { size: 12, bold: false, maxW: tw }); ty += 16;
       ui.text(common.fmtKg(P.weightKg) + ' · ' + RB.pheno.WEIGHT_CLASSES[P.weightClass][0] + 'weight', tx, ty, { size: 12, bold: false, maxW: tw }); ty += 16;
       ui.text('Record ' + c.wins + '–' + c.losses + (c.person ? '' : ' · worth about $' + RB.economy.value(c)), tx, ty, { size: 12, bold: false, maxW: tw }); ty += 14;

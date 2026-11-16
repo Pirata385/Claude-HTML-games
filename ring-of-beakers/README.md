@@ -12,6 +12,7 @@ Open `index.html` in a browser. It needs no build step and no server, and it run
 - **Money.** Every arena always has two exhibition bouts to watch and bet on; as soon as one is fought the next pair takes its place. Nobody posts odds: the bet window shows both fighters' numbers side by side, and a winning bet pays back three times the stake. If your money ever runs out, Dona Cida pays $50 to scrub the droppings off her henhouse floor (hold and rub each pile).
 - **Feeding.** One grain feeds any creature for the day. Birds in the yard walk to the feeder and eat on their own; whatever is left feeds the rest at night.
 - **Ring.** Your bird fights on its own. Shout `Sic 'em!`, `Back off!` or `Whistle` (keys `1`-`3`); each has a cooldown, and a bird that does not trust you may ignore you. The flag throws in the towel. Every bout wears a bird out for the day (a tonic restores its vigour so it can fight again); only a loss wounds it, and wounds stay until the vet heals them.
+- **Old age.** Nobody dies of old age. A bird that reaches the end of its lifespan **retires**: it stops ageing, and can no longer fight, nest, train or enter the sideshow. Drive it to **Sunset Roost**, where Dona Nina looks after retired birds for free: they live in her garden, potter about, peck, and come running when she scatters grain. Tap a resident for its card, or take it home again. BFC still takes retired birds too, and an elixir (or a whole-genome clone with a longer life) can bring one back to the ring.
 - **Lab.** Three fuses power it. Every gene is mapped from the start: pick any creature in the truck to see its fourteen chromosome pairs and what each gene does. Extract one copy of a gene into a beaker, or copy the **whole genome** into one beaker. Edit any base at the CRISPR bench (a whole-genome beaker opens on a chromosome grid, so you can edit any of its genes), then inject into another creature or an egg. A whole genome turns the receiver, bird or person, into a **clone** of the donor at the receiver's own age, and its beaker is kept, so a favourite bird can be kept for ever. Beakers you no longer want can be thrown away. Everything in the lab is free. Before an injection, a preview shows the creature as it is and as it would be (an egg as the adult it grows into), with its stats and what changes; nothing happens until you confirm. Giving or receiving genes leaves a creature worn out for the day, never hurt.
 
 The Codex (in the yard) has a longer guide, the kinds of bird you have met, the gene atlas and the feats.
@@ -22,10 +23,10 @@ The Codex (in the yard) has a longer guide, the kinds of bird you have met, the 
 - **Colours.** Colour genes are read base by base, so any difference in them shows: no two birds are quite alike, domestic kinds come in many shades, and black (dominant) and white (recessive) morphs turn up now and then.
 - **34 kinds of bird**, from quail to ostrich, five of them extinct and only reachable through fossils. A kind is only a region of the gene space, so anything can have young with anything: a hummingbird with an ostrich, or a hen with a person. Each parent's copy of a gene carries its own dominance, so a cross can take whole body parts after one parent, blend others, and get its colours from either side. Crosses are named after both parents and breed true to their new kind.
 - **Physics fights.** Fighters are ragdolls built from their genes. They peck, kick with their spurs, buffet with their wings, shove and punch; damage comes from the speed of the blow where it lands. Three kinds of bout: the pit, push-out on a platform, and aerial over water.
-- **A seeded map** with six biomes, each with its own animals by day and by night. The day's wild population lives all over the map and stays put while you go in and out of places; it is renewed each morning, and about one wild animal in 170 is a natural cross of two kinds. The map also has roads, sixteen sites and twelve houses. Animals graze, bolt, fly off or charge the truck depending on their genes. Digging almost always turns something up. Holes you dig trap small animals and fill back in overnight, when the ground holds something new; a red X is a one-time find whose hole stays.
+- **A seeded map** with six biomes, each with its own animals by day and by night. The day's wild population lives all over the map and stays put while you go in and out of places; it is renewed each morning, and about one wild animal in 170 is a natural cross of two kinds. The map also has roads, seventeen sites and twelve houses. Animals graze, bolt, fly off or charge the truck depending on their genes. Digging almost always turns something up. Holes you dig trap small animals and fill back in overnight, when the ground holds something new; a red X is a one-time find whose hole stays.
 - **People.** Neighbours buy birds that match what they want, breed and swap their own, collect relics, or challenge you. They can be netted too, which the sheriff minds. A netted person can share a nest with a bird, or go to BFC; their house stands empty for three days until someone new moves in.
 - **BFC, Brazil's Fried Chicken.** Takes any bird (or person) you are done with, by the kilo, at the counter or from the box in your yard. A parody: the look is a fried chicken place, the mascot (Coronel Galo, a rooster in a white suit) and everything else are this game's own.
-- Five arenas, each with one bout a day in every weight class from Gnat to Titan (so any bird you own has a fight), bosses and betting, a sideshow with three contests, an ending, nineteen feats, synthesised sound and music, three save slots with export and import.
+- Five arenas, each with one bout a day in every weight class from Gnat to Titan (so any bird you own has a fight), bosses and betting, a sideshow with three contests, an ending, twenty-two feats, synthesised sound and music, three save slots with export and import.
 
 ## Files
 
@@ -42,7 +43,7 @@ js/fight.js         a bout: brains, damage, commands, odds
 js/items.js  world.js  npc.js  economy.js  lab.js  state.js   the rules
 js/birdart.js  props.js    drawing creatures and scenery
 js/input.js  ui.js  audio.js  save.js  common.js  main.js     the shell
-js/scenes/          title, coop, ring, map, sites, lab, codex, chores
+js/scenes/          title, coop, ring, map, sites, lab, codex, chores, roost
 tests/              logic tests
 ```
 
@@ -54,7 +55,7 @@ Everything up to `state.js` runs without a browser, which is how the tests and t
 node --test ring-of-beakers/tests/*.test.js
 ```
 
-They cover the genome (layout, meiosis, sex ratio, mutation, saving), all kinds standing and walking in the physics, bouts being deterministic and always ending, weapons mattering, and the rules of the save, the BFC, the arenas, the world, the people and the lab.
+They cover the genome (layout, meiosis, sex ratio, mutation, saving), all kinds standing and walking in the physics, bouts being deterministic and always ending, weapons mattering, and the rules of the save, the BFC, the arenas, the world, the people, the lab, and retirement at Sunset Roost.
 
 ## Notes
 

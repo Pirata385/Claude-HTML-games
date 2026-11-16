@@ -127,7 +127,7 @@
       st.credit = st.credit || 0;
       ui.text('Trade-in credit: $' + st.credit, b.x + 4, b.y + 22, { size: 13 });
       if (ui.btn(b.x + b.w - 170, b.y, 164, 34, 'Trade in a bird', { icon: 'swap', fill: pal.mustard, color: pal.ink, size: 12 })) {
-        common.pick('Trade in', caged().filter((c) => !c.person), (c) => { st.credit += Math.round(EC.value(c) * 0.9); ST.removeBird(S, c); RB.audio.play('coin'); say = 'A fair swap. That is credit with me.'; }, (c) => ({ text: 'credit $' + Math.round(EC.value(c) * 0.9), ok: true, label: 'Trade' }));
+        common.pick('Trade in', caged().filter((c) => !c.person), (c) => { st.credit += Math.round(EC.value(c) * 0.9); ST.removeBird(S, c); RB.audio.play('coin'); say = 'A fair swap. That is credit with me.'; }, (c) => (ST.isRetired(c) ? { text: 'Retired: too old to breed.', ok: false, label: 'Trade' } : { text: 'credit $' + Math.round(EC.value(c) * 0.9), ok: true, label: 'Trade' }));
       }
       if (!stock.length) { ui.para('Sold out. Come back in a few days.', b.x + 4, b.y + 46, b.w, { size: 13 }); return; }
       ui.list('stock', b.x, b.y + 42, b.w, b.h - 42, stock.length, 60, (i, x, y, w) => {
@@ -256,7 +256,7 @@
       }
       const card = cards[i - exs.length], opp = EC.opponentFor(S, arena, card), done = S.bets[card.key] === S.day && !card.boss;
       // which of your caged birds make this weight
-      const fit = caged().filter((c) => ST.isAdult(c) && (card.open || ST.pheno(c).weightClass <= card.wc) && (!c.person || card.tier >= 3)).length;
+      const fit = caged().filter((c) => ST.isAdult(c) && !ST.isRetired(c) && (card.open || ST.pheno(c).weightClass <= card.wc) && (!c.person || card.tier >= 3)).length;
       const cls = card.open ? 'Any weight' : RB.pheno.WEIGHT_CLASSES[card.wc][0] + 'weight';
       common.portrait({ P: opp.P }, x + 4, y + 7, 60, 60, { fill: card.boss ? pal.mustard : pal.soft, f: -1 });
       ui.text((card.boss ? 'BOSS · ' : '') + cls + ': ' + opp.name + ' (' + opp.trainer + ')', x + 72, y + 22, { size: 13, maxW: w - 170 });
@@ -274,7 +274,7 @@
       const sh = EC.SHOWS[i], done = S.bets['show:' + sh.id] === S.day;
       const sub = sh.id === 'pageant' ? 'Today the judges want ' + { big: 'size', tiny: 'something dainty', bright: 'bright colours', odd: 'the bizarre' }[day.taste] + '.' : sh.desc;
       if (row(x, y, w, { icon: sh.id === 'dash' ? 'bolt' : sh.id === 'hop' ? 'up' : 'star', iconCol: pal.coral, title: sh.name + ' · prize $' + sh.prize, sub, price: sh.fee, btn: done ? 'Done' : 'Enter', off: done || S.money < sh.fee })) {
-        common.pick('Who goes in?', caged().filter((c) => !c.person), (c) => runShow(sh, c, day), (c) => ({ text: ST.isAdult(c) ? '' : 'Too young.', ok: ST.isAdult(c), label: 'Send in' }));
+        common.pick('Who goes in?', caged().filter((c) => !c.person), (c) => runShow(sh, c, day), (c) => { const why = ST.isRetired(c) ? 'Retired: too old for the show.' : ST.isAdult(c) ? '' : 'Too young.'; return { text: why, ok: !why, label: 'Send in' }; });
       }
     });
   }

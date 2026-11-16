@@ -14,7 +14,7 @@
   function create(seed) {
     const S = {
       v: 1, seed: seed >>> 0, rs: (seed ^ 0x51ab) >>> 0, day: 1, time: 6, money: 150, debt: 15000, heat: 0, nextId: 1,
-      birds: [], eggs: [],
+      birds: [], eggs: [], roost: [],
       inv: { net: 3, shovel: 10, grain: 8 }, equip: {}, up: { cage: 0, engine: 0, tires: 0, coop: 0, nest: 0, incubator: 0, dummy: 0 },
       feeder: 0, pos: null, dug: {}, marksDug: {}, wildGone: null, npc: {}, league: {}, bets: {},
       lab: { power: false, fuses: 0, atlas: {}, vials: [], fossils: {}, seq: {} },
@@ -31,7 +31,7 @@
   }
 
   function freeName(S, r) {
-    const used = new Set(S.birds.map((b) => b.name));
+    const used = new Set(S.birds.concat(S.roost || []).map((b) => b.name));
     for (let i = 0; i < 30; i++) { const n = r.pick(BIRD_NAMES); if (!used.has(n)) return n; }
     return r.pick(BIRD_NAMES) + ' ' + (2 + r.int(0, 97));
   }
@@ -81,6 +81,9 @@
     return pheno(c).species.name;
   }
   const isAdult = (c) => pheno(c).grow >= 1;
+  // Past its lifespan a bird does not die: it retires. A retired bird no longer fights, nests,
+  // trains or goes to the sideshow; Sunset Roost will look after it, or BFC will take it.
+  const isRetired = (c) => !c.person && c.age >= pheno(c).lifespan;
 
   const byId = (S, id) => S.birds.find((b) => b.id === id) || null;
   const at = (S, where) => S.birds.filter((b) => b.at === where);
@@ -99,6 +102,7 @@
     if (to === 'cage') { /* the truck takes everyone */ }
     else if (to === 'home') { if (c.at === 'cage' && atHome(S).length >= coopCap(S)) return 'The coop is full.'; }
     else if (to.startsWith('nest')) {
+      if (isRetired(c)) return c.name + ' is retired: no more nesting.';
       if (!isAdult(c)) return c.name + ' is too young to nest.';
       const there = at(S, to);
       if (there.length >= 2) return 'That nest is full.';
@@ -130,6 +134,7 @@
 
   const TRAIN = ['muscle', 'reflex', 'lungs', 'courage'];
   function train(S, c, stat) {
+    if (isRetired(c)) return c.name + ' is retired: no more training.';
     if (c.trained) return c.name + ' has trained enough for today.';
     if (!isAdult(c)) return c.name + ' is too young to train.';
     if (c.train[stat] >= 0.15) return c.name + ' cannot improve that any further.';
@@ -171,7 +176,7 @@
     // nests
     for (let n = 0; n < nestCount(S); n++) {
       const pair = at(S, 'nest' + n);
-      if (pair.length !== 2 || pair[0].g.sex === pair[1].g.sex) continue;
+      if (pair.length !== 2 || pair[0].g.sex === pair[1].g.sex || pair.some(isRetired)) continue;
       const mom = pair[0].g.sex === 'F' ? pair[0] : pair[1], dad = mom === pair[0] ? pair[1] : pair[0];
       if (S.eggs.filter((e) => e.nest === n).length >= 2) { lines.push('Nest ' + (n + 1) + ' has no room for another egg.'); continue; }
       const p = layChance(mom, dad);
@@ -202,13 +207,19 @@
       // wounds do not heal on their own: that is the vet's job
       if (c.person) { held++; continue; }
       if (c.hatched === S.day) continue; // hatched this morning: not a day old yet
+      if (isRetired(c)) continue; // retired birds stop counting the days
       const was = pheno(c).stage;
       c.age++; dirty(c);
       const P = pheno(c);
-      if (c.age >= P.lifespan) { removeBird(S, c); lines.push(c.name + ' grew old and flew off to the great roost.'); }
+      if (c.age >= P.lifespan) {
+        if (c.at.startsWith('nest')) c.at = 'home';
+        lines.push(c.name + ' is too old for the ring now and has retired. Sunset Roost will take them in, or BFC will.');
+      }
       else if (was !== 'adult' && P.stage === 'adult') lines.push(c.name + ' is all grown up.');
       else if (was !== 'elder' && P.stage === 'elder') lines.push(c.name + ' is getting old.');
     }
+    // Dona Nina feeds the residents of Sunset Roost and tends their wounds
+    for (const c of S.roost || []) { c.fed = true; c.hungry = 0; c.tired = false; c.rest = 0; c.bouts = 0; c.love = false; if (c.hp < 1) c.hp = Math.min(1, c.hp + 0.25); if (c.cond < 1) { c.cond = Math.min(1, c.cond + 0.25); dirty(c); } }
     S.heat = clamp(S.heat - 6 + held * 4, 0, 100);
     // ordinary holes fill back in overnight (treasure marks stay dug)
     for (const k of Object.keys(S.dug)) if (S.dug[k] < S.day) delete S.dug[k];
@@ -230,12 +241,33 @@
     st.gone = true; st.soldOff = true; st.soldDay = S.day;
   }
 
+  // ---- Sunset Roost: a home for retired birds, looked after by Dona Nina
+  // Check a retired bird in (it leaves your flock and lives at the roost). Returns '' or why not.
+  function checkIn(S, c) {
+    if (c.person) return 'Dona Nina looks after birds, not people.';
+    if (!isRetired(c)) return c.name + ' is not retired yet.';
+    removeBird(S, c);
+    c.at = 'roost'; c.since = S.day; c.fed = true; c.hungry = 0; c.love = false; c.tired = false; c.rest = 0;
+    S.roost.push(c);
+    return '';
+  }
+  // Take a resident back: it rides home in the truck.
+  function checkOut(S, c) {
+    const i = S.roost.indexOf(c);
+    if (i < 0) return '';
+    S.roost.splice(i, 1);
+    c.at = 'cage'; delete c.since;
+    S.birds.push(c);
+    return '';
+  }
+
   // ---- saving
   function serialize(S) {
     const o = {};
     for (const k of Object.keys(S)) if (k[0] !== '_') o[k] = S[k];
     o.rs = S._rng.s;
     o.birds = S.birds.map((c) => { const b = {}; for (const k of Object.keys(c)) if (k[0] !== '_') b[k] = c[k]; b.g = GN.serialize(c.g); return b; });
+    o.roost = S.roost.map((c) => { const b = {}; for (const k of Object.keys(c)) if (k[0] !== '_') b[k] = c[k]; b.g = GN.serialize(c.g); return b; });
     o.eggs = S.eggs.map((e) => Object.assign({}, e, { g: GN.serialize(e.g) }));
     o.lab = Object.assign({}, S.lab);
     return JSON.parse(JSON.stringify(o));
@@ -244,10 +276,12 @@
     const S = JSON.parse(JSON.stringify(o));
     S._rng = new Rng(S.rs);
     for (const c of S.birds) { c.g = GN.deserialize(c.g); c._P = null; }
+    S.roost = S.roost || []; // saves from before Sunset Roost opened
+    for (const c of S.roost) { c.g = GN.deserialize(c.g); c._P = null; }
     for (const e of S.eggs) e.g = GN.deserialize(e.g);
     return S;
   }
 
-  RB.state = { create, addBird, removeBird, pheno, dirty, kind, isAdult, byId, at, atHome, cageCap, coopCap, nestCount, count, give, take, move, feed, train, TRAIN,
+  RB.state = { create, addBird, removeBird, pheno, dirty, kind, isAdult, isRetired, checkIn, checkOut, byId, at, atHome, cageCap, coopCap, nestCount, count, give, take, move, feed, train, TRAIN,
     layChance, sleep, serialize, deserialize, freeName, BIRD_NAMES, eat, soldPerson, kindKey, isCross, label };
 })();

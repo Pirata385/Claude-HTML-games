@@ -169,6 +169,7 @@
   // May this creature enter this bout? Returns '' or the reason.
   function canEnter(S, c, card) {
     const P = ST().pheno(c);
+    if (ST().isRetired(c)) return 'Retired: too old to fight.';
     if (!ST().isAdult(c)) return 'Too young.';
     if (c.rest > 0) return 'Still dazed.';
     if (c.tired) return 'Worn out: a tonic, or tomorrow.';

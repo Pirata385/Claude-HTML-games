@@ -428,3 +428,67 @@ test('a whole-genome copy makes clones at the receiver\'s age, is kept, can be e
   L.removeVial(S, vial);
   assert.strictEqual(S.lab.vials.length, 0);
 });
+
+test('old birds retire instead of dying: no fights, nests, training or shows; Sunset Roost takes them in', () => {
+  const S = ST.create(71), [cock, hen] = S.birds, P = ST.pheno(cock);
+  cock.age = P.lifespan - 1; ST.dirty(cock);
+  assert.ok(!ST.isRetired(cock));
+  S.feeder = 9;
+  const rep = ST.sleep(S);
+  assert.ok(S.birds.includes(cock), 'still with us');
+  assert.ok(ST.isRetired(cock));
+  assert.ok(rep.lines.some((l) => l.includes(cock.name) && l.includes('retired')));
+  // a retired bird stops counting the days
+  const age = cock.age;
+  S.feeder = 9; ST.sleep(S);
+  assert.strictEqual(cock.age, age);
+  // no fights, nests, training or sideshow
+  const card = EC.cards(S, EC.ARENA.backyard)[0];
+  assert.match(EC.canEnter(S, cock, card), /Retired/);
+  assert.match(ST.move(S, cock, 'nest0'), /retired/);
+  assert.match(ST.train(S, cock, 'muscle'), /retired/);
+  cock.at = 'nest0'; hen.at = 'nest0';
+  for (let i = 0; i < 6; i++) { S.feeder = 9; ST.sleep(S); }
+  assert.strictEqual(S.eggs.length, 0, 'a retired bird does not breed');
+  cock.at = 'home'; hen.at = 'home';
+  // BFC still takes it
+  assert.ok(EC.bfcPrice(S, cock) > 0);
+  // Sunset Roost: only retired birds, and no people
+  assert.match(ST.checkIn(S, hen), /not retired/);
+  const person = ST.addBird(S, RB.npc.personGenome(new Rng(3), 'F'), { person: 'h_0', at: 'cage' });
+  assert.ok(ST.checkIn(S, person));
+  cock.hp = 0.3;
+  assert.strictEqual(ST.checkIn(S, cock), '');
+  assert.ok(!S.birds.includes(cock) && S.roost.includes(cock) && cock.at === 'roost');
+  // Dona Nina feeds the residents and tends their wounds; they keep living there
+  for (let i = 0; i < 4; i++) ST.sleep(S);
+  assert.ok(S.roost.includes(cock) && cock.fed && cock.hp === 1);
+  // residents are saved; saves from before the roost load with an empty one
+  const o = ST.serialize(S), back = ST.deserialize(JSON.parse(JSON.stringify(o)));
+  assert.strictEqual(back.roost.length, 1);
+  assert.strictEqual(RB.genome.hash(back.roost[0].g), RB.genome.hash(cock.g));
+  delete o.roost;
+  assert.deepStrictEqual(ST.deserialize(JSON.parse(JSON.stringify(o))).roost, []);
+  // take one home again, and an elixir gives it a few more years in the ring
+  ST.checkOut(S, cock);
+  assert.ok(S.birds.includes(cock) && !S.roost.length && cock.at === 'cage');
+  ST.give(S, 'elixir'); ST.feed(S, cock, 'elixir');
+  assert.ok(!ST.isRetired(cock));
+});
+
+test('Sunset Roost is on the map with Dona Nina, and adding it left the rest of the world as it was', () => {
+  for (const seed of [1, 99, 4242]) {
+    const w = RB.world.generate(seed), s = w.site.roost;
+    assert.ok(s && s.kind === 'roost');
+    assert.notStrictEqual(RB.world.biomeAt(w, s.x, s.y), 'water');
+    for (const o of w.sites) if (o !== s) assert.ok(Math.hypot(o.x - s.x, o.y - s.y) > 300, 'the roost crowds ' + o.id);
+    const nina = w.npcs.find((n) => n.site === 'roost');
+    assert.strictEqual(nina.name, 'Dona Nina');
+    assert.ok(RB.world.onRoad(w, s.x, s.y + 70), 'a road leads to the roost');
+    assert.ok(RB.world.onRoad(w, w.site.home.x, w.site.home.y + 70));
+  }
+  // the older sites and people come out exactly as before (Sunset Roost draws its own numbers)
+  const w = RB.world.generate(99);
+  assert.strictEqual(w.sites.indexOf(w.site.roost), w.sites.length - 1);
+  assert.strictEqual(w.npcs[w.npcs.length - 1].site, 'roost');
+});

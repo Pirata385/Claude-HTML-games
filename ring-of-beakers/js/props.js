@@ -150,6 +150,22 @@
       P(ctx, C.coral, [x - 110, y, x, y - 150, x + 110, y]);
       for (let i = -2; i <= 2; i += 2) P(ctx, C.paper, [x + i * 22 - 11, y, x + i * 8, y - 128, x + i * 22 + 11, y]);
       P(ctx, C.ink, [x - 18, y, x, y - 46, x + 18, y]); P(ctx, C.mustard, [x - 2, y - 172, x + 28, y - 162, x - 2, y - 152]); R(ctx, x - 3, y - 174, 3, 28, C.ink);
+    } else if (k === 'roost') { // Sunset Roost: a cottage with a porch, a rocking chair, a garden and a setting-sun sign
+      base(ctx, x, y, 156, 84, '#f3dfc0', C.coral, 52);
+      R(ctx, x - 64, y - 66, 30, 26, C.glass); R(ctx, x + 34, y - 66, 30, 26, C.glass);
+      R(ctx, x - 98, y - 40, 196, 6, C.woodD); R(ctx, x - 94, y - 34, 5, 34, C.woodD); R(ctx, x + 89, y - 34, 5, 34, C.woodD);
+      const rock = Math.sin(t * 1.6) * 0.12;                                   // the rocking chair on the porch
+      ctx.save(); ctx.translate(x + 56, y - 2); ctx.rotate(rock);
+      R(ctx, -12, -30, 4, 26, C.wood); R(ctx, -12, -10, 22, 4, C.wood); R(ctx, 6, -10, 4, 10, C.wood);
+      ctx.strokeStyle = C.woodD; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(-1, -26, 20, 1.1, 2.05); ctx.stroke();
+      ctx.restore();
+      props.fence(ctx, x + 104, x + 230, y);
+      for (let i = 0; i < 7; i++) O(ctx, x + 112 + i * 18, y - 6 - (i % 2) * 4, 5, 5, i % 3 ? C.coral : C.mustard);
+      R(ctx, x - 150, y - 74, 6, 74, C.woodD);                                // the sign: half a sun
+      ctx.fillStyle = C.mustard; ctx.beginPath(); ctx.arc(x - 147, y - 76, 22, Math.PI, 0); ctx.closePath(); ctx.fill();
+      ctx.strokeStyle = C.coral; ctx.lineWidth = 3;
+      for (let i = 0; i < 5; i++) { const a = Math.PI + (i + 0.5) * Math.PI / 5; ctx.beginPath(); ctx.moveTo(x - 147 + Math.cos(a) * 27, y - 76 + Math.sin(a) * 27); ctx.lineTo(x - 147 + Math.cos(a) * 35, y - 76 + Math.sin(a) * 35); ctx.stroke(); }
+      R(ctx, x - 172, y - 78, 50, 5, C.woodD);
     } else if (k === 'market') { R(ctx, x - 80, y - 60, 6, 60, C.woodD); R(ctx, x + 74, y - 60, 6, 60, C.woodD); for (let i = 0; i < 6; i++) P(ctx, i % 2 ? C.plum : C.paper, [x - 90 + i * 30, y - 62, x - 60 + i * 30, y - 62, x - 64 + i * 30, y - 92, x - 86 + i * 30, y - 92]); R(ctx, x - 74, y - 30, 148, 30, C.wood); }
     else { // a shop
       const roof = k === 'feed' ? C.leaf : k === 'tools' ? C.teal : k === 'hatter' ? C.plum : C.brick;

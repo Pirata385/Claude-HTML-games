@@ -110,7 +110,7 @@
     if (c.at === 'home') a.push({ label: 'To truck', icon: 'truck', fn: () => place(c, 'cage') });
     else a.push({ label: 'To yard', icon: 'home', fn: () => place(c, 'home') });
     a.push({ label: 'Wear', icon: 'hat', fill: pal.plum, fn: () => wear(c) });
-    if (S.up.dummy) a.push({ label: 'Train', icon: 'weight', fill: pal.mustard, disabled: c.trained, fn: () => trainPick(c) });
+    if (S.up.dummy) a.push({ label: 'Train', icon: 'weight', fill: pal.mustard, disabled: c.trained || ST.isRetired(c), fn: () => trainPick(c) });
     a.push({ label: c.person ? 'Let go' : 'Set free', icon: 'feather', fill: pal.grey, fn: () => release(c) });
     return a;
   }

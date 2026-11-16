@@ -140,7 +140,7 @@
     if (st === 'arena' && !RB.economy.arenaOpen(S, RB.economy.ARENA[site.id])) { ui.toast('Win the boss bout at the arena before this one first.', pal.coral); return; }
     S.pos = { x: car.x, y: car.y };
     RB.game.save();
-    RB.game.go(st === 'lab' ? 'lab' : 'site', { site: site.id });
+    RB.game.go(st === 'lab' ? 'lab' : st === 'roost' ? 'roost' : 'site', { site: site.id });
   }
   function fined() {
     const fine = Math.min(S.money, 50 + Math.round(S.heat * 8));
@@ -519,7 +519,7 @@
       ctx.restore();
       for (const s of world.sites) {
         if (s.kind === 'house') { ui.rect(ox + s.x * k - 3, oy + s.y * k - 3, 6, 6, pal.brick, 1); continue; }
-        const col = s.kind === 'arena' ? pal.coral : s.id === 'home' ? pal.teal : s.id === 'bfc' ? '#d7372f' : pal.ink;
+        const col = s.kind === 'arena' ? pal.coral : s.id === 'home' ? pal.teal : s.id === 'bfc' ? '#d7372f' : s.id === 'roost' ? pal.plum : pal.ink;
         ui.rect(ox + s.x * k - 5, oy + s.y * k - 5, 10, 10, col, 3);
         ui.text(s.name, ox + s.x * k, oy + s.y * k - 8, { size: 10, align: 'center' });
       }

@@ -75,9 +75,10 @@ test('moving creatures respects the cage and the nest; people can nest and go to
   const S = ST.create(9);
   const r = S._rng;
   const extra = [0, 1, 2].map(() => ST.addBird(S, RB.species.make('duck', r, { sex: 'M', sport: 0 })));
-  assert.strictEqual(ST.move(S, S.birds[0], 'cage'), '');
-  assert.strictEqual(ST.move(S, S.birds[1], 'cage'), '');
-  assert.ok(ST.move(S, extra[0], 'cage').includes('full'));
+  // the truck has no limit
+  for (const c of S.birds.slice(0, 4)) assert.strictEqual(ST.move(S, c, 'cage'), '');
+  assert.strictEqual(ST.at(S, 'cage').length, 4);
+  ST.move(S, extra[0], 'home');
   assert.strictEqual(ST.move(S, extra[0], 'nest0'), '');
   assert.ok(ST.move(S, extra[1], 'nest0').includes('male and a female'));
   const person = ST.addBird(S, RB.npc.personGenome(r, 'M'), { name: 'Juca', person: 'h_0' });

@@ -1,5 +1,6 @@
 // scenes/coop.js — home. A side-on yard where the birds are real ragdolls: tap one for its card,
-// drag one into the truck, a nest, the training dummy or the BFC pick-up box. Feed from the bar
+// drag one into the truck, a nest, the training dummy or the BFC pick-up box. The truck's bed is
+// part of the yard: whoever rides in it stands in it, and can be dragged in and out at any time. Feed from the bar
 // at the bottom, sleep to end the day, or drive out to the map.
 (function () {
   'use strict';
@@ -8,15 +9,18 @@
   const ui = RB.ui, pal = RB.pal, input = RB.input, ST = RB.state, common = RB.common, props = RB.props;
   const DT = RB.fight.DT;
 
-  let S, pw, birds, cam, parts, acc, selected, grab, cand, rng, lay, pan, t, hit;
+  let S, pw, birds, cam, parts, acc, selected, grab, cand, rng, lay, pan, t, hit, bedBox;
+  const BED_Y = -46, BED_MAX = 380;
 
   function layout() {
     const n = ST.nestCount(S);
-    lay = { house: -470, truck: -270, feeder: -90, nests: [], dummy: null, left: -590 };
+    lay = { truck: -250, feeder: -60, nests: [], dummy: null };
+    lay.bedR = lay.truck + 18; lay.house = lay.bedR - BED_MAX - 150; lay.left = lay.house - 120;
     for (let i = 0; i < n; i++) lay.nests.push(80 + i * 150);
     let x = 80 + n * 150;
     if (S.up.dummy) { lay.dummy = x - 10; x += 120; }
-    lay.box = x + 20; lay.right = lay.box + 110; lay.walk0 = -400; lay.walk1 = lay.box - 80;
+    lay.box = x + 20; lay.right = lay.box + 110; lay.walk0 = lay.truck + 90; lay.walk1 = lay.box - 80;
+    lay.bedLen = 80;
   }
   // Landscape fits the whole yard when it can; portrait stays close and pans.
   function zoom() {
@@ -26,9 +30,18 @@
   const groundY = () => ui.view.h - 92;
   const toWorld = (px, py) => ({ x: cam.x + (px - ui.view.w / 2) / zoom(), y: (py - groundY()) / zoom() });
 
+  // The truck bed grows with whoever rides in it.
+  function bedLen() {
+    let sum = 40;
+    for (const c of ST.at(S, 'cage')) sum += ST.pheno(c).TL * 0.8 + 14;
+    return clamp(sum, 80, BED_MAX);
+  }
+  const bedL = () => lay.bedR - lay.bedLen;
+  const inBed = (c) => c.at === 'cage';
   function mkRag(c, x) {
-    const P = ST.pheno(c);
-    const rag = new RB.creature.Rag(pw, P, clamp(x, lay.walk0, lay.walk1), 0, rng.chance(0.5) ? 1 : -1);
+    const P = ST.pheno(c), bed = inBed(c), m = Math.min(P.TL * 0.5 + 6, lay.bedLen / 2 - 1);
+    const rx = bed ? clamp(x === undefined ? rng.range(bedL() + m, lay.bedR - m) : x, bedL() + m, lay.bedR - m) : clamp(x, lay.walk0, lay.walk1);
+    const rag = new RB.creature.Rag(pw, P, rx, bed ? BED_Y : 0, rng.chance(0.5) ? 1 : -1);
     const e = { c, P, rag, mode: 'idle', tx: x, t: rng.range(0.3, 3), blink: rng.range(1, 5), voice: rng.range(4, 20) };
     birds.push(e);
     return e;
@@ -36,7 +49,15 @@
   function dropRag(e) { e.rag.remove(); birds.splice(birds.indexOf(e), 1); }
   function rebuild() {
     for (const e of birds.slice()) dropRag(e);
+    lay.bedLen = bedLen(); fitBed();
     for (const c of ST.at(S, 'home')) mkRag(c, rng.range(lay.walk0, lay.walk1));
+    for (const c of ST.at(S, 'cage')) mkRag(c);
+  }
+  function fitBed() { if (bedBox) { bedBox.x0 = bedL(); bedBox.x1 = lay.bedR; } }
+  // Move a whole ragdoll sideways (to keep riders inside the bed).
+  function shiftRag(rag, dx) {
+    for (const p of rag.parts) { p.x += dx; p.ox += dx; }
+    for (const leg of rag.legs) { if (leg.sw) { leg.sw.x0 += dx; leg.sw.x1 += dx; } if (leg.from) leg.from.x += dx; }
   }
   function spark(x, y, kind, n, text) {
     for (let i = 0; i < (n || 1); i++) parts.push({ x: x + rng.range(-12, 12), y: y + rng.range(-8, 8), vx: rng.range(-40, 40), vy: rng.range(-90, -30), life: 1, kind, text, rot: rng.range(0, TAU) });
@@ -52,8 +73,10 @@
     rag.crouchT = asleep ? 0.55 : 1;
     rag.eye = asleep ? 'sleep' : e.blink < 0 ? 'blink' : '';
     if (asleep) { rag.vxDes = 0; return; }
-    // anyone who has not eaten today goes to the feeder; one grain fills any creature
-    if (!e.c.fed && S.feeder > 0) {
+    const bed = inBed(e.c), m = Math.min(P.TL * 0.5 + 6, lay.bedLen / 2 - 1);
+    const lo = bed ? bedL() + m : lay.walk0, hi = bed ? lay.bedR - m : lay.walk1, floorY = bed ? BED_Y : 0;
+    // anyone in the yard who has not eaten today goes to the feeder; one grain fills any creature
+    if (!bed && !e.c.fed && S.feeder > 0) {
       const fx = lay.feeder + (e.c.id % 2 ? 1 : -1) * (24 + e.P.TL * 0.3), dx = fx - rag.midX();
       // once at the feeder it stays put while pecking (a peck lunges a little)
       if (Math.abs(dx) > (e.atFeed ? 26 + e.P.TL * 0.5 : 16)) { const dir = Math.sign(dx); if (dir !== rag.f && !rag.act) rag.flip(); rag.vxDes = dir * Math.min(P.speedMax * 0.5, 60 + P.speedMax * 0.15); e.atFeed = false; e.eatT = 0; return; }
@@ -69,8 +92,8 @@
     e.t -= dt;
     if (e.t <= 0) {
       const r = rng.next();
-      if (r < 0.5) { e.mode = 'walk'; e.tx = rng.range(lay.walk0, lay.walk1); e.t = rng.range(2, 6); }
-      else if (r < 0.75 && !e.c.person) { e.mode = 'idle'; e.t = rng.range(1, 2); rag.startPeck(() => ({ x: rag.C.x + rag.f * (P.NL * 0.6 + 8), y: -2 })); }
+      if (r < 0.5) { e.mode = 'walk'; e.tx = rng.range(lo, Math.max(lo, hi)); e.t = rng.range(2, 6); }
+      else if (r < 0.75 && !e.c.person) { e.mode = 'idle'; e.t = rng.range(1, 2); rag.startPeck(() => ({ x: rag.C.x + rag.f * (P.NL * 0.6 + 8), y: floorY - 2 })); }
       else if (r < 0.82) { e.mode = 'idle'; rag.wingV = 16; e.t = rng.range(1, 2.5); }
       else { e.mode = 'idle'; e.t = rng.range(1, 4); }
     }
@@ -96,9 +119,15 @@
     const msg = ST.move(S, c, to);
     if (msg) { ui.toast(msg, pal.coral); RB.audio.play('error'); return false; }
     const e = birds.find((b) => b.c === c);
+    lay.bedLen = bedLen(); fitBed();
     if (to === 'home') { if (!e) mkRag(c, x === undefined ? lay.feeder + rng.range(-80, 200) : x); }
-    else if (e) { spark(e.rag.midX(), e.rag.midY(), 'poof', 5); dropRag(e); }
+    else if (to === 'cage') {
+      // keep the ragdoll if it was dropped over the bed; otherwise it hops in
+      if (e && (e.rag.midX() < bedL() - 10 || e.rag.midX() > lay.bedR + 10)) { dropRag(e); mkRag(c); }
+      else if (!e) mkRag(c);
+    } else if (e) { spark(e.rag.midX(), e.rag.midY(), 'poof', 5); dropRag(e); }
     RB.audio.play(to === 'crate' ? 'thud' : 'click');
+    if (to === 'home' && x !== undefined && e) { /* dragged out: it stays where it was dropped */ }
     if (to === 'crate') ui.toast(c.name + ' waits for the BFC van tonight. Take ' + (c.person ? 'them' : 'it') + ' back before you sleep, if you change your mind.', pal.brick);
     return true;
   }
@@ -183,6 +212,26 @@
     if (!ST.count(S, selected)) selected = null;
   }
   // Open a list of who is inside a container.
+  // Tap the truck: load or unload everyone at once (or drag them one by one).
+  function truckWindow() {
+    ui.open({ draw() {
+      const n = ST.at(S, 'cage').length, yard = ST.at(S, 'home');
+      const box = ui.window('The truck', 320, 214, {});
+      if (!box) return;
+      ui.para('It carries as many as you like. Drag birds in and out of the bed, or move everyone at once.', box.x, box.y, box.w, { size: 12 });
+      const y = box.y + box.h - 94;
+      if (ui.btn(box.x, y, box.w, 42, 'Unload everyone (' + n + ')', { icon: 'home', disabled: !n })) {
+        let left = 0;
+        for (const c of ST.at(S, 'cage')) if (!place(c, 'home', rng.range(lay.walk0, lay.walk1))) { left++; break; }
+        if (left) ui.toast('The coop is full: the rest stay in the truck.', pal.coral);
+        ui.close();
+      }
+      if (ui.btn(box.x, y + 50, box.w, 42, 'Load everyone from the yard (' + yard.length + ')', { icon: 'truck', fill: pal.mustard, color: pal.ink, disabled: !yard.length })) {
+        for (const c of yard) place(c, 'cage');
+        ui.close();
+      }
+    } });
+  }
   function inside(where, title) {
     const list = ST.at(S, where);
     if (!list.length) return false;
@@ -197,6 +246,7 @@
       birds = []; parts = []; acc = 0; selected = null; grab = null; cand = null; pan = null; t = 0; hit = 0;
       layout();
       pw.box(-4000, -3000, lay.left - 20, 0); pw.box(lay.right + 20, -3000, 4000, 0);
+      bedBox = pw.box(lay.bedR - 80, BED_Y, lay.bedR, -16);
       cam = { x: (lay.truck + lay.box) / 2 };
       rebuild();
       RB.audio.setTune('farm');
@@ -204,7 +254,6 @@
       if (args.passOut) {
         const tow = Math.min(S.money, 30);
         S.money -= tow;
-        for (const c of ST.at(S, 'cage')) if (ST.atHome(S).length < ST.coopCap(S)) c.at = 'home';
         const rep = ST.sleep(S);
         layout(); rebuild(); RB.game.save();
         ui.message('Day ' + S.day, 'You nodded off at the wheel. Somebody towed you home for $' + tow + '.\n' + rep.lines.join('\n'), null, { ok: 'Ouch' });
@@ -213,7 +262,7 @@
         ui.message('A coop of your own', 'Aunt Dalva left you her coop, two chickens, and a debt of $15,000 to Big Wattle.\n\nThe only trade that pays around here is the ring. Catch birds out on the map, breed the good ones, splice the strange ones at the lab, and fight your way from the Backyard Pit to the Grand Ring.\n\nNobody gets hurt for good. Mostly.', null, { ok: 'Let\'s go' });
       }
     },
-    exit() { for (const e of birds.slice()) e.rag.remove(); birds = []; },
+    exit() { for (const e of birds.slice()) e.rag.remove(); birds = []; bedBox = null; },
     debug() { return { birds, lay, cam, zoom: zoom(), groundY: groundY() }; },
 
     update(dt) {
@@ -246,11 +295,14 @@
           rag.C.im = 1 / rag.C.m; rag.C.vx = clamp(grab.vx, -900, 900); rag.C.vy = clamp(grab.vy, -900, 600);
           rag.stateT = 0; rag.downDur = 0.8; rag.eye = '';
           let to = null;
-          if (Math.abs(x - lay.truck) < 95) to = 'cage';
+          if (x > bedL() - 14 && x < lay.truck + 66) to = 'cage';
           else if (Math.abs(x - lay.box) < 62) to = 'crate';
           else if (lay.dummy !== null && Math.abs(x - lay.dummy) < 50) { trainPick(e.c); }
           else lay.nests.forEach((nx, i) => { if (Math.abs(x - nx) < 72) to = 'nest' + i; });
-          if (to) place(e.c, to);
+          if (!to && inBed(e.c)) to = 'home';
+          if (to && to !== e.c.at) {
+            if (!place(e.c, to, x) && inBed(e.c)) { shiftRag(rag, clamp(x, bedL() + 10, lay.bedR - 10) - x); }
+          }
           grab = null;
         }
       }
@@ -266,7 +318,7 @@
         let best = null, bd = 1e9;
         for (const e of birds) { const d = Math.hypot(e.rag.midX() - w.x, e.rag.midY() - w.y), r = e.P.TD * 0.8 + e.P.TL * 0.35 + 16 / z; if (d < r && d < bd) { bd = d; best = e; } }
         if (best) { if (selected) feedBird(best.c, best.rag.midX(), best.rag.midY() - best.P.TD); else { RB.audio.play('click'); common.card(best.c, actions); } }
-        else if (Math.abs(w.x - lay.truck) < 95 && w.y > -110) { if (!inside('cage', 'In the truck')) ui.toast('Drag a bird onto the truck to take it along.'); }
+        else if (w.x > bedL() - 10 && w.x < lay.truck + 70 && w.y > -110) truckWindow();
         else if (Math.abs(w.x - lay.feeder) < 55 && w.y > -60) { if (selected === 'grain' && ST.take(S, 'grain')) { S.feeder++; RB.audio.play('click'); } else feederWindow(); }
         else if (Math.abs(w.x - lay.box) < 60 && w.y > -90) { if (!inside('crate', 'Waiting for the BFC van')) ui.toast('The BFC pick-up box. Drop an unwanted bird in and the van takes it tonight.', pal.brick); }
         else if (lay.dummy !== null && Math.abs(w.x - lay.dummy) < 45 && w.y > -130) ui.toast('Drag a bird onto the dummy to train it.');
@@ -295,6 +347,11 @@
         for (const e of birds) e.rag.control(DT);
         pw.step(DT);
         for (const e of birds) e.rag.post();
+        for (const e of birds) {
+          if (!inBed(e.c) || (grab && grab.e === e)) continue;
+          const m = Math.min(e.P.TL * 0.5 + 4, lay.bedLen / 2 - 1), x = e.rag.midX();
+          if (x < bedL() + m) shiftRag(e.rag, bedL() + m - x); else if (x > lay.bedR - m) shiftRag(e.rag, lay.bedR - m - x);
+        }
         acc -= DT;
       }
       for (const p of parts) { p.life -= dt * (p.kind === 'heart' ? 0.9 : 1.6); p.x += p.vx * dt; p.y += p.vy * dt; p.vy += (p.kind === 'heart' ? -20 : 120) * dt; }
@@ -323,9 +380,11 @@
       props.house(ctx, lay.house, 0);
       // the truck and who is in it
       const caged = ST.at(S, 'cage');
-      props.truck(ctx, lay.truck, 0, 1, {});
-      caged.forEach((c, i) => { const n = Math.max(1, caged.length), w = 72 / n; RB.art.drawFitted(ctx, ST.pheno(c), lay.truck - 58 + i * w, -83, w, 37, Object.assign({ f: 1, fill: 1 }, common.drawOpts(c))); });
-      props.label(ctx, caged.length + '/' + ST.cageCap(S), lay.truck - 20, -98, 12, pal.ink);
+      // the truck, with whoever rides in it standing between the cage and the front rail
+      props.truckBack(ctx, lay.truck, 0, 1, { len: lay.bedLen });
+      for (const e of birds.slice().sort((a, b) => b.P.S - a.P.S)) if (inBed(e.c) && (!grab || grab.e !== e)) RB.art.drawCreature(ctx, e.P, e.rag.getPose(), common.drawOpts(e.c));
+      props.truckFront(ctx, lay.truck, 0, 1, { len: lay.bedLen });
+      props.label(ctx, caged.length ? caged.length + ' in the truck' : 'Truck', lay.bedR - lay.bedLen / 2, -98, 12, pal.ink);
       props.feeder(ctx, lay.feeder, 0, S.feeder);
       if (S.feeder > 0) props.label(ctx, String(S.feeder), lay.feeder, -52, 12, pal.ink);
       lay.nests.forEach((nx, i) => {
@@ -343,7 +402,7 @@
       props.bfcBox(ctx, lay.box, 0);
       // the flock
       const order = birds.slice().sort((a, b) => b.P.S - a.P.S);
-      for (const e of order) if (!grab || grab.e !== e) { RB.art.drawShadow(ctx, e.rag.midX(), 1, e.P.TL * 0.55); RB.art.drawCreature(ctx, e.P, e.rag.getPose(), common.drawOpts(e.c)); }
+      for (const e of order) if ((!grab || grab.e !== e) && !inBed(e.c)) { RB.art.drawShadow(ctx, e.rag.midX(), 1, e.P.TL * 0.55); RB.art.drawCreature(ctx, e.P, e.rag.getPose(), common.drawOpts(e.c)); }
       if (grab) { RB.art.drawShadow(ctx, grab.e.rag.midX(), 1, grab.e.P.TL * 0.4); RB.art.drawCreature(ctx, grab.e.P, grab.e.rag.getPose(), common.drawOpts(grab.e.c)); }
       for (const e of birds) if (e.c.person && e.rag.state === 'stand' && Math.sin(t * 0.7 + e.c.id) > 0.92) props.label(ctx, '...', e.rag.head.x, e.rag.head.y - e.P.HR * 2.2, 16, pal.ink);
       for (const p of parts) {

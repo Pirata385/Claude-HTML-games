@@ -7,7 +7,7 @@
   const { Rng, clamp, lerp, TAU, hash2 } = RB.core;
   const ui = RB.ui, pal = RB.pal, input = RB.input, ST = RB.state, common = RB.common, props = RB.props, WD = RB.world;
 
-  let S, world, car, cam, wild, folk, sheriff, nets, flying, seeds, parts, t, rng, tool, aim, stick, digT, near, spawnT, paths, decorCache, det, stun, warned, sirenT;
+  let S, world, car, cam, wild, folk, sheriff, nets, flying, seeds, parts, t, rng, tool, aim, stick, digT, near, spawnT, paths, decorCache, det, stun, warned, sirenT, pen;
 
   const zoom = () => clamp(Math.max(ui.view.w, ui.view.h) / 1500, 0.45, 0.8);
   const toWorld = (px, py) => ({ x: cam.x + (px - ui.view.w / 2) / zoom(), y: cam.y + (py - ui.view.h / 2) / zoom() });
@@ -44,7 +44,6 @@
     const strength = Math.sqrt(w.P.massRel) * w.P.muscle;
     const hold = clamp((big ? 1.7 : 1.25) - 0.26 * strength + (w.stam < 20 ? 0.3 : 0) + (w.state === 'trapped' ? 0.5 : 0), 0.08, 1);
     if (!rng.chance(hold)) { ui.toast('It tore right through the net!', pal.coral); RB.audio.play('bad'); w.state = 'flee'; w.t = 3; puff(w.x, w.y - 30, 6, pal.paper); return 'torn'; }
-    if (cageRoom() <= 0) { ui.toast('The cage is full.', pal.coral); RB.audio.play('error'); w.state = 'flee'; w.t = 3; return 'full'; }
     wild.splice(wild.indexOf(w), 1);
     const c = ST.addBird(S, w.g, { at: 'cage', bond: 0.1, origin: 'wild' });
     S.stats.caught++;
@@ -55,7 +54,6 @@
     return 'caught';
   }
   function catchPerson(f) {
-    if (cageRoom() <= 0) { ui.toast('The cage is full.', pal.coral); return 'full'; }
     f.gone = true;
     RB.npc.info(S, f.npc.id).gone = true;
     ST.addBird(S, RB.genome.clone(f.npc.g), { at: 'cage', name: f.npc.name, person: f.npc.id, clothes: f.npc.clothes, bond: 0, origin: 'wild' });
@@ -117,9 +115,7 @@
     const st = site.kind;
     RB.audio.play('click');
     if (st === 'home') {
-      for (const c of ST.at(S, 'cage')) if (ST.atHome(S).length < ST.coopCap(S)) c.at = 'home';
-      if (ST.at(S, 'cage').length) ui.toast('The coop is full: some stay in the truck.', pal.coral);
-      RB.game.save(); RB.game.go('coop'); return;
+      RB.game.save(); RB.game.go('coop'); return; // riders stay in the truck: drag them out in the yard
     }
     const night = site.id === 'cellar' || site.id === 'market';
     if (night && !isNight()) { ui.toast(site.name + ' opens after dark (19:00). Speed time up, or tap the clock to wait.'); return; }
@@ -161,8 +157,10 @@
       sheriff = folk.find((f) => f.npc.role === 'sheriff');
       for (let i = 0; i < 8; i++) spawn();
       RB.audio.setTune('map');
+      // the truck's cage, live: grab the riders, tap one for its card, drag one out to let it go
+      pen = new RB.Pen({ drawOpts: common.drawOpts, onTap: (c) => common.card(c, riderActions), onDropOut: (c, sx, sy) => { const w = toWorld(sx, sy); releaseAt(c, w.x, w.y); } });
     },
-    exit() { if (car) S.pos = { x: car.x, y: car.y }; },
+    exit() { if (car) S.pos = { x: car.x, y: car.y }; if (pen) { pen.dispose(); pen = null; } },
 
     update(dt) {
       const v = ui.view, z = zoom();
@@ -292,6 +290,8 @@
         if (Math.abs(vx) > 4) f.f = vx > 0 ? 1 : -1;
         f.sp = clamp(s / 220, 0, 1); f.ph = (f.ph + dt * (0.5 + f.sp * 3)) % 1;
       }
+      // ---- the truck's cage panel
+      if (RB.game.penOpen && pen) { const list = ST.at(S, 'cage'), b = penBox(); pen.layout(b, list); pen.sync(list); pen.update(dt, b); }
       // ---- doors
       near = WD.nearestSite(world, car.x, car.y, 135);
       if (near && (input.hit('KeyE') || input.hit('Enter') || input.hit('Space'))) enter(near);
@@ -370,9 +370,10 @@
           RB.art.drawCreature(ctx, f.P, pose, { clothes: f.npc.clothes });
         } else {
           RB.art.drawShadow(ctx, car.x, car.y + 2, 62);
-          props.truck(ctx, car.x, car.y, car.f, { bob: car.bob });
-          const caged = ST.at(S, 'cage');
-          caged.forEach((c, i) => { const w = 72 / Math.max(1, caged.length), bx = car.f > 0 ? car.x - 58 + i * w : car.x - 14 + i * w; RB.art.drawFitted(ctx, ST.pheno(c), bx, car.y - 83 - car.bob, w, 37, Object.assign({ f: car.f, fill: 1 }, common.drawOpts(c))); });
+          const caged = ST.at(S, 'cage'), len = clamp(80 + 14 * Math.max(0, caged.length - 3), 80, 170);
+          props.truckBack(ctx, car.x, car.y, car.f, { bob: car.bob, len });
+          caged.slice(-12).forEach((c, i, arr) => { const w = (len - 8) / Math.max(1, arr.length), bx = car.f > 0 ? car.x + 18 - len + 4 + i * w : car.x - 18 + 4 + i * w; RB.art.drawFitted(ctx, ST.pheno(c), bx, car.y - 83 - car.bob, w, 37, Object.assign({ f: car.f, fill: 1 }, common.drawOpts(c))); });
+          props.truckFront(ctx, car.x, car.y, car.f, { bob: car.bob, len });
           if (digT > 0) { ctx.save(); ctx.translate(car.x + car.f * 80, car.y - 6); ctx.rotate(Math.sin(digT * 16) * 0.5); ctx.fillStyle = pal.brick; ctx.fillRect(-3, -50, 6, 46); ctx.fillStyle = pal.grey; ctx.fillRect(-11, -8, 22, 18); ctx.restore(); }
         }
       }
@@ -394,7 +395,16 @@
       if (ui.btn(v.w - 48, 6, 42, 34, '', { icon: 'gear', fill: pal.grey })) common.settings(true);
       if (ui.btn(v.w - 96, 6, 42, 34, '', { icon: 'map', fill: pal.ink })) bigMap();
       const caged = ST.at(S, 'cage');
-      if (ui.btn(v.w - 96 - 80, 6, 74, 34, caged.length + '/' + ST.cageCap(S), { icon: 'truck', fill: pal.paper, color: pal.ink, iconCol: pal.coral, size: 13 })) cageWindow();
+      if (ui.btn(v.w - 96 - 80, 6, 74, 34, String(caged.length), { icon: 'truck', fill: RB.game.penOpen ? pal.mustard : pal.paper, color: pal.ink, iconCol: pal.coral, size: 13, key: 'KeyC' })) { RB.game.penOpen = !RB.game.penOpen; RB.audio.play('click'); }
+      if (RB.game.penOpen && pen) {
+        const b = penBox();
+        ui.panel(b.x - 4, b.y - 26, b.w + 8, b.h + 30, { r: 12 });
+        ui.text('In the truck: ' + caged.length + (caged.length ? ' · drag one out to let it go' : ''), b.x + 4, b.y - 9, { size: 11, maxW: b.w - 70 });
+        if (ui.btn(b.x + b.w - 26, b.y - 23, 26, 20, '', { icon: 'close', fill: pal.coral, flat: true, r: 6 })) RB.game.penOpen = false;
+        if (ui.btn(b.x + b.w - 58, b.y - 23, 28, 20, '', { icon: 'eye', fill: pal.ink, flat: true, r: 6 })) cageWindow();
+        pen.draw(ctx);
+        if (!caged.length) ui.text('Empty. Net something!', b.x + b.w / 2, b.y + b.h / 2, { size: 13, align: 'center', color: pal.grey });
+      }
       ui.text(WD.BIOMES[WD.biomeAt(world, car.x, car.y)].name, 12, 84, { size: 11, color: n > 0.5 ? pal.white : pal.ink, bold: false });
       if (det !== null) { ui.rect(12, 90, 92, 16, 'rgba(35,49,74,0.7)', 8); ui.icon('detector', 22, 98, 11, pal.white); ui.bar(34, 94, 64, 8, det, pal.mustard, 'rgba(255,255,255,0.25)'); }
       // tools, bottom right
@@ -455,12 +465,24 @@
     for (let i = -2; i <= 2; i++) { const k = i * r * 0.36, h = Math.sqrt(Math.max(0, r * r - k * k)); ctx.beginPath(); ctx.moveTo(k, -h); ctx.lineTo(k, h); ctx.moveTo(-h, k); ctx.lineTo(h, k); ctx.stroke(); }
     ctx.restore();
   }
+  // Where the cage panel sits: under the top bar, on the left.
+  function penBox() { const v = ui.view, w = Math.min(380, v.w - 24); return { x: 12, y: 136, w, h: v.portrait ? 150 : Math.min(140, v.h * 0.3) }; }
+  // Let a rider go at a spot on the map: a bird goes back to the wild there, a person walks home.
+  function releaseAt(c, wx, wy) {
+    if (c.person) {
+      const st = RB.npc.info(S, c.person); st.gone = false; st.rel = Math.max(-100, st.rel - 40);
+      const f = folk.find((o) => o.npc.id === c.person);
+      if (f) { f.gone = false; f.x = wx; f.y = wy; f.scared = 5; }
+    } else { const w = addWild(c.g, wx, wy, 'graze'); w.stam = 30; w.t = 2; }
+    ST.removeBird(S, c);
+    puff(wx, wy - 30, 6, pal.paper);
+    ui.toast(c.name + (c.person ? ' scrambles off home.' : ' is free again.'), pal.ink);
+    RB.audio.play('poof');
+  }
+  const riderActions = (cc) => [{ label: cc.person ? 'Let go' : 'Set free', icon: 'feather', fill: pal.grey, fn: () => { releaseAt(cc, car.x - car.f * 90, car.y + 30); ui.closeAll(); } }];
   function cageWindow() {
     const list = ST.at(S, 'cage');
-    common.pick('In the cage', list, (c) => common.card(c, (cc) => [{ label: cc.person ? 'Let go' : 'Set free', icon: 'feather', fill: pal.grey, fn: () => {
-      if (cc.person) { const st = RB.npc.info(S, cc.person); st.gone = false; st.rel = Math.max(-100, st.rel - 40); const f = folk.find((o) => o.npc.id === cc.person); if (f) { f.gone = false; f.scared = 4; } }
-      ST.removeBird(S, cc); ui.closeAll();
-    } }]), () => ({ text: '', ok: true, label: 'Look' }));
+    common.pick('In the truck', list, (c) => common.card(c, riderActions), () => ({ text: '', ok: true, label: 'Look' }));
   }
   // The whole world at a glance.
   function bigMap() {

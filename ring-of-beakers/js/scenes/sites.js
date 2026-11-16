@@ -133,7 +133,6 @@
       ui.list('stock', b.x, b.y + 42, b.w, b.h - 42, stock.length, 60, (i, x, y, w) => {
         const s = stock[i], cash = Math.max(0, s.price - st.credit);
         if (row(x, y, w, { P: s.P, title: s.name + ', ' + s.P.species.name.toLowerCase(), sub: common.fmtKg(s.P.weightKg) + ' · power ' + s.P.rate.power + ' · speed ' + s.P.rate.speed + (s.P.odd.length ? ' · ' + s.P.odd.join(', ') : ''), price: cash, btn: cash < s.price ? 'Swap' : 'Buy' })) {
-          if (caged().length >= ST.cageCap(S)) { ui.toast('The cage is full.', pal.coral); return; }
           if (pay(cash)) { st.credit -= s.price - cash; st.sold[s.key] = true; const c = ST.addBird(S, s.g, { at: 'cage', name: s.name, age: 3, bond: 0.2, origin: 'bought' }); common.discover(S, c); st.rel = Math.min(100, st.rel + 5); }
         }
       });
@@ -206,7 +205,7 @@
       ui.text(sub(B), box.x + pw + 50 + pw / 2, y, { size: 10, align: 'center', bold: false, maxW: pw });
       y += 5;
       // the numbers: each bar grows out from the middle, longer is better
-      const bw = box.w / 2 - 44, fs = Math.min(10, rowH - 2);
+      const bw = box.w / 2 - 72, fs = Math.min(10, rowH - 2); // room for the numbers at both ends
       const row = (label, va, vb, col) => {
         const ry = y + 1, bh = Math.max(4, rowH - 5);
         ui.rect(mid - 40 - bw, ry, bw, bh, pal.soft, bh / 2); ui.rect(mid + 40, ry, bw, bh, pal.soft, bh / 2);
@@ -338,7 +337,7 @@
       lines.slice(0, 3).forEach((ln, i) => ui.text(ln, 70, 40 + i * 13, { size: 11, color: pal.sand, bold: false }));
       ui.money(S.money, v.w - 104, 28, { size: 14, color: pal.white, align: 'right' });
       if (ui.btn(v.w - 96, 14, 88, 42, 'Leave', { icon: 'left', fill: pal.coral, size: 13, key: 'Escape' })) { RB.audio.play('click'); RB.game.save(); RB.game.go('map'); }
-      ui.text('Cage ' + caged().length + '/' + ST.cageCap(S), v.w - 104, 50, { size: 11, color: pal.sand, align: 'right', bold: false });
+      ui.text('In the truck: ' + caged().length, v.w - 104, 50, { size: 11, color: pal.sand, align: 'right', bold: false });
       const bw = Math.min(v.w - 16, 640), b = { x: (v.w - bw) / 2, y: 78, w: bw, h: v.h - 86 };
       const k = site.kind;
       if (k === 'shop') shop(b);

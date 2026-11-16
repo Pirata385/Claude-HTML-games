@@ -15,23 +15,39 @@
   props.label = label;
 
   // The truck, side on, facing f. n caged creatures show as a count; slots = cage size.
-  props.truck = function (ctx, x, y, f, o) {
+  // The truck, side on, facing f. o.len is the length of the caged bed behind the cab (80 by
+  // default; it grows to carry more). props.truckBack draws the bed and the cage behind whoever is
+  // riding in it, props.truckFront the cab, the front rail and the wheels over them.
+  props.truckBack = function (ctx, x, y, f, o) {
     o = o || {};
-    ctx.save(); ctx.translate(x, y); ctx.scale(f, 1);
-    const bob = o.bob || 0;
-    ctx.translate(0, -bob);
-    R(ctx, -62, -46, 80, 30, C.woodD);                       // bed
-    R(ctx, -60, -84, 76, 40, 'rgba(35,49,74,0.14)');         // cage back
+    const len = o.len || 80, x0 = 18 - len;
+    ctx.save(); ctx.translate(x, y - (o.bob || 0)); ctx.scale(f, 1);
+    R(ctx, x0, -46, len, 30, C.woodD);                                     // bed
+    R(ctx, x0 + 2, -84, len - 4, 40, 'rgba(35,49,74,0.14)');               // cage back
     ctx.fillStyle = C.ink;
-    for (let i = 0; i <= 6; i++) ctx.fillRect(-60 + i * 12.4, -84, 2.4, 40);
-    R(ctx, -62, -86, 80, 4, C.ink);
-    P(ctx, o.col || C.coral, [18, -46, 18, -74, 40, -74, 56, -52, 66, -48, 66, -16, -62, -16, -62, -46]);
+    const n = Math.max(2, Math.round((len - 4) / 12.4));
+    for (let i = 0; i <= n; i++) ctx.fillRect(x0 + 2 + i * (len - 6.4) / n, -84, 2.4, 40);
+    R(ctx, x0, -86, len, 4, C.ink);
+    ctx.restore();
+  };
+  props.truckFront = function (ctx, x, y, f, o) {
+    o = o || {};
+    const len = o.len || 80, x0 = 18 - len, bob = o.bob || 0;
+    ctx.save(); ctx.translate(x, y); ctx.scale(f, 1);
+    ctx.translate(0, -bob);
+    R(ctx, x0, -48, len, 4, C.ink);                                        // front rail
+    R(ctx, x0, -86, 3, 40, C.ink); R(ctx, 15, -86, 3, 40, C.ink);          // corner posts
+    P(ctx, o.col || C.coral, [18, -46, 18, -74, 40, -74, 56, -52, 66, -48, 66, -16, 18, -16]);
+    R(ctx, x0, -20, len, 4, C.woodD);
     P(ctx, C.glass, [24, -68, 38, -68, 49, -52, 24, -52]);
     R(ctx, 56, -30, 10, 5, C.mustard);
     ctx.translate(0, bob);
-    for (const wx of [-38, 40]) { O(ctx, wx, -12, 13, 13, C.ink); O(ctx, wx, -12, 5.5, 5.5, C.grey); }
+    const wheels = [40, x0 + 24];
+    for (let wx = x0 + 24 + 110; wx < 0; wx += 110) wheels.push(wx);
+    for (const wx of wheels) { O(ctx, wx, -12, 13, 13, C.ink); O(ctx, wx, -12, 5.5, 5.5, C.grey); }
     ctx.restore();
   };
+  props.truck = function (ctx, x, y, f, o) { props.truckBack(ctx, x, y, f, o); props.truckFront(ctx, x, y, f, o); };
 
   // Yard furniture
   props.house = function (ctx, x, y) {

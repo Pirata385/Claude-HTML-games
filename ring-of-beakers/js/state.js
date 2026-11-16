@@ -85,7 +85,7 @@
   const byId = (S, id) => S.birds.find((b) => b.id === id) || null;
   const at = (S, where) => S.birds.filter((b) => b.at === where);
   const atHome = (S) => S.birds.filter((b) => b.at !== 'cage');
-  const cageCap = (S) => RB.items.CAGE[S.up.cage];
+  const cageCap = () => Infinity; // the truck has no limit
   const coopCap = (S) => RB.items.COOP[S.up.coop];
   const nestCount = (S) => 1 + S.up.nest;
   const count = (S, item) => S.inv[item] || 0;
@@ -96,7 +96,7 @@
   // Move a creature: 'home', 'cage', 'crate' (BFC pick-up box) or 'nestN'. Returns '' or why not.
   function move(S, c, to) {
     if (c.at === to) return '';
-    if (to === 'cage') { if (at(S, 'cage').length >= cageCap(S)) return 'The cage is full.'; }
+    if (to === 'cage') { /* the truck takes everyone */ }
     else if (to === 'home') { if (c.at === 'cage' && atHome(S).length >= coopCap(S)) return 'The coop is full.'; }
     else if (to.startsWith('nest')) {
       if (!isAdult(c)) return c.name + ' is too young to nest.';

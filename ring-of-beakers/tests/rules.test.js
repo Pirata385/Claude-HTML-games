@@ -75,9 +75,10 @@ test('moving creatures respects the cage and the nest; people can nest and go to
   const S = ST.create(9);
   const r = S._rng;
   const extra = [0, 1, 2].map(() => ST.addBird(S, RB.species.make('duck', r, { sex: 'M', sport: 0 })));
-  assert.strictEqual(ST.move(S, S.birds[0], 'cage'), '');
-  assert.strictEqual(ST.move(S, S.birds[1], 'cage'), '');
-  assert.ok(ST.move(S, extra[0], 'cage').includes('full'));
+  // the truck has no limit
+  for (const c of S.birds.slice(0, 4)) assert.strictEqual(ST.move(S, c, 'cage'), '');
+  assert.strictEqual(ST.at(S, 'cage').length, 4);
+  ST.move(S, extra[0], 'home');
   assert.strictEqual(ST.move(S, extra[0], 'nest0'), '');
   assert.ok(ST.move(S, extra[1], 'nest0').includes('male and a female'));
   const person = ST.addBird(S, RB.npc.personGenome(r, 'M'), { name: 'Juca', person: 'h_0' });
@@ -178,10 +179,9 @@ test('arena cards are stable for a day, fit their class, and the boss appears af
   assert.ok(EC.arenaOpen(S, EC.ARENA.county));
   const chick = ST.addBird(S, RB.species.make('chicken', S._rng, { sport: 0 }), { age: 0 });
   assert.ok(EC.canEnter(S, chick, EC.cards(S, EC.ARENAS[0])[6]) !== '', 'a chick cannot enter even the Titan bout');
-  // the bookie takes no cut and pulls his line toward even, so a real favourite is worth backing
-  assert.ok(Math.abs(EC.odds(0.5) - 1) < 1e-9);
-  assert.ok(EC.odds(0.9) < EC.odds(0.2));
-  for (const p of [0.6, 0.75, 0.9]) assert.ok(p * (1 + EC.odds(p)) > 1, 'backing a ' + p + ' favourite should pay on average');
+  // no odds: a winning bet pays back three times the stake whoever you back
+  assert.strictEqual(EC.BET_RETURN, 3);
+  assert.ok(EC.ARENA.backyard.betCap >= 300);
 });
 
 test('there are always two exhibitions to watch, and watching one brings on the next', () => {
@@ -206,14 +206,16 @@ test('the world has every site on dry land, people for each, and stable buried l
     assert.ok(w.npcs.length >= 20);
     for (const n of w.npcs) { assert.ok(w.site[n.site], n.id + ' has no site'); assert.ok(RB.pheno.express(n.g).person, n.name + ' is not a person'); }
     for (const m of w.marks) { const l = RB.world.lootAt(w, m.cx, m.cy); assert.ok(l && l.marked); }
-    let found = 0;
+    let found = 0, dry = 0;
     const kinds = {};
     for (let cx = 20; cx < 100; cx++) for (let cy = 10; cy < 70; cy++) {
       const l = RB.world.lootAt(w, cx, cy);
       assert.deepStrictEqual(l, RB.world.lootAt(w, cx, cy));
+      if (RB.world.biomeAt(w, (cx + 0.5) * RB.world.CELL, (cy + 0.5) * RB.world.CELL) !== 'water') dry++;
       if (l) { found++; kinds[l.type] = 1; }
     }
-    assert.ok(found > 800 && found < 2400, 'loot density ' + found);
+    // digging on dry land almost always turns something up
+    assert.ok(found / dry > 0.95, 'only ' + found + ' of ' + dry + ' dry cells hold anything');
     for (const k of ['money', 'item', 'fossil', 'chest', 'creature']) assert.ok(kinds[k], 'no ' + k + ' anywhere');
     const b = {};
     for (let x = 300; x < RB.world.W; x += 300) for (let y = 300; y < RB.world.H; y += 300) b[RB.world.biomeAt(w, x, y)] = 1;
@@ -318,4 +320,20 @@ test('the lab: sequence, extract, edit, inject, rebuild, power', () => {
   ST.give(S, 'fuse', 3);
   assert.strictEqual(L.powerOn(S), true);
   assert.ok(S.lab.power && ST.count(S, 'fuse') === 0);
+});
+
+test('only a loss wounds a fighter; every bout tires it; a tonic restores vigour; only the vet heals', () => {
+  const S = ST.create(43), c = S.birds[0], card = EC.cards(S, EC.ARENA.backyard)[6];
+  assert.strictEqual(EC.canEnter(S, c, card), '');
+  c.tired = true;
+  assert.ok(EC.canEnter(S, c, card).includes('Worn out'));
+  S.inv.tonic = 1;
+  ST.feed(S, c, 'tonic');
+  assert.ok(!c.tired && EC.canEnter(S, c, card) === '', 'a tonic lets it fight again today');
+  c.hp = 0.6; S.inv.tonic = 1; ST.feed(S, c, 'tonic');
+  assert.strictEqual(c.hp, 0.6, 'a tonic does not heal wounds');
+  c.tired = true; S.feeder = 9;
+  ST.sleep(S);
+  assert.ok(!c.tired, 'a night rests it');
+  assert.strictEqual(c.hp, 0.6, 'wounds do not heal overnight');
 });

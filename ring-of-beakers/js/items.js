@@ -16,7 +16,7 @@
     grain: { name: 'Grain', kind: 'feed', price: 4, desc: 'Plain feed. Fill the feeder or hand it out.' },
     worm: { name: 'Worms', kind: 'feed', price: 6, desc: 'A treat. Feeds a bird and it trusts you more.' },
     chili: { name: 'Chili', kind: 'feed', price: 25, desc: 'Next bout: much more aggressive.' },
-    tonic: { name: 'Tonic', kind: 'feed', price: 60, desc: 'Heals injuries and clears a daze.' },
+    tonic: { name: 'Tonic', kind: 'feed', price: 60, desc: 'Restores vigour: a worn-out bird can fight again today. Does not heal wounds.' },
     gromash: { name: 'Gro-Mash', kind: 'feed', price: 45, desc: 'A growing bird ages one day at once.' },
     loveseed: { name: 'Love seeds', kind: 'feed', price: 70, desc: 'Next nesting is much more likely to give an egg.' },
     mushroom: { name: 'Odd mushroom', kind: 'feed', price: 40, desc: 'Scrambles a few genes. Who knows.' },
@@ -57,7 +57,6 @@
   };
   // Upgrades: [id, name, levels as prices, description]
   const UPGRADES = {
-    cage: { name: 'Bigger cage', prices: [350, 1100, 2800], at: 'garage', desc: 'Carry two more creatures.' },
     engine: { name: 'Tuned engine', prices: [400, 1300], at: 'garage', desc: 'Drive faster.' },
     tires: { name: 'Mud tyres', prices: [600], at: 'garage', desc: 'No slowing in swamp or sand.' },
     coop: { name: 'Coop extension', prices: [250, 800, 2200], at: 'feed', desc: 'Room for more birds.' },
@@ -65,7 +64,8 @@
     incubator: { name: 'Incubator', prices: [500], at: 'feed', desc: 'Eggs hatch a day sooner.' },
     dummy: { name: 'Training dummy', prices: [280], at: 'feed', desc: 'Train a bird once a day.' },
   };
-  const CAGE = [2, 4, 6, 8], COOP = [6, 10, 16, 24];
+  // the truck carries as many creatures as you can catch
+  const CAGE = [Infinity, Infinity, Infinity, Infinity], COOP = [6, 10, 16, 24];
 
   // Fossil sets for the lab's fossil bench: four fragments rebuild one.
   const FOSSILS = { dodo: 'Dodo', terror: 'Terror bird', moa: 'Moa', archaeo: 'Archaeopteryx', raptor: 'Raptor' };

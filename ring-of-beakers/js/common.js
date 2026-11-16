@@ -139,7 +139,8 @@
   common.statusOf = function (c) {
     const out = [];
     if (c.rest > 0) out.push(['Dazed', pal.coral]);
-    if (c.hp < 0.99) out.push(['Hurt ' + Math.round(c.hp * 100) + '%', pal.brick]);
+    if (c.tired) out.push(['Worn out', pal.grey]);
+    if (c.hp < 0.99) out.push(['Wounded ' + Math.round(c.hp * 100) + '%', pal.brick]);
     if (!c.fed) out.push([c.hungry > 0 ? 'Starving' : 'Hungry', c.hungry > 0 ? pal.coral : pal.mustard]);
     if (c.buff === 'chili') out.push(['Fired up', '#d7372f']);
     if (c.love) out.push(['In love', pal.coral]);

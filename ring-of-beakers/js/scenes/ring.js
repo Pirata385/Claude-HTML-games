@@ -23,8 +23,15 @@
     S.time = Math.min(25.9, S.time + 1);
     if (mine) {
       const c = A.a.c, won = r.winner === 0;
-      S.stats.fights++; c.bouts++;
-      c.hp = clamp(r.hp[0], 0.2, 1);
+      // every bout tires a bird out for the day (a tonic perks it up); only a loss leaves wounds,
+      // and wounds stay until the vet sees to them
+      S.stats.fights++; c.bouts++; c.tired = true;
+      if (r.winner !== 0) {
+        const before = c.hp;
+        c.hp = clamp(Math.min(r.hp[0], before - 0.08), 0.15, 1);
+        out.push([c.name + ' is wounded (' + Math.round(c.hp * 100) + '%). Only the vet can heal that.', 0]);
+      }
+      out.push([c.name + ' is worn out for today. A tonic would perk it up.', 0]);
       if (c.buff === 'chili') c.buff = null;
       if (won) {
         c.wins++; S.stats.wins++; c.bond = Math.min(1, c.bond + 0.05);
@@ -39,8 +46,6 @@
         }
       } else {
         c.losses++;
-        if (r.how === 'ko') { c.rest = Math.max(c.rest, 1); out.push([c.name + ' is dazed until tomorrow.', 0]); }
-        if (r.how === 'towel') c.hp = Math.max(c.hp, 0.5);
       }
       if (card.duel) RB.npc.info(S, card.duel).fought = S.day;
       ST.dirty(c);

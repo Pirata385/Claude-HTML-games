@@ -128,10 +128,10 @@ test('BFC pays by weight, doubles the daily special and takes far less than a bi
   assert.ok(EC.bfcPrice(S, person) > 10, 'BFC takes people too, by the kilo');
   // a person sent off in the pick-up box empties their house, and a newcomer moves in later
   ST.move(S, person, 'crate'); S.feeder = 50; ST.sleep(S);
-  assert.ok(RB.npc.info(S, 'h_1').sold && !S.birds.includes(person));
+  assert.ok(RB.npc.info(S, 'h_1').soldOff && !S.birds.includes(person));
   for (let i = 0; i < 3; i++) { S.feeder = 50; ST.sleep(S); }
   const st = RB.npc.info(S, 'h_1');
-  assert.ok(!st.sold && !st.gone && st.gen === 1, 'someone new should have moved in: ' + JSON.stringify(st));
+  assert.ok(!st.soldOff && !st.gone && st.gen === 1, 'someone new should have moved in: ' + JSON.stringify(st));
   const w = RB.world.generate(S.seed), old1 = w.npcs.find((n) => n.id === 'h_1'), now = RB.npc.current(S, old1);
   assert.notStrictEqual(RB.genome.hash(now.g), RB.genome.hash(old1.g));
   // the pick-up box sells at night and stamps the card
@@ -247,6 +247,42 @@ test('buyers pay more for what they wished for, breeders sell, trainers challeng
   assert.ok(ch && ch.opp.P.hpMax > 0 && ch.purse === ch.fee * 2);
   RB.npc.info(S, trainer.id).fought = S.day;
   assert.strictEqual(RB.npc.challengeOf(S, trainer), null);
+});
+
+test('only the place whose owner was netted or sold is closed; every other door stays open', () => {
+  const S = ST.create(37), w = RB.world.generate(S.seed), r = S._rng;
+  const open = () => w.npcs.filter((n) => RB.npc.vacancy(S, RB.npc.current(S, n)) === '').map((n) => n.id);
+  const all = w.npcs.map((n) => n.id);
+  // a fresh game: nobody is missing, even after the game has looked people up
+  for (const n of w.npcs) { RB.npc.info(S, n.id); RB.npc.stockOf(S, w, n); }
+  assert.deepStrictEqual(open(), all);
+  // net one neighbour: only their house is closed
+  const h2 = w.npcs.find((n) => n.id === 'h_2');
+  RB.npc.info(S, 'h_2').gone = true;
+  const held = ST.addBird(S, RB.genome.clone(h2.g), { at: 'cage', name: h2.name, person: 'h_2' });
+  assert.strictEqual(RB.npc.vacancy(S, h2), 'away');
+  assert.deepStrictEqual(open(), all.filter((id) => id !== 'h_2'));
+  // a breeder's sold-out stock does not close their house
+  const breeder = w.npcs.find((n) => n.role === 'breeder');
+  RB.npc.info(S, breeder.id).sold['0:0'] = true;
+  assert.strictEqual(RB.npc.vacancy(S, breeder), '');
+  // sell the netted neighbour to BFC: their house is empty, the rest stay open
+  ST.move(S, held, 'crate'); S.feeder = 50; ST.sleep(S);
+  assert.strictEqual(RB.npc.vacancy(S, h2), 'sold');
+  assert.deepStrictEqual(open(), all.filter((id) => id !== 'h_2'));
+  // a save from the build that mixed the two up still loads with every door working
+  const old = ST.serialize(S);
+  old.npc.h_7 = { rel: 0, gone: true, n: 0, sold: true, fought: 0 };
+  old.npc.h_5 = { rel: 0, gone: false, n: 0, sold: false, fought: 0 };
+  const back = ST.deserialize(JSON.parse(JSON.stringify(old)));
+  assert.strictEqual(RB.npc.vacancy(back, w.npcs.find((n) => n.id === 'h_5')), '');
+  assert.deepStrictEqual(RB.npc.info(back, 'h_5').sold, {});
+  const h7 = w.npcs.find((n) => n.id === 'h_7');
+  assert.strictEqual(RB.npc.vacancy(back, h7), 'sold');
+  for (let i = 0; i < 3; i++) { back.feeder = 50; ST.sleep(back); }
+  assert.strictEqual(RB.npc.vacancy(back, h7), '', 'an old-style sold house still gets a newcomer');
+  assert.ok(open().length >= all.length - 1);
+  void r;
 });
 
 test('the lab: sequence, extract, edit, inject, rebuild, power', () => {

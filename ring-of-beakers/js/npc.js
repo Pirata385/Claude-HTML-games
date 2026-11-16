@@ -83,7 +83,21 @@
     { id: 'layer', text: 'a good laying hen', score: (P) => (P.sex === 'F' ? clamp01((P.t.fertility - 0.6) / 0.5) : 0) },
   ];
   const WISH_SPECIES = ['duck', 'goose', 'turkey', 'peafowl', 'pheasant', 'quail', 'swan', 'parrot', 'toucan', 'owl', 'falcon', 'flamingo', 'penguin', 'heron', 'ostrich'];
-  const info = (S, id) => (S.npc[id] = S.npc[id] || { rel: 0, gone: false, n: 0, sold: {}, fought: 0, met: false });
+  // Per-person state in the save. `sold` is a breeder's record of which birds of the current stock
+  // are gone; `soldOff` marks a netted person who went to BFC (their house stands empty a while).
+  function info(S, id) {
+    const st = (S.npc[id] = S.npc[id] || { rel: 0, gone: false, n: 0, sold: {}, fought: 0, met: false });
+    // saves from one earlier build used `sold` for the BFC flag too: move it out of the way
+    if (typeof st.sold !== 'object' || st.sold === null) { if (st.sold === true) { st.soldOff = true; if (st.soldDay === undefined) st.soldDay = S.day; } st.sold = {}; }
+    return st;
+  }
+  // Why a place has nobody to talk to: 'sold' (house empty until a newcomer), 'away' (netted, held
+  // somewhere), or '' (open as usual).
+  function vacancy(S, npc) {
+    if (!npc) return '';
+    const st = info(S, npc.id);
+    return st.soldOff ? 'sold' : st.gone ? 'away' : '';
+  }
   const period = (S) => Math.floor((S.day - 1) / 3);
 
   function wishOf(S, npc) {
@@ -142,5 +156,5 @@
   }
   const SCREAMS = ['Hey! HEY!', 'Not the net!', 'I have a family!', 'This is a kidnapping!', 'Put me down!', 'My back!'];
 
-  RB.npc = { populate, personGenome, clothes, current, WISHES, info, wishOf, offer, fitText, stockOf, challengeOf, greeting, SCREAMS, period, hashStr };
+  RB.npc = { populate, personGenome, clothes, current, WISHES, info, vacancy, wishOf, offer, fitText, stockOf, challengeOf, greeting, SCREAMS, period, hashStr };
 })();

@@ -125,8 +125,9 @@
     if (night && !isNight()) { ui.toast(site.name + ' opens after dark (19:00). Speed time up, or tap the clock to wait.'); return; }
     let keeper = world.npcs.find((n) => n.site === site.id);
     if (keeper) keeper = RB.npc.current(S, keeper);
-    if (keeper && RB.npc.info(S, keeper.id).sold) { ui.toast('The house stands empty. Someone new will move in soon.', pal.plum); return; }
-    if (keeper && RB.npc.info(S, keeper.id).gone) { ui.toast('Nobody is minding the place. ' + keeper.name + ' is... away.', pal.plum); return; }
+    const empty = RB.npc.vacancy(S, keeper);
+    if (empty === 'sold') { ui.toast('The house stands empty. Someone new will move in soon.', pal.plum); return; }
+    if (empty === 'away') { ui.toast('Nobody is minding the place. ' + keeper.name + ' is... away.', pal.plum); return; }
     if (st === 'arena' && !RB.economy.arenaOpen(S, RB.economy.ARENA[site.id])) { ui.toast('Win the boss bout at the arena before this one first.', pal.coral); return; }
     S.pos = { x: car.x, y: car.y };
     RB.game.save();
@@ -348,7 +349,7 @@
       for (const e of list) {
         if (e.kind === 0) props.decor(ctx, e.it, t);
         else if (e.kind === 1) {
-          const s = e.it, keeper = world.npcs.find((q) => q.site === s.id), closed = ((s.id === 'cellar' || s.id === 'market') && !isNight()) || (keeper && RB.npc.info(S, keeper.id).gone) || (s.kind === 'arena' && !RB.economy.arenaOpen(S, RB.economy.ARENA[s.id]));
+          const s = e.it, keeper = world.npcs.find((q) => q.site === s.id), closed = ((s.id === 'cellar' || s.id === 'market') && !isNight()) || RB.npc.vacancy(S, keeper) !== '' || (s.kind === 'arena' && !RB.economy.arenaOpen(S, RB.economy.ARENA[s.id]));
           props.building(ctx, s, t, { closed, power: S.lab.power });
           const name = s.kind === 'house' ? (world.npcs.find((q) => q.site === s.id) || {}).name || 'House' : s.name;
           props.label(ctx, name, s.x, s.y - (s.kind === 'arena' ? 118 : s.id === 'carnival' ? 150 : 130), 20, pal.ink);

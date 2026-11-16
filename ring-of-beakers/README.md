@@ -25,7 +25,7 @@ The Codex (in the yard) has a longer guide, the kinds of bird you have met, the 
 - **A seeded map** with six biomes, each with its own animals by day and by night, roads, sixteen sites and twelve houses. Animals graze, bolt, fly off or charge the truck depending on their genes. Holes you dig stay, and trap small animals.
 - **People.** Neighbours buy birds that match what they want, breed and swap their own, collect relics, or challenge you. They can be netted too, which the sheriff minds. A netted person can share a nest with a bird, or go to BFC; their house stands empty for three days until someone new moves in.
 - **BFC, Brazil's Fried Chicken.** Takes any bird (or person) you are done with, by the kilo, at the counter or from the box in your yard. A parody: the look is a fried chicken place, the mascot (Coronel Galo, a rooster in a white suit) and everything else are this game's own.
-- Five arenas with daily cards, bosses and betting, a sideshow with three contests, an ending, nineteen feats, synthesised sound and music, three save slots with export and import.
+- Five arenas, each with one bout a day in every weight class from Gnat to Titan (so any bird you own has a fight), bosses and betting, a sideshow with three contests, an ending, nineteen feats, synthesised sound and music, three save slots with export and import.
 
 ## Files
 

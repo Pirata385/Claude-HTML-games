@@ -155,18 +155,21 @@ test('value rewards wins, oddities and rarer kinds', () => {
 test('arena cards are stable for a day, fit their class, and the boss appears after enough wins', () => {
   const S = ST.create(21);
   for (const arena of EC.ARENAS) {
-    const a = EC.cards(S, arena), b = EC.cards(S, arena);
+    const a = EC.cards(S, arena), b = EC.cards(S, arena), n = RB.pheno.WEIGHT_CLASSES.length;
     assert.deepStrictEqual(a, b);
-    assert.strictEqual(a.length, 3);
+    // one bout in every weight class
+    assert.strictEqual(a.length, n);
+    assert.deepStrictEqual(a.map((c) => c.wc), [...Array(n).keys()]);
     for (const card of a) {
       const opp = EC.opponentFor(S, arena, card);
       assert.ok(opp.P.hpMax > 0 && opp.name && opp.trainer);
-      if (!card.open) assert.ok(opp.P.weightClass <= card.wc + 1, arena.id + ' opponent far too heavy');
+      assert.ok(opp.P.weightClass <= card.wc, arena.id + ' ' + RB.pheno.WEIGHT_CLASSES[card.wc][0] + ' opponent is ' + RB.pheno.WEIGHT_CLASSES[opp.P.weightClass][0]);
+      if (card.wc === n - 1) assert.ok(opp.P.weightClass >= n - 2, 'a Titan bout needs a really big bird, got ' + opp.P.weightKg.toFixed(0) + ' kg');
     }
     EC.leagueOf(S, arena.id).wins = arena.need;
     const withBoss = EC.cards(S, arena);
-    assert.strictEqual(withBoss.length, 4);
-    const boss = EC.opponentFor(S, arena, withBoss[3]);
+    assert.strictEqual(withBoss.length, n + 1);
+    const boss = EC.opponentFor(S, arena, withBoss[n]);
     assert.ok(boss.boss && boss.P.hpMax > 0);
   }
   assert.ok(EC.arenaOpen(S, EC.ARENA.backyard));
@@ -174,7 +177,7 @@ test('arena cards are stable for a day, fit their class, and the boss appears af
   EC.leagueOf(S, 'backyard').boss = true;
   assert.ok(EC.arenaOpen(S, EC.ARENA.county));
   const chick = ST.addBird(S, RB.species.make('chicken', S._rng, { sport: 0 }), { age: 0 });
-  assert.ok(EC.canEnter(S, chick, EC.cards(S, EC.ARENAS[0])[0]) !== '');
+  assert.ok(EC.canEnter(S, chick, EC.cards(S, EC.ARENAS[0])[6]) !== '', 'a chick cannot enter even the Titan bout');
   // the bookie takes no cut and pulls his line toward even, so a real favourite is worth backing
   assert.ok(Math.abs(EC.odds(0.5) - 1) < 1e-9);
   assert.ok(EC.odds(0.9) < EC.odds(0.2));

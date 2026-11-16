@@ -230,11 +230,14 @@
         return;
       }
       const card = cards[i - exs.length], opp = EC.opponentFor(S, arena, card), done = S.bets[card.key] === S.day && !card.boss;
+      // which of your caged birds make this weight
+      const fit = caged().filter((c) => ST.isAdult(c) && (card.open || ST.pheno(c).weightClass <= card.wc) && (!c.person || card.tier >= 3)).length;
+      const cls = card.open ? 'Any weight' : RB.pheno.WEIGHT_CLASSES[card.wc][0] + 'weight';
       common.portrait({ P: opp.P }, x + 4, y + 7, 60, 60, { fill: card.boss ? pal.mustard : pal.soft, f: -1 });
-      ui.text((card.boss ? 'BOSS: ' : '') + opp.name + ' (' + opp.trainer + ')', x + 72, y + 22, { size: 13, maxW: w - 170 });
-      ui.text(opp.P.species.name + ' · ' + common.fmtKg(opp.P.weightKg), x + 72, y + 38, { size: 11, bold: false, maxW: w - 170 });
-      ui.text(modes[card.mode] + ' · ' + (card.open ? 'any weight' : RB.pheno.WEIGHT_CLASSES[card.wc][0] + 'weight'), x + 72, y + 52, { size: 11, bold: false, maxW: w - 170 });
-      ui.text('entry $' + card.fee + ' · purse $' + card.purse, x + 72, y + 66, { size: 11, color: pal.teal, maxW: w - 170 });
+      ui.text((card.boss ? 'BOSS · ' : '') + cls + ': ' + opp.name + ' (' + opp.trainer + ')', x + 72, y + 22, { size: 13, maxW: w - 170 });
+      ui.text(opp.P.species.name + ' · ' + common.fmtKg(opp.P.weightKg) + ' · ' + modes[card.mode], x + 72, y + 38, { size: 11, bold: false, maxW: w - 170 });
+      ui.text(fit ? fit + ' of yours in the truck can enter' : 'none of yours in the truck make this weight', x + 72, y + 52, { size: 11, bold: !!fit, color: fit ? pal.teal : pal.grey, maxW: w - 170 });
+      ui.text('entry $' + card.fee + ' · purse $' + card.purse, x + 72, y + 66, { size: 11, color: pal.ink, maxW: w - 170 });
       if (ui.btn(x + w - 92, y + 18, 78, 38, done ? 'Done' : 'Enter', { size: 13, fill: card.boss ? pal.coral : pal.teal, disabled: done || S.money < card.fee })) enterBout(card, arena, opp);
     });
   }
@@ -283,7 +286,7 @@
     feed: 'Grain, tonics and timber. What will it be?', tools: 'Nets catch birds. Shovels find what the birds cannot.', hatter: 'A bird without a hat is just poultry.', market: 'You did not buy it here.',
     garage: 'She will do sixty with a tail wind.', vet: 'Dazed? Pecked? I have seen worse.', bank: 'Every day you do not pay, I think of you.', bfc: 'It\'s finger-peckin\' good! What have you brought the Coronel?',
     carnival: 'Step right up! Fastest, highest, fairest!', backyard: 'Sand, a fence and a crowd. Same as it ever was.', county: 'We keep it clean here. Mostly.', city: 'Weigh in, pay up, and may the better bird win.',
-    cellar: 'No names, no weights, no questions.', grand: 'Only champions stand on this sand.',
+    cellar: 'No names, no questions. People welcome, in their weight.', grand: 'Only champions stand on this sand.',
   };
 
   RB.scenes.site = {

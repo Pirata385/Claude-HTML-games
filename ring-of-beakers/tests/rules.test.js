@@ -291,10 +291,11 @@ test('the lab: sequence, extract, edit, inject, rebuild, power', () => {
   const S = ST.create(41), L = RB.lab, G = RB.genome, r = S._rng;
   const donor = ST.addBird(S, RB.species.make('ostrich', r, { sex: 'M', sport: 0 }));
   const target = ST.addBird(S, RB.species.make('chicken', r, { sex: 'M', sport: 0 }));
-  const learned = L.sequence(S, donor);
-  assert.ok(learned.length >= 5);
-  assert.strictEqual(L.sequence(S, donor).length, 0, 'a second read teaches nothing');
-  assert.strictEqual(L.knownCount(S), learned.length);
+  // every gene is mapped from the start; sequencing teaches nothing new
+  assert.strictEqual(L.knownCount(S), G.N_GENES);
+  for (let gi = 0; gi < G.N_GENES; gi++) assert.ok(L.known(S, gi));
+  assert.strictEqual(L.geneLabel(S, G.TRAITS.legLen.genes[0]), 'Leg length I');
+  assert.deepStrictEqual(L.sequence(S, donor), []);
   const gi = G.TRAITS.legLen.genes[0];
   // beakers are free, and giving a sample tires the donor without hurting it
   assert.strictEqual(ST.count(S, 'beaker'), 0);
@@ -381,4 +382,49 @@ test('the wild population is set for the day, mostly on land, with night groups 
   for (let d = 1; d <= 30; d++) { const p = RB.world.population(w, d); total += p.length; for (const e of p) if (e.cross) { crosses++; assert.notStrictEqual(e.cross.momKey, e.cross.dadKey); } }
   assert.ok(crosses > 0, 'no natural cross in 30 days');
   assert.ok(crosses / total < 0.015, 'crosses should be very rare: ' + crosses + ' of ' + total);
+});
+
+test('a whole-genome copy makes clones at the receiver\'s age, is kept, can be edited and thrown away', () => {
+  const S = ST.create(67), L = RB.lab, G = RB.genome, r = S._rng;
+  const star = ST.addBird(S, RB.species.make('peafowl', r, { sex: 'M', sport: 0 }), { name: 'Star', age: 9 });
+  const vial = L.copyGenome(S, star);
+  assert.ok(vial.full && star.tired && star.hp === 1, 'copying tires the donor, never hurts it');
+  // it survives a save and a reload
+  const S2 = ST.deserialize(JSON.parse(JSON.stringify(ST.serialize(S))));
+  assert.strictEqual(G.hash(L.vialGenome(S2.lab.vials[0])), G.hash(star.g));
+  // a young hen becomes a clone of Star, but stays young
+  const hen = ST.addBird(S, RB.species.make('chicken', r, { sex: 'F', sport: 0 }), { name: 'Hen', age: 2 });
+  const pv = L.preview(S, vial, hen, false);
+  assert.ok(pv.full && !pv.tooOld && pv.after.species.id === 'peafowl');
+  L.inject(S, vial, hen, false);
+  assert.strictEqual(G.hash(hen.g), G.hash(star.g), 'same genes');
+  assert.strictEqual(hen.g.sex, 'M', 'same sex as the donor');
+  assert.strictEqual(hen.age, 2, 'the receiver\'s age');
+  assert.strictEqual(hen.name, 'Hen');
+  assert.strictEqual(ST.kind(hen), ST.kind(star));
+  assert.deepStrictEqual(ST.pheno(hen).rate, pv.after.rate, 'the clone matches its preview');
+  assert.ok(hen.tired && hen.hp === 1);
+  assert.strictEqual(S.lab.vials.length, 1, 'a whole-genome beaker is kept after use');
+  // a person can be turned into a clone of a bird: no longer that person, and their house empties
+  const w = RB.world.generate(S.seed), npc = w.npcs.find((n) => n.id === 'h_4');
+  RB.npc.info(S, 'h_4').gone = true;
+  const man = ST.addBird(S, G.clone(npc.g), { at: 'cage', name: npc.name, person: 'h_4', clothes: npc.clothes });
+  L.inject(S, vial, man, false);
+  assert.ok(!man.person && !man.clothes && RB.npc.info(S, 'h_4').soldOff);
+  assert.ok(!ST.pheno(man).person && ST.pheno(man).species.id === 'peafowl');
+  // edit one gene in the beaker: later clones carry it, the donor does not change
+  const gi = G.TRAITS.legLen.genes[0], ed = L.genomeGene(vial, gi, 'a');
+  ed.bases = [3, 3, 3, 3]; ed.commit();
+  const ed2 = L.genomeGene(vial, gi, 'b'); ed2.bases = [3, 3, 3, 3]; ed2.commit();
+  const egg = { id: S.nextId++, g: RB.species.make('duck', r, { sport: 0 }), nest: -1, hatch: S.day + 1, mom: 'Duck', dad: 'Duck', momKey: 'duck', dadKey: 'duck' };
+  L.inject(S, vial, egg, true);
+  assert.ok(G.traitValue(egg.g, 'legLen') > G.traitValue(star.g, 'legLen'), 'the edit is in the clone');
+  assert.strictEqual(G.getGeneBases(star.g, gi, 'a').join(''), G.getGeneBases(G.deserialize(S2.lab.vials[0].genome), gi, 'a').join(''), 'the donor is untouched');
+  assert.strictEqual(egg.momKey, ST.kindKey(star));
+  // too old for a short-lived body
+  const elder = ST.addBird(S, RB.species.make('ostrich', r, { sport: 0 }), { age: 40 });
+  assert.ok(L.preview(S, vial, elder, false).tooOld);
+  // throw it away
+  L.removeVial(S, vial);
+  assert.strictEqual(S.lab.vials.length, 0);
 });

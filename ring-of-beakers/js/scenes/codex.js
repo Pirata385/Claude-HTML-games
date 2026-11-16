@@ -52,7 +52,7 @@
         const keys = Object.keys(groups), lines = [];
         const title = { body: 'Body', head: 'Neck and head', beak: 'Beak', legs: 'Legs and feet', wings: 'Wings and tail', crest: 'Comb and crest', colour: 'Colour', vigour: 'Vigour', mind: 'Mind', life: 'Life', odd: 'Oddities' };
         for (const k of keys) { const known = groups[k].filter((g) => RB.lab.known(S, g.idx)); lines.push({ head: title[k] + '  ' + known.length + '/' + groups[k].length, frac: known.length / groups[k].length }); lines.push({ text: known.length ? known.map((g) => g.name + ' (' + (g.chr === GN.Z_CHR ? 'Z' : g.chr + 1) + ')').join(', ') : 'Nothing known yet.' }); }
-        ui.text('Genes known: ' + RB.lab.knownCount(S) + ' of ' + GN.N_GENES + '. Sequence creatures at the lab to learn more.', b.x + 4, y0 + 12, { size: 12, bold: false, maxW: b.w - 8 });
+        ui.text('Every one of the ' + GN.N_GENES + ' genes is mapped. See any creature\'s genome at the lab.', b.x + 4, y0 + 12, { size: 12, bold: false, maxW: b.w - 8 });
         const flat = [];
         for (const ln of lines) { if (ln.head) flat.push(ln); else for (const w of ui.wrap(ln.text, b.w - 16, 11, false)) flat.push({ text: w }); }
         ui.list('codexGenes', b.x, y0 + 20, b.w, h - 20, flat.length, 17, (i, x, y, w) => {

@@ -115,7 +115,7 @@
     hybrid2: ['Love is blind', 'Hatch a chick from two very different parents.', (S) => S.birds.some((c) => c.origin === 'born' && RB.state.isCross(c))],
     kidnap: ['Finders keepers', 'Net a person.', (S) => S.stats.kidnapped >= 1],
     rich: ['Feathered nest', 'Hold $5000 at once.', (S) => S.money >= 5000],
-    atlas: ['Genome cartographer', 'Learn sixty genes.', (S) => RB.lab.knownCount(S) >= 60],
+    clone: ['Send in the clones', 'Turn a creature into a clone with a whole-genome copy.', null],
     twitcher: ['Twitcher', 'Meet fifteen kinds of bird.', (S) => Object.keys(S.codex.species).length >= 15],
     heads: ['Two heads are better', 'Own a two-headed creature.', (S) => S.birds.some((c) => ST.pheno(c).twoHeads)],
     champ: ['Champion of the Grand Ring', 'Beat Madame Plume.', (S) => RB.economy.leagueOf(S, 'grand').boss],

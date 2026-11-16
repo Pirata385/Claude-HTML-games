@@ -1,14 +1,16 @@
-// lab.js — the rules of the genetics lab: the gene atlas that fills in as you sequence, gene
-// extraction into beakers, injection into eggs and living creatures, CRISPR base edits, and
-// rebuilding extinct birds from fossil fragments. No DOM (the lab scene draws all this).
+// lab.js — the rules of the genetics lab: a complete gene atlas, gene extraction into beakers,
+// whole-genome copies (injected, they turn the receiver into a clone), injection into eggs and
+// living creatures, CRISPR base edits, and rebuilding extinct birds from fossil fragments.
+// No DOM (the lab scene draws all this).
 (function () {
   'use strict';
   const RB = globalThis.RB;
   const GN = RB.genome;
   const FRAGMENTS = 4, REBUILD_COST = 600, SEQ_FEE = 0;
 
-  const known = (S, gi) => !!S.lab.atlas[gi];
-  const knownCount = (S) => Object.keys(S.lab.atlas).length;
+  // Every gene is mapped from the start: nothing has to be sequenced to learn what it does.
+  const known = () => true;
+  const knownCount = () => GN.N_GENES;
   const codingCount = () => GN.GENES.filter((g) => g.trait).length;
   function geneLabel(S, gi) {
     const g = GN.GENES[gi];
@@ -23,19 +25,8 @@
     for (const gi of unknown.slice(0, n)) { S.lab.atlas[gi] = true; out.push(GN.GENES[gi].name); }
     return out;
   }
-  // Sequence a creature: the first read of each animal teaches the atlas a few genes, and any
-  // switch that is plainly on in it is learned at once.
-  function sequence(S, c) {
-    const first = !S.lab.seq[c.id], out = [];
-    if (first) {
-      S.lab.seq[c.id] = true;
-      for (const def of GN.TRAIT_LIST) {
-        if (def.switch && GN.switchOn(c.g, def.id) && !known(S, def.genes[0])) { S.lab.atlas[def.genes[0]] = true; out.push(GN.GENES[def.genes[0]].name); }
-      }
-      for (const name of reveal(S, 5, S._rng)) out.push(name);
-    }
-    return out;
-  }
+  // Sequencing is no longer needed (the atlas is complete); kept so older saves and callers work.
+  function sequence(S, c) { S.lab.seq[c.id] = true; return []; }
 
   // Pull one copy of a gene into a beaker. Returns the vial, or a string saying why not.
   // Beakers are free. Giving a sample leaves the donor worn out for the day, never hurt.
@@ -46,20 +37,58 @@
     return vial;
   }
   const vialSum = (v) => v.bases[0] + v.bases[1] + v.bases[2] + v.bases[3];
+
+  // ---- whole-genome copies
+  // Copy a creature's whole genome into one beaker. Injected, it turns the receiver into a clone
+  // of the donor (keeping the receiver's age, training and name). The beaker is not used up, so a
+  // favourite bird can be kept for ever, and any of its genes can be edited in the beaker.
+  function copyGenome(S, c) {
+    const vial = { id: S.nextId++, full: true, genome: GN.serialize(c.g), name: c.name, from: RB.state.kind(c), label: RB.state.label(c), key: RB.state.kindKey(c) };
+    S.lab.vials.push(vial);
+    c.tired = true;
+    return vial;
+  }
+  // The genome in a whole-genome beaker (decoded once and kept until the beaker is edited).
+  const decoded = new WeakMap();
+  function vialGenome(v) {
+    let g = decoded.get(v);
+    if (!g) { g = GN.deserialize(v.genome); decoded.set(v, g); }
+    return g;
+  }
+  // One copy of one gene in a whole-genome beaker, as something the CRISPR bench can edit.
+  function genomeGene(v, gi, copy) {
+    const g = vialGenome(v), c = copy === 'b' && !GN.isHemi(g, gi) ? 'b' : 'a';
+    return { id: v.id, gi, copy: c, bases: GN.getGeneBases(g, gi, c), commit() { const gg = vialGenome(v); const o = gi * GN.GENE_LEN, s = c === 'b' ? gg.b : gg.a; for (let i = 0; i < 4; i++) s[o + i] = this.bases[i]; v.genome = GN.serialize(gg); } };
+  }
+  function removeVial(S, v) { const i = S.lab.vials.indexOf(v); if (i >= 0) S.lab.vials.splice(i, 1); }
   // Write a vial into both copies of its gene. target is a creature or an egg (both have .g).
   // An injection leaves a creature worn out for the day (a tonic perks it up), never hurt.
+  // A single gene overwrites both copies and uses up its beaker. A whole genome turns the receiver
+  // into a clone of the donor and its beaker is kept.
   function inject(S, vial, target, isEgg) {
-    GN.setGeneBases(target.g, vial.gi, vial.bases, 'both');
-    S.lab.vials.splice(S.lab.vials.indexOf(vial), 1);
+    if (vial.full) {
+      target.g = GN.clone(vialGenome(vial));
+      target.mom = target.dad = vial.label; target.momKey = target.dadKey = vial.key;
+      if (!isEgg) {
+        // a netted person who becomes a bird is no longer that person: their house empties
+        if (target.person) { RB.state.soldPerson(S, target); target.person = null; }
+        const P = RB.pheno.express(target.g);
+        target.clothes = P.person ? target.clothes || RB.npc.clothes(new RB.core.Rng(target.id * 7919), null) : null;
+      }
+    } else {
+      GN.setGeneBases(target.g, vial.gi, vial.bases, 'both');
+      removeVial(S, vial);
+    }
     if (!isEgg) { target.inj = (target.inj || 0) + 1; target.tired = true; RB.state.dirty(target); }
   }
   // What an injection would do, without doing it: the creature (an egg is shown as the adult it
   // grows into) before and after, and the trait the gene belongs to.
   function preview(S, vial, target, isEgg) {
-    const g2 = GN.clone(target.g);
-    GN.setGeneBases(g2, vial.gi, vial.bases, 'both');
+    const g2 = vial.full ? GN.clone(vialGenome(vial)) : GN.clone(target.g);
+    if (!vial.full) GN.setGeneBases(g2, vial.gi, vial.bases, 'both');
     const opts = isEgg ? {} : { age: target.age, train: target.train, cond: target.cond };
     const before = RB.pheno.express(target.g, opts), after = RB.pheno.express(g2, opts);
+    if (vial.full) return { before, after, g: g2, trait: null, full: true, tooOld: !isEgg && target.age >= after.lifespan };
     const gene = GN.GENES[vial.gi], def = gene.trait ? GN.TRAITS[gene.trait] : null;
     let trait = null;
     if (def && def.switch) trait = { label: def.label, from: GN.switchOn(target.g, def.id) ? 'on' : 'off', to: GN.switchOn(g2, def.id) ? 'on' : 'off', known: known(S, vial.gi) };
@@ -114,5 +143,5 @@
     return true;
   }
 
-  RB.lab = { FRAGMENTS, REBUILD_COST, SEQ_FEE, known, knownCount, codingCount, geneLabel, reveal, sequence, extract, vialSum, inject, preview, edit, offTarget, guide, describe, fragments, addFragment, rebuild, powerOn };
+  RB.lab = { FRAGMENTS, REBUILD_COST, SEQ_FEE, known, knownCount, codingCount, geneLabel, reveal, sequence, extract, vialSum, copyGenome, vialGenome, genomeGene, removeVial, inject, preview, edit, offTarget, guide, describe, fragments, addFragment, rebuild, powerOn };
 })();

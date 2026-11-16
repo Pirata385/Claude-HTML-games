@@ -1,4 +1,4 @@
-// scenes/lab.js — the genetics lab. Sequence a creature to see its fourteen chromosome pairs,
+// scenes/lab.js — the genetics lab. See any creature's fourteen chromosome pairs (every gene is mapped),
 // pull a gene into a (free) beaker, edit its bases at the (free) CRISPR bench (a timing game on a ring of
 // bases), inject it into another creature or an egg, and rebuild extinct birds from fossils.
 (function () {
@@ -14,47 +14,45 @@
     for (let i = 0; i < 4; i++) { ui.rect(x + i * (s + gap), y, s, s, BASE_COL[bases[i]], Math.min(4, s / 4)); if (s >= 14) ui.text(BASES[bases[i]], x + i * (s + gap) + s / 2, y + s / 2 + 0.5, { size: s * 0.6, color: pal.white, align: 'center', base: 'middle' }); }
   }
 
+  // The fourteen chromosome pairs as a grid of genes, each tile showing its two copies. Coding genes
+  // are pale, junk DNA darker, the selected gene dark. Tapping a tile picks that gene.
+  function genomeGrid(g, x0, y0, w, h, sel, onPick) {
+    const cw = w / GN.N_CHR, chH = Math.min(cw * 0.62 + 4, 34, (h - 14) / GN.GENES_PER_CHR), ts = Math.min((cw - 5) / 4 - 1, (chH - 5) / 2);
+    for (let c = 0; c < GN.N_CHR; c++) {
+      ui.text(c === GN.Z_CHR ? 'Z' : String(c + 1), x0 + c * cw + cw / 2, y0 + 10, { size: 10, align: 'center', color: pal.grey });
+      for (let sl = 0; sl < GN.GENES_PER_CHR; sl++) {
+        const gi = c * GN.GENES_PER_CHR + sl, x = x0 + c * cw + 1, y = y0 + 14 + sl * chH, junk = !GN.GENES[gi].trait;
+        ui.rect(x, y, cw - 2, chH - 2, gi === sel ? pal.ink : junk ? '#ddd6c6' : pal.paper, 4);
+        tiles(GN.getGeneBases(g, gi, 'a'), x + 2.5, y + 2, ts, 1);
+        if (!GN.isHemi(g, gi)) tiles(GN.getGeneBases(g, gi, 'b'), x + 2.5, y + 3 + ts, ts, 1);
+        if (ui.tapIn(x, y, cw - 2, chH - 2)) { onPick(gi); RB.audio.play('tick'); }
+      }
+    }
+  }
   function genome(b) {
     const list = caged();
     if (!list.length) { ui.para('Bring creatures in the truck to study them.', b.x + 4, b.y + 6, b.w, { size: 13 }); return; }
     if (!subject || !list.includes(subject)) { subject = list[0]; gene = -1; }
-    // who is on the table
+    // who is on the table, and a whole-genome copy of them
+    const cbw = b.w > 520 ? 170 : 116;
     list.forEach((c, i) => {
       const x = b.x + i * 52;
-      if (x + 48 > b.x + b.w) return;
+      if (x + 48 > b.x + b.w - cbw - 8) return;
       ui.rect(x, b.y, 48, 48, c === subject ? pal.mustard : pal.soft, 10);
       common.portrait(c, x + 3, b.y + 3, 42, 42, { fill: pal.paper });
       if (ui.tapIn(x, b.y, 48, 48)) { subject = c; gene = -1; RB.audio.play('click'); }
     });
-    const y0 = b.y + 56;
-    if (!S.lab.seq[subject.id]) {
-      ui.para(subject.name + ' has not been sequenced. A first read also teaches the atlas a few genes.', b.x + 4, y0, b.w - 8, { size: 13 });
-      if (ui.btn(b.x, y0 + 46, 220, 42, 'Sequence (free)', { icon: 'dna' })) {
-        const learned = L.sequence(S, subject);
-        RB.audio.play('zap'); common.checkAch(S);
-        ui.message('Sequenced', learned.length ? 'New in the atlas: ' + learned.join(', ') + '.' : 'Nothing new for the atlas this time.');
-      }
-      return;
+    if (ui.btn(b.x + b.w - cbw, b.y + 2, cbw, 44, b.w > 520 ? 'Copy whole genome' : 'Copy genome', { icon: 'dna', fill: pal.plum, size: 12 })) {
+      L.copyGenome(S, subject); RB.audio.play('zap');
+      ui.toast('All of ' + subject.name + '\'s genes are in one beaker. ' + subject.name + ' is worn out for today, not hurt.', pal.plum);
     }
-    // the chromosomes: columns of genes, each with its two copies
-    const g = subject.g, wide = b.w > 520;
-    const detailH = 94, gridH = b.h - 56 - detailH - 6;
-    const cw = b.w / GN.N_CHR, chH = Math.min(cw * 0.62 + 4, 34, (gridH - 14) / GN.GENES_PER_CHR), ts = Math.min((cw - 5) / 4 - 1, (chH - 5) / 2);
-    for (let c = 0; c < GN.N_CHR; c++) {
-      ui.text(c === GN.Z_CHR ? 'Z' : String(c + 1), b.x + c * cw + cw / 2, y0 + 10, { size: 10, align: 'center', color: pal.grey });
-      for (let s = 0; s < GN.GENES_PER_CHR; s++) {
-        const gi = c * GN.GENES_PER_CHR + s, x = b.x + c * cw + 1, y = y0 + 14 + s * chH, kn = L.known(S, gi), junk = !GN.GENES[gi].trait;
-        ui.rect(x, y, cw - 2, chH - 2, gi === gene ? pal.ink : kn ? (junk ? '#ddd6c6' : pal.paper) : pal.soft, 4);
-        tiles(GN.getGeneBases(g, gi, 'a'), x + 2.5, y + 2, ts, 1);
-        if (!GN.isHemi(g, gi)) tiles(GN.getGeneBases(g, gi, 'b'), x + 2.5, y + 3 + ts, ts, 1);
-        if (ui.tapIn(x, y, cw - 2, chH - 2)) { gene = gi; RB.audio.play('tick'); }
-      }
-    }
+    const y0 = b.y + 56, g = subject.g, wide = b.w > 520, detailH = 94;
+    genomeGrid(g, b.x, y0, b.w, b.h - 56 - detailH - 6, gene, (gi) => { gene = gi; });
     // the chosen gene
     const dy = b.y + b.h - detailH;
     ui.rect(b.x, dy, b.w, detailH, pal.paper, 10);
-    if (gene < 0) { ui.para('Tap a gene. Each has two copies, one from each parent (females have a single copy of Z genes). Known genes are pale; grey ones are still a mystery.', b.x + 8, dy + 6, b.w - 16, { size: 12 }); return; }
-    const sa = GN.copySum(g.a, gene), hemi = GN.isHemi(g, gene), sb = hemi ? null : GN.copySum(g.b, gene);
+    if (gene < 0) { ui.para('Every gene is mapped. Tap one: each has two copies, one from each parent (females have a single copy of Z genes). Darker tiles are junk DNA.', b.x + 8, dy + 6, b.w - 16, { size: 12 }); return; }
+    const hemi = GN.isHemi(g, gene);
     ui.text(L.geneLabel(S, gene) + '  ·  ' + GN.GENES[gene].mode + (hemi ? ' · one copy' : ''), b.x + 8, dy + 18, { size: 14, maxW: b.w - 16 });
     ui.text('A: ' + L.describe(S, gene, GN.getGeneBases(g, gene, 'a')), b.x + 8, dy + 36, { size: 11, bold: false, maxW: (wide ? b.w - 260 : b.w - 16) });
     if (!hemi) ui.text('B: ' + L.describe(S, gene, GN.getGeneBases(g, gene, 'b')), b.x + 8, dy + 51, { size: 11, bold: false, maxW: (wide ? b.w - 260 : b.w - 16) });
@@ -66,24 +64,35 @@
 
   function beakers(b) {
     const vials = S.lab.vials;
-    ui.text('Beakers and edits are free. Preview an injection before you commit to it.', b.x + 4, b.y + 14, { size: 12, bold: false, maxW: b.w - 8 });
-    if (!vials.length) { ui.para('No genes in beakers yet. Sequence a creature, tap a gene and extract a copy.', b.x + 4, b.y + 30, b.w - 8, { size: 13 }); return; }
+    ui.text('Beakers and edits are free. Whole genomes stay in their beaker after an injection.', b.x + 4, b.y + 14, { size: 12, bold: false, maxW: b.w - 8 });
+    if (!vials.length) { ui.para('No beakers yet. In the Genome tab, tap a gene and extract a copy, or copy a creature\'s whole genome.', b.x + 4, b.y + 30, b.w - 8, { size: 13 }); return; }
+    const narrow = b.w < 520, bw = narrow ? 60 : 76, gap = 6, tx = narrow ? 64 : 116, tw = b.w - tx - 3 * bw - 3 * gap - 16;
     ui.list('vials', b.x, b.y + 24, b.w, b.h - 24, vials.length, 66, (i, x, y, w) => {
       const v = vials[i];
-      ui.rect(x, y + 2, w - 6, 60, pal.paper, 10);
-      tiles(v.bases, x + 8, y + 12, 22, 3);
-      ui.text(L.geneLabel(S, v.gi), x + 116, y + 24, { size: 13, maxW: w - 290 });
-      ui.text('from a ' + v.from.toLowerCase() + ' · ' + L.describe(S, v.gi, v.bases), x + 116, y + 42, { size: 10, bold: false, maxW: w - 290 });
-      if (ui.btn(x + w - 170, y + 13, 76, 38, 'Edit', { icon: 'dna', fill: pal.plum, size: 12 })) editWindow(v);
-      if (ui.btn(x + w - 88, y + 13, 76, 38, 'Inject', { fill: pal.coral, size: 12 })) injectPick(v);
+      ui.rect(x, y + 2, w - 6, 60, v.full ? '#f1e6f4' : pal.paper, 10);
+      if (v.full) {
+        common.portrait({ P: RB.pheno.express(L.vialGenome(v)) }, x + 6, y + 6, narrow ? 52 : 100, 52, { fill: pal.paper });
+        ui.text('Whole genome: ' + v.name, x + tx, y + 24, { size: 13, maxW: tw });
+        ui.text(v.from + ' · all ' + GN.N_GENES + ' genes · inject to make a clone', x + tx, y + 42, { size: 10, bold: false, maxW: tw });
+      } else {
+        if (narrow) tiles(v.bases, x + 6, y + 18, 12, 1); else tiles(v.bases, x + 8, y + 12, 22, 3);
+        ui.text(L.geneLabel(S, v.gi), x + tx, y + 24, { size: 13, maxW: tw });
+        ui.text('from a ' + v.from.toLowerCase() + ' · ' + L.describe(S, v.gi, v.bases), x + tx, y + 42, { size: 10, bold: false, maxW: tw });
+      }
+      const bx0 = x + w - 6 - 3 * bw - 2 * gap;
+      if (ui.btn(bx0, y + 13, bw, 38, 'Edit', { icon: narrow ? 'dna' : null, fill: pal.plum, size: 12 })) { if (v.full) genomeEditor(v); else editWindow(singleGene(v)); }
+      if (ui.btn(bx0 + bw + gap, y + 13, bw, 38, 'Inject', { fill: pal.coral, size: 12 })) injectPick(v);
+      if (ui.btn(bx0 + 2 * (bw + gap), y + 13, bw, 38, narrow ? '' : 'Delete', { icon: 'trash', fill: pal.grey, size: 12 })) {
+        ui.confirm('Throw this beaker away?', (v.full ? 'The copy of ' + v.name + '\'s genome' : L.geneLabel(S, v.gi)) + ' goes down the sink.', 'Throw away', () => { L.removeVial(S, v); RB.audio.play('poof'); RB.game.save(); });
+      }
     });
   }
   function injectPick(v) {
     const targets = caged().map((c) => ({ c })).concat(S.eggs.map((e) => ({ e })));
     ui.open({ draw() {
-      const box = ui.window('Inject ' + L.geneLabel(S, v.gi), 380, Math.min(ui.view.h - 16, 120 + Math.max(1, targets.length) * 62), {});
+      const box = ui.window(v.full ? 'Clone ' + v.name : 'Inject ' + L.geneLabel(S, v.gi), 380, Math.min(ui.view.h - 16, 120 + Math.max(1, targets.length) * 62), {});
       if (!box) return;
-      ui.text('Both copies are overwritten. Pick a creature or an egg to see how it would turn out.', box.x, box.y + 10, { size: 11, bold: false, maxW: box.w });
+      ui.text(v.full ? 'The receiver becomes a clone of ' + v.name + ', but keeps its own age. Pick one to preview.' : 'Both copies are overwritten. Pick a creature or an egg to see how it would turn out.', box.x, box.y + 10, { size: 11, bold: false, maxW: box.w });
       if (!targets.length) ui.text('Nobody in the cage, and no eggs at home.', box.x, box.y + 40, { size: 13 });
       ui.list('inj', box.x, box.y + 18, box.w, box.h - 18, targets.length, 62, (i, x, y, w) => {
         const tg = targets[i];
@@ -118,7 +127,11 @@
     const isEgg = !tg.c, target = tg.c || tg.e, pv = L.preview(S, v, target, isEgg), A = pv.before, B = pv.after;
     const fmt = (x) => (typeof x === 'string' ? x : Math.abs(x) >= 10 ? x.toFixed(0) : x.toFixed(2));
     const lines = [];
-    if (!pv.trait) lines.push(['This gene does nothing anyone can see.', pal.grey]);
+    if (pv.full) {
+      lines.push(['Whole genome of ' + v.name + ' (' + v.from + '): a clone, at ' + (isEgg ? 'the egg\'s' : tg.c.name + '\'s') + ' age.', pal.plum]);
+      if (pv.tooOld) lines.push(['Too old for this body: it would not live through the night.', pal.coral]);
+      if (!isEgg && tg.c.person) lines.push([tg.c.name + ' stops being a person. Their house will stand empty.', pal.coral]);
+    } else if (!pv.trait) lines.push(['This gene does nothing anyone can see.', pal.grey]);
     else {
       const name = pv.trait.known ? pv.trait.label : 'An unknown trait';
       lines.push([name + ': ' + fmt(pv.trait.from) + ' → ' + fmt(pv.trait.to), pv.trait.from === pv.trait.to || Math.abs(pv.trait.to - pv.trait.from) < 1e-3 ? pal.grey : pal.ink]);
@@ -137,7 +150,7 @@
       ui.icon('right', box.x + box.w / 2, box.y + ph / 2, 22, pal.plum);
       let y = box.y + ph + 14;
       ui.text(isEgg ? 'Hatches as' : 'Now', box.x + pw / 2, y, { size: 12, align: 'center' });
-      ui.text(isEgg ? 'With this gene' : 'After the injection', box.x + pw + 36 + pw / 2, y, { size: 12, align: 'center', color: pal.plum });
+      ui.text(pv.full ? 'The clone' : isEgg ? 'With this gene' : 'After the injection', box.x + pw + 36 + pw / 2, y, { size: 12, align: 'center', color: pal.plum });
       y += 8;
       // the numbers: now, a bar for after, after, and the change
       for (const st of STATS) {
@@ -151,16 +164,39 @@
       }
       y += 4;
       for (const ln of lines) { ui.text(ln[0], box.x, y + 11, { size: 11, color: ln[1], maxW: box.w }); y += 15; }
-      ui.text(isEgg ? 'The egg takes the gene and hatches as usual.' : tg.c.name + ' will be worn out for today, but not hurt.', box.x, y + 13, { size: 11, bold: false, color: pal.grey, maxW: box.w });
+      ui.text(isEgg ? 'The egg takes the ' + (pv.full ? 'genome' : 'gene') + ' and hatches as usual.' : tg.c.name + ' will be worn out for today, but not hurt.' + (pv.full ? ' The beaker is kept.' : ''), box.x, y + 13, { size: 11, bold: false, color: pal.grey, maxW: box.w });
       const by = box.y + box.h - 42, half = (box.w - 8) / 2;
       if (ui.btn(box.x, by, half, 40, 'Back', { fill: pal.grey, key: 'Escape' })) { ui.close(); return; }
-      if (ui.btn(box.x + half + 8, by, half, 40, 'Inject', { icon: 'beaker', fill: pal.coral, key: 'Enter' })) {
+      if (ui.btn(box.x + half + 8, by, half, 40, pv.full ? 'Make the clone' : 'Inject', { icon: 'beaker', fill: pal.coral, key: 'Enter' })) {
         L.inject(S, v, target, isEgg);
-        common.award(S, 'inject'); common.checkAch(S); RB.audio.play('poof');
+        common.award(S, 'inject'); if (pv.full) common.award(S, 'clone'); common.checkAch(S); RB.audio.play('poof');
         ui.closeAll();
         ui.toast(isEgg ? 'The egg glows for a moment.' : tg.c.name + ' shudders, and changes.', pal.plum);
         RB.game.save();
       }
+    } });
+  }
+  // Something the CRISPR bench can edit: four bases of one gene, written back by commit().
+  const singleGene = (v) => ({ id: v.id, gi: v.gi, bases: v.bases, commit() {} });
+  // Edit a gene inside a whole-genome beaker: pick it on the chromosome grid, pick a copy.
+  function genomeEditor(v) {
+    let sel = -1, copy = 'a';
+    ui.open({ draw() {
+      const box = ui.window('Genome of ' + v.name, 720, 560, {});
+      if (!box) return;
+      const g = L.vialGenome(v), detailH = 86;
+      genomeGrid(g, box.x, box.y, box.w, box.h - detailH - 6, sel, (gi) => { sel = gi; copy = 'a'; });
+      const dy = box.y + box.h - detailH;
+      ui.rect(box.x, dy, box.w, detailH, pal.paper, 10);
+      if (sel < 0) { ui.para('Tap any gene in this copy of ' + v.name + '\'s genome to edit it. The changes go into every clone made from it.', box.x + 8, dy + 6, box.w - 16, { size: 12 }); return; }
+      const hemi = GN.isHemi(g, sel);
+      if (hemi) copy = 'a';
+      ui.text(L.geneLabel(S, sel), box.x + 8, dy + 18, { size: 14, maxW: box.w - 200 });
+      ui.text(L.describe(S, sel, GN.getGeneBases(g, sel, copy)), box.x + 8, dy + 36, { size: 11, bold: false, maxW: box.w - 16 });
+      const bw = Math.min(90, (box.w - 24) / 3), by = dy + 46;
+      if (ui.btn(box.x + 8, by, bw, 32, 'Copy A', { fill: copy === 'a' ? pal.ink : pal.soft, color: copy === 'a' ? pal.white : pal.ink, size: 12, flat: true })) copy = 'a';
+      if (ui.btn(box.x + 14 + bw, by, bw, 32, 'Copy B', { fill: copy === 'b' ? pal.ink : pal.soft, color: copy === 'b' ? pal.white : pal.ink, size: 12, flat: true, disabled: hemi })) copy = 'b';
+      if (ui.btn(box.x + box.w - bw - 8, by, bw, 32, 'Edit', { icon: 'dna', fill: pal.plum, size: 12 })) editWindow(L.genomeGene(v, sel, copy));
     } });
   }
   // Choose which base to change and to what, then play the cut.
@@ -234,8 +270,8 @@
         flash = 1;
         if (ring[u0] === guide[idx]) {
           good = true; idx++; RB.audio.play('good'); ring[u0] = r.int(0, 3);
-          if (idx >= need) { done = 1; L.edit(v, pos, to); common.award(S, 'crispr'); RB.audio.play('win'); } else ensure(guide[idx]);
-        } else { good = false; strikes++; RB.audio.play('bad'); if (strikes >= 3) { done = -1; L.offTarget(v, pos, r); } }
+          if (idx >= need) { done = 1; L.edit(v, pos, to); v.commit(); common.award(S, 'crispr'); RB.audio.play('win'); } else ensure(guide[idx]);
+        } else { good = false; strikes++; RB.audio.play('bad'); if (strikes >= 3) { done = -1; L.offTarget(v, pos, r); v.commit(); } }
       }
     } });
   }
@@ -265,7 +301,7 @@
       ui.rect(0, 0, v.w, 56, pal.ink);
       ui.icon('beaker', 28, 28, 30, pal.teal);
       ui.text('The Lab', 52, 24, { size: 16, color: pal.white });
-      ui.text(S.lab.power ? 'Atlas: ' + L.knownCount(S) + ' of ' + GN.N_GENES + ' genes' : 'No power', 52, 42, { size: 11, color: pal.sand, bold: false });
+      ui.text(S.lab.power ? 'All ' + GN.N_GENES + ' genes mapped' : 'No power', 52, 42, { size: 11, color: pal.sand, bold: false });
       ui.money(S.money, v.w - 104, 33, { size: 14, color: pal.white, align: 'right' });
       if (ui.btn(v.w - 96, 8, 88, 40, 'Leave', { icon: 'left', fill: pal.coral, size: 13, key: 'Escape' })) { RB.game.save(); RB.game.go('map'); }
       const bw = Math.min(v.w - 16, 700), b = { x: (v.w - bw) / 2, y: 64, w: bw, h: v.h - 72 };

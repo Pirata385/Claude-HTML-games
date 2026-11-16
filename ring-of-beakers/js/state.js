@@ -16,7 +16,7 @@
       v: 1, seed: seed >>> 0, rs: (seed ^ 0x51ab) >>> 0, day: 1, time: 6, money: 150, debt: 15000, heat: 0, nextId: 1,
       birds: [], eggs: [],
       inv: { net: 3, shovel: 10, grain: 8 }, equip: {}, up: { cage: 0, engine: 0, tires: 0, coop: 0, nest: 0, incubator: 0, dummy: 0 },
-      feeder: 0, pos: null, dug: {}, npc: {}, league: {}, bets: {},
+      feeder: 0, pos: null, dug: {}, marksDug: {}, wildGone: null, npc: {}, league: {}, bets: {},
       lab: { power: false, fuses: 0, atlas: {}, vials: [], fossils: {}, seq: {} },
       codex: { species: {}, ach: {} }, bfc: { stamps: 0, sold: 0 },
       stats: { fights: 0, wins: 0, caught: 0, dug: 0, bred: 0, sold: 0, earned: 0, kidnapped: 0 },
@@ -210,6 +210,8 @@
       else if (was !== 'elder' && P.stage === 'elder') lines.push(c.name + ' is getting old.');
     }
     S.heat = clamp(S.heat - 6 + held * 4, 0, 100);
+    // ordinary holes fill back in overnight (treasure marks stay dug)
+    for (const k of Object.keys(S.dug)) if (S.dug[k] < S.day) delete S.dug[k];
     // a house left empty gets a new owner after three nights
     for (const id of Object.keys(S.npc)) {
       const st = RB.npc.info(S, id);

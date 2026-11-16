@@ -7,7 +7,7 @@
   const { Rng, clamp, lerp, TAU, hash2 } = RB.core;
   const ui = RB.ui, pal = RB.pal, input = RB.input, ST = RB.state, common = RB.common, props = RB.props, WD = RB.world;
 
-  let S, world, car, cam, wild, folk, sheriff, nets, flying, seeds, parts, t, rng, tool, aim, stick, digT, near, spawnT, paths, decorCache, det, stun, warned, sirenT, pen;
+  let S, world, car, cam, wild, folk, sheriff, nets, flying, seeds, parts, t, rng, tool, aim, stick, digT, near, paths, decorCache, det, stun, warned, sirenT, pen;
 
   const zoom = () => clamp(Math.max(ui.view.w, ui.view.h) / 1500, 0.45, 0.8);
   const toWorld = (px, py) => ({ x: cam.x + (px - ui.view.w / 2) / zoom(), y: cam.y + (py - ui.view.h / 2) / zoom() });
@@ -24,28 +24,40 @@
     for (const b of world.ponds) paths.ponds.push(mk(b));
   }
 
-  function spawn() {
-    const v = ui.view, z = zoom(), R = Math.hypot(v.w, v.h) / 2 / z;
-    const a = rng.range(0, TAU), d = R + rng.range(160, 620), x = car.x + Math.cos(a) * d, y = car.y + Math.sin(a) * d;
-    if (x < 100 || y < 100 || x > WD.W - 100 || y > WD.H - 100) return;
-    const id = WD.spawnSpecies(world, x, y, isNight(), rng);
-    if (!id || WD.nearestSite(world, x, y, 260)) return;
-    const n = rng.int(1, RB.species.SPECIES[id].tier <= 2 ? 3 : 2);
-    for (let i = 0; i < n; i++) addWild(RB.species.make(id, rng, { sport: 0.07 }), x + rng.range(-90, 90), y + rng.range(-70, 70));
+  // The wild animals: the day's population (see world.population), kept for the whole day so they
+  // stay where they were while you go in and out of places. Animals caught today are remembered in
+  // the save; everything is renewed the next morning. Night groups only come out after dark.
+  function loadWild() {
+    const key = S.seed + ':' + S.day, cache = RB.game.wild;
+    if (cache && cache.key === key) return cache.list;
+    if (!S.wildGone || S.wildGone.day !== S.day) S.wildGone = { day: S.day, ids: [] };
+    const gone = new Set(S.wildGone.ids), list = [];
+    for (const e of WD.population(world, S.day)) if (!gone.has(e.id)) list.push(makeWild(e.g, e.x, e.y, 'graze', e));
+    RB.game.wild = { key, list };
+    return list;
   }
-  function addWild(g, x, y, state) {
+  function makeWild(g, x, y, state, e) {
     const P = RB.pheno.express(g);
-    const w = { g, P, x, y, f: rng.chance(0.5) ? 1 : -1, state: state || 'graze', t: rng.range(0.5, 4), ph: rng.next(), sp: 0, stam: 100, alt: 0, tx: x, ty: y, mean: P.aggression > 0.8 && P.courage > 0.7 && P.S > 0.8 };
-    wild.push(w);
-    return w;
+    return { id: e ? e.id : null, night: !!(e && e.night), cross: e ? e.cross : null, g, P, x, y, f: rng.chance(0.5) ? 1 : -1, state: state || 'graze', t: rng.range(0.5, 4), ph: rng.next(), sp: 0, stam: 100, alt: 0, tx: x, ty: y, mean: P.aggression > 0.8 && P.courage > 0.7 && P.S > 0.8 };
   }
+  function addWild(g, x, y, state) { const w = makeWild(g, x, y, state); wild.push(w); return w; }
+  const awake = (w) => !w.night || isNight();
+  function removeWild(w) {
+    const i = wild.indexOf(w);
+    if (i >= 0) wild.splice(i, 1);
+    if (w.id !== null && S.wildGone) S.wildGone.ids.push(w.id);
+  }
+  // A hole: an ordinary one dug today (they fill back in overnight), or a treasure mark dug up.
+  const holeAt = (cx, cy) => { const k = cx + ',' + cy; return S.dug[k] === S.day || !!S.marksDug[k]; };
 
   function catchWild(w, big) {
     const strength = Math.sqrt(w.P.massRel) * w.P.muscle;
     const hold = clamp((big ? 1.7 : 1.25) - 0.26 * strength + (w.stam < 20 ? 0.3 : 0) + (w.state === 'trapped' ? 0.5 : 0), 0.08, 1);
     if (!rng.chance(hold)) { ui.toast('It tore right through the net!', pal.coral); RB.audio.play('bad'); w.state = 'flee'; w.t = 3; puff(w.x, w.y - 30, 6, pal.paper); return 'torn'; }
-    wild.splice(wild.indexOf(w), 1);
-    const c = ST.addBird(S, w.g, { at: 'cage', bond: 0.1, origin: 'wild' });
+    removeWild(w);
+    const x = w.cross || {};
+    const c = ST.addBird(S, w.g, { at: 'cage', bond: 0.1, origin: 'wild', mom: x.mom, dad: x.dad, momKey: x.momKey, dadKey: x.dadKey });
+    if (w.cross) ui.toast('A natural cross! Very rare in the wild.', pal.plum);
     S.stats.caught++;
     common.discover(S, c);
     ui.toast('Caught ' + c.name + ', a ' + ST.kind(c).toLowerCase() + '.', pal.teal);
@@ -79,7 +91,7 @@
   function landNet(n) {
     const R = n.id === 'bignet' ? 100 : 78;
     let best = null, bd = R;
-    for (const w of wild) { if (w.alt > 40) continue; const d = Math.hypot(w.x - n.x1, w.y - n.y1); if (d < bd) { bd = d; best = w; } }
+    for (const w of wild) { if (w.alt > 40 || !awake(w)) continue; const d = Math.hypot(w.x - n.x1, w.y - n.y1); if (d < bd) { bd = d; best = w; } }
     let who = null;
     for (const f of folk) { if (f.gone) continue; const d = Math.hypot(f.x - n.x1, f.y - n.y1); if (d < bd) { bd = d; who = f; best = null; } }
     let res = 'miss';
@@ -91,14 +103,15 @@
     if (digT > 0) return;
     if (!ST.count(S, 'shovel')) { ui.toast('The shovel is worn out. Net & Spade sells them.', pal.coral); RB.audio.play('error'); return; }
     const c = WD.cellOf(car.x, car.y), key = c.cx + ',' + c.cy;
-    if (S.dug[key]) { ui.toast('Already dug here.'); return; }
+    if (WD.markAt(world, c.cx, c.cy) ? S.marksDug[key] : S.dug[key] === S.day) { ui.toast('Already dug here today. Holes fill back in overnight.'); return; }
     if (WD.biomeAt(world, car.x, car.y) === 'water') { ui.toast('Too wet to dig.'); return; }
     digT = 0.8; car.vx = 0; car.vy = 0;
     RB.audio.play('dig');
   }
   function finishDig() {
-    const c = WD.cellOf(car.x, car.y), key = c.cx + ',' + c.cy, loot = WD.lootAt(world, c.cx, c.cy);
-    ST.take(S, 'shovel'); S.dug[key] = 1; S.stats.dug++;
+    const c = WD.cellOf(car.x, car.y), key = c.cx + ',' + c.cy, loot = WD.lootAt(world, c.cx, c.cy, S.day);
+    ST.take(S, 'shovel'); S.stats.dug++;
+    if (WD.markAt(world, c.cx, c.cy)) S.marksDug[key] = true; else S.dug[key] = S.day;
     const hx = (c.cx + 0.5) * WD.CELL, hy = (c.cy + 0.5) * WD.CELL;
     puff(hx, hy, 8, '#8a6a44');
     if (!loot) { ui.toast('Nothing but dirt.'); }
@@ -147,7 +160,10 @@
       const home = world.site.home, p = S.pos || { x: home.x, y: home.y + 150 };
       car = { x: p.x, y: p.y, vx: 0, vy: 0, f: 1, bob: 0 };
       cam = { x: car.x, y: car.y };
-      wild = []; nets = []; flying = []; seeds = []; parts = []; t = 0; tool = 'net'; aim = null; stick = null; digT = 0; near = null; spawnT = 0; det = null; stun = 0; warned = false; sirenT = 0;
+      nets = []; flying = []; seeds = []; parts = []; t = 0; tool = 'net'; aim = null; stick = null; digT = 0; near = null; det = null; stun = 0; warned = false; sirenT = 0;
+      // treasure marks dug in older saves were kept in S.dug
+      if (!S.marksDug) { S.marksDug = {}; for (const m of world.marks) { const k = m.cx + ',' + m.cy; if (S.dug[k]) S.marksDug[k] = true; } }
+      wild = loadWild();
       decorCache = new Map();
       if (!paths || paths.seed !== world.seed) { buildPaths(); paths.seed = world.seed; }
       folk = world.npcs.filter((n) => n.site.startsWith('house') || n.role === 'sheriff').map((n0) => {
@@ -155,7 +171,6 @@
         return { npc: n, P, x: s.x + (n.role === 'sheriff' ? 160 : 70), y: s.y + 120, hx: s.x + 70, hy: s.y + 120, f: 1, ph: 0, sp: 0, t: rng.range(0, 3), gone: RB.npc.info(S, n.id).gone, scared: 0 };
       });
       sheriff = folk.find((f) => f.npc.role === 'sheriff');
-      for (let i = 0; i < 8; i++) spawn();
       RB.audio.setTune('map');
       // the truck's cage, live: grab the riders, tap one for its card, drag one out to let it go
       pen = new RB.Pen({ drawOpts: common.drawOpts, onTap: (c) => common.card(c, riderActions), onDropOut: (c, sx, sy) => { const w = toWorld(sx, sy); releaseAt(c, w.x, w.y); } });
@@ -220,12 +235,12 @@
       for (const s of seeds) s.t -= dt;
       seeds = seeds.filter((s) => s.t > 0);
       // ---- wildlife
-      spawnT -= dt;
-      const want = v.portrait ? 10 : 13, R = Math.hypot(v.w, v.h) / 2 / z;
-      if (spawnT <= 0 && wild.length < want) { spawnT = 0.45; spawn(); }
-      for (const w of wild.slice()) {
-        const dx = w.x - car.x, dy = w.y - car.y, d = Math.hypot(dx, dy) || 1, P = w.P;
-        if (d > R + 1400) { wild.splice(wild.indexOf(w), 1); continue; }
+      const R = Math.hypot(v.w, v.h) / 2 / z;
+      const far = R + 450; // animals beyond this wait where they are
+      for (const w of wild) {
+        const dx = w.x - car.x, dy = w.y - car.y;
+        if (dx > far || dx < -far || dy > far || dy < -far || !awake(w)) continue; // far away: it waits where it is
+        const d = Math.hypot(dx, dy) || 1, P = w.P;
         const ms = mapSpeed(P);
         let vx = 0, vy = 0;
         w.t -= dt;
@@ -266,7 +281,7 @@
         if (Math.abs(vx) > 5) w.f = vx > 0 ? 1 : -1;
         w.sp = clamp(s / ms, 0, 1); w.ph = (w.ph + dt * (0.6 + w.sp * 2.4)) % 1;
         // a hole is a trap for anything small enough
-        if (w.alt <= 0 && w.state !== 'trapped' && P.S < 1.7 && s > 10) { const c = WD.cellOf(w.x, w.y); if (S.dug[c.cx + ',' + c.cy] && Math.hypot((c.cx + 0.5) * WD.CELL - w.x, (c.cy + 0.5) * WD.CELL - w.y) < 34) { w.state = 'trapped'; w.t = 7; w.x = (c.cx + 0.5) * WD.CELL; w.y = (c.cy + 0.5) * WD.CELL; puff(w.x, w.y, 5, '#8a6a44', 'stuck!'); } }
+        if (w.alt <= 0 && w.state !== 'trapped' && P.S < 1.7 && s > 10) { const c = WD.cellOf(w.x, w.y); if (holeAt(c.cx, c.cy) && Math.hypot((c.cx + 0.5) * WD.CELL - w.x, (c.cy + 0.5) * WD.CELL - w.y) < 34) { w.state = 'trapped'; w.t = 7; w.x = (c.cx + 0.5) * WD.CELL; w.y = (c.cy + 0.5) * WD.CELL; puff(w.x, w.y, 5, '#8a6a44', 'stuck!'); } }
       }
       // ---- people and the law
       for (const f of folk) {
@@ -299,7 +314,7 @@
       det = null;
       if (S.equip.detector) {
         const c = WD.cellOf(car.x, car.y); let bd = 1e9;
-        for (let cx = c.cx - 5; cx <= c.cx + 5; cx++) for (let cy = c.cy - 5; cy <= c.cy + 5; cy++) { if (S.dug[cx + ',' + cy]) continue; const l = WD.lootAt(world, cx, cy); if (l && l.metal) { const d = Math.hypot((cx + 0.5) * WD.CELL - car.x, (cy + 0.5) * WD.CELL - car.y); if (d < bd) bd = d; } }
+        for (let cx = c.cx - 5; cx <= c.cx + 5; cx++) for (let cy = c.cy - 5; cy <= c.cy + 5; cy++) { if (holeAt(cx, cy)) continue; const l = WD.lootAt(world, cx, cy, S.day); if (l && l.metal) { const d = Math.hypot((cx + 0.5) * WD.CELL - car.x, (cy + 0.5) * WD.CELL - car.y); if (d < bd) bd = d; } }
         if (bd < 520) { det = 1 - bd / 520; if (Math.floor(t * (1 + det * 9)) !== Math.floor((t - dt) * (1 + det * 9))) RB.audio.play('tick'); }
       }
       for (const p of parts) { p.life -= dt * 1.4; p.x += p.vx * dt; p.y += p.vy * dt; p.vy += 140 * dt; }
@@ -327,9 +342,9 @@
       for (const road of world.roads) { ctx.beginPath(); ctx.moveTo(road[0].x, road[0].y); for (let i = 1; i < road.length; i++) ctx.lineTo(road[i].x, road[i].y); ctx.stroke(); }
       // holes, treasure marks, nets and seed on the ground
       const c0 = WD.cellOf(x0, y0), c1 = WD.cellOf(x1, y1);
-      for (let cx = c0.cx; cx <= c1.cx; cx++) for (let cy = c0.cy; cy <= c1.cy; cy++) if (S.dug[cx + ',' + cy]) { const hx = (cx + 0.5) * WD.CELL, hy = (cy + 0.5) * WD.CELL; ctx.fillStyle = '#8a6a44'; ctx.beginPath(); ctx.ellipse(hx, hy, 36, 20, 0, 0, TAU); ctx.fill(); ctx.fillStyle = '#4e3a26'; ctx.beginPath(); ctx.ellipse(hx, hy + 3, 26, 13, 0, 0, TAU); ctx.fill(); }
+      for (let cx = c0.cx; cx <= c1.cx; cx++) for (let cy = c0.cy; cy <= c1.cy; cy++) if (holeAt(cx, cy)) { const hx = (cx + 0.5) * WD.CELL, hy = (cy + 0.5) * WD.CELL; ctx.fillStyle = '#8a6a44'; ctx.beginPath(); ctx.ellipse(hx, hy, 36, 20, 0, 0, TAU); ctx.fill(); ctx.fillStyle = '#4e3a26'; ctx.beginPath(); ctx.ellipse(hx, hy + 3, 26, 13, 0, 0, TAU); ctx.fill(); }
       ctx.strokeStyle = pal.coral; ctx.lineWidth = 9;
-      for (const m of world.marks) if (!S.dug[m.cx + ',' + m.cy]) { const mx = (m.cx + 0.5) * WD.CELL, my = (m.cy + 0.5) * WD.CELL; ctx.beginPath(); ctx.moveTo(mx - 20, my - 14); ctx.lineTo(mx + 20, my + 14); ctx.moveTo(mx + 20, my - 14); ctx.lineTo(mx - 20, my + 14); ctx.stroke(); }
+      for (const m of world.marks) if (!S.marksDug[m.cx + ',' + m.cy]) { const mx = (m.cx + 0.5) * WD.CELL, my = (m.cy + 0.5) * WD.CELL; ctx.beginPath(); ctx.moveTo(mx - 20, my - 14); ctx.lineTo(mx + 20, my + 14); ctx.moveTo(mx + 20, my - 14); ctx.lineTo(mx - 20, my + 14); ctx.stroke(); }
       for (const s of seeds) { ctx.fillStyle = pal.mustard; for (let i = 0; i < 9; i++) { ctx.beginPath(); ctx.arc(s.x + Math.cos(i * 2.4) * (8 + i * 2.6), s.y + Math.sin(i * 2.4) * (5 + i * 1.6), 3, 0, TAU); ctx.fill(); } }
       for (const nt of nets) drawNet(ctx, nt.x, nt.y, 34, nt.id);
       // everything standing up, sorted by depth
@@ -342,7 +357,7 @@
       }
       if (decorCache.size > 900) decorCache.clear();
       for (const s of world.sites) if (s.x > x0 - 320 && s.x < x1 + 320 && s.y > y0 - 120 && s.y < y1 + 260) list.push({ y: s.y + 60, kind: 1, it: s });
-      for (const w of wild) if (w.x > x0 - 200 && w.x < x1 + 200 && w.y > y0 - 100 && w.y < y1 + 300) list.push({ y: w.y, kind: 2, it: w });
+      for (const w of wild) if (awake(w) && w.x > x0 - 200 && w.x < x1 + 200 && w.y > y0 - 100 && w.y < y1 + 300) list.push({ y: w.y, kind: 2, it: w });
       for (const f of folk) if (!f.gone && f.x > x0 - 200 && f.x < x1 + 200 && f.y > y0 - 100 && f.y < y1 + 300) list.push({ y: f.y, kind: 3, it: f });
       list.push({ y: car.y, kind: 4 });
       list.sort((a, b) => a.y - b.y);
@@ -454,7 +469,7 @@
   // A tap on the net button throws at the nearest thing in reach.
   function autoThrow() {
     let best = null, bd = range();
-    for (const w of wild) { if (w.alt > 40) continue; const d = Math.hypot(w.x - car.x, w.y - car.y); if (d < bd) { bd = d; best = w; } }
+    for (const w of wild) { if (w.alt > 40 || !awake(w)) continue; const d = Math.hypot(w.x - car.x, w.y - car.y); if (d < bd) { bd = d; best = w; } }
     if (best) throwNet(best.x, best.y); else throwNet(car.x + car.f * 300, car.y);
   }
   function drawNet(ctx, x, y, r, id, spin) {
@@ -500,7 +515,7 @@
       ctx.strokeStyle = '#dcccaa'; ctx.lineWidth = 60; ctx.lineJoin = 'round';
       for (const road of world.roads) { ctx.beginPath(); ctx.moveTo(road[0].x, road[0].y); for (let i = 1; i < road.length; i++) ctx.lineTo(road[i].x, road[i].y); ctx.stroke(); }
       ctx.strokeStyle = pal.coral; ctx.lineWidth = 40;
-      for (const m of world.marks) if (!S.dug[m.cx + ',' + m.cy]) { ctx.beginPath(); ctx.moveTo(m.x - 80, m.y - 60); ctx.lineTo(m.x + 80, m.y + 60); ctx.moveTo(m.x + 80, m.y - 60); ctx.lineTo(m.x - 80, m.y + 60); ctx.stroke(); }
+      for (const m of world.marks) if (!S.marksDug[m.cx + ',' + m.cy]) { ctx.beginPath(); ctx.moveTo(m.x - 80, m.y - 60); ctx.lineTo(m.x + 80, m.y + 60); ctx.moveTo(m.x + 80, m.y - 60); ctx.lineTo(m.x - 80, m.y + 60); ctx.stroke(); }
       ctx.restore();
       for (const s of world.sites) {
         if (s.kind === 'house') { ui.rect(ox + s.x * k - 3, oy + s.y * k - 3, 6, 6, pal.brick, 1); continue; }

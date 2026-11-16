@@ -174,7 +174,23 @@
   // Some groups only come out at night. Very rarely (about one animal in 170) a wild bird is
   // a natural cross of two kinds. Entries: { id, sp, g, x, y, night, cross }
   const CROSS_RATE = 0.006;
-  function population(world, day, groups) {
+  // Birds you set free leave their genes in the wild: from the next day on, an animal born within
+  // GENE_REACH of where one was let go is, now and then (GENE_FLOW), a young of it and a wild one.
+  const GENE_FLOW = 0.025, GENE_REACH = 2400;
+  // A young of two genomes whatever their sexes (two males or two females: one stands in for the
+  // other sex, a female father with her Z doubled). Returns { g, momFirst }.
+  function youngOf(g1, g2, r) {
+    let mom = g1.sex === 'F' ? g1 : g2.sex === 'F' ? g2 : null, dad = mom === g1 ? g2 : g1;
+    if (!mom) { mom = { a: g1.a, b: g1.b, sex: 'F' }; dad = g2; }
+    if (dad.sex === 'F') {
+      const GN = RB.genome, o = GN.Z_CHR * GN.CHR_LEN, b = dad.b.slice();
+      b.set(dad.a.subarray(o, o + GN.CHR_LEN), o);
+      dad = { a: dad.a, b, sex: 'M' };
+    }
+    return { g: RB.genome.breed(mom, dad, r), momFirst: mom === g1 || mom.a === g1.a };
+  }
+  // pool: released birds' genes ({ g, x, y, name, key, label }), from RB.state.genePool.
+  function population(world, day, groups, pool) {
     const r = new Rng((world.seed ^ Math.imul((day || 0) + 1, 2654435761) ^ 0x51d) >>> 0);
     const out = [], ids = RB.species.IDS.filter((id) => !RB.species.SPECIES[id].extinct && !RB.species.SPECIES[id].person);
     let made = 0;
@@ -200,6 +216,22 @@
         out.push({ id: out.length, sp, g, x: ax, y: ay, night, cross });
       }
     }
+    // genes from birds set free, drawn from numbers of their own so the rest of the day stays put
+    if (pool && pool.length) {
+      const rg = new Rng((world.seed ^ Math.imul((day || 0) + 1, 40503) ^ 0x9e3) >>> 0);
+      for (const e of out) {
+        if (e.cross) continue;
+        const near = pool.filter((p) => Math.hypot(p.x - e.x, p.y - e.y) < GENE_REACH);
+        if (!near.length || !rg.chance(GENE_FLOW)) continue;
+        const p = rg.pick(near), y = youngOf(e.g, p.g, rg);
+        e.g = y.g; e.kin = { name: p.name, key: p.key, label: p.label };
+        if (e.sp !== p.key) {
+          const w = { key: e.sp, label: RB.species.generic(e.sp) }, f = { key: p.key, label: p.label };
+          const mom = y.momFirst ? w : f, dad = y.momFirst ? f : w;
+          e.cross = { momKey: mom.key, dadKey: dad.key, mom: mom.label, dad: dad.label };
+        }
+      }
+    }
     return out;
   }
 
@@ -220,5 +252,5 @@
     return out;
   }
 
-  RB.world = { W, H, CELL, BIOMES, FAUNA, CROSS_RATE, generate, biomeAt, seaY, inBlob, blobR, onRoad, nearestSite, spawnSpecies, markAt, lootAt, cellOf, population, decorAt };
+  RB.world = { W, H, CELL, BIOMES, FAUNA, CROSS_RATE, GENE_FLOW, GENE_REACH, youngOf, generate, biomeAt, seaY, inBlob, blobR, onRoad, nearestSite, spawnSpecies, markAt, lootAt, cellOf, population, decorAt };
 })();

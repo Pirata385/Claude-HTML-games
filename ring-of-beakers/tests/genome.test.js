@@ -131,3 +131,40 @@ test('hybrids blend, and species distance orders sensibly', () => {
   assert.ok(size > G.traitValue(hen, 'size') * 0.95 && size < G.traitValue(ostrich, 'size') * 1.05, 'hybrid size ' + size);
   assert.strictEqual(S.blendNames('Ostrich', 'Duck'), 'Ostruck');
 });
+
+test('different genes give different colours, and domestic kinds come in many', () => {
+  const S = RB.species, rng = new Rng(51);
+  const keys = new Set();
+  let morphs = 0;
+  for (let i = 0; i < 60; i++) {
+    const P = RB.pheno.express(S.make('chicken', rng, { sport: 0 }));
+    keys.add(P.css.body + P.css.wing + P.css.tail);
+    if (P.odd.includes('white morph') || P.odd.includes('black morph')) morphs++;
+  }
+  assert.ok(keys.size >= 58, 'only ' + keys.size + ' distinct colourings in 60 chickens');
+  assert.ok(morphs > 0, 'no black or white chickens among 60');
+  // one changed base in a colour gene changes the colour
+  const g = S.make('duck', rng, { sport: 0 }), before = RB.pheno.express(g).css.body;
+  const gi = G.TRAITS.lit.genes[0], b = G.getGeneBases(g, gi, 'a');
+  b[1] = (b[1] + 2) % 4; G.setGeneBases(g, gi, b, 'both');
+  assert.notStrictEqual(RB.pheno.express(g).css.body, before);
+});
+
+test('crosses of very different kinds take whole features after each parent', () => {
+  const S = RB.species, rng = new Rng(61);
+  const traits = ['size', 'neckLen', 'beakLen', 'legLen', 'wingSize', 'tailLen', 'bodyDepth', 'posture', 'headSize', 'legThick', 'beakDepth', 'eyeSize'];
+  let nearMom = 0, nearDad = 0, between = 0;
+  for (let i = 0; i < 30; i++) {
+    const mom = S.make('hummingbird', rng, { sex: 'F', sport: 0 }), dad = S.make('ostrich', rng, { sex: 'M', sport: 0 });
+    const kid = G.breed(mom, dad, rng);
+    for (const id of traits) {
+      const m = G.trait01(mom, id), d = G.trait01(dad, id), k = G.trait01(kid, id);
+      if (Math.abs(d - m) < 0.15) continue;
+      const u = (k - m) / (d - m);
+      if (u < 0.3) nearMom++; else if (u > 0.7) nearDad++; else between++;
+    }
+  }
+  const all = nearMom + nearDad + between;
+  assert.ok(nearMom > all * 0.15 && nearDad > all * 0.15, 'features should follow one parent often: mom ' + nearMom + ' dad ' + nearDad + ' blend ' + between);
+  assert.ok(between > all * 0.1, 'and blend sometimes: ' + between + ' of ' + all);
+});

@@ -5,7 +5,7 @@
   'use strict';
   const RB = globalThis.RB;
   const { Rng, clamp, lerp, TAU, hashStr } = RB.core;
-  const ui = RB.ui, pal = RB.pal, input = RB.input, ST = RB.state, common = RB.common;
+  const ui = RB.ui, pal = RB.pal, input = RB.input, ST = RB.state, common = RB.common, EC = RB.economy;
   const HOW = { ko: 'by knockout', fled: 'the other one ran', ringout: 'by ring-out', decision: 'on points', towel: 'the towel came in' };
   const CMD = [['sic', 'Sic \'em!', 'bolt', pal.coral, 'Digit1'], ['back', 'Back off!', 'shield', pal.teal, 'Digit2'], ['whistle', 'Whistle', 'whistle', pal.mustard, 'Digit3']];
   const CROWD = ['#e76f51', '#2a9d8f', '#e9b44c', '#6d4c7d', '#7fb069', '#3d6fa5', '#d98cab', '#f2efe6'];
@@ -49,7 +49,8 @@
       if (A.bet.side === r.winner) { const pay = Math.round(A.bet.amount * (1 + A.bet.mult)); S.money += pay; S.stats.earned += pay - A.bet.amount; out.push(['Bet won', pay]); }
       else out.push(['Bet lost', -A.bet.amount]);
     }
-    if (card.key) S.bets[card.key] = S.day;
+    if (card.exh) EC.exhibitionDone(S, card.exh.arena, card.exh.slot);
+    else if (card.key) S.bets[card.key] = S.day;
     common.checkAch(S);
     RB.game.save();
     return out;

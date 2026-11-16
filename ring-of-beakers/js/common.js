@@ -45,9 +45,31 @@
     const mw = ui.width('$' + S.money, 15) + 38;
     chip(mw, (cx) => { ui.icon('coin', cx + 16, 21, 17); ui.text('$' + S.money, cx + 29, 26, { size: 15 }); });
     const ts = 'Day ' + S.day + ' · ' + common.fmtTime(S.time), tw = ui.width(ts, 13) + 36;
+    const tx = x;
     chip(tw, (cx) => { ui.icon(S.time >= 19 ? 'moon' : 'sun', cx + 15, 21, 15, S.time >= 19 ? pal.plum : pal.mustard); ui.text(ts, cx + 27, 25.5, { size: 13 }); });
+    if (ui.tapIn(tx, 6, tw, 30)) { RB.audio.play('click'); common.passTime(S); }
     if (S.heat > 0 && v.w > 420) chip(74, (cx) => { ui.icon('star', cx + 14, 21, 14, pal.coral); ui.bar(cx + 26, 17, 40, 8, S.heat / 100, pal.coral); });
     return x;
+  };
+
+  // ---- passing time: the clock chip in the HUD opens this
+  common.passTime = function (S) {
+    ui.open({ draw() {
+      const box = ui.window('Pass time', 320, 236, {});
+      if (!box) return;
+      ui.para('It is ' + common.fmtTime(S.time) + '. The Cellar and the Night Market open at 19:00. On the map, the clock button speeds time up.', box.x, box.y, box.w, { size: 12 });
+      const wait = (to) => { S.time = Math.min(25, to); RB.audio.play('tick'); ui.close(); ui.toast('It is ' + common.fmtTime(S.time) + '.', pal.plum); };
+      const y = box.y + box.h - 94;
+      if (ui.btn(box.x, y, box.w, 42, 'Wait one hour', { icon: 'clock', disabled: S.time >= 24.9 })) wait(S.time + 1);
+      if (ui.btn(box.x, y + 50, box.w, 42, S.time < 19 ? 'Wait until nightfall (19:00)' : 'It is already night', { icon: 'moon', fill: pal.plum, disabled: S.time >= 19 })) wait(19);
+    } });
+  };
+
+  // ---- flat broke: off to muck out a henhouse for $50
+  common.checkBroke = function (S, back) {
+    if (S.money > 0 || RB.game.pending || ui.modals.length || RB.game.slot === undefined) return false;
+    ui.message('Flat broke', 'Not a coin to your name. Dona Cida at Feed & Seed pays $50 to muck out her henhouse, and she is not fussy about who does it.', () => RB.game.go('chores', { back }), { ok: 'Grab a shovel', head: pal.brick });
+    return true;
   };
 
   // ---- goals: one line telling a new player what to try next
@@ -82,13 +104,15 @@
     win1: ['Beginner\'s pluck', 'Win a bout.', (S) => S.stats.wins >= 1],
     win10: ['Feathers will fly', 'Win ten bouts.', (S) => S.stats.wins >= 10],
     hatch: ['Nest egg', 'Hatch a chick.', (S) => S.stats.bred >= 1],
-    hybrid: ['What is that?', 'Hatch a creature that is no single kind.', (S) => S.birds.some((c) => c.origin === 'born' && !ST.pheno(c).species.pure)],
+    hybrid: ['What is that?', 'Hatch a creature that looks like no single kind.', (S) => S.birds.some((c) => c.origin === 'born' && !ST.pheno(c).species.pure)],
     dig10: ['Dirt under the nails', 'Dig ten holes.', (S) => S.stats.dug >= 10],
     power: ['Let there be light', 'Power up the lab.', (S) => S.lab.power],
     inject: ['Mad science', 'Inject a gene.', null],
     crispr: ['Molecular scissors', 'Land a CRISPR edit.', null],
     fossil: ['Old bones, new tricks', 'Rebuild an extinct bird.', null],
     recipe: ['Secret Recipe', 'Send eleven birds to BFC.', (S) => S.bfc.sold >= 11],
+    chores: ['Honest work', 'Muck out a henhouse for $50.', null],
+    hybrid2: ['Love is blind', 'Hatch a chick from two very different parents.', (S) => S.birds.some((c) => c.origin === 'born' && RB.state.isCross(c))],
     kidnap: ['Finders keepers', 'Net a person.', (S) => S.stats.kidnapped >= 1],
     rich: ['Feathered nest', 'Hold $5000 at once.', (S) => S.money >= 5000],
     atlas: ['Genome cartographer', 'Learn sixty genes.', (S) => RB.lab.knownCount(S) >= 60],
@@ -116,7 +140,7 @@
     const out = [];
     if (c.rest > 0) out.push(['Dazed', pal.coral]);
     if (c.hp < 0.99) out.push(['Hurt ' + Math.round(c.hp * 100) + '%', pal.brick]);
-    if (c.hungry > 0) out.push(['Hungry', pal.mustard]);
+    if (!c.fed) out.push([c.hungry > 0 ? 'Starving' : 'Hungry', c.hungry > 0 ? pal.coral : pal.mustard]);
     if (c.buff === 'chili') out.push(['Fired up', '#d7372f']);
     if (c.love) out.push(['In love', pal.coral]);
     return out;

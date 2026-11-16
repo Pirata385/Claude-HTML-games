@@ -7,7 +7,10 @@ Open `index.html` in a browser. It needs no build step and no server, and it run
 ## How to play
 
 - **Yard.** Tap a bird for its card. Drag a bird onto the truck to take it along, into a nest to breed, onto the dummy to train, or into the BFC pick-up box to be rid of it. Pick a feed at the bottom and tap a bird, or the feeder. Sleep ends the day.
-- **Map.** WASD or the arrow keys drive (on touch, the left thumb). Click to throw a net; on touch, drag from the net button to aim, or tap it to throw at the nearest animal. `Q` digs, `E` enters a door, `1`-`3` pick a tool, `H` honks.
+- **Map.** WASD or the arrow keys drive (on touch, the left thumb). Click to throw a net; on touch, drag from the net button to aim, or tap it to throw at the nearest animal. `Q` digs, `E` enters a door, `1`-`3` pick a tool, `H` honks. The clock button (or `T`) speeds time up x4 or x12, and drops back to normal at nightfall.
+- **Time.** Tap the clock in the top bar to wait an hour or until nightfall (19:00), when the Cellar and the Night Market open.
+- **Money.** Every arena always has two exhibition bouts to watch and bet on; as soon as one is fought the next pair takes its place. The bookie pulls his odds toward even and takes no cut, so backing a clear favourite pays a little over the odds. If your money ever runs out, Dona Cida pays $50 to scrub the droppings off her henhouse floor (hold and rub each pile).
+- **Feeding.** One grain feeds any creature for the day. Birds in the yard walk to the feeder and eat on their own; whatever is left feeds the rest at night.
 - **Ring.** Your bird fights on its own. Shout `Sic 'em!`, `Back off!` or `Whistle` (keys `1`-`3`); each has a cooldown, and a bird that does not trust you may ignore you. The flag throws in the towel.
 - **Lab.** Three fuses power it. Sequence a creature, tap a gene and extract a copy into a beaker, edit it at the CRISPR bench, then inject it into another creature or an egg.
 
@@ -16,12 +19,13 @@ The Codex (in the yard) has a longer guide, the kinds of bird you have met, the 
 ## What is in it
 
 - **Genetics.** Every creature has 14 chromosome pairs of A/C/G/T bases, 140 genes at fixed places, two copies of each. About 80 traits are read from them: size, neck, beak, legs, spurs, wings, tail, comb, colours and patterns, muscle, lungs, nerve, lifespan, voice, and rare switches such as teeth, arms, a second head or a glow. Birds are ZW: males carry two Z chromosomes and females one, so some traits follow the sex. Eggs come from meiosis with crossing-over and a little mutation.
-- **34 kinds of bird**, from quail to ostrich, five of them extinct and only reachable through fossils. A kind is only a region of the gene space, so anything can cross with anything, less reliably the further apart they are.
+- **Colours.** Colour genes are read base by base, so any difference in them shows: no two birds are quite alike, domestic kinds come in many shades, and black (dominant) and white (recessive) morphs turn up now and then.
+- **34 kinds of bird**, from quail to ostrich, five of them extinct and only reachable through fossils. A kind is only a region of the gene space, so anything can have young with anything: a hummingbird with an ostrich, or a hen with a person. Each parent's copy of a gene carries its own dominance, so a cross can take whole body parts after one parent, blend others, and get its colours from either side. Crosses are named after both parents and breed true to their new kind.
 - **Physics fights.** Fighters are ragdolls built from their genes. They peck, kick with their spurs, buffet with their wings, shove and punch; damage comes from the speed of the blow where it lands. Three kinds of bout: the pit, push-out on a platform, and aerial over water.
 - **A seeded map** with six biomes, each with its own animals by day and by night, roads, sixteen sites and twelve houses. Animals graze, bolt, fly off or charge the truck depending on their genes. Holes you dig stay, and trap small animals.
-- **People.** Neighbours buy birds that match what they want, breed and swap their own, collect relics, or challenge you. They can be netted too, which the sheriff minds.
-- **BFC, Brazil's Fried Chicken.** Takes any bird you are done with, by the kilo, at the counter or from the box in your yard. A parody: the look is a fried chicken place, the mascot (Coronel Galo, a rooster in a white suit) and everything else are this game's own.
-- Five arenas with daily cards, bosses and betting, a sideshow with three contests, an ending, nineteen feats, synthesised sound and music, three save slots with export and import.
+- **People.** Neighbours buy birds that match what they want, breed and swap their own, collect relics, or challenge you. They can be netted too, which the sheriff minds. A netted person can share a nest with a bird, or go to BFC; their house stands empty for three days until someone new moves in.
+- **BFC, Brazil's Fried Chicken.** Takes any bird (or person) you are done with, by the kilo, at the counter or from the box in your yard. A parody: the look is a fried chicken place, the mascot (Coronel Galo, a rooster in a white suit) and everything else are this game's own.
+- Five arenas, each with one bout a day in every weight class from Gnat to Titan (so any bird you own has a fight), bosses and betting, a sideshow with three contests, an ending, nineteen feats, synthesised sound and music, three save slots with export and import.
 
 ## Files
 
@@ -38,7 +42,7 @@ js/fight.js         a bout: brains, damage, commands, odds
 js/items.js  world.js  npc.js  economy.js  lab.js  state.js   the rules
 js/birdart.js  props.js    drawing creatures and scenery
 js/input.js  ui.js  audio.js  save.js  common.js  main.js     the shell
-js/scenes/          title, coop, ring, map, sites, lab, codex
+js/scenes/          title, coop, ring, map, sites, lab, codex, chores
 tests/              logic tests
 ```
 

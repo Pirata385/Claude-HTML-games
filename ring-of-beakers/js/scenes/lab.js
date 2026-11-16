@@ -57,8 +57,8 @@
     if (gene < 0) { ui.para('Tap a gene. Each has two copies, one from each parent (females have a single copy of Z genes). Known genes are pale; grey ones are still a mystery.', b.x + 8, dy + 6, b.w - 16, { size: 12 }); return; }
     const sa = GN.copySum(g.a, gene), hemi = GN.isHemi(g, gene), sb = hemi ? null : GN.copySum(g.b, gene);
     ui.text(L.geneLabel(S, gene) + '  ·  ' + GN.GENES[gene].mode + (hemi ? ' · one copy' : ''), b.x + 8, dy + 18, { size: 14, maxW: b.w - 16 });
-    ui.text('A: ' + L.describe(S, gene, sa), b.x + 8, dy + 36, { size: 11, bold: false, maxW: (wide ? b.w - 260 : b.w - 16) });
-    if (!hemi) ui.text('B: ' + L.describe(S, gene, sb), b.x + 8, dy + 51, { size: 11, bold: false, maxW: (wide ? b.w - 260 : b.w - 16) });
+    ui.text('A: ' + L.describe(S, gene, GN.getGeneBases(g, gene, 'a')), b.x + 8, dy + 36, { size: 11, bold: false, maxW: (wide ? b.w - 260 : b.w - 16) });
+    if (!hemi) ui.text('B: ' + L.describe(S, gene, GN.getGeneBases(g, gene, 'b')), b.x + 8, dy + 51, { size: 11, bold: false, maxW: (wide ? b.w - 260 : b.w - 16) });
     const bx = wide ? b.x + b.w - 244 : b.x + 8, by = wide ? dy + 26 : dy + 58, bw = wide ? 118 : (b.w - 22) / 2;
     const take = (copy) => { const r = L.extract(S, subject, gene, copy); if (typeof r === 'string') { ui.toast(r + ' The lab sells them.', pal.coral); RB.audio.play('error'); } else { RB.audio.play('zap'); ui.toast('Extracted into a beaker. ' + subject.name + ' feels woozy.', pal.teal); } };
     if (ui.btn(bx, by, bw, wide ? 40 : 30, 'Extract A', { icon: 'beaker', size: 12 })) take('a');
@@ -74,7 +74,7 @@
       ui.rect(x, y + 2, w - 6, 60, pal.paper, 10);
       tiles(v.bases, x + 8, y + 12, 22, 3);
       ui.text(L.geneLabel(S, v.gi), x + 116, y + 24, { size: 13, maxW: w - 290 });
-      ui.text('from a ' + v.from.toLowerCase() + ' · ' + L.describe(S, v.gi, L.vialSum(v)), x + 116, y + 42, { size: 10, bold: false, maxW: w - 290 });
+      ui.text('from a ' + v.from.toLowerCase() + ' · ' + L.describe(S, v.gi, v.bases), x + 116, y + 42, { size: 10, bold: false, maxW: w - 290 });
       if (ui.btn(x + w - 170, y + 13, 76, 38, 'Edit', { icon: 'dna', fill: pal.plum, size: 12 })) editWindow(v);
       if (ui.btn(x + w - 88, y + 13, 76, 38, 'Inject', { fill: pal.coral, size: 12 })) injectPick(v);
     });
@@ -109,7 +109,7 @@
       const box = ui.window('CRISPR bench', 340, 318, {});
       if (!box) return;
       ui.text(L.geneLabel(S, v.gi), box.x, box.y + 12, { size: 14, maxW: box.w });
-      ui.text('Now: ' + L.describe(S, v.gi, L.vialSum(v)), box.x, box.y + 30, { size: 11, bold: false, maxW: box.w });
+      ui.text('Now: ' + L.describe(S, v.gi, v.bases), box.x, box.y + 30, { size: 11, bold: false, maxW: box.w });
       const s = 44, x0 = box.x + (box.w - (s * 4 + 30)) / 2;
       for (let i = 0; i < 4; i++) {
         const x = x0 + i * (s + 10), y = box.y + 44;
@@ -124,9 +124,9 @@
         if (k === to && !same) { ui.ctx.strokeStyle = pal.ink; ui.ctx.lineWidth = 3; ui.rr(ui.ctx, x - 2, y - 2, s + 4, 40, 9); ui.ctx.stroke(); }
         if (!same && ui.tapIn(x, y, s, 36)) to = k;
       }
-      const after = L.vialSum(v) - v.bases[pos] + to;
+      const after = v.bases.slice(); after[pos] = to;
       ui.text('After: ' + L.describe(S, v.gi, after), box.x, box.y + 184, { size: 11, bold: false, maxW: box.w });
-      ui.text('A is worth 0, C 1, G 2, T 3. Each cut uses one enzyme (you have ' + ST.count(S, 'enzyme') + ').', box.x, box.y + 202, { size: 10, bold: false, maxW: box.w, color: pal.grey });
+      ui.text('A is worth 0, C 1, G 2, T 3; in colour genes the first letter weighs most. Each cut uses one enzyme (you have ' + ST.count(S, 'enzyme') + ').', box.x, box.y + 202, { size: 10, bold: false, maxW: box.w, color: pal.grey });
       if (ui.btn(box.x, box.y + box.h - 46, box.w, 44, 'Cut', { icon: 'dna', fill: pal.plum, disabled: !ST.count(S, 'enzyme') || to === v.bases[pos] })) { ST.take(S, 'enzyme'); ui.close(); cutGame(v, pos, to); }
     } });
   }

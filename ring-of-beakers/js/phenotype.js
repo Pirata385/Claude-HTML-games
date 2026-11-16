@@ -82,7 +82,7 @@
     P.tailAng = lerp(-25, 85, t.tailUp) * DEG;
 
     // colours
-    const hue = G.geneValue(g, G.TRAITS.hue.genes[0]) + (G.geneValue(g, G.TRAITS.hue.genes[1]) - 0.5) * 0.16;
+    const hue = G.hueValue(g);
     let sat = t.sat, lit = t.lit, h = hue;
     if (!sw.bare && k > 0) { lit = lerp(lit, 0.78, 0.55 * k); sat = lerp(sat, 0.55, 0.4 * k); h = lerp(h, 0.13, 0.5 * k); }
     if (elder > 0) sat *= 1 - 0.3 * elder;
@@ -98,8 +98,17 @@
       beak: ramp(BEAK_RAMP, t.beakTone), leg: ramp(LEG_RAMP, t.legTone), iris: ramp(EYE_RAMP, t.eyeTone),
       pat: [h, sat * 0.8, lit > 0.42 ? clamp01(lit - 0.12 - 0.3 * t.patContrast) : clamp01(lit + 0.14 + 0.3 * t.patContrast)],
     };
+    // colour morphs: a dominant black and a recessive white, over whatever the colour genes say
+    const white = sw.leucistic && !sw.bare, black = sw.melanic && !sw.bare && !white;
+    if (white || black) {
+      const L = white ? 0.94 : 0.1, Sa = white ? 0.04 : 0.28;
+      col.body = [h, Sa, L]; col.wing = [col.wing[0], Sa, white ? 0.88 : 0.13]; col.tail = [col.tail[0], Sa, white ? 0.9 : 0.08];
+      if (t.bareHead <= 0.5) col.head = [col.head[0], Sa, white ? 0.95 : 0.12];
+      col.belly = [h, Sa * 0.5, white ? 0.98 : 0.17]; col.pat = [h, Sa, white ? 0.83 : 0.24];
+    }
     if (sw.bare) { col.skin = body; col.hair = col.head; }
     P.col = col;
+    if (black) P.sheen = Math.max(P.sheen, 0.55);
     P.css = {};
     for (const key of Object.keys(col)) P.css[key] = css(col[key]);
     P.css.bodyDark = css(shade(body, -0.1)); P.css.wingDark = css(shade(col.wing, -0.1)); P.css.legDark = css(shade(col.leg, -0.12));
@@ -157,6 +166,8 @@
     if (sw.nana) P.odd.push('dwarf');
     if (sw.cyclops) P.odd.push('one eye');
     if (sw.legsExtra) P.odd.push('four legs');
+    if (white) P.odd.push('white morph');
+    if (black) P.odd.push('black morph');
     return P;
   }
 

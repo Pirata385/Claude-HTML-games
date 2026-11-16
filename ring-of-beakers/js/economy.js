@@ -11,7 +11,6 @@
   // Market value of a creature.
   function value(c) {
     const P = ST().pheno(c);
-    if (c.person) return 0;
     const sp = RB.species.SPECIES, t1 = sp[P.species.id].tier, t2 = sp[P.species.second].tier;
     const base = P.species.pure ? TIER_VALUE[t1] : (TIER_VALUE[t1] + TIER_VALUE[t2]) / 2 * 1.25;
     const r = P.rate, stat = (r.power + r.speed + r.tough + r.stamina + r.guts) / 500;
@@ -34,7 +33,6 @@
   }
   // What BFC pays: by the kilo, never much of what the bird is really worth. pickup = the coop box.
   function bfcPrice(S, c, pickup) {
-    if (c.person) return 0;
     const P = ST().pheno(c);
     let p = Math.min(P.weightKg * 3, value(c) * 0.4);
     if (bfcIsSpecial(S, c)) p *= 2;
@@ -44,11 +42,11 @@
 
   // ---- arenas
   const ARENAS = [
-    { id: 'backyard', name: 'Backyard Pit', tier: 0, modes: ['pit'], classes: [1, 2, 3], fee: 15, purse: 70, need: 3, betCap: 60,
+    { id: 'backyard', name: 'Backyard Pit', tier: 0, modes: ['pit'], classes: [1, 2, 3], fee: 15, purse: 70, need: 3, betCap: 100,
       boss: { trainer: 'Old Bira', bird: 'Sete Facas', mix: ['gamecock', 'gamecock'], wc: 3, purse: 400, gear: null } },
-    { id: 'county', name: 'County Ring', tier: 1, modes: ['pit', 'push'], classes: [2, 3, 4], fee: 50, purse: 220, need: 4, betCap: 250,
+    { id: 'county', name: 'County Ring', tier: 1, modes: ['pit', 'push'], classes: [2, 3, 4], fee: 50, purse: 220, need: 4, betCap: 400,
       boss: { trainer: 'Dona Zefa', bird: 'Tempestade', mix: ['goose', 'swan'], wc: 4, purse: 1400, gear: 'scarf', mode: 'push' } },
-    { id: 'city', name: 'City Arena', tier: 2, modes: ['pit', 'push', 'aerial'], classes: [3, 4, 5], fee: 150, purse: 650, need: 4, betCap: 900,
+    { id: 'city', name: 'City Arena', tier: 2, modes: ['pit', 'push', 'aerial'], classes: [3, 4, 5], fee: 150, purse: 650, need: 4, betCap: 1200,
       boss: { trainer: 'Dr. Quill', bird: 'Bisturi', mix: ['eagle', 'secretary'], wc: 4, purse: 4000, gear: 'helmet' } },
     { id: 'cellar', name: 'The Cellar', tier: 3, modes: ['pit', 'push'], classes: [6], fee: 400, purse: 1700, need: 5, betCap: 3000, night: true,
       boss: { trainer: 'The Butcher', bird: 'Machado', mix: ['cassowary', 'cassowary'], wc: 6, purse: 9000, gear: 'spurs' } },
@@ -86,18 +84,35 @@
   const trainOf = (tier) => ({ muscle: 0.03 * tier, reflex: 0.03 * tier, lungs: 0.03 * tier, courage: 0.05 * tier });
 
   // An opponent for a weight class at an arena tier: the pick of a few birds, with some training.
+  // An opponent for a weight class at an arena tier: the pick of a few birds that make the weight,
+  // with some training. Nothing common reaches Titanweight, so those are heavy runners grown to the
+  // largest size their genes allow.
+  const TITANS = ['ostrich', 'emu', 'cassowary'];
   function makeOpponent(seed, wc, tier, open) {
     const r = new Rng(seed);
-    const byClass = speciesByClass();
-    let pool = byClass[wc].slice();
-    if (open) pool = byClass[4].concat(byClass[5], byClass[6]);
+    const byClass = speciesByClass(), titan = !open && wc === 6;
+    let pool = open ? byClass[4].concat(byClass[5], byClass[6]) : titan ? TITANS.slice() : byClass[wc].slice();
     if (!pool.length) pool = byClass[Math.max(0, wc - 1)].concat(byClass[Math.min(6, wc + 1)]);
     const maxTier = 2 + tier;
     const usable = pool.filter((id) => RB.species.SPECIES[id].tier <= maxTier);
-    const id = r.pick(usable.length ? usable : pool);
+    const id = r.pick(usable.length ? usable : pool), sp = RB.species.SPECIES[id];
     const train = trainOf(tier);
-    const P = bestOf(1 + tier * 2, () => RB.pheno.express(RB.species.make(id, r, { sex: r.chance(0.8) ? 'M' : 'F', sport: 0.02 * tier }), { train }));
-    return { P, name: r.pick(ST().BIRD_NAMES), trainer: r.pick(TRAINERS) };
+    const make = () => {
+      const sex = r.chance(0.8) ? 'M' : 'F';
+      const g = titan ? RB.genome.fromTargets(Object.assign({}, sp.t, { size: 2.7, bone: 1.3 }), sp.sw, r, { sex, colorVar: sp.cv === undefined ? 0.045 : sp.cv })
+        : RB.species.make(id, r, { sex, sport: 0.02 * tier });
+      return RB.pheno.express(g, { train });
+    };
+    let best = null, bs = -1, fallback = null;
+    const want = 1 + tier * 2;
+    for (let got = 0, tries = 0; got < want && tries < want + 12; tries++) {
+      const P = make();
+      if (!open && P.weightClass > wc) { if (!fallback || P.weightKg < fallback.weightKg) fallback = P; continue; }
+      got++;
+      const sc = fightScore(P);
+      if (sc > bs) { bs = sc; best = P; }
+    }
+    return { P: best || fallback, name: r.pick(ST().BIRD_NAMES), trainer: r.pick(TRAINERS) };
   }
   function makeBoss(S, arena) {
     const b = arena.boss, r = new Rng((S.seed ^ hashStr(arena.id)) >>> 0);
@@ -112,27 +127,44 @@
     return { P, name: b.bird, trainer: b.trainer, gear: b.gear ? { [b.gear]: true } : {}, boss: true };
   }
 
-  // Today's three bouts at an arena (plus the boss once you have enough wins).
+  // Today's bouts at an arena: one in every weight class, from Gnat to Titan, so any bird you own
+  // has a fight to pick (plus the boss once you have enough wins). Heavier classes pay a little more.
   function cards(S, arena) {
     const base = (S.seed ^ Math.imul(S.day, 40503) ^ hashStr(arena.id)) >>> 0;
     const r = new Rng(base), list = [];
-    for (let i = 0; i < 3; i++) {
-      const wc = r.pick(arena.classes), mode = r.pick(arena.modes), open = arena.id === 'cellar';
-      const k = 0.8 + 0.2 * i + r.range(0, 0.25);
-      list.push({ key: arena.id + ':' + S.day + ':' + i, i, wc, mode, open, fee: Math.round(arena.fee * k / 5) * 5, purse: Math.round(arena.purse * k / 5) * 5, seed: (base + i * 7919) >>> 0, tier: arena.tier });
+    for (let wc = 0; wc < RB.pheno.WEIGHT_CLASSES.length; wc++) {
+      const mode = r.pick(arena.modes), k = 0.85 + 0.05 * wc + r.range(0, 0.2);
+      list.push({ key: arena.id + ':' + S.day + ':w' + wc, i: wc, wc, mode, open: false, fee: Math.round(arena.fee * k / 5) * 5, purse: Math.round(arena.purse * k / 5) * 5, seed: (base + wc * 7919) >>> 0, tier: arena.tier });
     }
     const lg = leagueOf(S, arena.id);
     if (lg.wins >= arena.need && !lg.boss) {
-      list.push({ key: arena.id + ':boss', i: 3, wc: arena.boss.wc, mode: arena.boss.mode || 'pit', open: arena.boss.wc >= 6, fee: arena.fee * 2, purse: arena.boss.purse, boss: true, tier: arena.tier });
+      list.push({ key: arena.id + ':boss', i: list.length, wc: arena.boss.wc, mode: arena.boss.mode || 'pit', open: arena.boss.wc >= 6, fee: arena.fee * 2, purse: arena.boss.purse, boss: true, tier: arena.tier });
     }
     return list;
   }
-  function opponentFor(S, arena, card) { return card.boss ? makeBoss(S, arena) : makeOpponent(card.seed, card.wc, card.tier, card.open); }
-  // Two strangers to watch and bet on.
-  function exhibition(S, arena) {
-    const base = (S.seed ^ Math.imul(S.day, 9973) ^ hashStr(arena.id + 'x')) >>> 0, r = new Rng(base);
+  // Opponents are worked out once per card and kept: the lobby draws them every frame.
+  const oppCache = new Map();
+  function cached(key, make) {
+    let v = oppCache.get(key);
+    if (!v) { if (oppCache.size > 200) oppCache.clear(); v = make(); oppCache.set(key, v); }
+    return v;
+  }
+  function opponentFor(S, arena, card) {
+    return cached(S.seed + ':' + card.key + (card.boss ? '' : ':' + card.seed), () => (card.boss ? makeBoss(S, arena) : makeOpponent(card.seed, card.wc, card.tier, card.open)));
+  }
+  // Two strangers to watch and bet on. There are always two on the card at every arena: as soon as
+  // one is fought, the next pair takes its slot. n counts the bouts already fought in that slot.
+  function exhibition(S, arena, slot) {
+    const done = ((S.exh || {})[arena.id] || [0, 0])[slot || 0], n = done * 2 + (slot || 0);
+    const base = (S.seed ^ Math.imul(S.day, 9973) ^ hashStr(arena.id + 'x') ^ Math.imul(n + 1, 40503)) >>> 0, r = new Rng(base);
     const wc = r.pick(arena.classes), mode = r.pick(arena.modes), open = arena.id === 'cellar';
-    return { key: arena.id + ':' + S.day + ':x', wc, mode, a: makeOpponent(base + 1, wc, arena.tier, open), b: makeOpponent(base + 2, wc, arena.tier, open), seed: base };
+    const key = arena.id + ':' + S.day + ':x' + n;
+    return cached(S.seed + ':' + key + ':' + base, () => ({ key, slot: slot || 0, wc, mode, a: makeOpponent(base + 1, wc, arena.tier, open), b: makeOpponent(base + 2, wc, arena.tier, open), seed: base }));
+  }
+  function exhibitionDone(S, arenaId, slot) {
+    S.exh = S.exh || {};
+    const e = (S.exh[arenaId] = S.exh[arenaId] || [0, 0]);
+    e[slot]++;
   }
   // May this creature enter this bout? Returns '' or the reason.
   function canEnter(S, c, card) {
@@ -144,8 +176,11 @@
     if (!card.open && P.weightClass > card.wc) return 'Too heavy for ' + RB.pheno.WEIGHT_CLASSES[card.wc][0] + 'weight.';
     return '';
   }
-  // Payout multiplier for a winning bet at win chance p (the house keeps a tenth).
-  const odds = (p) => clamp((1 / clamp(p, 0.04, 0.96) - 1) * 0.9, 0.05, 20);
+  // The bookie's line: a cautious man, he pulls every estimate a quarter of the way back to even
+  // and takes no cut. Backing a clear favourite therefore pays a little better than it should.
+  const bookieLine = (p) => clamp(0.5 + (p - 0.5) * 0.75, 0.06, 0.94);
+  // Payout multiplier (winnings per dollar staked) for a bet on a side the sims give chance p.
+  const odds = (p) => 1 / bookieLine(p) - 1;
 
   // ---- sideshow
   const SHOWS = [
@@ -167,6 +202,6 @@
     return { taste: r.pick(['big', 'tiny', 'bright', 'odd']), seed: r.int(1, 1e9) };
   }
 
-  RB.economy = { value, bfcSpecial, bfcIsSpecial, bfcPrice, ARENAS, ARENA, TRAINERS, speciesByClass, leagueOf, arenaOpen, makeOpponent, makeBoss, cards, opponentFor, exhibition,
-    canEnter, odds, fightScore, SHOWS, dashTime, hopHeight, pageantScore, showOfDay };
+  RB.economy = { value, bfcSpecial, bfcIsSpecial, bfcPrice, ARENAS, ARENA, TRAINERS, speciesByClass, leagueOf, arenaOpen, makeOpponent, makeBoss, cards, opponentFor, exhibition, exhibitionDone,
+    canEnter, odds, bookieLine, fightScore, SHOWS, dashTime, hopHeight, pageantScore, showOfDay };
 })();

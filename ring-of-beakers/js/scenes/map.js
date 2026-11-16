@@ -58,7 +58,7 @@
     if (cageRoom() <= 0) { ui.toast('The cage is full.', pal.coral); return 'full'; }
     f.gone = true;
     RB.npc.info(S, f.npc.id).gone = true;
-    ST.addBird(S, f.npc.g, { at: 'cage', name: f.npc.name, person: f.npc.id, clothes: f.npc.clothes, bond: 0, origin: 'wild' });
+    ST.addBird(S, RB.genome.clone(f.npc.g), { at: 'cage', name: f.npc.name, person: f.npc.id, clothes: f.npc.clothes, bond: 0, origin: 'wild' });
     S.stats.kidnapped++;
     let seenBy = 0;
     for (const o of folk) if (o !== f && !o.gone && Math.hypot(o.x - f.x, o.y - f.y) < 750) { seenBy++; o.scared = 6; }
@@ -122,8 +122,10 @@
       RB.game.save(); RB.game.go('coop'); return;
     }
     const night = site.id === 'cellar' || site.id === 'market';
-    if (night && !isNight()) { ui.toast(site.name + ' opens after dark (19:00).'); return; }
-    const keeper = world.npcs.find((n) => n.site === site.id);
+    if (night && !isNight()) { ui.toast(site.name + ' opens after dark (19:00). Speed time up, or tap the clock to wait.'); return; }
+    let keeper = world.npcs.find((n) => n.site === site.id);
+    if (keeper) keeper = RB.npc.current(S, keeper);
+    if (keeper && RB.npc.info(S, keeper.id).sold) { ui.toast('The house stands empty. Someone new will move in soon.', pal.plum); return; }
     if (keeper && RB.npc.info(S, keeper.id).gone) { ui.toast('Nobody is minding the place. ' + keeper.name + ' is... away.', pal.plum); return; }
     if (st === 'arena' && !RB.economy.arenaOpen(S, RB.economy.ARENA[site.id])) { ui.toast('Win the boss bout at the arena before this one first.', pal.coral); return; }
     S.pos = { x: car.x, y: car.y };
@@ -138,7 +140,7 @@
     S.heat = Math.max(0, S.heat - 45);
     stun = 1.2; car.vx = 0; car.vy = 0;
     RB.audio.play('error');
-    ui.message('Pulled over', 'Sheriff Tavares writes you a ticket for $' + fine + '.' + (held.length ? ' He also lets ' + held.map((c) => c.name).join(' and ') + ' out of your cage, with apologies on your behalf.' : ''), null, { head: pal.brick });
+    ui.message('Pulled over', (sheriff ? sheriff.npc.name : 'The sheriff') + ' writes you a ticket for $' + fine + '.' + (held.length ? ' He also lets ' + held.map((c) => c.name).join(' and ') + ' out of your cage, with apologies on your behalf.' : ''), null, { head: pal.brick });
   }
 
   RB.scenes.map = {
@@ -151,8 +153,8 @@
       wild = []; nets = []; flying = []; seeds = []; parts = []; t = 0; tool = 'net'; aim = null; stick = null; digT = 0; near = null; spawnT = 0; det = null; stun = 0; warned = false; sirenT = 0;
       decorCache = new Map();
       if (!paths || paths.seed !== world.seed) { buildPaths(); paths.seed = world.seed; }
-      folk = world.npcs.filter((n) => n.site.startsWith('house') || n.role === 'sheriff').map((n) => {
-        const s = world.site[n.site], P = RB.pheno.express(n.g);
+      folk = world.npcs.filter((n) => n.site.startsWith('house') || n.role === 'sheriff').map((n0) => {
+        const n = RB.npc.current(S, n0), s = world.site[n.site], P = RB.pheno.express(n.g);
         return { npc: n, P, x: s.x + (n.role === 'sheriff' ? 160 : 70), y: s.y + 120, hx: s.x + 70, hy: s.y + 120, f: 1, ph: 0, sp: 0, t: rng.range(0, 3), gone: RB.npc.info(S, n.id).gone, scared: 0 };
       });
       sheriff = folk.find((f) => f.npc.role === 'sheriff');
@@ -163,8 +165,13 @@
 
     update(dt) {
       const v = ui.view, z = zoom();
+      if (common.checkBroke(S, 'map')) return;
       t += dt; stun = Math.max(0, stun - dt);
-      S.time += dt / 30;
+      // world time: an hour every 30 s, or faster with the speed button; it drops back to normal at nightfall
+      const before = S.time, g = RB.game;
+      S.time += dt / 30 * (g.timeSpeed || 1);
+      if (before < 19 && S.time >= 19) { if (g.timeSpeed > 1) g.timeSpeed = 1; ui.toast('Night falls. The Cellar and the Night Market are open.', pal.plum); }
+      if (S.time > 23.5 && g.timeSpeed > 1) g.timeSpeed = 1;
       if (S.time >= 26) { S.pos = null; RB.game.go('coop', { passOut: true }); return; }
       // ---- driving
       let ix = (input.key('KeyD', 'ArrowRight') ? 1 : 0) - (input.key('KeyA', 'ArrowLeft') ? 1 : 0), iy = (input.key('KeyS', 'ArrowDown') ? 1 : 0) - (input.key('KeyW', 'ArrowUp') ? 1 : 0);
@@ -394,6 +401,12 @@
       if (ST.count(S, 'bignet')) tools.push(['bignet', ST.count(S, 'bignet')]);
       if (ST.count(S, 'seed')) tools.push(['seed', ST.count(S, 'seed')]);
       const bs = 54, by = v.h - bs - 10;
+      // time speed, above the shovel
+      const sp1 = RB.game.timeSpeed || 1;
+      if (ui.btn(v.w - 10 - bs, by - 46, bs, 38, 'x' + sp1, { icon: 'clock', fill: sp1 > 1 ? pal.plum : pal.paper, color: sp1 > 1 ? pal.white : pal.ink, iconCol: sp1 > 1 ? pal.white : pal.plum, size: 13, key: 'KeyT' })) {
+        RB.game.timeSpeed = sp1 === 1 ? 4 : sp1 === 4 ? 12 : 1; RB.audio.play('click');
+        if (RB.game.timeSpeed > 1 && S.time > 23.5) { RB.game.timeSpeed = 1; ui.toast('Too late to hurry the clock. Head home.', pal.coral); }
+      }
       let bx = v.w - 10 - bs;
       if (ui.btn(bx, by, bs, bs, '', { icon: 'shovel', fill: pal.brick })) dig();
       ui.text(String(ST.count(S, 'shovel')), bx + bs - 6, by + bs - 5, { size: 12, color: pal.white, align: 'right' });
@@ -412,7 +425,7 @@
         const label = near.kind === 'home' ? 'Go home' : 'Enter ' + (near.kind === 'house' ? (world.npcs.find((q) => q.site === near.id) || {}).name + '\'s' : near.name);
         const w = Math.min(v.w - 150, ui.width(label, 15) + 44);
         if (ui.btn((v.w - w) / 2, v.h - 62, w, 46, label, { icon: 'right', fill: pal.teal, size: 15 })) enter(near);
-      } else if (!input.touch && t < 12) ui.text('WASD or arrows to drive · click to throw a net · Q digs · E enters', v.w / 2, v.h - 20, { size: 12, align: 'center', color: n > 0.5 ? pal.white : pal.ink });
+      } else if (!input.touch && t < 12) ui.text('WASD or arrows to drive · click to throw a net · Q digs · E enters · T speeds time', v.w / 2, v.h - 20, { size: 12, align: 'center', color: n > 0.5 ? pal.white : pal.ink });
       else if (input.touch && t < 12) ui.text('Left thumb drives. Drag from the net to aim, tap it to throw.', v.w / 2, v.h - 76, { size: 12, align: 'center', color: n > 0.5 ? pal.white : pal.ink, maxW: v.w - 16 });
       if (stick) { ctx.fillStyle = 'rgba(35,49,74,0.25)'; ctx.beginPath(); ctx.arc(stick.sx, stick.sy, 46, 0, TAU); ctx.fill(); const dx = stick.x - stick.sx, dy = stick.y - stick.sy, d = Math.hypot(dx, dy) || 1, k = Math.min(46, d) / d; ctx.fillStyle = 'rgba(255,250,240,0.85)'; ctx.beginPath(); ctx.arc(stick.sx + dx * k, stick.sy + dy * k, 20, 0, TAU); ctx.fill(); }
       if (S.time > 24.5) ui.text('It is very late. Head home before you nod off.', v.w / 2, 82, { size: 12, align: 'center', color: pal.white });

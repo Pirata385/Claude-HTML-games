@@ -52,6 +52,20 @@
     rag.crouchT = asleep ? 0.55 : 1;
     rag.eye = asleep ? 'sleep' : e.blink < 0 ? 'blink' : '';
     if (asleep) { rag.vxDes = 0; return; }
+    // anyone who has not eaten today goes to the feeder; one grain fills any creature
+    if (!e.c.fed && S.feeder > 0) {
+      const fx = lay.feeder + (e.c.id % 2 ? 1 : -1) * (24 + e.P.TL * 0.3), dx = fx - rag.midX();
+      // once at the feeder it stays put while pecking (a peck lunges a little)
+      if (Math.abs(dx) > (e.atFeed ? 26 + e.P.TL * 0.5 : 16)) { const dir = Math.sign(dx); if (dir !== rag.f && !rag.act) rag.flip(); rag.vxDes = dir * Math.min(P.speedMax * 0.5, 60 + P.speedMax * 0.15); e.atFeed = false; e.eatT = 0; return; }
+      e.atFeed = true;
+      rag.vxDes = 0;
+      const face = Math.sign(lay.feeder - rag.midX()) || 1;
+      if (face !== rag.f && !rag.act) rag.flip();
+      if (!rag.act && !e.c.person) rag.startPeck(() => ({ x: lay.feeder, y: -26 }));
+      e.eatT = (e.eatT || 0) + dt;
+      if (e.eatT > 0.9) { S.feeder--; ST.eat(e.c); e.eatT = 0; e.atFeed = false; spark(lay.feeder, -44, 'heart', 1); e.t = rng.range(0.5, 2); e.mode = 'idle'; }
+      return;
+    }
     e.t -= dt;
     if (e.t <= 0) {
       const r = rng.next();
@@ -85,7 +99,7 @@
     if (to === 'home') { if (!e) mkRag(c, x === undefined ? lay.feeder + rng.range(-80, 200) : x); }
     else if (e) { spark(e.rag.midX(), e.rag.midY(), 'poof', 5); dropRag(e); }
     RB.audio.play(to === 'crate' ? 'thud' : 'click');
-    if (to === 'crate') ui.toast(c.name + ' waits for the BFC van. Take it back before you sleep, if you change your mind.', pal.brick);
+    if (to === 'crate') ui.toast(c.name + ' waits for the BFC van tonight. Take ' + (c.person ? 'them' : 'it') + ' back before you sleep, if you change your mind.', pal.brick);
     return true;
   }
   function release(c) {
@@ -203,6 +217,7 @@
     debug() { return { birds, lay, cam, zoom: zoom(), groundY: groundY() }; },
 
     update(dt) {
+      if (common.checkBroke(S, 'coop')) return;
       t += dt; hit = Math.max(0, hit - dt * 3);
       const v = ui.view, z = zoom();
       // pointers: grab a bird, or pan the yard

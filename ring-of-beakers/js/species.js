@@ -8,25 +8,25 @@
   // name: [male, female] when they differ. t: trait targets. sw: recessive switches that are on.
   // night: only out at night. tier: 1 common .. 4 legendary (drives value and how hard it runs).
   const SPECIES = {
-    chicken: { name: ['Rooster', 'Hen'], tier: 1,
+    chicken: { name: ['Rooster', 'Hen'], tier: 1, cv: 0.2, morph: { melanic: 0.07, leucistic: 0.25 },
       t: { hue: 0.07, sat: 0.6, lit: 0.42, litTail: -0.32, hueTail: 0.3, comb: 1.0, wattle: 0.6, spur: 0.5, tailLen: 1.1, tailFan: 0.6, tailUp: 0.75, aggression: 0.55 } },
-    gamecock: { name: ['Gamecock', 'Gamehen'], tier: 2,
+    gamecock: { name: ['Gamecock', 'Gamehen'], tier: 2, cv: 0.15, morph: { melanic: 0.09, leucistic: 0.12 },
       t: { size: 0.95, bodyDepth: 0.85, posture: 0.55, legLen: 1.35, legThick: 1.1, neckLen: 1.2, spur: 0.95, talon: 0.5, comb: 0.5, combType: 0.9, wattle: 0.15, tailLen: 1.2, tailFan: 0.5, hue: 0.02, sat: 0.75, lit: 0.35, litTail: -0.3, muscle: 1.25, aggression: 0.95, courage: 0.9, reflex: 1.2, hide: 1.1 } },
-    bantam: { name: 'Bantam', tier: 1, sw: ['fluff'],
+    bantam: { name: 'Bantam', tier: 1, sw: ['fluff'], cv: 0.2, morph: { melanic: 0.06, leucistic: 0.3 },
       t: { size: 0.6, bodyDepth: 1.2, bodyLen: 0.85, legLen: 0.75, crest: 0.8, hue: 0.12, sat: 0.4, lit: 0.8, comb: 0.6, courage: 0.8, aggression: 0.7, tailUp: 0.9 } },
-    duck: { name: ['Drake', 'Duck'], tier: 1,
+    duck: { name: ['Drake', 'Duck'], tier: 1, cv: 0.12, morph: { leucistic: 0.25 },
       t: { size: 0.9, posture: 0.18, bodyLen: 1.15, neckLen: 0.9, neckCurve: 0.5, beakLen: 1.25, beakFlat: 1, beakDepth: 0.8, beakHook: 0, legLen: 0.55, footSize: 1.3, web: 1, talon: 0.05, spur: 0, wingSize: 1.2, tailLen: 0.5, tailFan: 0.2, tailUp: 0.4, comb: 0, wattle: 0, hue: 0.09, sat: 0.35, lit: 0.42, hueHead: 0.25, litHead: -0.1, sheen: 0.9, belly: 0.6, beakTone: 0.55, legTone: 0.75, aggression: 0.3, courage: 0.4 } },
-    goose: { name: ['Gander', 'Goose'], tier: 2,
+    goose: { name: ['Gander', 'Goose'], tier: 2, cv: 0.08,
       t: { size: 1.5, posture: 0.25, bodyLen: 1.15, bodyDepth: 1.1, neckLen: 1.8, neckCurve: 0.3, beakFlat: 0.7, beakHook: 0, legLen: 0.8, footSize: 1.4, web: 1, spur: 0, talon: 0.05, wingSize: 1.5, tailLen: 0.5, tailFan: 0.2, tailUp: 0.4, comb: 0, wattle: 0, sat: 0.05, lit: 0.85, beakTone: 0.75, legTone: 0.75, aggression: 0.9, courage: 0.9, muscle: 1.15 } },
     swan: { name: 'Swan', tier: 3,
       t: { size: 1.85, posture: 0.2, bodyLen: 1.25, neckLen: 2.35, neckCurve: 1, beakFlat: 0.6, beakHook: 0, legLen: 0.7, footSize: 1.4, web: 1, spur: 0, talon: 0.05, wingSize: 1.8, tailLen: 0.5, tailFan: 0.2, tailUp: 0.5, comb: 0, wattle: 0, sat: 0.02, lit: 0.95, beakTone: 0.75, legTone: 0, aggression: 0.7, courage: 0.8, muscle: 1.2 } },
-    turkey: { name: 'Turkey', tier: 2,
+    turkey: { name: 'Turkey', tier: 2, cv: 0.09, morph: { leucistic: 0.18 },
       t: { size: 1.9, bodyDepth: 1.35, bodyLen: 1.05, posture: 0.4, neckLen: 1.2, legLen: 1.1, legThick: 1.2, tailLen: 1.3, tailFan: 1, tailUp: 1, comb: 0.3, wattle: 1, bareHead: 1, combHue: -0.03, hue: 0.07, sat: 0.35, lit: 0.22, litTail: 0.15, pattern: 0.27, patContrast: 0.5, legTone: 0.9, courage: 0.45, reflex: 0.8, spur: 0.6 } },
-    peafowl: { name: ['Peacock', 'Peahen'], tier: 3,
+    peafowl: { name: ['Peacock', 'Peahen'], tier: 3, morph: { leucistic: 0.08 },
       t: { size: 1.4, bodyLen: 1.1, posture: 0.4, neckLen: 1.5, legLen: 1.2, tailLen: 2.6, tailFan: 1, tailUp: 0.55, crest: 0.75, comb: 0, wattle: 0, hue: 0.62, sat: 0.85, lit: 0.38, hueTail: -0.25, litTail: 0.05, sheen: 1, beakTone: 0.3, legTone: 0.25, aggression: 0.35, courage: 0.35 } },
-    pheasant: { name: 'Pheasant', tier: 2,
+    pheasant: { name: 'Pheasant', tier: 2, morph: { melanic: 0.03 },
       t: { size: 0.85, bodyLen: 1.15, posture: 0.25, tailLen: 2.2, tailFan: 0.1, tailUp: 0.35, comb: 0.2, wattle: 0.5, hue: 0.07, sat: 0.8, lit: 0.45, hueHead: 0.3, litHead: -0.15, sheen: 0.8, pattern: 0.73, legTone: 0.25, reflex: 1.2 } },
-    quail: { name: 'Quail', tier: 1,
+    quail: { name: 'Quail', tier: 1, cv: 0.07,
       t: { size: 0.42, bodyDepth: 1.25, bodyLen: 0.85, neckLen: 0.5, legLen: 0.7, tailLen: 0.3, crest: 0.6, comb: 0, wattle: 0, hue: 0.08, sat: 0.3, lit: 0.5, pattern: 0.73, belly: 0.7, reflex: 1.35, courage: 0.3 } },
     ostrich: { name: 'Ostrich', tier: 3,
       t: { size: 2.45, bodyDepth: 1.15, posture: 0.3, neckLen: 2.2, neckThick: 0.7, neckCurve: 0.15, headSize: 0.75, eyeSize: 1.5, beakLen: 0.9, beakFlat: 0.4, beakHook: 0, legLen: 2.3, legThick: 1.5, footSize: 1.3, talon: 0.7, spur: 0, wingSize: 0.7, tailLen: 0.7, tailFan: 0.6, tailUp: 0.5, comb: 0, wattle: 0, bareHead: 1, hue: 0, sat: 0, lit: 0.1, litWing: 0.3, litTail: 0.3, beakTone: 0.6, legTone: 1, muscle: 1.3, lungs: 1.4, aggression: 0.55, courage: 0.6 } },
@@ -78,7 +78,7 @@
     raptor: { name: 'Raptor', tier: 5, extinct: true, sw: ['teeth', 'tailBone', 'arms'],
       t: { size: 1.25, posture: 0.2, bodyLen: 1.2, bodyDepth: 0.9, neckLen: 1.1, neckCurve: 0.8, headSize: 1.3, beakLen: 1.3, beakDepth: 1.2, beakHook: 0.1, legLen: 1.4, legThick: 1.3, footSize: 1.3, talon: 1, spur: 0, wingSize: 0.5, tailLen: 2.4, tailFan: 0.15, tailUp: 0.5, comb: 0, wattle: 0, crest: 0.5, hue: 0.09, sat: 0.55, lit: 0.4, pattern: 0.27, belly: 0.6, beakTone: 0.3, legTone: 0.3, muscle: 1.4, reflex: 1.4, aggression: 1, courage: 0.9, cunning: 0.9, focus: 0.9, armLen: 0.9 } },
     // People share the same genome: bare skin, arms, forward knees and no beak.
-    human: { name: 'Person', tier: 3, person: true, sw: ['arms', 'bare', 'knee'],
+    human: { name: 'Person', tier: 3, person: true, sw: ['arms', 'bare', 'knee'], cv: 0.12,
       t: { size: 2.3, posture: 1, bodyLen: 0.95, bodyDepth: 0.95, neckLen: 0.22, neckThick: 1.1, headSize: 1.15, eyeSize: 0.75, beakLen: 0, legLen: 1.85, legThick: 1.5, footSize: 1.2, talon: 0, spur: 0, web: 0, wingSize: 0, tailLen: 0, comb: 0, wattle: 0, crest: 0.6, hue: 0.07, sat: 0.45, lit: 0.6, litHead: -0.3, aggression: 0.4, courage: 0.4, focus: 0.6, cunning: 0.7, lifespan: 22 } },
   };
   for (const id of Object.keys(SPECIES)) { const s = SPECIES[id]; s.id = id; s.sw = s.sw || []; }
@@ -86,7 +86,7 @@
 
   // Traits that decide which species an animal looks like.
   const SHAPE = ['size', 'bodyLen', 'bodyDepth', 'posture', 'neckLen', 'headSize', 'beakLen', 'beakDepth', 'beakHook', 'beakFlat',
-    'legLen', 'legThick', 'wingSize', 'tailLen', 'tailFan', 'web', 'comb', 'eyeSize', 'pouch', 'bareHead', 'talon', 'lit'];
+    'legLen', 'legThick', 'wingSize', 'tailLen', 'tailFan', 'web', 'comb', 'eyeSize', 'pouch', 'bareHead', 'talon'];
   const SHAPE_SW = ['arms', 'bare', 'teeth', 'tailBone'];
   for (const id of IDS) {
     const s = SPECIES[id];
@@ -97,7 +97,9 @@
   function make(id, rng, opts) {
     opts = opts || {};
     const s = SPECIES[id];
-    const g = G.fromTargets(s.t, s.sw, rng, { sex: opts.sex, variation: opts.variation });
+    // colour morphs turn up now and then in every kind, and often in domestic ones
+    const carriers = Object.assign({ melanic: 0.006, leucistic: 0.02 }, s.morph);
+    const g = G.fromTargets(s.t, s.sw, rng, { sex: opts.sex, variation: opts.variation, colorVar: s.cv === undefined ? 0.045 : s.cv, carriers });
     const sport = opts.sport === undefined ? 0.05 : opts.sport;
     if (rng.chance(sport)) G.sport(g, rng, rng.int(1, 3));
     return g;
@@ -125,6 +127,9 @@
     const tail = j === 0 ? b.toLowerCase() : b.slice(j);
     return head + tail;
   }
+  // A name for the kind as a whole, for naming crosses ('Chicken', not 'Hen').
+  const GENERIC = { chicken: 'Chicken', gamecock: 'Gamecock', duck: 'Duck', goose: 'Goose', peafowl: 'Peafowl' };
+  const generic = (id) => GENERIC[id] || SPECIES[id].short || (Array.isArray(SPECIES[id].name) ? SPECIES[id].name[0] : SPECIES[id].name);
   const nameOf = (s, sex, short) => (Array.isArray(s.name) ? s.name[sex === 'F' ? 1 : 0] : short && s.short ? s.short : s.name);
 
   // Nearest archetype(s). Returns { id, second, pure, name, d }.
@@ -141,5 +146,5 @@
     return { id: best.id, second: second.id, pure, name, d: best.d };
   }
 
-  RB.species = { SPECIES, IDS, SHAPE, make, classify, blendNames, nameOf };
+  RB.species = { SPECIES, IDS, SHAPE, make, classify, blendNames, nameOf, generic };
 })();

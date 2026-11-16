@@ -61,13 +61,22 @@
   }
   const guide = (rng, n) => { const out = []; for (let i = 0; i < n; i++) out.push(rng.int(0, 3)); return out; };
 
-  // What a gene value means for its trait, in words, for the sequencer.
-  function describe(S, gi, sum) {
+  // What one copy of a gene (its four bases) means for its trait, in words, for the sequencer.
+  const HUES = ['red', 'orange', 'yellow', 'lime', 'green', 'teal', 'cyan', 'blue', 'indigo', 'violet', 'magenta', 'pink'];
+  function describe(S, gi, bases) {
     const g = GN.GENES[gi];
     if (!g.trait) return 'Does nothing anyone can find.';
     if (!known(S, gi)) return 'Unknown. Sequence more animals to learn what it does.';
-    const def = GN.TRAITS[g.trait];
-    if (def.switch) return sum >= def.thr ? 'Switch copy: ON (needs both copies).' : 'Switch copy: off. ' + def.thr + '+ turns it on.';
+    const def = GN.TRAITS[g.trait], sum = bases[0] + bases[1] + bases[2] + bases[3];
+    if (def.switch) {
+      const need = def.mode === 'dom' ? 'one copy is enough' : 'needs both copies';
+      return sum >= def.thr ? 'Switch copy: ON (' + need + ').' : 'Switch copy: off. ' + def.thr + '+ turns it on (' + need + ').';
+    }
+    if (g.pos) {
+      const n = bases[0] * 64 + bases[1] * 16 + bases[2] * 4 + bases[3];
+      if (def.id === 'hue' && g.k === 0) return 'Plumage hue: ' + HUES[Math.floor(n / 256 * 12) % 12] + ' (' + n + '/255, first letter weighs most)';
+      return def.label + ': ' + n + '/255 (colour gene: the first letter weighs most)';
+    }
     return def.label + ': ' + (sum <= 3 ? 'very low' : sum <= 5 ? 'low' : sum <= 7 ? 'middling' : sum <= 9 ? 'high' : 'very high') + ' (' + sum + '/12)';
   }
 
@@ -81,7 +90,7 @@
     S.money -= REBUILD_COST; S.lab.fossils[set] -= FRAGMENTS;
     const g = RB.species.make(set, S._rng, { sport: 0.1 });
     const name = RB.species.nameOf(RB.species.SPECIES[set], g.sex);
-    S.eggs.push({ id: S.nextId++, g, nest: -1, hatch: S.day + 2, mom: name, dad: name, col: '#e8dcc0', spot: '#8a7a5a' });
+    S.eggs.push({ id: S.nextId++, g, nest: -1, hatch: S.day + 2, mom: RB.species.generic(set), dad: RB.species.generic(set), momKey: set, dadKey: set, col: '#e8dcc0', spot: '#8a7a5a' });
     return '';
   }
   function powerOn(S) {

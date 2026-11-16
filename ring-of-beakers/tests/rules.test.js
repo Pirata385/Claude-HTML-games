@@ -51,7 +51,27 @@ test('a pair in the nest lays, the egg hatches two mornings later, and the chick
   assert.ok(ST.isAdult(chick));
 });
 
-test('moving creatures respects the cage, the nest and what BFC accepts', () => {
+test('young are named after their parents\' kinds: same kind stays that kind, two kinds make a cross', () => {
+  const S = ST.create(29), r = S._rng;
+  const egg = (mom, dad) => { const g = RB.genome.breed(mom.g, dad.g, r); return ST.addBird(S, g, { age: 4, origin: 'born', mom: ST.label(mom), dad: ST.label(dad), momKey: ST.kindKey(mom), dadKey: ST.kindKey(dad) }); };
+  const hen = S.birds.find((c) => c.g.sex === 'F'), cock = S.birds.find((c) => c.g.sex === 'M');
+  const chick = egg(hen, cock);
+  assert.ok(!ST.isCross(chick));
+  assert.ok(['Hen', 'Rooster'].includes(ST.kind(chick)), ST.kind(chick));
+  const ostrich = ST.addBird(S, RB.species.make('ostrich', r, { sex: 'M', sport: 0 }));
+  const mix = egg(hen, ostrich);
+  assert.ok(ST.isCross(mix));
+  assert.strictEqual(ST.kind(mix), RB.species.blendNames('Ostrich', 'Chicken'));
+  // two crosses of the same mix breed true to the mix
+  const mix2 = egg(hen, ostrich); mix2.g.sex = mix.g.sex === 'M' ? 'F' : 'M';
+  const f2 = egg(mix.g.sex === 'F' ? mix : mix2, mix.g.sex === 'M' ? mix : mix2);
+  assert.ok(!ST.isCross(f2) && ST.kind(f2) === ST.kind(mix), ST.kind(f2));
+  // a person and a hen
+  const man = ST.addBird(S, RB.npc.personGenome(r, 'M'), { person: 'h_3' });
+  assert.strictEqual(ST.kind(egg(hen, man)), RB.species.blendNames('Person', 'Chicken'));
+});
+
+test('moving creatures respects the cage and the nest; people can nest and go to BFC', () => {
   const S = ST.create(9);
   const r = S._rng;
   const extra = [0, 1, 2].map(() => ST.addBird(S, RB.species.make('duck', r, { sex: 'M', sport: 0 })));
@@ -62,8 +82,31 @@ test('moving creatures respects the cage, the nest and what BFC accepts', () => 
   assert.ok(ST.move(S, extra[1], 'nest0').includes('male and a female'));
   const person = ST.addBird(S, RB.npc.personGenome(r, 'M'), { name: 'Juca', person: 'h_0' });
   assert.ok(ST.pheno(person).person);
-  assert.ok(ST.move(S, person, 'crate').includes('only takes birds'));
-  assert.ok(ST.move(S, person, 'nest0') !== '');
+  // nest0 holds a male duck, so a man cannot join it; a hen in another nest can take him
+  assert.ok(ST.move(S, person, 'nest0').includes('male and a female'));
+  S.up.nest = 1;
+  const hen = ST.addBird(S, RB.species.make('chicken', r, { sex: 'F', sport: 0 }));
+  assert.strictEqual(ST.move(S, hen, 'nest1'), '');
+  assert.strictEqual(ST.move(S, person, 'nest1'), '');
+  assert.ok(ST.layChance(hen, person) >= 0.45, 'a hen and a man should manage an egg often enough');
+  assert.strictEqual(ST.move(S, person, 'crate'), '');
+});
+
+test('one grain feeds any creature, and eating clears hunger at once', () => {
+  const S = ST.create(19), r = S._rng;
+  const big = ST.addBird(S, RB.species.make('ostrich', r, { sex: 'M', sport: 0 }));
+  big.hungry = 1;
+  S.inv.grain = 3;
+  const msg = ST.feed(S, big, 'grain');
+  assert.ok(msg && big.fed && big.hungry === 0);
+  assert.strictEqual(S.inv.grain, 2);
+  assert.ok(ST.feed(S, big, 'grain').includes('full'), 'a fed creature does not eat a second grain');
+  assert.strictEqual(S.inv.grain, 2);
+  // one grain in the feeder per creature is enough for the night
+  S.feeder = S.birds.length;
+  const rep = ST.sleep(S);
+  assert.ok(S.birds.every((c) => c.hungry === 0), rep.lines.join(' | '));
+  assert.strictEqual(S.feeder, 1, 'the ostrich had eaten already, so one grain is left');
 });
 
 test('BFC pays by weight, doubles the daily special and takes far less than a bird is worth', () => {
@@ -82,12 +125,20 @@ test('BFC pays by weight, doubles the daily special and takes far less than a bi
   assert.ok(EC.bfcIsSpecial(S, duck), 'no duck special found in 400 days');
   assert.ok(EC.bfcPrice(S, duck) >= plain * 1.8, 'special should about double');
   const person = ST.addBird(S, RB.npc.personGenome(r, 'F'), { person: 'h_1' });
-  assert.strictEqual(EC.bfcPrice(S, person), 0);
+  assert.ok(EC.bfcPrice(S, person) > 10, 'BFC takes people too, by the kilo');
+  // a person sent off in the pick-up box empties their house, and a newcomer moves in later
+  ST.move(S, person, 'crate'); S.feeder = 50; ST.sleep(S);
+  assert.ok(RB.npc.info(S, 'h_1').sold && !S.birds.includes(person));
+  for (let i = 0; i < 3; i++) { S.feeder = 50; ST.sleep(S); }
+  const st = RB.npc.info(S, 'h_1');
+  assert.ok(!st.sold && !st.gone && st.gen === 1, 'someone new should have moved in: ' + JSON.stringify(st));
+  const w = RB.world.generate(S.seed), old1 = w.npcs.find((n) => n.id === 'h_1'), now = RB.npc.current(S, old1);
+  assert.notStrictEqual(RB.genome.hash(now.g), RB.genome.hash(old1.g));
   // the pick-up box sells at night and stamps the card
   ST.move(S, quail, 'crate');
   const money = S.money;
   S.feeder = 20; ST.sleep(S);
-  assert.ok(S.money > money && !S.birds.includes(quail) && S.bfc.stamps === 1);
+  assert.ok(S.money > money && !S.birds.includes(quail) && S.bfc.stamps === 2, 'two stamps: the person and the quail');
 });
 
 test('value rewards wins, oddities and rarer kinds', () => {
@@ -104,18 +155,21 @@ test('value rewards wins, oddities and rarer kinds', () => {
 test('arena cards are stable for a day, fit their class, and the boss appears after enough wins', () => {
   const S = ST.create(21);
   for (const arena of EC.ARENAS) {
-    const a = EC.cards(S, arena), b = EC.cards(S, arena);
+    const a = EC.cards(S, arena), b = EC.cards(S, arena), n = RB.pheno.WEIGHT_CLASSES.length;
     assert.deepStrictEqual(a, b);
-    assert.strictEqual(a.length, 3);
+    // one bout in every weight class
+    assert.strictEqual(a.length, n);
+    assert.deepStrictEqual(a.map((c) => c.wc), [...Array(n).keys()]);
     for (const card of a) {
       const opp = EC.opponentFor(S, arena, card);
       assert.ok(opp.P.hpMax > 0 && opp.name && opp.trainer);
-      if (!card.open) assert.ok(opp.P.weightClass <= card.wc + 1, arena.id + ' opponent far too heavy');
+      assert.ok(opp.P.weightClass <= card.wc, arena.id + ' ' + RB.pheno.WEIGHT_CLASSES[card.wc][0] + ' opponent is ' + RB.pheno.WEIGHT_CLASSES[opp.P.weightClass][0]);
+      if (card.wc === n - 1) assert.ok(opp.P.weightClass >= n - 2, 'a Titan bout needs a really big bird, got ' + opp.P.weightKg.toFixed(0) + ' kg');
     }
     EC.leagueOf(S, arena.id).wins = arena.need;
     const withBoss = EC.cards(S, arena);
-    assert.strictEqual(withBoss.length, 4);
-    const boss = EC.opponentFor(S, arena, withBoss[3]);
+    assert.strictEqual(withBoss.length, n + 1);
+    const boss = EC.opponentFor(S, arena, withBoss[n]);
     assert.ok(boss.boss && boss.P.hpMax > 0);
   }
   assert.ok(EC.arenaOpen(S, EC.ARENA.backyard));
@@ -123,8 +177,26 @@ test('arena cards are stable for a day, fit their class, and the boss appears af
   EC.leagueOf(S, 'backyard').boss = true;
   assert.ok(EC.arenaOpen(S, EC.ARENA.county));
   const chick = ST.addBird(S, RB.species.make('chicken', S._rng, { sport: 0 }), { age: 0 });
-  assert.ok(EC.canEnter(S, chick, EC.cards(S, EC.ARENAS[0])[0]) !== '');
-  assert.ok(EC.odds(0.5) > 0.8 && EC.odds(0.5) < 1 && EC.odds(0.9) < EC.odds(0.2));
+  assert.ok(EC.canEnter(S, chick, EC.cards(S, EC.ARENAS[0])[6]) !== '', 'a chick cannot enter even the Titan bout');
+  // the bookie takes no cut and pulls his line toward even, so a real favourite is worth backing
+  assert.ok(Math.abs(EC.odds(0.5) - 1) < 1e-9);
+  assert.ok(EC.odds(0.9) < EC.odds(0.2));
+  for (const p of [0.6, 0.75, 0.9]) assert.ok(p * (1 + EC.odds(p)) > 1, 'backing a ' + p + ' favourite should pay on average');
+});
+
+test('there are always two exhibitions to watch, and watching one brings on the next', () => {
+  const S = ST.create(23), arena = EC.ARENA.backyard;
+  const a = EC.exhibition(S, arena, 0), b = EC.exhibition(S, arena, 1);
+  assert.notStrictEqual(a.key, b.key);
+  assert.deepStrictEqual(EC.exhibition(S, arena, 0).key, a.key);
+  const seen = new Set([a.key, b.key]);
+  for (let i = 0; i < 30; i++) {
+    EC.exhibitionDone(S, arena.id, i % 2);
+    const e = EC.exhibition(S, arena, i % 2);
+    assert.ok(!seen.has(e.key), 'exhibition repeated');
+    seen.add(e.key);
+    assert.ok(e.a.P.hpMax > 0 && e.b.P.hpMax > 0);
+  }
 });
 
 test('the world has every site on dry land, people for each, and stable buried loot', () => {

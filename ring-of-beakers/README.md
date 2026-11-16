@@ -12,7 +12,7 @@ Open `index.html` in a browser. It needs no build step and no server, and it run
 - **Money.** Every arena always has two exhibition bouts to watch and bet on; as soon as one is fought the next pair takes its place. Nobody posts odds: the bet window shows both fighters' numbers side by side, and a winning bet pays back three times the stake. If your money ever runs out, Dona Cida pays $50 to scrub the droppings off her henhouse floor (hold and rub each pile).
 - **Feeding.** One grain feeds any creature for the day. Birds in the yard walk to the feeder and eat on their own; whatever is left feeds the rest at night.
 - **Ring.** Your bird fights on its own. Shout `Sic 'em!`, `Back off!` or `Whistle` (keys `1`-`3`); each has a cooldown, and a bird that does not trust you may ignore you. The flag throws in the towel. Every bout wears a bird out for the day (a tonic restores its vigour so it can fight again); only a loss wounds it, and wounds stay until the vet heals them.
-- **Lab.** Three fuses power it. Sequence a creature, tap a gene and extract a copy into a beaker, edit it at the CRISPR bench, then inject it into another creature or an egg.
+- **Lab.** Three fuses power it. Sequence a creature, tap a gene and extract a copy into a beaker, edit it at the CRISPR bench, then inject it into another creature or an egg. Beakers and edits are free. Before an injection, a preview shows the creature as it is and as it would be (an egg as the adult it grows into), with its stats and what changes; nothing happens until you confirm. Giving or receiving a gene leaves a creature worn out for the day, never hurt.
 
 The Codex (in the yard) has a longer guide, the kinds of bird you have met, the gene atlas and the feats.
 

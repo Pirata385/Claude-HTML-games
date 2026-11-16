@@ -296,17 +296,31 @@ test('the lab: sequence, extract, edit, inject, rebuild, power', () => {
   assert.strictEqual(L.sequence(S, donor).length, 0, 'a second read teaches nothing');
   assert.strictEqual(L.knownCount(S), learned.length);
   const gi = G.TRAITS.legLen.genes[0];
-  assert.strictEqual(typeof L.extract(S, donor, gi, 'a'), 'string', 'no beaker, no extraction');
-  ST.give(S, 'beaker', 2);
+  // beakers are free, and giving a sample tires the donor without hurting it
+  assert.strictEqual(ST.count(S, 'beaker'), 0);
   const vial = L.extract(S, donor, gi, 'a');
-  assert.ok(vial.bases.length === 4 && donor.rest >= 1 && donor.hp < 1);
-  const legs0 = ST.pheno(target).t.legLen, age0 = target.age;
+  assert.ok(vial && vial.bases.length === 4, 'extraction needs no beaker');
+  assert.ok(donor.tired && donor.hp === 1 && donor.rest === 0, 'the donor is worn out, not hurt');
+  const legs0 = ST.pheno(target).t.legLen, age0 = target.age, hp0 = target.hp;
   L.edit(vial, 0, 3); L.edit(vial, 1, 3); L.edit(vial, 2, 3); L.edit(vial, 3, 3);
   assert.strictEqual(L.vialSum(vial), 12);
+  // the preview shows exactly what the injection will do, and changes nothing
+  const pv = L.preview(S, vial, target, false), hash0 = G.hash(target.g);
+  assert.strictEqual(G.hash(target.g), hash0, 'a preview must not touch the creature');
+  assert.ok(pv.after.t.legLen > pv.before.t.legLen && pv.trait.label === 'Leg length' && pv.trait.to > pv.trait.from);
   L.inject(S, vial, target, false);
-  assert.ok(ST.pheno(target).t.legLen > legs0, 'longer legs after the injection');
-  assert.strictEqual(target.age, age0 + 1);
+  const now = ST.pheno(target);
+  assert.ok(now.t.legLen > legs0, 'longer legs after the injection');
+  assert.deepStrictEqual(now.rate, pv.after.rate, 'the stats match the preview');
+  assert.strictEqual(now.css.body, pv.after.css.body, 'the look matches the preview');
+  assert.strictEqual(target.age, age0, 'an injection does not age');
+  assert.ok(target.tired && target.hp === hp0, 'an injection tires, never hurts');
   assert.strictEqual(S.lab.vials.length, 0);
+  // an egg is previewed as the adult it grows into
+  S.eggs.push({ id: S.nextId++, g: RB.species.make('duck', r, { sport: 0 }), nest: -1, hatch: S.day + 2, mom: 'Duck', dad: 'Duck', momKey: 'duck', dadKey: 'duck' });
+  const v3 = L.extract(S, donor, G.TRAITS.neckLen.genes[0], 'a');
+  const pe = L.preview(S, v3, S.eggs[S.eggs.length - 1], true);
+  assert.strictEqual(pe.before.stage, 'adult');
   const v2 = L.extract(S, donor, gi, 'a'), before = v2.bases.slice();
   const j = L.offTarget(v2, 0, r);
   assert.ok(j !== 0 && v2.bases[j] !== before[j]);
@@ -314,8 +328,8 @@ test('the lab: sequence, extract, edit, inject, rebuild, power', () => {
   for (let i = 0; i < 4; i++) L.addFragment(S, 'dodo');
   S.money = 1000;
   assert.strictEqual(L.rebuild(S, 'dodo'), '');
-  assert.strictEqual(S.eggs.length, 1);
-  assert.strictEqual(RB.species.classify(S.eggs[0].g).id, 'dodo');
+  assert.strictEqual(S.eggs.length, 2, 'the duck egg from the preview check, and the dodo');
+  assert.strictEqual(RB.species.classify(S.eggs[1].g).id, 'dodo');
   assert.strictEqual(L.powerOn(S), false);
   ST.give(S, 'fuse', 3);
   assert.strictEqual(L.powerOn(S), true);

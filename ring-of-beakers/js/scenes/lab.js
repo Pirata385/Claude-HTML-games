@@ -1,10 +1,10 @@
 // scenes/lab.js — the genetics lab. Sequence a creature to see its fourteen chromosome pairs,
-// pull a gene into a beaker, edit its bases at the CRISPR bench (a timing game on a ring of
+// pull a gene into a (free) beaker, edit its bases at the (free) CRISPR bench (a timing game on a ring of
 // bases), inject it into another creature or an egg, and rebuild extinct birds from fossils.
 (function () {
   'use strict';
   const RB = globalThis.RB;
-  const { Rng, TAU } = RB.core;
+  const { Rng, TAU, clamp } = RB.core;
   const ui = RB.ui, pal = RB.pal, ST = RB.state, common = RB.common, L = RB.lab, GN = RB.genome, IT = RB.items;
   const BASE_COL = ['#e76f51', '#2a9d8f', '#e9b44c', '#6d4c7d'], BASES = 'ACGT';
 
@@ -60,14 +60,14 @@
     ui.text('A: ' + L.describe(S, gene, GN.getGeneBases(g, gene, 'a')), b.x + 8, dy + 36, { size: 11, bold: false, maxW: (wide ? b.w - 260 : b.w - 16) });
     if (!hemi) ui.text('B: ' + L.describe(S, gene, GN.getGeneBases(g, gene, 'b')), b.x + 8, dy + 51, { size: 11, bold: false, maxW: (wide ? b.w - 260 : b.w - 16) });
     const bx = wide ? b.x + b.w - 244 : b.x + 8, by = wide ? dy + 26 : dy + 58, bw = wide ? 118 : (b.w - 22) / 2;
-    const take = (copy) => { const r = L.extract(S, subject, gene, copy); if (typeof r === 'string') { ui.toast(r + ' The lab sells them.', pal.coral); RB.audio.play('error'); } else { RB.audio.play('zap'); ui.toast('Extracted into a beaker. ' + subject.name + ' feels woozy.', pal.teal); } };
+    const take = (copy) => { L.extract(S, subject, gene, copy); RB.audio.play('zap'); ui.toast('Extracted into a beaker. ' + subject.name + ' is worn out for today, not hurt.', pal.teal); };
     if (ui.btn(bx, by, bw, wide ? 40 : 30, 'Extract A', { icon: 'beaker', size: 12 })) take('a');
     if (ui.btn(bx + bw + 6, by, bw, wide ? 40 : 30, 'Extract B', { icon: 'beaker', size: 12, disabled: hemi })) take('b');
   }
 
   function beakers(b) {
     const vials = S.lab.vials;
-    ui.text('Enzyme: ' + ST.count(S, 'enzyme') + ' · empty beakers: ' + ST.count(S, 'beaker'), b.x + 4, b.y + 14, { size: 12, bold: false });
+    ui.text('Beakers and edits are free. Preview an injection before you commit to it.', b.x + 4, b.y + 14, { size: 12, bold: false, maxW: b.w - 8 });
     if (!vials.length) { ui.para('No genes in beakers yet. Sequence a creature, tap a gene and extract a copy.', b.x + 4, b.y + 30, b.w - 8, { size: 13 }); return; }
     ui.list('vials', b.x, b.y + 24, b.w, b.h - 24, vials.length, 66, (i, x, y, w) => {
       const v = vials[i];
@@ -84,7 +84,7 @@
     ui.open({ draw() {
       const box = ui.window('Inject ' + L.geneLabel(S, v.gi), 380, Math.min(ui.view.h - 16, 120 + Math.max(1, targets.length) * 62), {});
       if (!box) return;
-      ui.text('Both copies are overwritten. An adult ages a day; an egg does not mind.', box.x, box.y + 10, { size: 11, bold: false, maxW: box.w });
+      ui.text('Both copies are overwritten. Pick a creature or an egg to see how it would turn out.', box.x, box.y + 10, { size: 11, bold: false, maxW: box.w });
       if (!targets.length) ui.text('Nobody in the cage, and no eggs at home.', box.x, box.y + 40, { size: 13 });
       ui.list('inj', box.x, box.y + 18, box.w, box.h - 18, targets.length, 62, (i, x, y, w) => {
         const tg = targets[i];
@@ -92,14 +92,76 @@
         if (tg.c) common.portrait(tg.c, x + 4, y + 6, 48, 48, { fill: pal.paper }); else RB.art.drawEgg(ui.ctx, x + 28, y + 30, 18, tg.e.col, tg.e.spot, tg.e.id);
         ui.text(tg.c ? tg.c.name : 'Egg (' + tg.e.dad + ' × ' + tg.e.mom + ')', x + 60, y + 26, { size: 13, maxW: w - 150 });
         ui.text(tg.c ? ST.kind(tg.c) : 'hatches day ' + tg.e.hatch, x + 60, y + 42, { size: 11, bold: false });
-        if (ui.btn(x + w - 84, y + 12, 72, 36, 'Inject', { fill: pal.coral, size: 12 })) {
-          L.inject(S, v, tg.c || tg.e, !tg.c);
-          common.award(S, 'inject'); common.checkAch(S); RB.audio.play('poof');
-          ui.close();
-          ui.toast(tg.c ? tg.c.name + ' shudders, and changes.' : 'The egg glows for a moment.', pal.plum);
-          RB.game.save();
-        }
+        if (ui.btn(x + w - 90, y + 12, 78, 36, 'Preview', { icon: 'eye', fill: pal.plum, size: 12 })) previewWindow(v, tg);
       });
+    } });
+  }
+  // Two creatures side by side at the same scale, feet on the same ground, so a change of size or
+  // proportion shows as it is.
+  function drawPair(A, B, x, y, w, h, gap, opts) {
+    const ctx = ui.ctx, t = ui.time;
+    const poseA = RB.pose.animPose(A, { x: 0, y: 0, f: 1, time: t }), poseB = RB.pose.animPose(B, { x: 0, y: 0, f: 1, time: t });
+    const ba = RB.pose.bounds(A, poseA), bb = RB.pose.bounds(B, poseB);
+    const sc = Math.min((w - 12) / Math.max(ba.x1 - ba.x0, bb.x1 - bb.x0), (h - 14) / Math.max(-Math.min(ba.y0, bb.y0), 1));
+    [[A, poseA, ba, x, pal.soft], [B, poseB, bb, x + w + gap, '#efe2f3']].forEach(([P, pose, b, bx, fill]) => {
+      ui.rect(bx, y, w, h, fill, 10);
+      ctx.save(); ui.rr(ctx, bx, y, w, h, 10); ctx.clip();
+      ctx.fillStyle = 'rgba(35,49,74,0.12)'; ctx.fillRect(bx, y + h - 8, w, 8);
+      ctx.translate(bx + w / 2 - (b.x0 + b.x1) / 2 * sc, y + h - 8); ctx.scale(sc, sc);
+      RB.art.drawCreature(ctx, P, pose, opts || {});
+      ctx.restore();
+    });
+  }
+  // Before and after: the creature as it is and as it would be with this gene, its numbers and
+  // what changes. Nothing happens until you press Inject.
+  const STATS = [['power', 'Power'], ['speed', 'Speed'], ['tough', 'Toughness'], ['stamina', 'Stamina'], ['guts', 'Guts'], ['wits', 'Wits'], ['fury', 'Fury']];
+  function previewWindow(v, tg) {
+    const isEgg = !tg.c, target = tg.c || tg.e, pv = L.preview(S, v, target, isEgg), A = pv.before, B = pv.after;
+    const fmt = (x) => (typeof x === 'string' ? x : Math.abs(x) >= 10 ? x.toFixed(0) : x.toFixed(2));
+    const lines = [];
+    if (!pv.trait) lines.push(['This gene does nothing anyone can see.', pal.grey]);
+    else {
+      const name = pv.trait.known ? pv.trait.label : 'An unknown trait';
+      lines.push([name + ': ' + fmt(pv.trait.from) + ' → ' + fmt(pv.trait.to), pv.trait.from === pv.trait.to || Math.abs(pv.trait.to - pv.trait.from) < 1e-3 ? pal.grey : pal.ink]);
+    }
+    lines.push(['Weight: ' + common.fmtKg(A.weightKg) + ' → ' + common.fmtKg(B.weightKg) + (B.weightClass !== A.weightClass ? ' (' + RB.pheno.WEIGHT_CLASSES[B.weightClass][0] + 'weight)' : ''), B.weightClass !== A.weightClass ? pal.plum : pal.ink]);
+    if (B.species.name !== A.species.name) lines.push(['Would look like: ' + B.species.name, pal.plum]);
+    for (const o of B.odd) if (!A.odd.includes(o)) lines.push(['Gains ' + o, pal.teal]);
+    for (const o of A.odd) if (!B.odd.includes(o)) lines.push(['Loses ' + o, pal.coral]);
+    if (A.css.body !== B.css.body || A.css.wing !== B.css.wing || A.css.tail !== B.css.tail) lines.push(['Its colours change.', pal.ink]);
+    ui.open({ draw() {
+      const box = ui.window('Preview: ' + (isEgg ? 'the egg' : tg.c.name), 440, 520, {});
+      if (!box) return;
+      const H = box.h, ph = clamp(H - 30 - (7 * 15 + 12) - lines.length * 15 - 28 - 52, 56, 190), pw = (box.w - 36) / 2;
+      const opts = isEgg ? {} : common.drawOpts(tg.c);
+      drawPair(A, B, box.x, box.y, pw, ph, 36, opts);
+      ui.icon('right', box.x + box.w / 2, box.y + ph / 2, 22, pal.plum);
+      let y = box.y + ph + 14;
+      ui.text(isEgg ? 'Hatches as' : 'Now', box.x + pw / 2, y, { size: 12, align: 'center' });
+      ui.text(isEgg ? 'With this gene' : 'After the injection', box.x + pw + 36 + pw / 2, y, { size: 12, align: 'center', color: pal.plum });
+      y += 8;
+      // the numbers: now, a bar for after, after, and the change
+      for (const st of STATS) {
+        const a = A.rate[st[0]], b = B.rate[st[0]], d = b - a;
+        ui.text(st[1], box.x, y + 11, { size: 11, bold: false });
+        ui.text(String(a), box.x + 104, y + 11, { size: 11, align: 'right', color: pal.grey });
+        ui.bar(box.x + 112, y + 4, box.w - 112 - 84, 8, b / 100, d > 0 ? pal.teal : d < 0 ? pal.coral : pal.grey);
+        ui.text(String(b), box.x + box.w - 44, y + 11, { size: 11, align: 'right' });
+        if (d) ui.text((d > 0 ? '+' : '') + d, box.x + box.w, y + 11, { size: 11, align: 'right', color: d > 0 ? pal.teal : pal.coral });
+        y += 15;
+      }
+      y += 4;
+      for (const ln of lines) { ui.text(ln[0], box.x, y + 11, { size: 11, color: ln[1], maxW: box.w }); y += 15; }
+      ui.text(isEgg ? 'The egg takes the gene and hatches as usual.' : tg.c.name + ' will be worn out for today, but not hurt.', box.x, y + 13, { size: 11, bold: false, color: pal.grey, maxW: box.w });
+      const by = box.y + box.h - 42, half = (box.w - 8) / 2;
+      if (ui.btn(box.x, by, half, 40, 'Back', { fill: pal.grey, key: 'Escape' })) { ui.close(); return; }
+      if (ui.btn(box.x + half + 8, by, half, 40, 'Inject', { icon: 'beaker', fill: pal.coral, key: 'Enter' })) {
+        L.inject(S, v, target, isEgg);
+        common.award(S, 'inject'); common.checkAch(S); RB.audio.play('poof');
+        ui.closeAll();
+        ui.toast(isEgg ? 'The egg glows for a moment.' : tg.c.name + ' shudders, and changes.', pal.plum);
+        RB.game.save();
+      }
     } });
   }
   // Choose which base to change and to what, then play the cut.
@@ -126,8 +188,8 @@
       }
       const after = v.bases.slice(); after[pos] = to;
       ui.text('After: ' + L.describe(S, v.gi, after), box.x, box.y + 184, { size: 11, bold: false, maxW: box.w });
-      ui.text('A is worth 0, C 1, G 2, T 3; in colour genes the first letter weighs most. Each cut uses one enzyme (you have ' + ST.count(S, 'enzyme') + ').', box.x, box.y + 202, { size: 10, bold: false, maxW: box.w, color: pal.grey });
-      if (ui.btn(box.x, box.y + box.h - 46, box.w, 44, 'Cut', { icon: 'dna', fill: pal.plum, disabled: !ST.count(S, 'enzyme') || to === v.bases[pos] })) { ST.take(S, 'enzyme'); ui.close(); cutGame(v, pos, to); }
+      ui.text('A is worth 0, C 1, G 2, T 3; in colour genes the first letter weighs most. Cuts are free.', box.x, box.y + 202, { size: 10, bold: false, maxW: box.w, color: pal.grey });
+      if (ui.btn(box.x, box.y + box.h - 46, box.w, 44, 'Cut', { icon: 'dna', fill: pal.plum, disabled: to === v.bases[pos] })) { ui.close(); cutGame(v, pos, to); }
     } });
   }
   // The cut: a ring of bases turns under the blade. Cut when the next letter of the guide is
@@ -195,17 +257,6 @@
       }
     });
   }
-  function supplies(b) {
-    const stock = IT.STOCK.lab;
-    ui.list('labshop', b.x, b.y, b.w, b.h, stock.length, 60, (i, x, y, w) => {
-      const it = IT.ITEMS[stock[i]];
-      ui.rect(x, y + 2, w - 6, 54, pal.paper, 10); ui.itemIcon(it.id, x + 28, y + 29, 28);
-      ui.text(it.name, x + 60, y + 23, { size: 14 }); ui.text(it.desc + ' · you have ' + ST.count(S, it.id), x + 60, y + 40, { size: 11, bold: false, maxW: w - 220 });
-      ui.text('$' + it.price, x + w - 104, y + 33, { size: 14, align: 'right' });
-      if (ui.btn(x + w - 92, y + 10, 78, 38, 'Buy', { size: 13, disabled: S.money < it.price })) { S.money -= it.price; ST.give(S, it.id); RB.audio.play('buy'); }
-    });
-  }
-
   RB.scenes.lab = {
     enter() { S = RB.game.S; tab = 0; subject = null; gene = -1; t = 0; RB.audio.setTune('lab'); },
     update(dt) { t += dt; },
@@ -228,10 +279,10 @@
         if (ui.btn(b.x + 160, b.y + 100, 170, 42, 'Fit the fuses', { disabled: n < 3 })) { L.powerOn(S); RB.audio.play('zap'); common.checkAch(S); RB.game.save(); }
         return;
       }
-      const names = ['Genome', 'Beakers', 'Fossils', 'Supplies'], tw = Math.min(110, (b.w - 18) / 4);
+      const names = ['Genome', 'Beakers', 'Fossils'], tw = Math.min(120, (b.w - 12) / 3);
       names.forEach((n, i) => { if (ui.btn(b.x + i * (tw + 6), b.y, tw, 32, n, { fill: tab === i ? pal.ink : pal.paper, color: tab === i ? pal.white : pal.ink, size: 12, flat: true })) { tab = i; RB.audio.play('click'); } });
       const c = { x: b.x, y: b.y + 40, w: b.w, h: b.h - 40 };
-      if (tab === 0) genome(c); else if (tab === 1) beakers(c); else if (tab === 2) fossils(c); else supplies(c);
+      if (tab === 0) genome(c); else if (tab === 1) beakers(c); else fossils(c);
     },
   };
 })();

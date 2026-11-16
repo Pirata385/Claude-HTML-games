@@ -38,19 +38,33 @@
   }
 
   // Pull one copy of a gene into a beaker. Returns the vial, or a string saying why not.
+  // Beakers are free. Giving a sample leaves the donor worn out for the day, never hurt.
   function extract(S, c, gi, copy) {
-    if (!RB.state.take(S, 'beaker')) return 'You need an empty beaker.';
     const vial = { id: S.nextId++, gi, bases: GN.getGeneBases(c.g, gi, copy), from: RB.state.kind(c) };
     S.lab.vials.push(vial);
-    c.hp = Math.max(0.2, c.hp - 0.25); c.rest = Math.max(c.rest, 1);
+    c.tired = true;
     return vial;
   }
   const vialSum = (v) => v.bases[0] + v.bases[1] + v.bases[2] + v.bases[3];
   // Write a vial into both copies of its gene. target is a creature or an egg (both have .g).
+  // An injection leaves a creature worn out for the day (a tonic perks it up), never hurt.
   function inject(S, vial, target, isEgg) {
     GN.setGeneBases(target.g, vial.gi, vial.bases, 'both');
     S.lab.vials.splice(S.lab.vials.indexOf(vial), 1);
-    if (!isEgg) { target.inj = (target.inj || 0) + 1; if (!target.person) target.age++; RB.state.dirty(target); }
+    if (!isEgg) { target.inj = (target.inj || 0) + 1; target.tired = true; RB.state.dirty(target); }
+  }
+  // What an injection would do, without doing it: the creature (an egg is shown as the adult it
+  // grows into) before and after, and the trait the gene belongs to.
+  function preview(S, vial, target, isEgg) {
+    const g2 = GN.clone(target.g);
+    GN.setGeneBases(g2, vial.gi, vial.bases, 'both');
+    const opts = isEgg ? {} : { age: target.age, train: target.train, cond: target.cond };
+    const before = RB.pheno.express(target.g, opts), after = RB.pheno.express(g2, opts);
+    const gene = GN.GENES[vial.gi], def = gene.trait ? GN.TRAITS[gene.trait] : null;
+    let trait = null;
+    if (def && def.switch) trait = { label: def.label, from: GN.switchOn(target.g, def.id) ? 'on' : 'off', to: GN.switchOn(g2, def.id) ? 'on' : 'off', known: known(S, vial.gi) };
+    else if (def) trait = { label: def.label, from: GN.traitValue(target.g, def.id), to: GN.traitValue(g2, def.id), known: known(S, vial.gi) };
+    return { before, after, g: g2, trait };
   }
   // CRISPR: set one base of a vial. A fumbled edit scrambles another base instead.
   function edit(vial, i, base) { vial.bases[i] = base; }
@@ -100,5 +114,5 @@
     return true;
   }
 
-  RB.lab = { FRAGMENTS, REBUILD_COST, SEQ_FEE, known, knownCount, codingCount, geneLabel, reveal, sequence, extract, vialSum, inject, edit, offTarget, guide, describe, fragments, addFragment, rebuild, powerOn };
+  RB.lab = { FRAGMENTS, REBUILD_COST, SEQ_FEE, known, knownCount, codingCount, geneLabel, reveal, sequence, extract, vialSum, inject, preview, edit, offTarget, guide, describe, fragments, addFragment, rebuild, powerOn };
 })();

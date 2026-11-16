@@ -53,7 +53,6 @@
     feed: ['grain', 'worm', 'chili', 'tonic', 'gromash', 'loveseed'],
     hatter: ['party', 'bandana', 'cowboy', 'tophat', 'crown', 'scarf', 'anklets', 'helmet', 'spurs'],
     market: ['mushroom', 'isotope', 'elixir', 'fuse', 'bignet'],
-    lab: ['beaker', 'enzyme'],
   };
   // Upgrades: [id, name, levels as prices, description]
   const UPGRADES = {

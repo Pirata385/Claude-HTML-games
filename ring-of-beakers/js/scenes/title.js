@@ -21,7 +21,7 @@
 
   RB.scenes.title = {
     enter() {
-      RB.audio.setTune('farm');
+      RB.audio.setTune('title');
       const r = new Rng(Date.now() >>> 0);
       birds = [];
       for (let i = 0; i < 7; i++) {

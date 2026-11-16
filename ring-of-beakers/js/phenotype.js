@@ -154,6 +154,9 @@
     };
     P.voice = { pitch: clamp(520 / Math.pow(S, 0.9), 90, 2600) * Math.pow(2, (t.voicePitch - 0.5) * 1.2), rasp: t.voiceRasp, len: t.voiceLen };
     P.species = RB.species ? RB.species.classify(g) : null;
+    // what kind of call it makes (the audio picks the sound): a cross has the calls of both kinds
+    P.voice.kind = P.person ? 'human' : P.species ? P.species.id : 'chicken';
+    P.voice.kind2 = !P.person && P.species && !P.species.pure ? P.species.second : null;
     // list of visible oddities, for the info card and for pricing
     P.odd = [];
     if (sw.teeth && P.hasBeak) P.odd.push('teeth');

@@ -565,3 +565,26 @@ test('birds set free leave their genes in the wild near where they were let go, 
   const back = ST.deserialize(JSON.parse(JSON.stringify(ST.serialize(S))));
   assert.strictEqual(back.released.length, ST.RELEASED_MAX);
 });
+
+test('the Andean condor lives in the highlands and the harpy eagle in the jungle', () => {
+  const SP = RB.species.SPECIES, F = RB.world.FAUNA;
+  assert.ok(SP.condor && SP.harpy);
+  assert.ok(F.highlands.day.some((e) => e[0] === 'condor'));
+  assert.ok(F.jungle.day.some((e) => e[0] === 'harpy'));
+  const r = new Rng(12), P1 = RB.pheno.express(RB.species.make('condor', r, { sport: 0 })), P2 = RB.pheno.express(RB.species.make('harpy', r, { sport: 0 }));
+  assert.strictEqual(P1.species.id, 'condor'); assert.strictEqual(P2.species.id, 'harpy');
+  // typical weights: a condor outweighs a vulture, a harpy an ordinary eagle
+  const median = (id) => { const ws = []; for (let i = 0; i < 61; i++) ws.push(RB.pheno.express(RB.species.make(id, r, { sport: 0 })).weightKg); return ws.sort((a, b) => a - b)[30]; };
+  const mc = median('condor'), mh = median('harpy');
+  assert.ok(mc > 10 && mc < 17 && mc > median('vulture'), 'condor ' + mc);
+  assert.ok(mh > 6 && mh < 11 && mh > median('eagle'), 'harpy ' + mh);
+  assert.ok(P1.t.bareHead > 0.7 && P2.t.crest > 0.7);
+  assert.strictEqual(P1.voice.kind, 'condor');
+  // a cross carries the calls of both kinds
+  const x = RB.genome.breed(RB.species.make('harpy', r, { sex: 'F', sport: 0 }), RB.species.make('duck', r, { sex: 'M', sport: 0 }), r), Px = RB.pheno.express(x);
+  if (!Px.species.pure) assert.ok(Px.voice.kind2);
+  // the wild population turns them up
+  const w = RB.world.generate(5), seen = {};
+  for (let d = 1; d <= 6; d++) for (const e of RB.world.population(w, d)) seen[e.sp] = true;
+  assert.ok(seen.condor && seen.harpy, 'not seen in a week: ' + JSON.stringify({ condor: !!seen.condor, harpy: !!seen.harpy }));
+});

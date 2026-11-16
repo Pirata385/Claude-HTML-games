@@ -173,7 +173,7 @@
         return { npc: n, P, x: s.x + (n.role === 'sheriff' ? 160 : 70), y: s.y + 120, hx: s.x + 70, hy: s.y + 120, f: 1, ph: 0, sp: 0, t: rng.range(0, 3), gone: RB.npc.info(S, n.id).gone, scared: 0 };
       });
       sheriff = folk.find((f) => f.npc.role === 'sheriff');
-      RB.audio.setTune('map');
+      RB.audio.setTune(isNight() ? 'night' : 'map');
       // the truck's cage, live: grab the riders, tap one for its card, drag one out to let it go
       pen = new RB.Pen({ drawOpts: common.drawOpts, onTap: (c) => common.card(c, riderActions), onDropOut: (c, sx, sy) => { const w = toWorld(sx, sy); releaseAt(c, w.x, w.y); } });
     },
@@ -183,6 +183,7 @@
       const v = ui.view, z = zoom();
       if (common.checkBroke(S, 'map')) return;
       t += dt; stun = Math.max(0, stun - dt);
+      RB.audio.setTune(isNight() ? 'night' : 'map'); // the night tune comes in at nightfall
       // world time: an hour every 30 s, or faster with the speed button; it drops back to normal at nightfall
       const before = S.time, g = RB.game;
       S.time += dt / 30 * (g.timeSpeed || 1);

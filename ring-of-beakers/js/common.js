@@ -221,7 +221,7 @@
   RB.common.settings = function (inGame) {
     const game = RB.game;
     ui.open({ draw() {
-      const box = ui.window('Settings', 340, inGame ? 330 : 270, {});
+      const box = ui.window('Settings', 340, inGame ? 378 : 318, {});
       if (!box) return;
       const st = game.settings;
       let y = box.y + 4;
@@ -233,6 +233,10 @@
         y += 46;
       };
       vol('Sound', 'sfx', 'sound'); vol('Music', 'music', 'music');
+      // the CRISPR cutting mini-game can be switched off: then gene edits apply at once
+      ui.icon('dna', box.x + 12, y + 18, 18, pal.ink); ui.text('Gene-edit mini-game', box.x + 30, y + 23, { size: 14, maxW: box.w - 130 });
+      if (ui.btn(box.x + box.w - 90, y, 90, 36, st.crispr === false ? 'Off' : 'On', { fill: st.crispr === false ? pal.grey : pal.teal, size: 13 })) { st.crispr = st.crispr === false; game.applySettings(); RB.audio.play('click'); }
+      y += 46;
       if (ui.btn(box.x, y, box.w, 38, 'Full screen', { icon: 'full', fill: pal.plum })) game.fullscreen();
       y += 48;
       ui.para('Mouse or touch for everything. On the map: WASD or arrows drive, hold the mouse to aim a net, E enters, Q digs, 1-3 pick a tool.', box.x, y, box.w, { size: 11, color: pal.grey });

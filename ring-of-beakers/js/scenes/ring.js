@@ -77,7 +77,7 @@
       phase = 'intro'; pt = 0; parts = []; flash = [0, 0]; seen = 0; shake = 0; bubbles = []; settled = false; lines = []; cheer = 0;
       speed = RB.game.settings.fast ? 2 : 1;
       cam = { x: 0, z: 0.5 };
-      RB.audio.setTune('fight');
+      RB.audio.setTune(A.card && A.card.boss ? 'boss' : 'fight');
     },
     update(dt) {
       pt += dt; shake = Math.max(0, shake - dt * 5); cheer = Math.max(0, cheer - dt);

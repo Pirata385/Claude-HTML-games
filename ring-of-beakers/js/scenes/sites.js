@@ -321,7 +321,8 @@
       if (keeper) keeper = RB.npc.current(S, keeper);
       say = site.kind === 'house' ? RB.npc.greeting(S, keeper) : LINES[site.id] || 'Hello.';
       if (keeper) RB.npc.info(S, keeper.id).met = true;
-      RB.audio.setTune(site.kind === 'arena' ? 'fight' : 'farm');
+      // each kind of place has its own tune
+      RB.audio.setTune(site.id === 'cellar' || site.id === 'market' ? 'cellar' : site.kind === 'arena' ? 'fight' : site.kind === 'carnival' ? 'carnival' : site.kind === 'house' ? 'farm' : 'town');
     },
     update(dt) { if (common.checkBroke(S, 'map')) return; t += dt; },
     draw(ctx) {

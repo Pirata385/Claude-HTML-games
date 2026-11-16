@@ -41,7 +41,7 @@
     o = o || {};
     const c = { id: S.nextId++, name: o.name || freeName(S, S._rng), g: genome, age: 0, bond: o.bond === undefined ? 0.1 : o.bond, at: o.at || 'home', origin: o.origin || 'wild',
       train: { muscle: 0, lungs: 0, reflex: 0, courage: 0 }, cond: 1, hp: 1, rest: 0, fed: false, hungry: 0, bouts: 0, trained: false, wins: 0, losses: 0,
-      hat: null, gear: null, buff: null, love: false, person: o.person || null, clothes: o.clothes || null, mom: o.mom || null, dad: o.dad || null, inj: 0 };
+      hat: null, gear: null, buff: null, love: false, person: o.person || null, clothes: o.clothes || null, mom: o.mom || null, dad: o.dad || null, momKey: o.momKey || null, dadKey: o.dadKey || null, inj: 0 };
     c.age = o.age === undefined ? pheno(c).growDays + 1 : o.age;
     c._P = null;
     S.birds.push(c);
@@ -56,12 +56,29 @@
   }
   const dirty = (c) => { c._P = null; };
 
-  // What to call its kind: a pure species, or a blend of its parents' kinds.
-  function kind(c) {
-    const P = pheno(c);
+  // What kind it is, as a key: a species id, 'human', or for a cross 'dadKey*momKey'. Young of two
+  // parents of the same kind are of that kind; young of two different kinds are a new, mixed kind
+  // that its own young carry on.
+  function kindKey(c) {
+    if (c.person) return 'human';
+    if (c.momKey && c.dadKey) return c.momKey === c.dadKey ? c.momKey : c.dadKey + '*' + c.momKey;
+    return pheno(c).species.id;
+  }
+  const isCross = (c) => !!(c.momKey && c.dadKey && c.momKey !== c.dadKey);
+  // A sex-neutral name for a kind, used to name crosses after both parents.
+  function label(c) {
     if (c.person) return 'Person';
-    if (P.species.pure || !c.mom || !c.dad || c.mom === c.dad) return P.species.name;
-    return RB.species.blendNames(c.dad, c.mom);
+    if (isCross(c)) return RB.species.blendNames(c.dad, c.mom);
+    const id = c.momKey && RB.species.SPECIES[c.momKey] ? c.momKey : c.momKey ? null : pheno(c).species.id;
+    return id ? RB.species.generic(id) : c.mom;
+  }
+  // What to call its kind on its card: crosses are named after their parents' kinds.
+  function kind(c) {
+    if (c.person) return 'Person';
+    if (isCross(c)) return RB.species.blendNames(c.dad, c.mom);
+    if (c.momKey && RB.species.SPECIES[c.momKey]) return RB.species.nameOf(RB.species.SPECIES[c.momKey], c.g.sex);
+    if (c.momKey) return c.mom;
+    return pheno(c).species.name;
   }
   const isAdult = (c) => pheno(c).grow >= 1;
 
@@ -81,9 +98,7 @@
     if (c.at === to) return '';
     if (to === 'cage') { if (at(S, 'cage').length >= cageCap(S)) return 'The cage is full.'; }
     else if (to === 'home') { if (c.at === 'cage' && atHome(S).length >= coopCap(S)) return 'The coop is full.'; }
-    else if (to === 'crate') { if (c.person) return 'BFC only takes birds.'; }
     else if (to.startsWith('nest')) {
-      if (c.person) return 'People do not nest.';
       if (!isAdult(c)) return c.name + ' is too young to nest.';
       const there = at(S, to);
       if (there.length >= 2) return 'That nest is full.';
@@ -94,11 +109,14 @@
   }
 
   // Hand-feed an item. Returns a short message, or null if nothing happened.
+  // Eating anything is a full day's meal: one grain is enough for any creature.
+  function eat(c) { c.fed = true; c.hungry = 0; }
   function feed(S, c, item) {
+    if (item === 'grain' && c.fed) return c.name + ' is full already.';
     if (!take(S, item)) return null;
     const P = pheno(c), r = S._rng;
-    c.fed = true;
-    if (item === 'grain') { c.bond = Math.min(1, c.bond + 0.02); return c.name + ' pecks it up.'; }
+    eat(c);
+    if (item === 'grain') { c.bond = Math.min(1, c.bond + 0.02); return c.name + ' pecks it up and is full.'; }
     if (item === 'worm') { c.bond = Math.min(1, c.bond + 0.08); return c.name + ' loves worms.'; }
     if (item === 'chili') { c.buff = 'chili'; return c.name + ' is fired up for the next bout.'; }
     if (item === 'tonic') { c.hp = 1; c.rest = 0; c.cond = 1; dirty(c); return c.name + ' looks good as new.'; }
@@ -121,10 +139,11 @@
     return '';
   }
 
-  // Chance that a pair in a nest lays tonight.
+  // Chance that a pair in a nest lays tonight. Any two creatures can have young together; very
+  // different ones (a hummingbird and an ostrich, a hen and a person) just manage a little less often.
   function layChance(mom, dad) {
     const dist = GN.distance(mom.g, dad.g), fert = (pheno(mom).t.fertility + pheno(dad).t.fertility) / 2;
-    return clamp(fert * (1.25 - 2.4 * dist) * (mom.love || dad.love ? 1.6 : 1), 0.04, 0.97);
+    return clamp(fert * (1.15 - 0.8 * dist) * (mom.love || dad.love ? 1.5 : 1), 0.45, 0.97);
   }
 
   // Night falls. Returns { lines: [...] } describing what happened.
@@ -134,12 +153,14 @@
     for (const c of at(S, 'crate')) {
       const price = RB.economy.bfcPrice(S, c, true);
       S.money += price; S.stats.earned += price; S.bfc.sold++; S.bfc.stamps++; S.stats.sold++;
+      if (c.person) soldPerson(S, c);
       removeBird(S, c);
       lines.push('The BFC van collected ' + c.name + '. $' + price + '.');
     }
+    if (S.bfc.stamps >= 10) { S.bfc.stamps -= 10; give(S, 'bucket'); lines.push('Your BFC card is full: a free bucket hat!'); }
     // feeding
     for (const c of S.birds.slice()) {
-      if (!c.fed && S.feeder >= 1) { S.feeder--; c.fed = true; }
+      if (!c.fed && S.feeder >= 1) { S.feeder--; eat(c); }
       if (c.fed) { c.hungry = 0; if (c.cond < 1) { c.cond = Math.min(1, c.cond + 0.25); dirty(c); } }
       else {
         c.hungry++; c.cond = Math.max(0.4, c.cond - 0.2); dirty(c);
@@ -158,7 +179,7 @@
       if (r.chance(p)) {
         const g = GN.breed(mom.g, dad.g, r);
         const Pm = pheno(mom), Pd = pheno(dad);
-        S.eggs.push({ id: S.nextId++, g, nest: n, hatch: S.day + 1 + (S.up.incubator ? 1 : 2), mom: kind(mom), dad: kind(dad), col: Pm.css.belly, spot: Pd.css.body });
+        S.eggs.push({ id: S.nextId++, g, nest: n, hatch: S.day + 1 + (S.up.incubator ? 1 : 2), mom: label(mom), dad: label(dad), momKey: kindKey(mom), dadKey: kindKey(dad), col: Pm.css.belly, spot: Pd.css.body });
         lines.push(mom.name + ' laid an egg.');
       } else lines.push(mom.name + ' and ' + dad.name + ' did not manage an egg' + (p < 0.4 ? ' (they are very different animals).' : '.'));
     }
@@ -168,7 +189,7 @@
       if (S.day < e.hatch) continue;
       if (atHome(S).length >= coopCap(S)) { lines.push('An egg is ready to hatch, but the coop is full.'); continue; }
       S.eggs.splice(S.eggs.indexOf(e), 1);
-      const chick = addBird(S, e.g, { age: 0, bond: 0.35, origin: 'born', mom: e.mom, dad: e.dad });
+      const chick = addBird(S, e.g, { age: 0, bond: 0.35, origin: 'born', mom: e.mom, dad: e.dad, momKey: e.momKey, dadKey: e.dadKey });
       chick.hatched = S.day;
       S.stats.bred++;
       lines.push('An egg hatched: ' + chick.name + ', a ' + kind(chick).toLowerCase() + ' chick.');
@@ -189,8 +210,22 @@
       else if (was !== 'elder' && P.stage === 'elder') lines.push(c.name + ' is getting old.');
     }
     S.heat = clamp(S.heat - 6 + held * 4, 0, 100);
+    // a house left empty gets a new owner after three nights
+    for (const id of Object.keys(S.npc)) {
+      const st = S.npc[id];
+      if (st.sold && S.day - st.soldDay >= 3) {
+        st.sold = false; st.gone = false; st.gen = (st.gen || 0) + 1; st.rel = 0; st.n = 0; st.sold_ = null;
+        lines.push(id === 'sheriff' ? 'A new sheriff has come to town.' : 'Someone new has moved into an empty house.');
+      }
+    }
     S.rs = r.s;
     return { lines };
+  }
+
+  // A netted person who went to BFC: gone for good, and their house stands empty for a while.
+  function soldPerson(S, c) {
+    const st = RB.npc.info(S, c.person);
+    st.gone = true; st.sold = true; st.soldDay = S.day;
   }
 
   // ---- saving
@@ -212,5 +247,5 @@
   }
 
   RB.state = { create, addBird, removeBird, pheno, dirty, kind, isAdult, byId, at, atHome, cageCap, coopCap, nestCount, count, give, take, move, feed, train, TRAIN,
-    layChance, sleep, serialize, deserialize, freeName, BIRD_NAMES };
+    layChance, sleep, serialize, deserialize, freeName, BIRD_NAMES, eat, soldPerson, kindKey, isCross, label };
 })();

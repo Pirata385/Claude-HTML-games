@@ -20,7 +20,7 @@
   function personGenome(r, sex) {
     const t = Object.assign({}, RB.species.SPECIES.human.t, { size: r.range(2.05, 2.5), bodyDepth: r.range(0.8, 1.25), bodyLen: r.range(0.88, 1.02), hue: r.range(0.04, 0.09), sat: r.range(0.3, 0.6),
       lit: r.range(0.3, 0.8), litHead: r.range(-0.3, 0.25), hueHead: r.range(-0.03, 0.06), crest: sex === 'F' ? r.range(0.5, 1) : r.range(0, 0.8), muscle: r.range(0.8, 1.25), courage: r.range(0.15, 0.7), aggression: r.range(0.2, 0.7) });
-    return RB.genome.fromTargets(t, ['arms', 'bare', 'knee'], r, { sex, variation: 0.3, carrier: 0 });
+    return RB.genome.fromTargets(t, ['arms', 'bare', 'knee'], r, { sex, variation: 0.3, colorVar: 0.05, carrier: 0, carriers: { melanic: 0, leucistic: 0 } });
   }
   function clothes(r, hat) { const shirt = r.pick(SHIRTS), pants = r.pick(PANTS); return { shirt, shirtDark: darker(shirt), pants, pantsDark: darker(pants), hat: hat || null }; }
 
@@ -42,6 +42,24 @@
     const sh = add('sheriff', 'Sheriff Tavares', 'sheriff', 'bank', 'M', 'star');
     sh.clothes.shirt = '#8a7a52'; sh.clothes.shirtDark = '#6e6142';
     return list;
+  }
+
+  // Who lives in a house now: the original neighbour, or a newcomer after the last one was sold.
+  const SURNAMES = ['Moura', 'Queiroz', 'Bastos', 'Freitas', 'Lacerda', 'Pimentel', 'Saraiva', 'Teles'];
+  const newcomers = new Map();
+  function current(S, npc) {
+    const gen = (S.npc[npc.id] && S.npc[npc.id].gen) || 0;
+    if (!gen) return npc;
+    const key = npc.id + ':' + gen;
+    let n = newcomers.get(key);
+    if (!n) {
+      const r = new Rng((npc.seed ^ Math.imul(gen, 2654435761)) >>> 0), sex = r.chance(0.5) ? 'M' : 'F';
+      const name = npc.role === 'sheriff' ? 'Sheriff ' + r.pick(SURNAMES) : r.pick(sex === 'M' ? FIRST_M : FIRST_F);
+      n = Object.assign({}, npc, { name, sex, g: personGenome(r, sex), clothes: clothes(r, npc.role === 'sheriff' ? 'star' : r.chance(0.3) ? r.pick(['cowboy', 'bandana']) : null), seed: r.int(1, 2e9) });
+      if (npc.role === 'sheriff') { n.clothes.shirt = '#8a7a52'; n.clothes.shirtDark = '#6e6142'; }
+      newcomers.set(key, n);
+    }
+    return n;
   }
 
   // ---- wishes: what a buyer is after, and how well a creature fits (0..1)
@@ -124,5 +142,5 @@
   }
   const SCREAMS = ['Hey! HEY!', 'Not the net!', 'I have a family!', 'This is a kidnapping!', 'Put me down!', 'My back!'];
 
-  RB.npc = { populate, personGenome, clothes, WISHES, info, wishOf, offer, fitText, stockOf, challengeOf, greeting, SCREAMS, period, hashStr };
+  RB.npc = { populate, personGenome, clothes, current, WISHES, info, wishOf, offer, fitText, stockOf, challengeOf, greeting, SCREAMS, period, hashStr };
 })();

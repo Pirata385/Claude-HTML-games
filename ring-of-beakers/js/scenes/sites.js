@@ -105,12 +105,12 @@
     if (!list.length) { ui.para('Nothing in the cage. Bring the birds you are done with, or use the pick-up box in your yard.', b.x + 4, y1 + 30, b.w - 8, { size: 13 }); return; }
     ui.list('bfc', b.x, y1 + 26, b.w, b.h - 90, list.length, 60, (i, x, y, w) => {
       const c = list[i], P = ST.pheno(c), price = EC.bfcPrice(S, c), special = !c.person && EC.bfcIsSpecial(S, c);
-      if (row(x, y, w, { c, title: c.name, sub: c.person ? 'Not a bird.' : ST.kind(c) + ' · ' + common.fmtKg(P.weightKg) + (special ? ' · special!' : ''), subCol: special ? '#d7372f' : undefined, price: c.person ? undefined : price, btn: 'Sell', fill: '#d7372f' })) {
-        if (c.person) { S.heat = clamp(S.heat + 10, 0, 100); say = 'We only fry birds, pal. And I am telling the sheriff.'; RB.audio.play('error'); return; }
+      if (row(x, y, w, { c, title: c.name, sub: ST.kind(c) + ' · ' + common.fmtKg(P.weightKg) + (special ? ' · special!' : ''), subCol: special ? '#d7372f' : undefined, price, btn: 'Sell', fill: '#d7372f' })) {
         ui.confirm('Sell ' + c.name + '?', c.name + ' goes through the kitchen door and does not come back. $' + price + '.', 'Sell', () => {
+          if (c.person) ST.soldPerson(S, c);
           ST.removeBird(S, c); earn(price); S.bfc.sold++; S.bfc.stamps++; S.stats.sold++;
           for (const o of caged()) o.bond = Math.max(0, o.bond - 0.1);
-          say = caged().length ? 'A pleasure. The others saw nothing. Probably.' : 'A pleasure doing business.';
+          say = c.person ? 'The Coronel asks no questions. Secret recipe.' : caged().length ? 'A pleasure. The others saw nothing. Probably.' : 'A pleasure doing business.';
           if (S.bfc.stamps >= 10) { S.bfc.stamps -= 10; ST.give(S, 'bucket'); ui.toast('Card full! You get a BFC bucket to wear.', '#d7372f'); }
           common.checkAch(S);
         }, { fill: '#d7372f' });
@@ -188,20 +188,20 @@
     const N = 12, cap = arena ? arena.betCap : card.fee * 2;
     ui.open({ draw() {
       for (let k = 0; k < 2 && n < N; k++) { const r = new RB.fight.Fight({ a, b, mode: card.mode, seed: 9000 + n * 131 + S.day }).run(); if (r.winner === 0) wins++; n++; }
-      const p = n ? clamp(wins / n, 0.06, 0.94) : 0.5, done = n >= N;
-      const box = ui.window(exhibit ? 'Place a bet' : 'Before the bell', 380, 330, {});
+      const p = n ? clamp(wins / n, 0.06, 0.94) : 0.5, done = n >= N, line = EC.bookieLine(p);
+      const box = ui.window(exhibit ? 'Place a bet' : 'Before the bell', 380, exhibit ? 360 : 322, {});
       if (!box) return;
-      const pw = (box.w - 50) / 2;
-      if (c) common.portrait(c, box.x, box.y, pw, 96); else common.portrait({ P: exhibit.a.P }, box.x, box.y, pw, 96);
-      common.portrait({ P: opp.P }, box.x + pw + 50, box.y, pw, 96, { f: -1 });
-      ui.text('vs', box.x + box.w / 2, box.y + 54, { size: 16, align: 'center', color: pal.coral });
-      ui.text(c ? c.name : exhibit.a.name, box.x + pw / 2, box.y + 112, { size: 13, align: 'center', maxW: pw });
-      ui.text(opp.name, box.x + pw + 50 + pw / 2, box.y + 112, { size: 13, align: 'center', maxW: pw });
-      ui.bar(box.x, box.y + 122, box.w, 12, p, pal.teal, pal.coral);
-      ui.text(done ? 'The bookie gives ' + (c ? c.name : exhibit.a.name) + ' ' + Math.round(p * 100) + '%' : 'The bookie is thinking...', box.x + box.w / 2, box.y + 150, { size: 12, align: 'center', bold: false });
-      if (exhibit) { if (ui.btn(box.x, box.y + 158, pw + 20, 32, 'Back ' + exhibit.a.name, { fill: side === 0 ? pal.ink : pal.soft, color: side === 0 ? pal.white : pal.ink, size: 12, flat: true })) side = 0; if (ui.btn(box.x + box.w - pw - 20, box.y + 158, pw + 20, 32, 'Back ' + opp.name, { fill: side === 1 ? pal.ink : pal.soft, color: side === 1 ? pal.white : pal.ink, size: 12, flat: true })) side = 1; }
+      const pw = (box.w - 50) / 2, ph = 82;
+      if (c) common.portrait(c, box.x, box.y, pw, ph); else common.portrait({ P: exhibit.a.P }, box.x, box.y, pw, ph);
+      common.portrait({ P: opp.P }, box.x + pw + 50, box.y, pw, ph, { f: -1 });
+      ui.text('vs', box.x + box.w / 2, box.y + 48, { size: 16, align: 'center', color: pal.coral });
+      ui.text(c ? c.name : exhibit.a.name, box.x + pw / 2, box.y + 98, { size: 13, align: 'center', maxW: pw });
+      ui.text(opp.name, box.x + pw + 50 + pw / 2, box.y + 98, { size: 13, align: 'center', maxW: pw });
+      ui.bar(box.x, box.y + 106, box.w, 12, line, pal.teal, pal.coral);
+      ui.text(done ? 'The bookie gives ' + (c ? c.name : exhibit.a.name) + ' ' + Math.round(line * 100) + '%. He plays it safe.' : 'The bookie is thinking...', box.x + box.w / 2, box.y + 133, { size: 12, align: 'center', bold: false, maxW: box.w });
+      if (exhibit) { if (ui.btn(box.x, box.y + 140, pw + 20, 32, 'Back ' + exhibit.a.name, { fill: side === 0 ? pal.ink : pal.soft, color: side === 0 ? pal.white : pal.ink, size: 12, flat: true })) side = 0; if (ui.btn(box.x + box.w - pw - 20, box.y + 140, pw + 20, 32, 'Back ' + opp.name, { fill: side === 1 ? pal.ink : pal.soft, color: side === 1 ? pal.white : pal.ink, size: 12, flat: true })) side = 1; }
       const mult = EC.odds(side === 0 ? p : 1 - p), max = Math.max(0, Math.min(cap, S.money - (exhibit ? 0 : card.fee)));
-      const y = box.y + (exhibit ? 198 : 164);
+      const y = box.y + (exhibit ? 178 : 140);
       ui.text('Bet $' + stake + (stake ? ' to win $' + Math.round(stake * mult) : ''), box.x, y + 14, { size: 13 });
       [0, 0.25, 0.5, 1].forEach((f, i) => { const bw = (box.w - 18) / 4; if (ui.btn(box.x + i * (bw + 6), y + 22, bw, 34, i === 0 ? 'None' : '$' + Math.floor(max * f / 5) * 5, { fill: pal.mustard, color: pal.ink, size: 12, disabled: !done })) stake = Math.floor(max * f / 5) * 5; });
       const fee = exhibit ? 0 : card.fee;
@@ -213,21 +213,23 @@
     } });
   }
   function arenaLobby(b) {
-    const arena = EC.ARENA[site.id], lg = EC.leagueOf(S, arena.id), cards = EC.cards(S, arena), ex = EC.exhibition(S, arena);
+    const arena = EC.ARENA[site.id], lg = EC.leagueOf(S, arena.id), cards = EC.cards(S, arena), exs = [EC.exhibition(S, arena, 0), EC.exhibition(S, arena, 1)];
     ui.text(lg.boss ? 'You are champion here.' : 'Wins ' + lg.wins + ' of ' + arena.need + ' to face ' + arena.boss.trainer, b.x + 4, b.y + 14, { size: 13 });
     ui.bar(b.x + 4, b.y + 22, Math.min(300, b.w - 8), 8, lg.boss ? 1 : lg.wins / arena.need, pal.mustard);
-    const rows = cards.length + 1, modes = { pit: 'Pit fight', push: 'Push-out', aerial: 'Aerial bout' };
+    // the exhibitions come first: there are always two to watch and bet on
+    const rows = cards.length + exs.length, modes = { pit: 'Pit fight', push: 'Push-out', aerial: 'Aerial bout' };
     ui.list('cards' + site.id, b.x, b.y + 38, b.w, b.h - 38, rows, 76, (i, x, y, w) => {
-      ui.rect(x, y + 2, w - 6, 70, pal.paper, 10);
-      if (i === cards.length) {
-        const done = S.bets[ex.key] === S.day;
+      ui.rect(x, y + 2, w - 6, 70, i < exs.length ? '#f1e6f4' : pal.paper, 10);
+      if (i < exs.length) {
+        const ex = exs[i];
         common.portrait({ P: ex.a.P }, x + 4, y + 7, 54, 60, { fill: pal.soft }); common.portrait({ P: ex.b.P }, x + 62, y + 7, 54, 60, { fill: pal.soft, f: -1 });
         ui.text('Exhibition: ' + ex.a.name + ' v ' + ex.b.name, x + 124, y + 24, { size: 13, maxW: w - 220 });
-        ui.text(modes[ex.mode] + ' · watch and bet', x + 124, y + 42, { size: 11, bold: false });
-        if (ui.btn(x + w - 92, y + 18, 78, 38, done ? 'Seen' : 'Watch', { size: 13, fill: pal.plum, disabled: done })) betWindow({ key: ex.key, mode: ex.mode, fee: 0 }, arena, ex.b, null, ex);
+        ui.text(ex.a.P.species.name + ' v ' + ex.b.P.species.name, x + 124, y + 41, { size: 11, bold: false, maxW: w - 220 });
+        ui.text(modes[ex.mode] + ' · watch and bet, any time', x + 124, y + 57, { size: 11, bold: false, color: pal.plum, maxW: w - 220 });
+        if (ui.btn(x + w - 92, y + 18, 78, 38, 'Watch', { size: 13, fill: pal.plum })) betWindow({ key: ex.key, mode: ex.mode, fee: 0, exh: { arena: arena.id, slot: ex.slot } }, arena, ex.b, null, ex);
         return;
       }
-      const card = cards[i], opp = EC.opponentFor(S, arena, card), done = S.bets[card.key] === S.day && !card.boss;
+      const card = cards[i - exs.length], opp = EC.opponentFor(S, arena, card), done = S.bets[card.key] === S.day && !card.boss;
       common.portrait({ P: opp.P }, x + 4, y + 7, 60, 60, { fill: card.boss ? pal.mustard : pal.soft, f: -1 });
       ui.text((card.boss ? 'BOSS: ' : '') + opp.name + ' (' + opp.trainer + ')', x + 72, y + 22, { size: 13, maxW: w - 170 });
       ui.text(opp.P.species.name + ' · ' + common.fmtKg(opp.P.weightKg), x + 72, y + 38, { size: 11, bold: false, maxW: w - 170 });
@@ -288,11 +290,12 @@
     enter(args) {
       S = RB.game.S; world = RB.game.world; site = world.site[args.site]; tab = 0; t = 0;
       keeper = world.npcs.find((n) => n.site === site.id) || null;
+      if (keeper) keeper = RB.npc.current(S, keeper);
       say = site.kind === 'house' ? RB.npc.greeting(S, keeper) : LINES[site.id] || 'Hello.';
       if (keeper) RB.npc.info(S, keeper.id).met = true;
       RB.audio.setTune(site.kind === 'arena' ? 'fight' : 'farm');
     },
-    update(dt) { t += dt; },
+    update(dt) { if (common.checkBroke(S, 'map')) return; t += dt; },
     draw(ctx) {
       const v = ui.view;
       ctx.fillStyle = site.id === 'cellar' ? '#4a4460' : site.id === 'bfc' ? '#f7e3de' : pal.cream; ctx.fillRect(0, 0, v.w, v.h);

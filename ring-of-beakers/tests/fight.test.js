@@ -105,3 +105,18 @@ test('commands change a fighter and odds come out as a probability', () => {
   const p = RB.fight.estimate({ P: A }, { P: B }, 'pit', 8, 1);
   assert.ok(p > 0.5 && p <= 1, 'a gamecock should be favoured over a duck, got ' + p);
 });
+
+test('hybrids and people-bird crosses stand and walk too', () => {
+  const rng = new Rng(77), ids = RB.species.IDS;
+  for (let i = 0; i < 40; i++) {
+    const a = rng.pick(ids), b = rng.pick(ids);
+    const kid = RB.genome.breed(RB.species.make(a, rng, { sex: 'F', sport: 0 }), RB.species.make(b, rng, { sex: 'M', sport: 0 }), rng);
+    const P = RB.pheno.express(kid);
+    const { w, rag } = standWorld(P);
+    run(w, rag, 3);
+    assert.ok(finite(w), a + ' x ' + b + ' went non-finite');
+    assert.strictEqual(rag.state, 'stand', a + ' x ' + b + ' fell over standing');
+    run(w, rag, 2, () => { rag.vxDes = P.speedMax * 0.6; });
+    assert.ok(finite(w) && rag.state === 'stand', a + ' x ' + b + ' fell over walking');
+  }
+});

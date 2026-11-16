@@ -9,7 +9,7 @@
     bignet: { name: 'Heavy net', kind: 'tool', price: 90, desc: 'Holds big, strong creatures that tear a plain net.' },
     shovel: { name: 'Shovel', kind: 'tool', price: 50, uses: 10, desc: 'Good for 10 holes.' },
     seed: { name: 'Seed bag', kind: 'tool', price: 12, desc: 'Scatter to lure birds in close.' },
-    detector: { name: 'Metal detector', kind: 'equip', price: 450, desc: 'Beeps faster near buried metal.' },
+    detector: { name: 'Metal detector', kind: 'equip', price: 450, desc: 'A silent meter that fills up near buried metal.' },
     launcher: { name: 'Net launcher', kind: 'equip', price: 700, desc: 'Nets fly much further.' },
     lantern: { name: 'Lantern', kind: 'equip', price: 150, desc: 'See further at night.' },
     silvernet: { name: 'Silver net', kind: 'equip', price: 0, prize: true, desc: 'Old Bira\'s prize. Holds just like a plain net, and it never runs out.' },

@@ -72,7 +72,9 @@
     return classCache;
   }
   const leagueOf = (S, id) => (S.league[id] = S.league[id] || { wins: 0, boss: false });
-  function arenaOpen(S, arena) { return arena.tier === 0 || leagueOf(S, ARENAS[arena.tier - 1].id).boss; }
+  // Every arena is open from the start, except the last: the Grand Ring only takes the champion of
+  // every other arena.
+  function arenaOpen(S, arena) { return !arena.boss.final || ARENAS.every((a) => a === arena || leagueOf(S, a.id).boss); }
 
   // A rough fighting score, used to pick the better of a few random opponents.
   function fightScore(P) { const r = P.rate; return r.power * 1.4 + r.tough + r.speed * 0.5 + r.stamina * 0.6 + r.guts * 0.8 + r.fury * 0.5; }

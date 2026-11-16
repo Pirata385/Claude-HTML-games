@@ -81,7 +81,7 @@
     ['Beat Old Bira, boss of the Backyard Pit.', (S) => RB.economy.leagueOf(S, 'backyard').boss],
     ['Find three fuses and power up the Lab.', (S) => S.lab.power],
     ['Extract a gene and inject it into another creature.', (S) => !!S.codex.ach.inject],
-    ['Climb to the Grand Ring and beat Madame Plume.', (S) => RB.economy.leagueOf(S, 'grand').boss],
+    ['Beat the boss of every arena, then Madame Plume at the Grand Ring.', (S) => RB.economy.leagueOf(S, 'grand').boss],
     ['Pay off Big Wattle at the bank.', (S) => S.debt <= 0],
   ];
   common.goal = function (S) {

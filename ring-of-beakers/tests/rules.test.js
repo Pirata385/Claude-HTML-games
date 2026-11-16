@@ -173,10 +173,13 @@ test('arena cards are stable for a day, fit their class, and the boss appears af
     const boss = EC.opponentFor(S, arena, withBoss[n]);
     assert.ok(boss.boss && boss.P.hpMax > 0);
   }
-  assert.ok(EC.arenaOpen(S, EC.ARENA.backyard));
-  assert.ok(!EC.arenaOpen(S, EC.ARENA.county));
-  EC.leagueOf(S, 'backyard').boss = true;
-  assert.ok(EC.arenaOpen(S, EC.ARENA.county));
+  // every arena is open from the start except the Grand Ring, which needs every other boss beaten
+  for (const id of ['backyard', 'county', 'city', 'cellar']) assert.ok(EC.arenaOpen(S, EC.ARENA[id]), id);
+  assert.ok(!EC.arenaOpen(S, EC.ARENA.grand));
+  for (const id of ['backyard', 'county', 'city']) EC.leagueOf(S, id).boss = true;
+  assert.ok(!EC.arenaOpen(S, EC.ARENA.grand), 'not with one boss left');
+  EC.leagueOf(S, 'cellar').boss = true;
+  assert.ok(EC.arenaOpen(S, EC.ARENA.grand));
   const chick = ST.addBird(S, RB.species.make('chicken', S._rng, { sport: 0 }), { age: 0 });
   assert.ok(EC.canEnter(S, chick, EC.cards(S, EC.ARENAS[0])[6]) !== '', 'a chick cannot enter even the Titan bout');
   // no odds: a winning bet pays back three times the stake whoever you back
@@ -587,4 +590,41 @@ test('the Andean condor lives in the highlands and the harpy eagle in the jungle
   const w = RB.world.generate(5), seen = {};
   for (let d = 1; d <= 6; d++) for (const e of RB.world.population(w, d)) seen[e.sp] = true;
   assert.ok(seen.condor && seen.harpy, 'not seen in a week: ' + JSON.stringify({ condor: !!seen.condor, harpy: !!seen.harpy }));
+});
+
+test('the heat clears in one night per person netted, three nights at most', () => {
+  const S = ST.create(101), nights = (n) => { const out = []; for (let i = 0; i < n; i++) { S.feeder = 9; ST.sleep(S); out.push(S.heat); } return out; };
+  ST.caughtPerson(S, 35);
+  assert.strictEqual(S.heat, 35);
+  assert.deepStrictEqual(nights(1), [0]);
+  ST.caughtPerson(S, 35); ST.caughtPerson(S, 50);
+  const two = nights(2);
+  assert.ok(two[0] > 0 && two[1] === 0, JSON.stringify(two));
+  for (let i = 0; i < 6; i++) ST.caughtPerson(S, 40);
+  const many = nights(3);
+  assert.ok(many[0] > 0 && many[1] > 0 && many[2] === 0, JSON.stringify(many));
+  // holding a netted person no longer keeps the heat up
+  const p = ST.addBird(S, RB.npc.personGenome(new Rng(2), 'F'), { person: 'h_1', at: 'cage' });
+  ST.caughtPerson(S, 35);
+  assert.deepStrictEqual(nights(1), [0]);
+  assert.ok(S.birds.includes(p));
+  // a save from before keeps cooling down
+  S.heat = 60; delete S.heatDays; delete S.heatPeople;
+  assert.deepStrictEqual(nights(1), [0]);
+});
+
+test('training says which numbers go up and by how much, and does exactly that', () => {
+  const S = ST.create(103), c = S.birds[0];
+  const pv = ST.trainPreview(c, 'muscle');
+  assert.strictEqual(pv.gain, 0.02);
+  assert.ok(pv.rates.some((r) => r[0] === 'power' && r[1] > 0), JSON.stringify(pv.rates));
+  const before = Object.assign({}, ST.pheno(c).rate);
+  assert.strictEqual(ST.train(S, c, 'muscle'), '');
+  const after = ST.pheno(c).rate;
+  for (const [k, d] of pv.rates) assert.strictEqual(after[k] - before[k], d, k);
+  assert.ok(ST.trainPreview(c, 'courage').rates.some((r) => r[0] === 'guts'));
+  c.gear = 'anklets';
+  assert.strictEqual(ST.trainPreview(c, 'lungs').gain, 0.03);
+  c.train.reflex = 0.15;
+  assert.strictEqual(ST.trainPreview(c, 'reflex').gain, 0);
 });

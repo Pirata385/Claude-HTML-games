@@ -74,7 +74,7 @@
     S.stats.kidnapped++;
     let seenBy = 0;
     for (const o of folk) if (o !== f && !o.gone && Math.hypot(o.x - f.x, o.y - f.y) < 750) { seenBy++; o.scared = 6; }
-    S.heat = clamp(S.heat + (f.npc.role === 'sheriff' ? 70 : 35) + seenBy * 15, 0, 100);
+    ST.caughtPerson(S, (f.npc.role === 'sheriff' ? 70 : 35) + seenBy * 15);
     ui.toast('You netted ' + f.npc.name + '!' + (seenBy ? ' Somebody saw that.' : ''), pal.plum);
     RB.audio.play('catch'); puff(f.x, f.y - 60, 8, pal.paper, rng.pick(RB.npc.SCREAMS));
     common.checkAch(S);
@@ -139,7 +139,7 @@
     const empty = RB.npc.vacancy(S, keeper);
     if (empty === 'sold') { ui.toast('The house stands empty. Someone new will move in soon.', pal.plum); return; }
     if (empty === 'away') { ui.toast('Nobody is minding the place. ' + keeper.name + ' is... away.', pal.plum); return; }
-    if (st === 'arena' && !RB.economy.arenaOpen(S, RB.economy.ARENA[site.id])) { ui.toast('Win the boss bout at the arena before this one first.', pal.coral); return; }
+    if (st === 'arena' && !RB.economy.arenaOpen(S, RB.economy.ARENA[site.id])) { ui.toast('The Grand Ring only takes champions: beat the boss at every other arena first.', pal.coral); return; }
     S.pos = { x: car.x, y: car.y };
     RB.game.save();
     RB.game.go(st === 'lab' ? 'lab' : st === 'roost' ? 'roost' : 'site', { site: site.id });
@@ -318,7 +318,7 @@
       if (S.equip.detector) {
         const c = WD.cellOf(car.x, car.y); let bd = 1e9;
         for (let cx = c.cx - 5; cx <= c.cx + 5; cx++) for (let cy = c.cy - 5; cy <= c.cy + 5; cy++) { if (holeAt(cx, cy)) continue; const l = WD.lootAt(world, cx, cy, S.day); if (l && l.metal) { const d = Math.hypot((cx + 0.5) * WD.CELL - car.x, (cy + 0.5) * WD.CELL - car.y); if (d < bd) bd = d; } }
-        if (bd < 520) { det = 1 - bd / 520; if (Math.floor(t * (1 + det * 9)) !== Math.floor((t - dt) * (1 + det * 9))) RB.audio.play('tick'); }
+        if (bd < 520) det = 1 - bd / 520; // a silent needle: the meter fills as you get close
       }
       for (const p of parts) { p.life -= dt * 1.4; p.x += p.vx * dt; p.y += p.vy * dt; p.vy += 140 * dt; }
       parts = parts.filter((p) => p.life > 0);

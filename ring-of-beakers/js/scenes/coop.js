@@ -136,7 +136,8 @@
       const e = birds.find((b) => b.c === c);
       if (e) dropRag(e);
       if (c.person) { const st = RB.npc.info(S, c.person); st.gone = false; st.rel = Math.max(-100, st.rel - 40); }
-      ST.removeBird(S, c);
+      const home = RB.game.world.site.home;
+      ST.setFree(S, c, home.x, home.y + 150); // its genes join the wild around the farm
       ui.closeAll();
     });
   }

@@ -492,3 +492,76 @@ test('Sunset Roost is on the map with Dona Nina, and adding it left the rest of 
   assert.strictEqual(w.sites.indexOf(w.site.roost), w.sites.length - 1);
   assert.strictEqual(w.npcs[w.npcs.length - 1].site, 'roost');
 });
+
+test('the first boss gives the silver net (never used up), the second the golden shovel (10 digs a day)', () => {
+  const S = ST.create(81);
+  assert.deepStrictEqual(ST.bossPrizes(S), []);
+  assert.strictEqual(ST.useNet(S, 'net'), 'net');
+  S.league.backyard = { wins: 3, boss: true };
+  assert.deepStrictEqual(ST.bossPrizes(S), ['silvernet']);
+  assert.deepStrictEqual(ST.bossPrizes(S), [], 'only once');
+  S.inv.net = 0;
+  for (let i = 0; i < 50; i++) assert.strictEqual(ST.useNet(S, 'net'), 'silvernet');
+  assert.strictEqual(S.inv.net, 0);
+  assert.strictEqual(ST.useNet(S, 'bignet'), '', 'heavy nets are still bought and used up');
+  // the golden shovel
+  S.league.county = { wins: 4, boss: true };
+  assert.deepStrictEqual(ST.bossPrizes(S), ['goldshovel']);
+  S.inv.shovel = 2;
+  assert.strictEqual(ST.digsLeft(S), ST.GOLD_DIGS + 2);
+  for (let i = 0; i < ST.GOLD_DIGS; i++) assert.strictEqual(ST.useDig(S), 'gold');
+  assert.strictEqual(S.inv.shovel, 2, 'the golden shovel spares the others');
+  assert.strictEqual(ST.useDig(S), 'shovel');
+  assert.strictEqual(ST.useDig(S), 'shovel');
+  assert.strictEqual(ST.useDig(S), '');
+  S.feeder = 9; ST.sleep(S);
+  assert.strictEqual(ST.goldLeft(S), ST.GOLD_DIGS, 'ten more the next day');
+  // a save from before the prizes catches up on load
+  const o = ST.serialize(S);
+  o.equip = {};
+  const back = ST.deserialize(JSON.parse(JSON.stringify(o)));
+  assert.ok(back.equip.silvernet && back.equip.goldshovel);
+});
+
+test('birds set free leave their genes in the wild near where they were let go, now and then', () => {
+  const G = RB.genome, S = ST.create(91), w = RB.world.generate(S.seed), r = new Rng(5);
+  // a released ostrich with a marker gene no wild animal has
+  const g = RB.species.make('ostrich', r, { sex: 'F', sport: 0 }), gi = 3, mark = [3, 1, 3, 1];
+  G.setGeneBases(g, gi, mark, 'both');
+  const c = ST.addBird(S, g, { name: 'Marcadora' }), home = w.site.home;
+  ST.setFree(S, c, home.x, home.y + 150);
+  assert.ok(!S.birds.includes(c));
+  assert.strictEqual(S.released.length, 1);
+  assert.strictEqual(ST.genePool(S).length, 0, 'not on the day it was let go');
+  // people are not part of the wild
+  const p = ST.addBird(S, RB.npc.personGenome(new Rng(3), 'M'), { person: 'h_0' });
+  ST.setFree(S, p, home.x, home.y);
+  assert.strictEqual(S.released.length, 1);
+  S.day++;
+  const pool = ST.genePool(S);
+  assert.strictEqual(pool.length, 1);
+  let carriers = 0, near = 0;
+  for (let d = S.day; d < S.day + 8; d++) {
+    const base = RB.world.population(w, d), pop = RB.world.population(w, d, undefined, pool);
+    assert.strictEqual(pop.length, base.length);
+    pop.forEach((e, i) => {
+      assert.strictEqual(e.x, base[i].x, 'everyone else stays put');
+      const close = Math.hypot(e.x - home.x, e.y - home.y - 150) < RB.world.GENE_REACH;
+      if (close && !base[i].cross) near++;
+      if (!e.kin) { assert.strictEqual(G.hash(e.g), G.hash(base[i].g)); return; }
+      carriers++;
+      assert.ok(close, 'a carrier far from where the bird was let go');
+      assert.strictEqual(e.kin.name, 'Marcadora');
+      const a = G.getGeneBases(e.g, gi, 'a').join(''), b = G.getGeneBases(e.g, gi, 'b').join('');
+      assert.ok(a === mark.join('') || b === mark.join(''), 'carries the released bird\'s gene');
+      if (e.sp !== 'ostrich') assert.ok(e.cross && [e.cross.momKey, e.cross.dadKey].includes('ostrich'));
+    });
+  }
+  assert.ok(carriers >= 1, 'no carriers in eight days');
+  assert.ok(carriers / near < 0.07, carriers + ' of ' + near + ' is too many');
+  // the pool keeps only the most recent releases
+  for (let i = 0; i < ST.RELEASED_MAX + 5; i++) ST.setFree(S, ST.addBird(S, RB.species.make('quail', r, { sport: 0 })), 100, 100);
+  assert.strictEqual(S.released.length, ST.RELEASED_MAX);
+  const back = ST.deserialize(JSON.parse(JSON.stringify(ST.serialize(S))));
+  assert.strictEqual(back.released.length, ST.RELEASED_MAX);
+});

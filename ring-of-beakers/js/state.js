@@ -14,7 +14,7 @@
   function create(seed) {
     const S = {
       v: 1, seed: seed >>> 0, rs: (seed ^ 0x51ab) >>> 0, day: 1, time: 6, money: 150, debt: 15000, heat: 0, nextId: 1,
-      birds: [], eggs: [], roost: [],
+      birds: [], eggs: [], roost: [], released: [],
       inv: { net: 3, shovel: 10, grain: 8 }, equip: {}, up: { cage: 0, engine: 0, tires: 0, coop: 0, nest: 0, incubator: 0, dummy: 0 },
       feeder: 0, pos: null, dug: {}, marksDug: {}, wildGone: null, npc: {}, league: {}, bets: {},
       lab: { power: false, fuses: 0, atlas: {}, vials: [], fossils: {}, seq: {} },
@@ -241,6 +241,55 @@
     st.gone = true; st.soldOff = true; st.soldDay = S.day;
   }
 
+  // ---- boss prizes: beating the first boss earns the silver net, the second the golden shovel
+  const BOSS_PRIZES = { backyard: 'silvernet', county: 'goldshovel' };
+  // Hand over any prize earned and not yet given (also catches up saves from before the prizes).
+  // Returns the item ids given.
+  function bossPrizes(S) {
+    const got = [];
+    for (const arena of Object.keys(BOSS_PRIZES)) {
+      const id = BOSS_PRIZES[arena];
+      if (S.league[arena] && S.league[arena].boss && !S.equip[id]) { S.equip[id] = true; got.push(id); }
+    }
+    return got;
+  }
+  // Nets: the silver net is never used up. Shovels: the golden shovel digs GOLD_DIGS holes a day,
+  // then ordinary shovels take over.
+  const GOLD_DIGS = 10;
+  const goldLeft = (S) => (S.equip.goldshovel ? GOLD_DIGS - (S.goldDug && S.goldDug.day === S.day ? S.goldDug.n : 0) : 0);
+  const digsLeft = (S) => goldLeft(S) + count(S, 'shovel');
+  // Use one dig. Returns 'gold', 'shovel', or '' when there is nothing to dig with.
+  function useDig(S) {
+    if (goldLeft(S) > 0) { if (!S.goldDug || S.goldDug.day !== S.day) S.goldDug = { day: S.day, n: 0 }; S.goldDug.n++; return 'gold'; }
+    return take(S, 'shovel') ? 'shovel' : '';
+  }
+  // Throw a net: the silver net stands in for plain ones and is never used up. Returns '' if none.
+  function useNet(S, id) {
+    if (id === 'net' && S.equip.silvernet) return 'silvernet';
+    return take(S, id) ? id : '';
+  }
+
+  // ---- birds set free: their genes go back into the wild
+  // Each one is remembered where it was let go (the most recent RELEASED_MAX); from the next day
+  // on, a few wild animals born near there carry some of its genes (see world.population).
+  const RELEASED_MAX = 30;
+  function setFree(S, c, x, y) {
+    removeBird(S, c);
+    if (c.person) return;
+    S.released = S.released || [];
+    S.released.push({ g: GN.serialize(c.g), x: Math.round(x), y: Math.round(y), day: S.day, name: c.name, key: kindKey(c), label: label(c) });
+    if (S.released.length > RELEASED_MAX) S.released.splice(0, S.released.length - RELEASED_MAX);
+  }
+  // The released genes the wild draws on today: only those let go before today, decoded.
+  const gened = new Map();
+  function genePool(S) {
+    return (S.released || []).filter((e) => e.day < S.day).map((e) => {
+      let g = gened.get(e.g);
+      if (!g) { g = GN.deserialize(e.g); gened.set(e.g, g); }
+      return Object.assign({}, e, { g });
+    });
+  }
+
   // ---- Sunset Roost: a home for retired birds, looked after by Dona Nina
   // Check a retired bird in (it leaves your flock and lives at the roost). Returns '' or why not.
   function checkIn(S, c) {
@@ -277,11 +326,14 @@
     S._rng = new Rng(S.rs);
     for (const c of S.birds) { c.g = GN.deserialize(c.g); c._P = null; }
     S.roost = S.roost || []; // saves from before Sunset Roost opened
+    S.released = S.released || [];
+    bossPrizes(S); // saves from before the boss prizes
     for (const c of S.roost) { c.g = GN.deserialize(c.g); c._P = null; }
     for (const e of S.eggs) e.g = GN.deserialize(e.g);
     return S;
   }
 
-  RB.state = { create, addBird, removeBird, pheno, dirty, kind, isAdult, isRetired, checkIn, checkOut, byId, at, atHome, cageCap, coopCap, nestCount, count, give, take, move, feed, train, TRAIN,
+  RB.state = { create, addBird, removeBird, pheno, dirty, kind, isAdult, isRetired, checkIn, checkOut, BOSS_PRIZES, bossPrizes, GOLD_DIGS, goldLeft, digsLeft, useDig, useNet,
+    RELEASED_MAX, setFree, genePool, byId, at, atHome, cageCap, coopCap, nestCount, count, give, take, move, feed, train, TRAIN,
     layChance, sleep, serialize, deserialize, freeName, BIRD_NAMES, eat, soldPerson, kindKey, isCross, label };
 })();

@@ -12,6 +12,8 @@
     detector: { name: 'Metal detector', kind: 'equip', price: 450, desc: 'Beeps faster near buried metal.' },
     launcher: { name: 'Net launcher', kind: 'equip', price: 700, desc: 'Nets fly much further.' },
     lantern: { name: 'Lantern', kind: 'equip', price: 150, desc: 'See further at night.' },
+    silvernet: { name: 'Silver net', kind: 'equip', price: 0, prize: true, desc: 'Old Bira\'s prize. Holds just like a plain net, and it never runs out.' },
+    goldshovel: { name: 'Golden shovel', kind: 'equip', price: 0, prize: true, desc: 'Dona Zefa\'s prize. Digs ten holes a day, every day, and never wears out.' },
 
     grain: { name: 'Grain', kind: 'feed', price: 4, desc: 'Plain feed. Fill the feeder or hand it out.' },
     worm: { name: 'Worms', kind: 'feed', price: 6, desc: 'A treat. Feeds a bird and it trusts you more.' },

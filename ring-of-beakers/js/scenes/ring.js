@@ -41,6 +41,8 @@
           if (card.boss) {
             lg.boss = true;
             out.push([A.arena.name + ' is yours!', 0]);
+            A.prizes = ST.bossPrizes(S); // the first two bosses hand over a tool that never wears out
+            for (const id of A.prizes) out.push(['Prize: the ' + RB.items.ITEMS[id].name.toLowerCase() + '!', 0]);
             if (A.arena.boss.final) S.won = true;
           } else { lg.wins++; out.push(['Wins here: ' + lg.wins + (lg.wins >= A.arena.need ? ' (the boss will see you)' : ' of ' + A.arena.need), 0]); }
         }
@@ -232,7 +234,12 @@
         });
         if (ui.btn(box.x + box.w / 2 - 80, box.y + box.h - 42, 160, 42, 'Continue', { key: 'Enter' })) {
           const card = A.card || {};
-          if (mine && card.boss && r.winner === 0 && A.arena.boss.final) ui.message('Champion!', 'Madame Plume hands over the belt without a word. ' + F[0].name + ' crows until the lights go out.\n\nThe Grand Ring is yours. If Big Wattle still has his hand out, the bank is open. Either way the map, the lab and every strange egg are still there.', () => RB.game.go(A.back || 'coop', A.backArgs), { head: pal.mustard });
+          const prize = (A.prizes || [])[0], PRIZE_TEXT = {
+            silvernet: 'Old Bira takes a net off his belt, silver and worn smooth. "Never lost a bird with this, never lost the net either. It always finds its way back." It holds just like a plain net, and it never runs out.',
+            goldshovel: 'Dona Zefa hands over a golden shovel. "My grandfather dug half this county with it." It digs ten holes a day, every day, and never wears out. Your other shovels take over when it is done for the day.',
+          };
+          if (prize) ui.message(RB.items.ITEMS[prize].name, PRIZE_TEXT[prize], () => RB.game.go(A.back || 'coop', A.backArgs), { head: pal.mustard });
+          else if (mine && card.boss && r.winner === 0 && A.arena.boss.final) ui.message('Champion!', 'Madame Plume hands over the belt without a word. ' + F[0].name + ' crows until the lights go out.\n\nThe Grand Ring is yours. If Big Wattle still has his hand out, the bank is open. Either way the map, the lab and every strange egg are still there.', () => RB.game.go(A.back || 'coop', A.backArgs), { head: pal.mustard });
           else RB.game.go(A.back || 'coop', A.backArgs);
         }
       }

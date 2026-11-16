@@ -8,10 +8,10 @@
 
   const HELP = [
     ['The day', 'Feed your birds (the feeder holds grain for the night), then drive out. Time only passes on the map. Sleep at home to start the next day: birds age, eggs are laid and hatch, shops restock.'],
-    ['Catching', 'Throw nets at wild creatures. Big, strong ones tear plain nets: tire them out by chasing, lure them with seed, trap them in holes you dug, or buy heavy nets. Some fly, some run, some charge the truck.'],
-    ['Fighting', 'Load fighters into the truck and enter a bout at an arena. They fight on their own: body shape, weapons, wind and nerve decide it. You shout three commands, each with a cooldown, and you can bet. Win enough at an arena and its boss will face you.'],
+    ['Catching', 'Throw nets at wild creatures. Big, strong ones tear plain nets: tire them out by chasing, lure them with seed, trap them in holes you dug, or buy heavy nets. Some fly, some run, some charge the truck. Birds you set free leave their genes in the wild: now and then a wild one born nearby carries some of them.'],
+    ['Fighting', 'Load fighters into the truck and enter a bout at an arena. They fight on their own: body shape, weapons, wind and nerve decide it. You shout three commands, each with a cooldown, and you can bet. Win enough at an arena and its boss will face you. Old Bira, the first boss, gives a silver net that never runs out; Dona Zefa, the second, a golden shovel that digs ten holes a day.'],
     ['Breeding', 'Drag a male and a female into a nest and sleep. The egg takes after both: every gene has two copies, one from each parent. Different kinds can cross, less reliably. Chicks grow up in a couple of days.'],
-    ['Digging', 'A shovel digs anywhere on the map: coins, relics, worms, fuses, fossil fragments. Red crosses mark sure finds. Holes stay and trap small animals.'],
+    ['Digging', 'A shovel digs anywhere on the map: coins, relics, worms, fuses, fossil fragments. Red crosses mark sure finds. Holes trap small animals and fill back in overnight.'],
     ['The lab', 'Three fuses bring the lab to life. Sequence a creature to read its genome, extract a gene into a beaker, edit it at the CRISPR bench, and inject it into another creature or an egg. Four fossil fragments rebuild a lost species.'],
     ['People', 'Neighbours buy birds that match what they want, breed their own, collect relics, or challenge you. You can net them, too. The sheriff takes a dim view.'],
     ['BFC', 'Brazil\'s Fried Chicken pays by the kilo for any bird you are done with, at the counter or through the pick-up box in your yard.'],

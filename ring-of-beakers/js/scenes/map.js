@@ -32,13 +32,14 @@
     if (cache && cache.key === key) return cache.list;
     if (!S.wildGone || S.wildGone.day !== S.day) S.wildGone = { day: S.day, ids: [] };
     const gone = new Set(S.wildGone.ids), list = [];
-    for (const e of WD.population(world, S.day)) if (!gone.has(e.id)) list.push(makeWild(e.g, e.x, e.y, 'graze', e));
+    // birds you set free on earlier days have left a little of themselves in the wild
+    for (const e of WD.population(world, S.day, undefined, ST.genePool(S))) if (!gone.has(e.id)) list.push(makeWild(e.g, e.x, e.y, 'graze', e));
     RB.game.wild = { key, list };
     return list;
   }
   function makeWild(g, x, y, state, e) {
     const P = RB.pheno.express(g);
-    return { id: e ? e.id : null, night: !!(e && e.night), cross: e ? e.cross : null, g, P, x, y, f: rng.chance(0.5) ? 1 : -1, state: state || 'graze', t: rng.range(0.5, 4), ph: rng.next(), sp: 0, stam: 100, alt: 0, tx: x, ty: y, mean: P.aggression > 0.8 && P.courage > 0.7 && P.S > 0.8 };
+    return { id: e ? e.id : null, night: !!(e && e.night), cross: e ? e.cross : null, kin: e ? e.kin : null, g, P, x, y, f: rng.chance(0.5) ? 1 : -1, state: state || 'graze', t: rng.range(0.5, 4), ph: rng.next(), sp: 0, stam: 100, alt: 0, tx: x, ty: y, mean: P.aggression > 0.8 && P.courage > 0.7 && P.S > 0.8 };
   }
   function addWild(g, x, y, state) { const w = makeWild(g, x, y, state); wild.push(w); return w; }
   const awake = (w) => !w.night || isNight();
@@ -57,7 +58,8 @@
     removeWild(w);
     const x = w.cross || {};
     const c = ST.addBird(S, w.g, { at: 'cage', bond: 0.1, origin: 'wild', mom: x.mom, dad: x.dad, momKey: x.momKey, dadKey: x.dadKey });
-    if (w.cross) ui.toast('A natural cross! Very rare in the wild.', pal.plum);
+    if (w.kin) ui.toast('This one has a look of ' + w.kin.name + ', whom you set free.', pal.plum);
+    else if (w.cross) ui.toast('A natural cross! Very rare in the wild.', pal.plum);
     S.stats.caught++;
     common.discover(S, c);
     ui.toast('Caught ' + c.name + ', a ' + ST.kind(c).toLowerCase() + '.', pal.teal);
@@ -79,8 +81,8 @@
     return 'caught';
   }
   function throwNet(tx, ty) {
-    const id = tool === 'bignet' && ST.count(S, 'bignet') ? 'bignet' : 'net';
-    if (!ST.take(S, id)) { ui.toast('No nets left. Net & Spade sells them.', pal.coral); RB.audio.play('error'); return; }
+    const id = ST.useNet(S, tool === 'bignet' && ST.count(S, 'bignet') ? 'bignet' : 'net');
+    if (!id) { ui.toast('No nets left. Net & Spade sells them.', pal.coral); RB.audio.play('error'); return; }
     let dx = tx - car.x, dy = ty - car.y; const d = Math.hypot(dx, dy) || 1, max = range();
     if (d > max) { dx *= max / d; dy *= max / d; }
     const dist = Math.min(d, max);
@@ -96,12 +98,12 @@
     for (const f of folk) { if (f.gone) continue; const d = Math.hypot(f.x - n.x1, f.y - n.y1); if (d < bd) { bd = d; who = f; best = null; } }
     let res = 'miss';
     if (who) res = catchPerson(who); else if (best) res = catchWild(best, n.id === 'bignet');
-    if (res === 'miss' || res === 'full') nets.push({ x: n.x1, y: n.y1, id: n.id });
+    if ((res === 'miss' || res === 'full') && n.id !== 'silvernet') nets.push({ x: n.x1, y: n.y1, id: n.id }); // the silver net comes back by itself
     if (res === 'miss') puff(n.x1, n.y1, 3, '#d9c7a0');
   }
   function dig() {
     if (digT > 0) return;
-    if (!ST.count(S, 'shovel')) { ui.toast('The shovel is worn out. Net & Spade sells them.', pal.coral); RB.audio.play('error'); return; }
+    if (!ST.digsLeft(S)) { ui.toast(S.equip.goldshovel ? 'The golden shovel has dug its ' + ST.GOLD_DIGS + ' holes today. Net & Spade sells shovels.' : 'The shovel is worn out. Net & Spade sells them.', pal.coral); RB.audio.play('error'); return; }
     const c = WD.cellOf(car.x, car.y), key = c.cx + ',' + c.cy;
     if (WD.markAt(world, c.cx, c.cy) ? S.marksDug[key] : S.dug[key] === S.day) { ui.toast('Already dug here today. Holes fill back in overnight.'); return; }
     if (WD.biomeAt(world, car.x, car.y) === 'water') { ui.toast('Too wet to dig.'); return; }
@@ -110,7 +112,7 @@
   }
   function finishDig() {
     const c = WD.cellOf(car.x, car.y), key = c.cx + ',' + c.cy, loot = WD.lootAt(world, c.cx, c.cy, S.day);
-    ST.take(S, 'shovel'); S.stats.dug++;
+    ST.useDig(S); S.stats.dug++;
     if (WD.markAt(world, c.cx, c.cy)) S.marksDug[key] = true; else S.dug[key] = S.day;
     const hx = (c.cx + 0.5) * WD.CELL, hy = (c.cy + 0.5) * WD.CELL;
     puff(hx, hy, 8, '#8a6a44');
@@ -423,7 +425,7 @@
       ui.text(WD.BIOMES[WD.biomeAt(world, car.x, car.y)].name, 12, 84, { size: 11, color: n > 0.5 ? pal.white : pal.ink, bold: false });
       if (det !== null) { ui.rect(12, 90, 92, 16, 'rgba(35,49,74,0.7)', 8); ui.icon('detector', 22, 98, 11, pal.white); ui.bar(34, 94, 64, 8, det, pal.mustard, 'rgba(255,255,255,0.25)'); }
       // tools, bottom right
-      const tools = [['net', ST.count(S, 'net'), 'Digit1']];
+      const tools = [S.equip.silvernet ? ['net', '∞', 'Digit1', 'silvernet'] : ['net', ST.count(S, 'net'), 'Digit1']];
       if (ST.count(S, 'bignet')) tools.push(['bignet', ST.count(S, 'bignet')]);
       if (ST.count(S, 'seed')) tools.push(['seed', ST.count(S, 'seed')]);
       const bs = 54, by = v.h - bs - 10;
@@ -434,15 +436,18 @@
         if (RB.game.timeSpeed > 1 && S.time > 23.5) { RB.game.timeSpeed = 1; ui.toast('Too late to hurry the clock. Head home.', pal.coral); }
       }
       let bx = v.w - 10 - bs;
-      if (ui.btn(bx, by, bs, bs, '', { icon: 'shovel', fill: pal.brick })) dig();
-      ui.text(String(ST.count(S, 'shovel')), bx + bs - 6, by + bs - 5, { size: 12, color: pal.white, align: 'right' });
+      const gold = ST.goldLeft(S) > 0;
+      if (ui.btn(bx, by, bs, bs, '', { icon: 'shovel', fill: gold ? '#d9a21b' : pal.brick })) dig();
+      // the golden shovel's digs left today, then ordinary ones
+      const digs = S.equip.goldshovel && ST.count(S, 'shovel') ? ST.goldLeft(S) + '+' + ST.count(S, 'shovel') : String(ST.digsLeft(S));
+      ui.text(digs, bx + bs - 6, by + bs - 5, { size: 12, color: pal.white, align: 'right' });
       for (const tl of tools.reverse()) {
         bx -= bs + 8;
         const on = tool === tl[0], isNet = tl[0] !== 'seed';
         ui.zone(bx, by, bs, bs);
         ctx.fillStyle = pal.shadow; ui.rr(ctx, bx, by + 3, bs, bs, 12); ctx.fill();
         ctx.fillStyle = on ? pal.mustard : pal.paper; ui.rr(ctx, bx, by, bs, bs, 12); ctx.fill();
-        ui.itemIcon(tl[0], bx + bs / 2, by + bs / 2 - 3, 26);
+        ui.itemIcon(tl[3] || tl[0], bx + bs / 2, by + bs / 2 - 3, 26);
         ui.text(String(tl[1]), bx + bs - 6, by + bs - 5, { size: 12, align: 'right' });
         for (const p of input.ptrs) if (p.fresh && p.sx >= bx && p.sx <= bx + bs && p.sy >= by && p.sy <= by + bs) { tool = tl[0]; if (isNet) p.owner = 'aim'; }
         if (ui.tapIn(bx, by, bs, bs)) { tool = tl[0]; if (isNet) autoThrow(); else dropSeed(); } // a plain tap throws at the nearest animal
@@ -474,7 +479,7 @@
   }
   function drawNet(ctx, x, y, r, id, spin) {
     ctx.save(); ctx.translate(x, y); ctx.rotate(spin || 0);
-    ctx.strokeStyle = id === 'bignet' ? pal.plum : pal.paper; ctx.lineWidth = 3.5;
+    ctx.strokeStyle = id === 'bignet' ? pal.plum : id === 'silvernet' ? '#cfd8e3' : pal.paper; ctx.lineWidth = 3.5;
     ctx.beginPath(); ctx.arc(0, 0, r, 0, TAU); ctx.stroke();
     ctx.lineWidth = 1.6;
     for (let i = -2; i <= 2; i++) { const k = i * r * 0.36, h = Math.sqrt(Math.max(0, r * r - k * k)); ctx.beginPath(); ctx.moveTo(k, -h); ctx.lineTo(k, h); ctx.moveTo(-h, k); ctx.lineTo(h, k); ctx.stroke(); }
@@ -489,7 +494,7 @@
       const f = folk.find((o) => o.npc.id === c.person);
       if (f) { f.gone = false; f.x = wx; f.y = wy; f.scared = 5; }
     } else { const w = addWild(c.g, wx, wy, 'graze'); w.stam = 30; w.t = 2; }
-    ST.removeBird(S, c);
+    ST.setFree(S, c, wx, wy); // its genes join the wild around here
     puff(wx, wy - 30, 6, pal.paper);
     ui.toast(c.name + (c.person ? ' scrambles off home.' : ' is free again.'), pal.ink);
     RB.audio.play('poof');

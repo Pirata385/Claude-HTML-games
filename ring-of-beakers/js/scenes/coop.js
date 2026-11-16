@@ -162,16 +162,23 @@
       });
     } });
   }
+  // Each session says what it trains, how much it adds, and which of the bird's numbers go up.
+  const RATE_NAMES = { power: 'Power', speed: 'Speed', tough: 'Toughness', stamina: 'Stamina', guts: 'Guts', wits: 'Wits', fury: 'Fury' };
   function trainPick(c) {
     const labels = { muscle: 'Strength', reflex: 'Reflexes', lungs: 'Wind', courage: 'Nerve' };
+    const pct = (x) => Math.round(x * 100) + '%';
     ui.open({ draw() {
-      const box = ui.window('Train ' + c.name, 320, 290, {});
+      const box = ui.window('Train ' + c.name, 380, 330, {});
       if (!box) return;
-      ui.para('One session a day. Each adds a little, up to +15%.', box.x, box.y, box.w, { size: 12 });
+      ui.para('One session a day. Each adds a little to one kind of training, up to 15%.', box.x, box.y, box.w, { size: 12 });
       ST.TRAIN.forEach((stat, i) => {
-        const y = box.y + 40 + i * 48;
-        ui.bar(box.x + 140, y + 14, box.w - 140, 10, c.train[stat] / 0.15, pal.mustard);
-        if (ui.btn(box.x, y, 130, 38, labels[stat], { fill: pal.mustard, color: pal.ink, size: 13, disabled: c.train[stat] >= 0.15 })) {
+        const y = box.y + 36 + i * 60, pv = ST.trainPreview(c, stat), maxed = pv.gain <= 0, tx = box.x + 132, tw = box.w - 132;
+        ui.text(maxed ? labels[stat] + ' maxed out (15%)' : '+' + pct(pv.gain) + ' ' + labels[stat].toLowerCase() + ' (now ' + pct(pv.from) + ')', tx, y + 14, { size: 12, maxW: tw });
+        const shown = new Set(pv.rates.map((r) => r[0]));
+        const parts = pv.rates.map((r) => RATE_NAMES[r[0]] + ' +' + r[1]).concat(pv.affects.filter((k) => !shown.has(k)).map((k) => RATE_NAMES[k] + ' +<1'));
+        ui.text(maxed ? 'Nothing more to gain here.' : parts.length ? parts.join(' · ') : 'Too small to show in the numbers yet.', tx, y + 30, { size: 11, bold: false, color: maxed ? pal.grey : pal.teal, maxW: tw });
+        ui.bar(tx, y + 38, tw, 6, c.train[stat] / 0.15, pal.mustard);
+        if (ui.btn(box.x, y, 122, 46, labels[stat], { fill: pal.mustard, color: pal.ink, size: 13, disabled: maxed })) {
           const msg = ST.train(S, c, stat);
           if (msg) ui.toast(msg, pal.coral); else { hit = 1; RB.audio.play('kick'); ui.toast(c.name + ' trained ' + labels[stat].toLowerCase() + '.', pal.teal); const e = birds.find((b) => b.c === c); if (e) { const x = e.rag.midX(); dropRag(e); mkRag(c, x); } }
           ui.close();
@@ -264,7 +271,7 @@
       }
     },
     exit() { for (const e of birds.slice()) e.rag.remove(); birds = []; bedBox = null; },
-    debug() { return { birds, lay, cam, zoom: zoom(), groundY: groundY() }; },
+    debug() { return { birds, lay, cam, zoom: zoom(), groundY: groundY(), trainPick }; },
 
     update(dt) {
       if (common.checkBroke(S, 'coop')) return;

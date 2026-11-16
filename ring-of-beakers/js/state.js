@@ -13,7 +13,7 @@
 
   function create(seed) {
     const S = {
-      v: 1, seed: seed >>> 0, rs: (seed ^ 0x51ab) >>> 0, day: 1, time: 6, money: 150, debt: 15000, heat: 0, nextId: 1,
+      v: 1, seed: seed >>> 0, rs: (seed ^ 0x51ab) >>> 0, day: 1, time: 6, money: 150, debt: 15000, heat: 0, heatPeople: 0, heatDays: 0, nextId: 1,
       birds: [], eggs: [], roost: [], released: [],
       inv: { net: 3, shovel: 10, grain: 8 }, equip: {}, up: { cage: 0, engine: 0, tires: 0, coop: 0, nest: 0, incubator: 0, dummy: 0 },
       feeder: 0, pos: null, dug: {}, marksDug: {}, wildGone: null, npc: {}, league: {}, bets: {},
@@ -139,7 +139,7 @@
     if (!isAdult(c)) return c.name + ' is too young to train.';
     if (c.train[stat] >= 0.15) return c.name + ' cannot improve that any further.';
     c.trained = true;
-    c.train[stat] = Math.min(0.15, +(c.train[stat] + 0.02 * (c.gear === 'anklets' ? 1.5 : 1)).toFixed(3));
+    c.train[stat] = Math.min(0.15, +(c.train[stat] + trainStep(c)).toFixed(3));
     c.bond = Math.min(1, c.bond + 0.03);
     return '';
   }
@@ -200,12 +200,11 @@
       lines.push('An egg hatched: ' + chick.name + ', a ' + kind(chick).toLowerCase() + ' chick.');
     }
     // a day older
-    let held = 0;
     for (const c of S.birds.slice()) {
       c.fed = false; c.bouts = 0; c.trained = false; c.tired = false;
       if (c.rest > 0) c.rest--;
       // wounds do not heal on their own: that is the vet's job
-      if (c.person) { held++; continue; }
+      if (c.person) continue;
       if (c.hatched === S.day) continue; // hatched this morning: not a day old yet
       if (isRetired(c)) continue; // retired birds stop counting the days
       const was = pheno(c).stage;
@@ -220,7 +219,13 @@
     }
     // Dona Nina feeds the residents of Sunset Roost and tends their wounds
     for (const c of S.roost || []) { c.fed = true; c.hungry = 0; c.tired = false; c.rest = 0; c.bouts = 0; c.love = false; if (c.hp < 1) c.hp = Math.min(1, c.hp + 0.25); if (c.cond < 1) { c.cond = Math.min(1, c.cond + 0.25); dirty(c); } }
-    S.heat = clamp(S.heat - 6 + held * 4, 0, 100);
+    // the heat dies down: back to nothing after one night for each person netted (three at most)
+    if (S.heat > 0) {
+      const n = Math.max(1, S.heatDays || 1);
+      S.heat = n <= 1 ? 0 : Math.round(S.heat * (n - 1) / n);
+      S.heatDays = n - 1;
+    }
+    if (S.heat <= 0) { S.heat = 0; S.heatPeople = 0; S.heatDays = 0; }
     // ordinary holes fill back in overnight (treasure marks stay dug)
     for (const k of Object.keys(S.dug)) if (S.dug[k] < S.day) delete S.dug[k];
     // a house left empty gets a new owner after three nights
@@ -239,6 +244,34 @@
   function soldPerson(S, c) {
     const st = RB.npc.info(S, c.person);
     st.gone = true; st.soldOff = true; st.soldDay = S.day;
+  }
+
+  // ---- the heat: netting a person makes you wanted. The heat clears in one night per person netted
+  // since it was last at zero, and never takes more than HEAT_DAYS nights.
+  const HEAT_DAYS = 3;
+  function caughtPerson(S, add) {
+    S.heat = clamp(S.heat + add, 0, 100);
+    S.heatPeople = (S.heatPeople || 0) + 1;
+    S.heatDays = Math.min(HEAT_DAYS, S.heatPeople);
+  }
+
+  // ---- training: what a session would add, so the dummy can say so before you choose
+  const trainStep = (c) => 0.02 * (c.gear === 'anklets' ? 1.5 : 1);
+  // { gain (to the training bonus, 0 when maxed), from, to, rates: [[rate, +n], ...] }
+  function trainPreview(c, stat) {
+    const from = c.train[stat], to = Math.min(0.15, +(from + trainStep(c)).toFixed(3));
+    const opts = { age: c.age, cond: c.cond };
+    const A = RB.pheno.express(c.g, Object.assign({ train: c.train }, opts));
+    const B = RB.pheno.express(c.g, Object.assign({ train: Object.assign({}, c.train, { [stat]: to }) }, opts));
+    // which numbers this kind of training moves at all (some steps are too small to show yet)
+    const Z = RB.pheno.express(c.g, Object.assign({ train: Object.assign({}, c.train, { [stat]: 0.15 }) }, opts));
+    const Y = RB.pheno.express(c.g, Object.assign({ train: Object.assign({}, c.train, { [stat]: 0 }) }, opts));
+    const rates = [], affects = [];
+    for (const k of Object.keys(A.rate)) {
+      if (B.rate[k] !== A.rate[k]) rates.push([k, B.rate[k] - A.rate[k]]);
+      if (Z.rate[k] !== Y.rate[k]) affects.push(k);
+    }
+    return { gain: +(to - from).toFixed(3), from, to, rates, affects };
   }
 
   // ---- boss prizes: beating the first boss earns the silver net, the second the golden shovel
@@ -334,6 +367,6 @@
   }
 
   RB.state = { create, addBird, removeBird, pheno, dirty, kind, isAdult, isRetired, checkIn, checkOut, BOSS_PRIZES, bossPrizes, GOLD_DIGS, goldLeft, digsLeft, useDig, useNet,
-    RELEASED_MAX, setFree, genePool, byId, at, atHome, cageCap, coopCap, nestCount, count, give, take, move, feed, train, TRAIN,
+    RELEASED_MAX, setFree, genePool, HEAT_DAYS, caughtPerson, trainPreview, byId, at, atHome, cageCap, coopCap, nestCount, count, give, take, move, feed, train, TRAIN,
     layChance, sleep, serialize, deserialize, freeName, BIRD_NAMES, eat, soldPerson, kindKey, isCross, label };
 })();

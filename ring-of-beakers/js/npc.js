@@ -137,8 +137,8 @@
   function challengeOf(S, npc) {
     const st = info(S, npc.id);
     if (st.fought === S.day) return null;
-    let tier = 0;
-    for (const a of RB.economy.ARENAS) if (RB.economy.arenaOpen(S, a)) tier = a.tier;
+    // rivals match how far you have come: one tier up for each arena boss beaten
+    const tier = Math.min(RB.economy.ARENAS.length - 1, RB.economy.ARENAS.filter((a) => RB.economy.leagueOf(S, a.id).boss).length);
     const arena = RB.economy.ARENAS[tier], r = new Rng((npc.seed ^ Math.imul(S.day, 6151)) >>> 0);
     const wc = r.pick(arena.classes), stake = Math.round(30 * (1 + tier) * (1 + tier) * npc.wealth / 5) * 5;
     const opp = RB.economy.makeOpponent((npc.seed + S.day * 31) >>> 0, wc, tier, arena.id === 'cellar');

@@ -212,9 +212,9 @@
     S.heat = clamp(S.heat - 6 + held * 4, 0, 100);
     // a house left empty gets a new owner after three nights
     for (const id of Object.keys(S.npc)) {
-      const st = S.npc[id];
-      if (st.sold && S.day - st.soldDay >= 3) {
-        st.sold = false; st.gone = false; st.gen = (st.gen || 0) + 1; st.rel = 0; st.n = 0; st.sold_ = null;
+      const st = RB.npc.info(S, id);
+      if (st.soldOff && S.day - st.soldDay >= 3) {
+        st.soldOff = false; st.gone = false; st.gen = (st.gen || 0) + 1; st.rel = 0; st.n = 0; st.sold = {}; st.credit = 0;
         lines.push(id === 'sheriff' ? 'A new sheriff has come to town.' : 'Someone new has moved into an empty house.');
       }
     }
@@ -225,7 +225,7 @@
   // A netted person who went to BFC: gone for good, and their house stands empty for a while.
   function soldPerson(S, c) {
     const st = RB.npc.info(S, c.person);
-    st.gone = true; st.sold = true; st.soldDay = S.day;
+    st.gone = true; st.soldOff = true; st.soldDay = S.day;
   }
 
   // ---- saving

@@ -200,10 +200,16 @@
     } });
   }
   // Choose which base to change and to what, then play the cut.
+  // With the mini-game switched off (Settings), an edit applies at once and the bench stays open.
+  const miniGame = () => RB.game.settings.crispr !== false;
+  function editNow(v, pos, to) {
+    L.edit(v, pos, to); if (v.commit) v.commit();
+    common.award(S, 'crispr'); RB.audio.play('good'); RB.game.save();
+  }
   function editWindow(v) {
     let pos = 0, to = (v.bases[0] + 1) % 4;
     ui.open({ draw() {
-      const box = ui.window('CRISPR bench', 340, 318, {});
+      const box = ui.window('CRISPR bench', 340, 330, {});
       if (!box) return;
       ui.text(L.geneLabel(S, v.gi), box.x, box.y + 12, { size: 14, maxW: box.w });
       ui.text('Now: ' + L.describe(S, v.gi, v.bases), box.x, box.y + 30, { size: 11, bold: false, maxW: box.w });
@@ -224,7 +230,12 @@
       const after = v.bases.slice(); after[pos] = to;
       ui.text('After: ' + L.describe(S, v.gi, after), box.x, box.y + 184, { size: 11, bold: false, maxW: box.w });
       ui.text('A is worth 0, C 1, G 2, T 3; in colour genes the first letter weighs most. Cuts are free.', box.x, box.y + 202, { size: 10, bold: false, maxW: box.w, color: pal.grey });
-      if (ui.btn(box.x, box.y + box.h - 46, box.w, 44, 'Cut', { icon: 'dna', fill: pal.plum, disabled: to === v.bases[pos] })) { ui.close(); cutGame(v, pos, to); }
+      const game = miniGame();
+      ui.text(game ? 'Each cut is a small mini-game. You can switch it off in Settings.' : 'Mini-game off (Settings): edits apply at once.', box.x, box.y + 218, { size: 10, bold: false, maxW: box.w, color: pal.plum });
+      if (ui.btn(box.x, box.y + box.h - 46, box.w, 44, game ? 'Cut' : 'Edit', { icon: 'dna', fill: pal.plum, disabled: to === v.bases[pos] })) {
+        if (game) { ui.close(); cutGame(v, pos, to); }
+        else { editNow(v, pos, to); to = (v.bases[pos] + 1) % 4; ui.toast('Base ' + (pos + 1) + ' is now ' + BASES[v.bases[pos]] + '.', pal.teal); }
+      }
     } });
   }
   // The cut: a ring of bases turns under the blade. Cut when the next letter of the guide is
@@ -295,6 +306,7 @@
   RB.scenes.lab = {
     enter() { S = RB.game.S; tab = 0; subject = null; gene = -1; t = 0; RB.audio.setTune('lab'); },
     update(dt) { t += dt; },
+    debug() { return { editWindow, singleGene }; },
     draw(ctx) {
       const v = ui.view;
       ctx.fillStyle = '#e4efec'; ctx.fillRect(0, 0, v.w, v.h);

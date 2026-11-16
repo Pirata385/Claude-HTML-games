@@ -80,6 +80,15 @@
     // People share the same genome: bare skin, arms, forward knees and no beak.
     human: { name: 'Person', tier: 3, person: true, sw: ['arms', 'bare', 'knee'], cv: 0.12,
       t: { size: 2.3, posture: 1, bodyLen: 0.95, bodyDepth: 0.95, neckLen: 0.22, neckThick: 1.1, headSize: 1.15, eyeSize: 0.75, beakLen: 0, legLen: 1.85, legThick: 1.5, footSize: 1.2, talon: 0, spur: 0, web: 0, wingSize: 0, tailLen: 0, comb: 0, wattle: 0, crest: 0.6, hue: 0.07, sat: 0.45, lit: 0.6, litHead: -0.3, aggression: 0.4, courage: 0.4, focus: 0.6, cunning: 0.7, lifespan: 22 } },
+    // Added later, at the end so the kinds before them come out as they always did.
+    // The Andean condor: a huge black soaring bird with white wing patches, a bare head and a fleshy
+    // comb. It hisses and grunts rather than calls. Long-lived and very hard to wear down.
+    condor: { name: 'Andean Condor', short: 'Condor', tier: 4,
+      t: { size: 1.64, posture: 0.5, bodyDepth: 1.2, bodyLen: 1.1, neckLen: 1.0, neckCurve: 0.7, neckThick: 0.95, headSize: 0.95, beakLen: 1.0, beakDepth: 1.3, beakHook: 1, legLen: 1.05, legThick: 1.3, footSize: 1.3, talon: 0.3, spur: 0, wingSize: 2.3, wingPoint: 0.05, tailLen: 0.9, tailFan: 0.5, tailUp: 0.1, comb: 0.75, combType: 0.1, wattle: 0.55, bareHead: 1, combHue: -0.06, crest: 0, hue: 0.62, sat: 0.04, lit: 0.08, litWing: 0.3, litHead: 0.4, beakTone: 0.24, legTone: 0.25, eyeTone: 0.35, hide: 1.3, lungs: 1.55, bone: 1.15, muscle: 1.2, cunning: 0.6, aggression: 0.45, courage: 0.75, focus: 0.7, lifespan: 22, voicePitch: 0.15, voiceRasp: 0.95, voiceLen: 0.6 } },
+    // The harpy eagle: the jungle's heaviest raptor, with a split grey crest, a black chest band over a
+    // white belly, legs as thick as a child's wrist and huge talons. Calls with a long, thin wail.
+    harpy: { name: 'Harpy Eagle', short: 'Harpy', tier: 4,
+      t: { size: 1.36, posture: 0.8, bodyDepth: 1.2, bodyLen: 1.0, neckLen: 0.55, neckThick: 1.2, headSize: 1.4, eyeSize: 1.3, beakLen: 0.85, beakDepth: 1.65, beakHook: 1, legLen: 1.05, legThick: 1.9, footSize: 1.9, talon: 1, spur: 0, wingSize: 1.65, wingPoint: 0, tailLen: 1.25, tailFan: 0.35, tailUp: 0.1, crest: 1, comb: 0, wattle: 0, hue: 0.6, sat: 0.07, lit: 0.28, litHead: 0.4, litWing: -0.2, litTail: -0.05, belly: 1, pattern: 0.5, beakTone: 0.05, legTone: 0.5, eyeTone: 0.15, muscle: 1.5, bone: 1.25, reflex: 1.3, hide: 1.15, aggression: 0.9, courage: 0.95, focus: 0.95, cunning: 0.6, voicePitch: 0.9, voiceRasp: 0.1, voiceLen: 0.95 } },
   };
   for (const id of Object.keys(SPECIES)) { const s = SPECIES[id]; s.id = id; s.sw = s.sw || []; }
   const IDS = Object.keys(SPECIES);

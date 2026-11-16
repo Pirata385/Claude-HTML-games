@@ -26,7 +26,8 @@
       return set('slot' + slot, raw);
     } catch (e) { return false; }
   }
-  const DEFAULTS = { sfx: 0.8, music: 0.5, fast: false };
+  // crispr: play the cutting mini-game for each gene edit (off: edits apply at once)
+  const DEFAULTS = { sfx: 0.8, music: 0.5, fast: false, crispr: true };
   function settings() { try { return Object.assign({}, DEFAULTS, JSON.parse(get('settings') || '{}')); } catch (e) { return Object.assign({}, DEFAULTS); } }
   const setSettings = (o) => set('settings', JSON.stringify(o));
 

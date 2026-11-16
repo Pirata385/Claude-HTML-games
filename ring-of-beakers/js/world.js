@@ -22,9 +22,9 @@
     farm: { day: [['chicken', 30], ['bantam', 10], ['quail', 12], ['pheasant', 8], ['turkey', 6], ['gamecock', 3], ['raven', 8], ['duck', 5], ['goose', 4]], night: [['owl', 14]] },
     wetland: { day: [['duck', 25], ['goose', 14], ['swan', 6], ['heron', 14], ['flamingo', 8], ['pelican', 4], ['raven', 3]], night: [['owl', 8], ['kiwi', 6]] },
     savanna: { day: [['ostrich', 10], ['emu', 8], ['roadrunner', 14], ['secretary', 5], ['vulture', 10], ['quail', 10], ['turkey', 4]], night: [['owl', 8]] },
-    highlands: { day: [['falcon', 12], ['eagle', 7], ['vulture', 10], ['raven', 14], ['pheasant', 8]], night: [['owl', 20]] },
+    highlands: { day: [['falcon', 12], ['eagle', 7], ['vulture', 10], ['raven', 14], ['pheasant', 8], ['condor', 4]], night: [['owl', 20]] },
     coast: { day: [['gull', 30], ['pelican', 12], ['penguin', 8], ['flamingo', 8], ['heron', 6]], night: [['owl', 4]] },
-    jungle: { day: [['parrot', 14], ['toucan', 12], ['peafowl', 8], ['cassowary', 4], ['hummingbird', 12], ['pheasant', 4]], night: [['kiwi', 16], ['owl', 8]] },
+    jungle: { day: [['parrot', 14], ['toucan', 12], ['peafowl', 8], ['cassowary', 4], ['hummingbird', 12], ['pheasant', 4], ['harpy', 3]], night: [['kiwi', 16], ['owl', 8]] },
     town: { day: [['chicken', 10], ['raven', 10], ['gull', 4]], night: [['owl', 6]] },
   };
   const FOSSIL_BIOME = { coast: 'dodo', savanna: 'terror', jungle: 'moa', wetland: 'archaeo', highlands: 'raptor' };

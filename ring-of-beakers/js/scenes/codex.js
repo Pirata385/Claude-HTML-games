@@ -12,7 +12,7 @@
     ['Fighting', 'Load fighters into the truck and enter a bout at an arena. They fight on their own: body shape, weapons, wind and nerve decide it. You shout three commands, each with a cooldown, and you can bet. Win enough at an arena and its boss will face you. Old Bira, the first boss, gives a silver net that never runs out; Dona Zefa, the second, a golden shovel that digs ten holes a day.'],
     ['Breeding', 'Drag a male and a female into a nest and sleep. The egg takes after both: every gene has two copies, one from each parent. Different kinds can cross, less reliably. Chicks grow up in a couple of days.'],
     ['Digging', 'A shovel digs anywhere on the map: coins, relics, worms, fuses, fossil fragments. Red crosses mark sure finds. Holes trap small animals and fill back in overnight.'],
-    ['The lab', 'Three fuses bring the lab to life. Sequence a creature to read its genome, extract a gene into a beaker, edit it at the CRISPR bench, and inject it into another creature or an egg. Four fossil fragments rebuild a lost species.'],
+    ['The lab', 'Three fuses bring the lab to life. Every gene is mapped: extract one into a beaker, or copy a whole genome, edit any base at the CRISPR bench (its cutting mini-game can be switched off in Settings), and inject it into another creature or an egg. Four fossil fragments rebuild a lost species.'],
     ['People', 'Neighbours buy birds that match what they want, breed their own, collect relics, or challenge you. You can net them, too. The sheriff takes a dim view.'],
     ['BFC', 'Brazil\'s Fried Chicken pays by the kilo for any bird you are done with, at the counter or through the pick-up box in your yard.'],
     ['Old age', 'A bird that reaches the end of its lifespan retires instead of dying: no more fights, nests, training or shows. Take it to Sunset Roost, just north-west of home, where Dona Nina looks after retired birds in her garden for free. You can visit them, or take one home again.'],
@@ -38,7 +38,8 @@
       names.forEach((n, i) => { if (ui.btn(b.x + i * (tw + 6), b.y, tw, 32, n, { fill: tab === i ? pal.ink : pal.paper, color: tab === i ? pal.white : pal.ink, size: 12, flat: true })) { tab = i; RB.audio.play('click'); } });
       const y0 = b.y + 40, h = b.h - 40;
       if (tab === 0) {
-        const ids = RB.species.IDS.filter((id) => !RB.species.SPECIES[id].person), cols = Math.max(3, Math.floor(b.w / 112)), cw = b.w / cols, rows = Math.ceil(ids.length / cols);
+        // living kinds first, the extinct ones (fossils only) at the end
+        const ids = RB.species.IDS.filter((id) => !RB.species.SPECIES[id].person).sort((a, b) => (RB.species.SPECIES[a].extinct ? 1 : 0) - (RB.species.SPECIES[b].extinct ? 1 : 0)), cols = Math.max(3, Math.floor(b.w / 112)), cw = b.w / cols, rows = Math.ceil(ids.length / cols);
         ui.list('codexBirds', b.x, y0, b.w, h, rows, cw + 14, (r, x, y) => {
           for (let c = 0; c < cols; c++) {
             const id = ids[r * cols + c]; if (!id) break;

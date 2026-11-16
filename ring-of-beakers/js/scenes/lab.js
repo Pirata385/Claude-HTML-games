@@ -29,8 +29,7 @@
     const y0 = b.y + 56;
     if (!S.lab.seq[subject.id]) {
       ui.para(subject.name + ' has not been sequenced. A first read also teaches the atlas a few genes.', b.x + 4, y0, b.w - 8, { size: 13 });
-      if (ui.btn(b.x, y0 + 46, 220, 42, 'Sequence ($' + L.SEQ_FEE + ')', { icon: 'dna', disabled: S.money < L.SEQ_FEE })) {
-        S.money -= L.SEQ_FEE;
+      if (ui.btn(b.x, y0 + 46, 220, 42, 'Sequence (free)', { icon: 'dna' })) {
         const learned = L.sequence(S, subject);
         RB.audio.play('zap'); common.checkAch(S);
         ui.message('Sequenced', learned.length ? 'New in the atlas: ' + learned.join(', ') + '.' : 'Nothing new for the atlas this time.');

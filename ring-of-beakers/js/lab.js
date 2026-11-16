@@ -5,7 +5,7 @@
   'use strict';
   const RB = globalThis.RB;
   const GN = RB.genome;
-  const FRAGMENTS = 4, REBUILD_COST = 600, SEQ_FEE = 40;
+  const FRAGMENTS = 4, REBUILD_COST = 600, SEQ_FEE = 0;
 
   const known = (S, gi) => !!S.lab.atlas[gi];
   const knownCount = (S) => Object.keys(S.lab.atlas).length;

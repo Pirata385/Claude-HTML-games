@@ -129,10 +129,16 @@
     return rng.weighted(night ? f.night.concat(f.day.slice(0, 3)) : f.day, (e) => e[1])[0];
   }
 
-  // What is buried in a cell. Returns null or { type: 'money' | 'item' | 'fossil' | 'chest' | 'creature', ..., metal }.
-  function lootAt(world, cx, cy) {
-    for (const m of world.marks) if (m.cx === cx && m.cy === cy) return Object.assign({ metal: m.loot.type !== 'fossil', marked: true }, m.loot);
-    const u = hash2(cx, cy, world.seed), v = hash2(cx, cy, world.seed + 91), x = (cx + 0.5) * CELL, y = (cy + 0.5) * CELL;
+  // The treasure mark (red X) in a cell, if there is one.
+  const markAt = (world, cx, cy) => world.marks.find((m) => m.cx === cx && m.cy === cy) || null;
+  // What is buried in a cell on a given day. Ordinary holes fill back in overnight and the ground
+  // holds something new the next day; a treasure mark always holds its own find.
+  // Returns null or { type: 'money' | 'item' | 'fossil' | 'chest' | 'creature', ..., metal }.
+  function lootAt(world, cx, cy, day) {
+    const m = markAt(world, cx, cy);
+    if (m) return Object.assign({ metal: m.loot.type !== 'fossil', marked: true }, m.loot);
+    const ds = (world.seed + Math.imul(day || 0, 7919)) | 0;
+    const u = hash2(cx, cy, ds), v = hash2(cx, cy, ds + 91), x = (cx + 0.5) * CELL, y = (cy + 0.5) * CELL;
     if (u > 0.97) return null; // coming up empty is rare
     const b = biomeAt(world, x, y);
     if (b === 'water') return null;
@@ -152,6 +158,40 @@
   }
   const cellOf = (x, y) => ({ cx: Math.floor(x / CELL), cy: Math.floor(y / CELL) });
 
+  // The day's wild population: groups of animals spread over the land, the same for a given save
+  // and day, so they stay put while you go in and out of places and are renewed each morning.
+  // Some groups only come out at night. Very rarely (about one animal in 170) a wild bird is
+  // a natural cross of two kinds. Entries: { id, sp, g, x, y, night, cross }
+  const CROSS_RATE = 0.006;
+  function population(world, day, groups) {
+    const r = new Rng((world.seed ^ Math.imul((day || 0) + 1, 2654435761) ^ 0x51d) >>> 0);
+    const out = [], ids = RB.species.IDS.filter((id) => !RB.species.SPECIES[id].extinct && !RB.species.SPECIES[id].person);
+    let made = 0;
+    for (let tries = 0; made < (groups || 140) && tries < 4000; tries++) {
+      const x = r.range(150, W - 150), y = r.range(150, H - 150);
+      if (biomeAt(world, x, y) === 'water' || nearestSite(world, x, y, 260)) continue;
+      const night = r.chance(0.2), sp = spawnSpecies(world, x, y, night, r);
+      if (!sp) continue;
+      made++;
+      const n = r.int(1, RB.species.SPECIES[sp].tier <= 2 ? 3 : 2);
+      for (let i = 0; i < n; i++) {
+        const ax = x + r.range(-90, 90), ay = y + r.range(-70, 70);
+        if (biomeAt(world, ax, ay) === 'water') continue;
+        let g, cross = null;
+        if (r.chance(CROSS_RATE)) {
+          // a natural cross: this kind and another from the same land (or, rarely, from anywhere)
+          const b = biomeAt(world, ax, ay), f = FAUNA[b] ? FAUNA[b].day.map((e) => e[0]).filter((id) => id !== sp) : [];
+          const other = r.chance(0.7) && f.length ? r.pick(f) : r.pick(ids.filter((id) => id !== sp));
+          const momFirst = r.chance(0.5), momId = momFirst ? sp : other, dadId = momFirst ? other : sp;
+          g = RB.genome.breed(RB.species.make(momId, r, { sex: 'F', sport: 0 }), RB.species.make(dadId, r, { sex: 'M', sport: 0 }), r);
+          cross = { momKey: momId, dadKey: dadId, mom: RB.species.generic(momId), dad: RB.species.generic(dadId) };
+        } else g = RB.species.make(sp, r, { sport: 0.07 });
+        out.push({ id: out.length, sp, g, x: ax, y: ay, night, cross });
+      }
+    }
+    return out;
+  }
+
   // Scenery for one cell of the decor grid (a coarser grid than the loot cells): [{ kind, x, y, s }]
   const DECOR = {
     farm: ['tree', 'bush', 'hay', 'flower', 'flower'], wetland: ['reed', 'reed', 'willow', 'bush'], savanna: ['acacia', 'drybush', 'rock', 'mound'],
@@ -169,5 +209,5 @@
     return out;
   }
 
-  RB.world = { W, H, CELL, BIOMES, FAUNA, generate, biomeAt, seaY, inBlob, blobR, onRoad, nearestSite, spawnSpecies, lootAt, cellOf, decorAt };
+  RB.world = { W, H, CELL, BIOMES, FAUNA, CROSS_RATE, generate, biomeAt, seaY, inBlob, blobR, onRoad, nearestSite, spawnSpecies, markAt, lootAt, cellOf, population, decorAt };
 })();

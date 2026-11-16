@@ -205,12 +205,12 @@ test('the world has every site on dry land, people for each, and stable buried l
     for (const s of w.sites) assert.notStrictEqual(RB.world.biomeAt(w, s.x, s.y), 'water', s.id + ' is in the water (seed ' + seed + ')');
     assert.ok(w.npcs.length >= 20);
     for (const n of w.npcs) { assert.ok(w.site[n.site], n.id + ' has no site'); assert.ok(RB.pheno.express(n.g).person, n.name + ' is not a person'); }
-    for (const m of w.marks) { const l = RB.world.lootAt(w, m.cx, m.cy); assert.ok(l && l.marked); }
+    for (const m of w.marks) { const l = RB.world.lootAt(w, m.cx, m.cy, 1); assert.ok(l && l.marked); assert.deepStrictEqual(RB.world.lootAt(w, m.cx, m.cy, 9), l, 'a treasure mark holds the same find every day'); }
     let found = 0, dry = 0;
     const kinds = {};
     for (let cx = 20; cx < 100; cx++) for (let cy = 10; cy < 70; cy++) {
-      const l = RB.world.lootAt(w, cx, cy);
-      assert.deepStrictEqual(l, RB.world.lootAt(w, cx, cy));
+      const l = RB.world.lootAt(w, cx, cy, 1);
+      assert.deepStrictEqual(l, RB.world.lootAt(w, cx, cy, 1));
       if (RB.world.biomeAt(w, (cx + 0.5) * RB.world.CELL, (cy + 0.5) * RB.world.CELL) !== 'water') dry++;
       if (l) { found++; kinds[l.type] = 1; }
     }
@@ -350,4 +350,35 @@ test('only a loss wounds a fighter; every bout tires it; a tonic restores vigour
   ST.sleep(S);
   assert.ok(!c.tired, 'a night rests it');
   assert.strictEqual(c.hp, 0.6, 'wounds do not heal overnight');
+});
+
+test('ordinary holes fill in overnight and the ground holds something new; treasure marks stay dug', () => {
+  const S = ST.create(53), w = RB.world.generate(S.seed);
+  // the same cell holds different finds on different days
+  let differs = 0;
+  for (let cx = 30; cx < 60; cx++) if (JSON.stringify(RB.world.lootAt(w, cx, 40, 1)) !== JSON.stringify(RB.world.lootAt(w, cx, 40, 2))) differs++;
+  assert.ok(differs > 20, 'loot should change from day to day, only ' + differs + ' of 30 did');
+  S.dug['40,40'] = S.day;
+  const m = w.marks[0], mk = m.cx + ',' + m.cy;
+  S.marksDug[mk] = true;
+  S.feeder = 9; ST.sleep(S);
+  assert.strictEqual(S.dug['40,40'], undefined, 'yesterday\'s hole is gone');
+  assert.ok(S.marksDug[mk], 'a dug treasure mark stays dug');
+});
+
+test('the wild population is set for the day, mostly on land, with night groups and very rare crosses', () => {
+  const w = RB.world.generate(61);
+  const a = RB.world.population(w, 3), b = RB.world.population(w, 3), c = RB.world.population(w, 4);
+  assert.ok(a.length > 150, 'only ' + a.length + ' animals');
+  assert.deepStrictEqual(a.map((e) => [e.id, e.sp, Math.round(e.x), Math.round(e.y), RB.genome.hash(e.g)]), b.map((e) => [e.id, e.sp, Math.round(e.x), Math.round(e.y), RB.genome.hash(e.g)]), 'the same day gives the same animals');
+  assert.notDeepStrictEqual(a.map((e) => e.sp + Math.round(e.x)), c.map((e) => e.sp + Math.round(e.x)), 'a new day gives new animals');
+  for (const e of a) {
+    assert.notStrictEqual(RB.world.biomeAt(w, e.x, e.y), 'water', 'an animal in the water');
+    assert.ok(!RB.world.nearestSite(w, e.x, e.y, 150), 'an animal on a doorstep');
+  }
+  assert.ok(a.some((e) => e.night) && a.some((e) => !e.night));
+  let total = 0, crosses = 0;
+  for (let d = 1; d <= 30; d++) { const p = RB.world.population(w, d); total += p.length; for (const e of p) if (e.cross) { crosses++; assert.notStrictEqual(e.cross.momKey, e.cross.dadKey); } }
+  assert.ok(crosses > 0, 'no natural cross in 30 days');
+  assert.ok(crosses / total < 0.015, 'crosses should be very rare: ' + crosses + ' of ' + total);
 });

@@ -71,7 +71,7 @@
   const CAGE = [Infinity, Infinity, Infinity, Infinity], COOP = [6, 10, 16, 24];
 
   // Fossil sets for the lab's fossil bench: four fragments rebuild one.
-  const FOSSILS = { dodo: 'Dodo', terror: 'Terror bird', moa: 'Moa', archaeo: 'Archaeopteryx', raptor: 'Raptor' };
+  const FOSSILS = { dodo: 'Dodo', terror: 'Terror bird', moa: 'Moa', archaeo: 'Archaeopteryx', raptor: 'Raptor', elephant: 'Elephant bird' };
 
   RB.items = { ITEMS, STOCK, UPGRADES, CAGE, COOP, FOSSILS, sellPrice: (id) => Math.max(1, Math.floor(ITEMS[id].price * 0.5)) };
 })();

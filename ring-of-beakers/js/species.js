@@ -98,6 +98,23 @@
     // splits its head in two. Its mournful call sounds like someone crying in the dark.
     potoo: { name: 'Potoo', tier: 3, night: true,
       t: { size: 0.78, posture: 1, bodyLen: 0.95, bodyDepth: 1.05, neckLen: 0.2, headSize: 1.55, eyeSize: 1.9, beakLen: 0.35, beakDepth: 1.25, beakHook: 0.4, beakFlat: 0.7, legLen: 0.3, legThick: 0.7, footSize: 0.8, talon: 0.3, spur: 0, wingSize: 1.45, wingPoint: 0.3, tailLen: 1.6, tailFan: 0.35, tailUp: 0.05, comb: 0, wattle: 0, crest: 0, hue: 0.09, sat: 0.18, lit: 0.48, litHead: 0.05, litWing: -0.1, pattern: 0.73, patContrast: 0.5, belly: 0.5, beakTone: 0.25, legTone: 0.3, eyeTone: 0.95, focus: 0.9, cunning: 0.75, courage: 0.55, aggression: 0.4, hide: 1.15, voicePitch: 0.2, voiceRasp: 0.1, voiceLen: 1 } },
+    // Two more for the night. The kakapo: a fat, flightless, moss-green parrot with a mottled back and
+    // a face like an owl's. It waddles about after dark and booms like a far-off drum.
+    kakapo: { name: 'Kakapo', tier: 4, night: true,
+      t: { size: 1.0, posture: 0.45, bodyDepth: 1.45, bodyLen: 1.05, neckLen: 0.35, headSize: 1.25, eyeSize: 1.1, beakLen: 0.75, beakDepth: 1.5, beakHook: 0.95, legLen: 0.55, legThick: 1.4, footSize: 1.3, talon: 0.4, spur: 0, wingSize: 0.6, wingPoint: 0, tailLen: 0.8, tailFan: 0.3, tailUp: 0.1, comb: 0, wattle: 0, crest: 0, hue: 0.25, sat: 0.6, lit: 0.42, litHead: 0.08, pattern: 0.73, patContrast: 0.35, belly: 0.5, beakTone: 0.3, legTone: 0.3, eyeTone: 0.1, courage: 0.5, aggression: 0.3, cunning: 0.6, hide: 1.1, lifespan: 22, voicePitch: 0.05, voiceRasp: 0.2, voiceLen: 1 } },
+    // The thick-knee (a stone-curlew): a sandy, streaky ground bird on long yellow legs with knobbly
+    // knees, and huge yellow eyes for hunting in the dark. Wails across open country at night.
+    thickknee: { name: 'Thick-knee', tier: 2, night: true,
+      t: { size: 0.75, posture: 0.4, bodyLen: 1.05, bodyDepth: 0.9, neckLen: 0.7, headSize: 1.2, eyeSize: 1.85, beakLen: 0.75, beakDepth: 0.8, beakHook: 0.1, legLen: 1.45, legThick: 0.9, footSize: 0.9, talon: 0.1, spur: 0, wingSize: 1.2, wingPoint: 0.6, tailLen: 0.7, tailFan: 0.2, tailUp: 0.15, comb: 0, wattle: 0, crest: 0, hue: 0.09, sat: 0.3, lit: 0.55, pattern: 0.73, patContrast: 0.5, belly: 0.75, beakTone: 0.45, legTone: 0.5, eyeTone: 0.95, reflex: 1.3, cunning: 0.7, courage: 0.35, aggression: 0.4, voicePitch: 0.7, voiceRasp: 0.1, voiceLen: 0.9 } },
+    // A day bird of the swamps. The shoebill: a tall slate-grey stork-like bird with a head too big for
+    // it and a huge clog of a bill with a hook on the end. It stands stock still for hours, then strikes.
+    shoebill: { name: 'Shoebill', tier: 4,
+      t: { size: 1.55, posture: 0.85, bodyDepth: 1.0, bodyLen: 0.95, neckLen: 1.2, neckThick: 1.2, neckCurve: 0.6, headSize: 1.6, eyeSize: 1.0, beakLen: 2.2, beakDepth: 1.7, beakHook: 0.6, beakFlat: 0.25, legLen: 1.9, legThick: 0.8, footSize: 1.7, talon: 0.2, spur: 0, wingSize: 1.8, wingPoint: 0.1, tailLen: 0.6, tailFan: 0.3, tailUp: 0.1, comb: 0, wattle: 0, crest: 0.35, hue: 0.58, sat: 0.18, lit: 0.55, litWing: -0.05, beakTone: 0.26, legTone: 0.2, eyeTone: 0.75, focus: 1, cunning: 0.6, courage: 0.75, aggression: 0.6, reflex: 0.85, voicePitch: 0.2, voiceRasp: 0.9, voiceLen: 0.6 } },
+    // A fossil of titanic size, only rebuilt from fragments (most of them dug up at the Bone Quarry).
+    // The elephant bird: the heaviest bird that ever lived, three metres of shaggy brown bird on legs
+    // like tree trunks. Slow to anger, impossible to move.
+    elephant: { name: 'Elephant Bird', short: 'Elephant', tier: 5, extinct: true,
+      t: { size: 2.7, posture: 0.25, bodyDepth: 1.7, bodyLen: 1.15, neckLen: 1.3, neckThick: 1.6, neckCurve: 0.3, headSize: 1.05, eyeSize: 0.6, beakLen: 1.3, beakDepth: 1.35, beakHook: 0.05, legLen: 1.75, legThick: 1.9, footSize: 1.85, talon: 0.5, spur: 0, wingSize: 0.05, tailLen: 0.3, tailFan: 0.5, tailUp: 0.3, comb: 0, wattle: 0, crest: 0, hue: 0.07, sat: 0.35, lit: 0.28, beakTone: 0.25, legTone: 0.22, muscle: 1.45, bone: 1.5, hide: 1.35, lungs: 1.2, reflex: 0.65, aggression: 0.45, courage: 0.85, lifespan: 22, voicePitch: 0, voiceRasp: 0.6, voiceLen: 1 } },
   };
   for (const id of Object.keys(SPECIES)) { const s = SPECIES[id]; s.id = id; s.sw = s.sw || []; }
   const IDS = Object.keys(SPECIES);

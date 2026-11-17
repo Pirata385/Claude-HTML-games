@@ -161,7 +161,7 @@
       RB.audio.play('found');
       if (loot.type === 'money' || loot.type === 'chest') { S.money += loot.money; S.stats.earned += loot.money; ui.toast((loot.type === 'chest' ? 'A buried chest! $' : 'Buried coins: $') + loot.money, pal.mustard); }
       else if (loot.type === 'item') { ST.give(S, loot.id, loot.n || 1); ui.toast('Dug up: ' + RB.items.ITEMS[loot.id].name + (loot.n > 1 ? ' x' + loot.n : ''), pal.teal); }
-      else if (loot.type === 'fossil') { RB.lab.addFragment(S, loot.set); ui.toast('A fossil fragment: ' + RB.items.FOSSILS[loot.set] + ' (' + RB.lab.fragments(S, loot.set) + '/' + RB.lab.FRAGMENTS + ')', pal.plum); }
+      else if (loot.type === 'fossil') { RB.lab.addFragment(S, loot.set); ui.toast((loot.set === 'elephant' ? 'A huge bone! ' : 'A fossil fragment: ') + RB.items.FOSSILS[loot.set] + ' (' + RB.lab.fragments(S, loot.set) + '/' + RB.lab.FRAGMENTS + ')', pal.plum); }
       else if (loot.type === 'creature') { const id = rng.pick(['kiwi', 'quail', 'bantam', 'owl']); addWild(RB.species.make(id, rng, { sport: 1 }), hx, hy, 'trapped').t = 9; ui.toast('Something was asleep down there!', pal.plum); }
     }
     common.checkAch(S);
@@ -407,6 +407,18 @@
         const hx = (gx + hash2(gx, gy, 3)) * gs, hy = (gy + hash2(gx, gy, 4)) * gs;
         ctx.fillStyle = WD.BIOMES[WD.biomeAt(world, hx, hy)].dark; ctx.beginPath(); ctx.ellipse(hx, hy, 16, 5, 0, 0, TAU); ctx.fill();
       }
+      // the Bone Quarry's dig: a terraced pit roped off on four posts, with bones showing
+      const qs = world.site.quarry;
+      if (qs && Math.abs(qs.x - cam.x) < 3000 && Math.abs(qs.y - cam.y) < 3000) {
+        const qx = qs.x, qy = qs.y + WD.QUARRY_DY, qr = WD.QUARRY_R;
+        ctx.fillStyle = '#d8c08e'; ctx.beginPath(); ctx.ellipse(qx, qy, qr, qr * 0.62, 0, 0, TAU); ctx.fill();
+        ctx.fillStyle = '#c4a874'; ctx.beginPath(); ctx.ellipse(qx, qy + 20, qr * 0.72, qr * 0.42, 0, 0, TAU); ctx.fill();
+        ctx.fillStyle = '#ad9160'; ctx.beginPath(); ctx.ellipse(qx, qy + 36, qr * 0.42, qr * 0.24, 0, 0, TAU); ctx.fill();
+        ctx.fillStyle = '#f6ead2';
+        for (let i = 0; i < 9; i++) { const a = i * 2.4, d = qr * (0.2 + 0.08 * (i % 5)); const bx = qx + Math.cos(a) * d * 1.3, by = qy + Math.sin(a) * d * 0.8; ctx.save(); ctx.translate(bx, by); ctx.rotate(a); ctx.fillRect(-14, -3, 28, 6); ctx.beginPath(); ctx.arc(-14, -3, 5, 0, TAU); ctx.arc(-14, 3, 5, 0, TAU); ctx.arc(14, -3, 5, 0, TAU); ctx.arc(14, 3, 5, 0, TAU); ctx.fill(); ctx.restore(); }
+        ctx.strokeStyle = '#b5523b'; ctx.lineWidth = 4; ctx.beginPath(); ctx.ellipse(qx, qy, qr + 30, qr * 0.62 + 24, 0, 0, TAU); ctx.stroke();
+        ctx.fillStyle = '#96693f'; for (let i = 0; i < 8; i++) { const a = i * TAU / 8; ctx.fillRect(qx + Math.cos(a) * (qr + 30) - 4, qy + Math.sin(a) * (qr * 0.62 + 24) - 30, 8, 30); }
+      }
       ctx.strokeStyle = '#dcccaa'; ctx.lineWidth = 78; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
       for (const road of world.roads) { ctx.beginPath(); ctx.moveTo(road[0].x, road[0].y); for (let i = 1; i < road.length; i++) ctx.lineTo(road[i].x, road[i].y); ctx.stroke(); }
       // holes, treasure marks, nets and seed on the ground
@@ -631,7 +643,7 @@
       ctx.restore();
       for (const s of world.sites) {
         if (s.kind === 'house') { ui.rect(ox + s.x * k - 3, oy + s.y * k - 3, 6, 6, pal.brick, 1); continue; }
-        const col = s.kind === 'arena' ? pal.coral : s.id === 'home' ? pal.teal : s.id === 'bfc' ? '#d7372f' : s.id === 'roost' ? pal.plum : pal.ink;
+        const col = s.kind === 'arena' ? pal.coral : s.id === 'home' ? pal.teal : s.id === 'bfc' ? '#d7372f' : s.id === 'roost' ? pal.plum : s.id === 'quarry' ? pal.mustard : pal.ink;
         ui.rect(ox + s.x * k - 5, oy + s.y * k - 5, 10, 10, col, 3);
         ui.text(s.name, ox + s.x * k, oy + s.y * k - 8, { size: 10, align: 'center' });
       }

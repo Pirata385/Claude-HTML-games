@@ -493,8 +493,8 @@ test('Sunset Roost is on the map with Dona Nina, and adding it left the rest of 
   // the older sites and people come out exactly as before (Sunset Roost draws its own numbers)
   const w = RB.world.generate(99);
   // sites opened later come after all the others, in the order they opened
-  assert.deepStrictEqual(w.sites.slice(-2).map((x) => x.id), ['roost', 'oddities']);
-  assert.deepStrictEqual(w.npcs.slice(-2).map((n) => n.site), ['roost', 'oddities']);
+  assert.deepStrictEqual(w.sites.slice(-3).map((x) => x.id), ['roost', 'oddities', 'quarry']);
+  assert.deepStrictEqual(w.npcs.slice(-3).map((n) => n.site), ['roost', 'oddities', 'quarry']);
 });
 
 test('the first boss gives the silver net (never used up), the second the golden shovel (10 digs a day)', () => {
@@ -722,4 +722,46 @@ test('the open sea is endless, with islands of their own lands, birds, villages,
   if (big) assert.ok(SEA.raceTargets(big, 'chicken').size > 1);
   // some far islands keep a kind thought extinct
   assert.ok(islands.some((q) => q.lost && RB.species.SPECIES[q.lost].extinct));
+});
+
+test('two more night birds, the shoebill by day, and the elephant bird from the Bone Quarry', () => {
+  const SP = RB.species.SPECIES, F = RB.world.FAUNA;
+  assert.ok(SP.kakapo.night && SP.thickknee.night && !SP.shoebill.night && SP.elephant.extinct);
+  const nights = new Set(), days = new Set();
+  for (const b of Object.keys(F)) { for (const e of F[b].night) nights.add(e[0]); for (const e of F[b].day) days.add(e[0]); }
+  assert.ok(nights.has('kakapo') && nights.has('thickknee'));
+  assert.ok(F.wetland.day.some((e) => e[0] === 'shoebill'));
+  // the elephant bird is the heaviest kind there is, and a fossil set the lab can rebuild
+  const r = new Rng(5), kg = (id) => { const ws = []; for (let i = 0; i < 41; i++) ws.push(RB.pheno.express(RB.species.make(id, r, { sport: 0 })).weightKg); return ws.sort((a, b) => a - b)[20]; };
+  for (const id of RB.species.IDS) if (id !== 'elephant' && !SP[id].person) assert.ok(kg('elephant') > kg(id), 'the ' + id + ' outweighs the elephant bird');
+  assert.ok(RB.items.FOSSILS.elephant);
+  const S = ST.create(131);
+  for (let i = 0; i < 4; i++) RB.lab.addFragment(S, 'elephant');
+  S.money = 1000;
+  assert.strictEqual(RB.lab.rebuild(S, 'elephant'), '');
+  assert.strictEqual(RB.species.classify(S.eggs[S.eggs.length - 1].g).id, 'elephant');
+  // the Bone Quarry: on dry land, with a pit where fossils are the most common find
+  for (const seed of [1, 99, 4242]) {
+    const w = RB.world.generate(seed), q = w.site.quarry;
+    assert.ok(q && q.kind === 'quarry' && w.npcs.find((n) => n.site === 'quarry'));
+    assert.notStrictEqual(RB.world.biomeAt(w, q.x, q.y + RB.world.QUARRY_DY), 'water');
+    const count = (inside) => {
+      const out = { all: 0, fossil: 0, elephant: 0, other: {} };
+      for (let day = 1; day <= 4; day++) for (let cx = -12; cx <= 12; cx++) for (let cy = -12; cy <= 12; cy++) {
+        const x = q.x + cx * RB.world.CELL * (inside ? 0.35 : 6), y = q.y + RB.world.QUARRY_DY + cy * RB.world.CELL * (inside ? 0.22 : 4);
+        if (RB.world.inQuarry(w, x, y) !== inside || RB.world.biomeAt(w, x, y) === 'water') continue;
+        const c = RB.world.cellOf(x, y), l = RB.world.lootAt(w, c.cx, c.cy, day);
+        if (!l || l.marked) continue;
+        out.all++;
+        if (l.type === 'fossil') { out.fossil++; if (l.set === 'elephant') out.elephant++; } else out.other[l.type] = (out.other[l.type] || 0) + 1;
+      }
+      return out;
+    };
+    const pit = count(true), away = count(false);
+    assert.ok(pit.all > 30, 'too few cells in the pit');
+    assert.ok(pit.fossil / pit.all > 0.5, 'fossils are ' + pit.fossil + ' of ' + pit.all + ' finds in the pit');
+    for (const k of Object.keys(pit.other)) assert.ok(pit.fossil > pit.other[k], k + ' beats fossils in the pit');
+    assert.ok(pit.elephant > 0, 'no elephant bird in the pit');
+    assert.ok(away.fossil / away.all < 0.15, 'fossils are common everywhere: ' + away.fossil + ' of ' + away.all);
+  }
 });

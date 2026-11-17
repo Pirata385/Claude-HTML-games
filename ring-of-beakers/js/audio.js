@@ -102,7 +102,7 @@
     flamingo: 'gabble', peafowl: 'peacock', ostrich: 'boom', emu: 'boom', cassowary: 'boom', moa: 'boom', kiwi: 'whistle', falcon: 'kee', eagle: 'scream',
     secretary: 'croak', heron: 'croak', toucan: 'frog', vulture: 'hiss', condor: 'hiss', harpy: 'wail', owl: 'hoot', pelican: 'grunt', gull: 'laugh',
     penguin: 'bray', parrot: 'parrot', raven: 'caw', hummingbird: 'chirp', archaeo: 'chirp', roadrunner: 'coo', dodo: 'coo', terror: 'roar', raptor: 'roar', human: 'human',
-    nightjar: 'churr', potoo: 'lament',
+    nightjar: 'churr', potoo: 'lament', kakapo: 'boom', thickknee: 'curlee', shoebill: 'clatter', elephant: 'boom',
   };
   const rnd = (a, b) => a + Math.random() * (b - a);
   const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
@@ -252,6 +252,16 @@
       cluck: (p) => tone(p * 0.9, 0.3, { type: 'sine', vol: 0.15, to: p * 0.75, attack: 0.05 }),
       crow: (p) => { for (let i = 0; i < 5; i++) tone(p * (1.3 - i * 0.12), 0.4, { type: 'sine', vol: 0.15, at: i * 0.48, to: p * (1.2 - i * 0.12), attack: 0.06, vib: [5, 0.015] }); },
       squawk: (p) => { tone(p * 1.4, 0.35, { type: 'triangle', vol: 0.14, to: p * 0.8 }); noise(0.25, { freq: 900, vol: 0.08 }); },
+    },
+    curlee: { // the thick-knee's wild wailing whistle
+      cluck: (p) => tone(p * 1.6, 0.14, { type: 'sine', vol: 0.12, to: p * 2 }),
+      crow: (p) => { for (let i = 0; i < 4; i++) { tone(p * 1.5, 0.22, { type: 'sine', vol: 0.13, at: i * 0.42, to: p * 2.3 }); tone(p * 2.3, 0.18, { type: 'sine', vol: 0.11, at: i * 0.42 + 0.22, to: p * 1.7 }); } },
+      squawk: (p) => tone(p * 2.4, 0.3, { type: 'triangle', vol: 0.13, to: p * 1.4 }),
+    },
+    clatter: { // the shoebill does not sing: it clatters its huge bill like a machine gun
+      cluck: () => { for (let i = 0; i < 3; i++) noise(0.03, { freq: 1500, vol: 0.25, band: true, at: i * 0.06 }); },
+      crow: () => { for (let i = 0; i < 18; i++) noise(0.03, { freq: 1300 + (i % 3) * 200, vol: 0.28, band: true, at: i * 0.055 }); },
+      squawk: (p) => { tone(Math.max(60, p * 0.4), 0.3, { type: 'sawtooth', vol: 0.1, to: 50, bp: [350, 2] }); for (let i = 0; i < 6; i++) noise(0.03, { freq: 1500, vol: 0.25, band: true, at: 0.3 + i * 0.05 }); },
     },
     human: { // two formants make a vowel: "hm?", "woo-hoo!", "ow!"
       cluck: (p) => tone(rnd(110, 160), 0.25, { type: 'sawtooth', vol: 0.5, to: rnd(150, 200), bp: [300, 6], bp2: [900, 8] }),

@@ -24,18 +24,18 @@
   // Who turns up where: [species, weight]. By day the day list; after dark the night list takes
   // over (the day birds roost and the night birds come out in their place).
   const FAUNA = {
-    farm: { day: [['chicken', 30], ['bantam', 10], ['quail', 12], ['pheasant', 8], ['turkey', 6], ['gamecock', 3], ['raven', 8], ['duck', 5], ['goose', 4]], night: [['owl', 14], ['nightjar', 10]] },
-    wetland: { day: [['duck', 25], ['goose', 14], ['swan', 6], ['heron', 14], ['flamingo', 8], ['pelican', 4], ['raven', 3]], night: [['owl', 8], ['kiwi', 6], ['heron', 5], ['nightjar', 4]] },
-    savanna: { day: [['ostrich', 10], ['emu', 8], ['roadrunner', 14], ['secretary', 5], ['vulture', 10], ['quail', 10], ['turkey', 4]], night: [['owl', 8], ['nightjar', 12]] },
-    highlands: { day: [['falcon', 12], ['eagle', 7], ['vulture', 10], ['raven', 14], ['pheasant', 8], ['condor', 4]], night: [['owl', 20], ['nightjar', 5]] },
-    coast: { day: [['gull', 30], ['pelican', 12], ['penguin', 8], ['flamingo', 8], ['heron', 6]], night: [['owl', 4], ['penguin', 6], ['kiwi', 3], ['gull', 3]] },
-    jungle: { day: [['parrot', 14], ['toucan', 12], ['peafowl', 8], ['cassowary', 4], ['hummingbird', 12], ['pheasant', 4], ['harpy', 3]], night: [['kiwi', 16], ['owl', 8], ['potoo', 12]] },
+    farm: { day: [['chicken', 30], ['bantam', 10], ['quail', 12], ['pheasant', 8], ['turkey', 6], ['gamecock', 3], ['raven', 8], ['duck', 5], ['goose', 4]], night: [['owl', 14], ['nightjar', 10], ['thickknee', 5]] },
+    wetland: { day: [['duck', 25], ['goose', 14], ['swan', 6], ['heron', 14], ['flamingo', 8], ['pelican', 4], ['raven', 3], ['shoebill', 4]], night: [['owl', 8], ['kiwi', 6], ['heron', 5], ['nightjar', 4]] },
+    savanna: { day: [['ostrich', 10], ['emu', 8], ['roadrunner', 14], ['secretary', 5], ['vulture', 10], ['quail', 10], ['turkey', 4]], night: [['owl', 8], ['nightjar', 12], ['thickknee', 10]] },
+    highlands: { day: [['falcon', 12], ['eagle', 7], ['vulture', 10], ['raven', 14], ['pheasant', 8], ['condor', 4]], night: [['owl', 20], ['nightjar', 5], ['kakapo', 4]] },
+    coast: { day: [['gull', 30], ['pelican', 12], ['penguin', 8], ['flamingo', 8], ['heron', 6]], night: [['owl', 4], ['penguin', 6], ['kiwi', 3], ['gull', 3], ['thickknee', 6]] },
+    jungle: { day: [['parrot', 14], ['toucan', 12], ['peafowl', 8], ['cassowary', 4], ['hummingbird', 12], ['pheasant', 4], ['harpy', 3]], night: [['kiwi', 16], ['owl', 8], ['potoo', 12], ['kakapo', 6]] },
     town: { day: [['chicken', 10], ['raven', 10], ['gull', 4]], night: [['owl', 6], ['nightjar', 4]] },
     tundra: { day: [['penguin', 20], ['goose', 10], ['swan', 8], ['raven', 8], ['falcon', 6], ['owl', 6], ['gull', 8]], night: [['owl', 20], ['penguin', 6]] },
     volcanic: { day: [['vulture', 12], ['condor', 8], ['raven', 10], ['eagle', 6], ['cassowary', 4], ['gull', 4]], night: [['owl', 10], ['nightjar', 8]] },
-    desert: { day: [['ostrich', 10], ['roadrunner', 16], ['vulture', 10], ['quail', 10], ['falcon', 6], ['emu', 6]], night: [['owl', 10], ['nightjar', 14]] },
+    desert: { day: [['ostrich', 10], ['roadrunner', 16], ['vulture', 10], ['quail', 10], ['falcon', 6], ['emu', 6]], night: [['owl', 10], ['nightjar', 14], ['thickknee', 10]] },
   };
-  const FOSSIL_BIOME = { coast: 'dodo', savanna: 'terror', jungle: 'moa', wetland: 'archaeo', highlands: 'raptor', tundra: 'moa', volcanic: 'raptor', desert: 'terror' };
+  const FOSSIL_BIOME = { coast: 'dodo', savanna: 'terror', jungle: 'moa', wetland: 'archaeo', highlands: 'raptor', tundra: 'moa', volcanic: 'raptor', desert: 'elephant' };
 
   function blob(r, x, y, R) {
     const harm = [];
@@ -60,7 +60,12 @@
   // Opened after the first release: id, kind, name, x, y, road, keeper [name, sex, hat]
   // keeper: [name, sex, hat, role (default 'keeper')]
   const LATER = [['roost', 'roost', 'Sunset Roost', 4880, 4120, ['home', 'roost'], ['Dona Nina', 'F', null]],
-    ['oddities', 'exotic', 'Curio Aviary', 7120, 5300, ['bank', 'oddities'], ['Madame Zuleica', 'F', 'tophat', 'exotic']]];
+    ['oddities', 'exotic', 'Curio Aviary', 7120, 5300, ['bank', 'oddities'], ['Madame Zuleica', 'F', 'tophat', 'exotic']],
+    ['quarry', 'quarry', 'Bone Quarry', 10450, 5500, ['carnival', 'quarry'], ['Dr. Ossa', 'F', 'cowboy']]];
+  // The Bone Quarry's dig: a pit south of the paleontologist's tent where most finds are fossils.
+  const QUARRY_R = 560, QUARRY_DY = 430;
+  function inQuarry(world, x, y) { const q = world.site && world.site.quarry; return !!q && Math.hypot(x - q.x, y - (q.y + QUARRY_DY)) < QUARRY_R; }
+  const QUARRY_SETS = [['elephant', 35], ['dodo', 13], ['terror', 13], ['moa', 13], ['archaeo', 13], ['raptor', 13]];
   const HOUSES = [[5050, 3700], [4500, 4500], [6400, 5250], [5800, 5600], [6700, 3500], [9700, 2500], [10300, 3500], [2700, 2700], [2900, 5300], [5600, 6700], [8300, 6750], [6900, 1500]];
   const ROADS = [
     ['home', 'feed', 'tools', 'bfc', 'garage', 'hatter', 'vet', 'city'], ['garage', 'bank', 'city'], ['home', 'backyard'], ['bfc', 'county', 'carnival'],
@@ -179,6 +184,12 @@
     if (u > 0.97) return null; // coming up empty is rare
     const b = biomeAt(world, x, y);
     if (b === 'water') return null;
+    // at the Bone Quarry most finds are fossils, a third of them from the elephant bird
+    if (inQuarry(world, x, y) && u < 0.62) {
+      let w = v * 100;
+      for (const e of QUARRY_SETS) { if (w < e[1]) return { type: 'fossil', set: e[0], quarry: true }; w -= e[1]; }
+      return { type: 'fossil', set: 'elephant', quarry: true };
+    }
     const k = u / 0.97;
     if (k < 0.34) return { type: 'money', money: 4 + Math.floor(v * 34), metal: true };
     if (k < 0.52) return { type: 'item', id: 'worm', n: 1 + Math.floor(v * 3) };
@@ -274,11 +285,11 @@
       const x = (gx + hash2(gx * 3 + i, gy, world.seed + 7)) * size, y = (gy + hash2(gx, gy * 3 + i, world.seed + 8)) * size;
       const b = biomeAt(world, x, y), list = DECOR[b];
       if (b === 'water' && (!inMain(x, y) || (biomeAt(world, x, y - 200) === 'water' && y > seaY(world, x)))) continue; // open sea stays empty
-      if (onRoad(world, x, y) || nearestSite(world, x, y, 190)) continue;
+      if (onRoad(world, x, y) || nearestSite(world, x, y, 190) || inQuarry(world, x, y)) continue;
       out.push({ kind: list[Math.floor(hash2(gx + i, gy - i, world.seed + 9) * list.length)], x, y, s: 0.8 + 0.5 * hash2(gx - i, gy + i, world.seed + 10) });
     }
     return out;
   }
 
-  RB.world = { faunaAt, blob, shoreW, inMain, W, H, CELL, BIOMES, FAUNA, CROSS_RATE, GENE_FLOW, GENE_REACH, youngOf, generate, biomeAt, seaY, inBlob, blobR, onRoad, nearestSite, spawnSpecies, markAt, lootAt, cellOf, population, decorAt };
+  RB.world = { inQuarry, QUARRY_R, QUARRY_DY, faunaAt, blob, shoreW, inMain, W, H, CELL, BIOMES, FAUNA, CROSS_RATE, GENE_FLOW, GENE_REACH, youngOf, generate, biomeAt, seaY, inBlob, blobR, onRoad, nearestSite, spawnSpecies, markAt, lootAt, cellOf, population, decorAt };
 })();

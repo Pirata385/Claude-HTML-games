@@ -190,6 +190,12 @@
       ctx.strokeStyle = C.coral; ctx.lineWidth = 3;
       for (let i = 0; i < 5; i++) { const a = Math.PI + (i + 0.5) * Math.PI / 5; ctx.beginPath(); ctx.moveTo(x - 147 + Math.cos(a) * 27, y - 76 + Math.sin(a) * 27); ctx.lineTo(x - 147 + Math.cos(a) * 35, y - 76 + Math.sin(a) * 35); ctx.stroke(); }
       R(ctx, x - 172, y - 78, 50, 5, C.woodD);
+    } else if (site.kind === 'quarry') { // the Bone Quarry: a canvas tent, a sign with a big bone, a wheelbarrow
+      P(ctx, '#c9b07a', [x - 80, y, x, y - 80, x + 80, y]); P(ctx, '#b39a63', [x, y, x, y - 80, x + 80, y]);
+      P(ctx, C.ink, [x - 16, y, x, y - 34, x + 16, y]);
+      R(ctx, x - 120, y - 70, 5, 70, C.woodD); R(ctx, x - 150, y - 92, 66, 26, C.paper);
+      O(ctx, x - 137, y - 79, 7, 7, C.cream); O(ctx, x - 97, y - 79, 7, 7, C.cream); R(ctx, x - 135, y - 82, 36, 6, C.cream);
+      R(ctx, x + 96, y - 22, 34, 14, C.grey); O(ctx, x + 100, y - 6, 7, 7, C.ink); R(ctx, x + 128, y - 26, 22, 3, C.woodD);
     } else if (site.kind === 'exotic') { // the Curio Aviary: a striped menagerie tent with a strange bird on its sign
       P(ctx, C.plum, [x - 100, y, x - 70, y - 96, x + 70, y - 96, x + 100, y]);
       for (let i = 0; i < 5; i++) P(ctx, i % 2 ? C.plum : C.mustard, [x - 70 + i * 28, y - 96, x - 42 + i * 28, y - 96, x - 52 + i * 34 - 10, y, x - 86 + i * 34, y]);

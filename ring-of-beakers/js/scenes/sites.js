@@ -207,6 +207,16 @@
     if (ui.btn(x0 + 124, y0 + 76, 150, 40, 'Accept', { fill: pal.coral, disabled: S.money < ch.fee })) enterBout(ch, null, ch.opp);
   }
 
+  // ---- the Bone Quarry: what you have dug up so far, and how to make a bird of it
+  function quarry(b) {
+    const sets = Object.keys(IT.FOSSILS);
+    ui.para('Dig anywhere in the roped-off pit south of my tent: most finds there are fossil fragments, and about a third of those are elephant bird. Four fragments of one kind rebuild it at the Lab.', b.x + 4, b.y + 4, b.w - 8, { size: 13 });
+    ui.list('quarry', b.x, b.y + 76, b.w, b.h - 76, sets.length, 60, (i, x, y, w) => {
+      const id = sets[i], n = RB.lab.fragments(S, id), seen = S.codex.species[id];
+      row(x, y, w, { P: RB.pheno.express(RB.species.make(id, new Rng(RB.core.hashStr(id)), { sex: 'M', sport: 0 })), title: IT.FOSSILS[id] + (id === 'elephant' ? ' · the giant' : ''), sub: n + ' of ' + RB.lab.FRAGMENTS + ' fragments' + (n >= RB.lab.FRAGMENTS ? ' · ready to rebuild at the Lab' : '') + (seen ? ' · rebuilt before' : ''), subCol: n >= RB.lab.FRAGMENTS ? pal.teal : undefined });
+    });
+  }
+
   // ---- arenas
   function enterBout(card, arena, opp) {
     const list = caged().filter((c) => !EC.canEnter(S, c, card));
@@ -350,6 +360,7 @@
   const LINES = {
     feed: 'Grain, tonics and timber. What will it be?', tools: 'Nets catch birds. Shovels find what the birds cannot.', hatter: 'A bird without a hat is just poultry.', market: 'You did not buy it here.',
     garage: 'She will do sixty with a tail wind.', vet: 'Dazed? Pecked? I have seen worse.', bank: 'Every day you do not pay, I think of you.', bfc: 'It\'s finger-peckin\' good! What have you brought the Coronel?',
+    quarry: 'Dig inside the ropes. Most of what comes up here is bone, and some of it is very, very big.',
     carnival: 'Step right up! Fastest, highest, fairest!', backyard: 'Sand, a fence and a crowd. Same as it ever was.', county: 'We keep it clean here. Mostly.', city: 'Weigh in, pay up, and may the better bird win.',
     cellar: 'No names, no questions. People welcome, in their weight.', grand: 'Only champions stand on this sand.',
   };
@@ -387,6 +398,7 @@
       else if (k === 'bank') bank(b);
       else if (k === 'bfc') bfc(b);
       else if (k === 'house' || k === 'exotic') house(b);
+      else if (k === 'quarry') quarry(b);
       else if (k === 'arena') arenaLobby(b);
       else if (k === 'carnival') carnival(b);
     },

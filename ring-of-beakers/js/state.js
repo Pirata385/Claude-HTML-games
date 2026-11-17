@@ -104,9 +104,22 @@
   const cageCap = () => Infinity; // the truck has no limit
   const coopCap = (S) => RB.items.COOP[S.up.coop];
   const nestCount = (S) => 1 + S.up.nest;
-  const count = (S, item) => S.inv[item] || 0;
-  function give(S, item, n) { S.inv[item] = (S.inv[item] || 0) + (n === undefined ? 1 : n); }
-  function take(S, item, n) { n = n === undefined ? 1 : n; if (count(S, item) < n) return false; S.inv[item] -= n; if (S.inv[item] <= 0) delete S.inv[item]; return true; }
+  // In a sandbox game every useful item and every cosmetic is endless: tools, feed, gear, hats and
+  // lab supplies (not relics, which are only worth selling, and not bundles like the grain sack).
+  const ENDLESS_KINDS = ['tool', 'feed', 'gear', 'hat', 'lab'];
+  const endless = (S, item) => { const it = RB.items.ITEMS[item]; return !!S.sandbox && !!it && ENDLESS_KINDS.includes(it.kind) && !it.gives; };
+  const count = (S, item) => (endless(S, item) ? Infinity : S.inv[item] || 0);
+  // the items you have, as ids: what is in the bag, and in a sandbox every endless one
+  function owned(S) {
+    const ids = Object.keys(S.inv).filter((id) => RB.items.ITEMS[id] && count(S, id) > 0);
+    if (S.sandbox) for (const id of Object.keys(RB.items.ITEMS)) if (endless(S, id) && !ids.includes(id)) ids.push(id);
+    return ids;
+  }
+  const fmtCount = (n) => (n === Infinity ? '∞' : String(n));
+  function give(S, item, n) { if (endless(S, item)) return; S.inv[item] = (S.inv[item] || 0) + (n === undefined ? 1 : n); }
+  function take(S, item, n) { n = n === undefined ? 1 : n; if (endless(S, item)) return true; if (count(S, item) < n) return false; S.inv[item] -= n; if (S.inv[item] <= 0) delete S.inv[item]; return true; }
+  // Fast travel to an island: once you have landed on it, or any island at all in a sandbox game.
+  const canSail = (S, is) => !!S.sandbox || !!(S.visited && S.visited[is.id]);
   function removeBird(S, c) { const i = S.birds.indexOf(c); if (i >= 0) S.birds.splice(i, 1); }
   // a creature as plain data for the save, and back
   function serBird(c) { const b = {}; for (const k of Object.keys(c)) if (k[0] !== '_') b[k] = c[k]; b.g = GN.serialize(c.g); return b; }
@@ -561,7 +574,7 @@
 
   RB.state = { create, addBird, removeBird, pheno, dirty, kind, isAdult, isRetired, checkIn, checkOut, BOSS_PRIZES, bossPrizes, GOLD_DIGS, goldLeft, digsLeft, useDig, useNet,
     RELEASED_MAX, setFree, genePool, HEAT_DAYS, caughtPerson, trainPreview, openSea, hasBoat, makeBird,
-    serBird, deBird, STAY_MAX, stay, netKeeper, installKeeper, releasePerson, mainlanders, nettedCount, nettedAll, ISLE_EXTRA,
+    ENDLESS_KINDS, endless, owned, fmtCount, canSail, serBird, deBird, STAY_MAX, stay, netKeeper, installKeeper, releasePerson, mainlanders, nettedCount, nettedAll, ISLE_EXTRA,
     CLAIM_COST, RAISE_COST, RAISE_R, CLEAN_COST, DOSE, isleOf, isleCap, claimIsle, raiseIsle, toIsle, fromIsle, dose, cleanIsle, colonyNight, byId, at, atHome, cageCap, coopCap, nestCount, count, give, take, move, feed, train, TRAIN,
     layChance, sleep, serialize, deserialize, freeName, BIRD_NAMES, eat, soldPerson, kindKey, isCross, label };
 })();

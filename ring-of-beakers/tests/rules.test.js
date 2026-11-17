@@ -642,3 +642,84 @@ test('after dark the night birds come out in place of the day birds, in about th
   for (const id of ['owl', 'nightjar', 'potoo']) assert.ok(seen.has(id), 'no ' + id + ' at night');
   assert.ok(RB.species.SPECIES.nightjar.night && RB.species.SPECIES.potoo.night);
 });
+
+test('no arena throws anyone out: each has its own twist instead', () => {
+  const twists = EC.ARENAS.map((a) => a.modes[0]);
+  assert.deepStrictEqual(twists, ['grain', 'mud', 'wind', 'dark', 'rounds']);
+  for (const a of EC.ARENAS) for (const m of a.modes) assert.ok(RB.fight.TWISTS[m] && m !== 'push' && m !== 'aerial', a.id + ' ' + m);
+  const S = ST.create(111);
+  for (const a of EC.ARENAS) for (const c of EC.cards(S, a)) assert.ok(RB.fight.TWISTS[c.mode], a.id + ' card ' + c.mode);
+});
+
+test('every neighbour buys, sells and trades; the Curio Aviary sells truly strange birds', () => {
+  const S = ST.create(113), w = RB.world.generate(S.seed);
+  for (const n of w.npcs.filter((q) => q.site.startsWith('house'))) assert.ok(RB.npc.stockOf(S, w, n).length >= 2, n.role + ' has nothing to sell');
+  const dealer = w.npcs.find((n) => n.role === 'exotic');
+  assert.ok(dealer && w.site[dealer.site].kind === 'exotic' && w.site.oddities);
+  const stock = RB.npc.stockOf(S, w, dealer);
+  assert.strictEqual(stock.length, 5);
+  for (const s of stock) {
+    assert.ok(s.momKey !== s.dadKey, 'an exotic is a cross of two kinds');
+    const sw = ['teeth', 'arms', 'twoHeadsA', 'glow', 'tailBone', 'gigas', 'cyclops', 'legsExtra', 'earTuft', 'fluff', 'bare'].filter((id) => RB.genome.switchOn(s.g, id));
+    assert.ok(sw.length >= 2, 'only ' + sw.join(',') + ' switched on');
+  }
+  // the dealer buys oddities too
+  const odd = ST.addBird(S, stock[0].g, { at: 'cage' }), plain = ST.addBird(S, RB.species.make('chicken', new Rng(1), { sport: 0 }), { at: 'cage' });
+  assert.ok(RB.npc.offer(S, dealer, odd) > RB.npc.offer(S, dealer, plain));
+});
+
+test('a sandbox game starts with everything; a normal one earns the open sea', () => {
+  const S = ST.create(117, { sandbox: true });
+  assert.ok(S.sandbox && S.debt === 0 && S.lab.power);
+  for (const id of Object.keys(RB.items.UPGRADES)) assert.strictEqual(S.up[id], RB.items.UPGRADES[id].prices.length, id);
+  for (const id of ['detector', 'launcher', 'lantern', 'silvernet', 'goldshovel']) assert.ok(S.equip[id], id);
+  assert.ok(ST.openSea(S) && ST.hasBoat(S));
+  assert.ok(EC.arenaOpen(S, EC.ARENA.grand));
+  const back = ST.deserialize(JSON.parse(JSON.stringify(ST.serialize(S))));
+  assert.ok(back.sandbox && ST.hasBoat(back));
+  // a normal game: the sea opens once the Grand Ring is won and the debt is paid
+  const N = ST.create(119);
+  assert.ok(!ST.openSea(N) && !ST.hasBoat(N));
+  N.won = true; assert.ok(!ST.openSea(N), 'not while the debt is owed');
+  N.debt = 0; assert.ok(ST.openSea(N));
+  assert.ok(RB.items.UPGRADES.boat.open && RB.items.UPGRADES.boat.at === 'garage');
+});
+
+test('the open sea is endless, with islands of their own lands, birds, villages, shops and arenas', () => {
+  const w = RB.world.generate(121), SEA = RB.sea;
+  // the mainland keeps its waters clear, and the old map is untouched
+  for (let cx = -1; cx <= 2; cx++) for (let cy = -1; cy <= 1; cy++) assert.strictEqual(SEA.chunk(w, cx, cy).islands.length, 0);
+  assert.strictEqual(RB.world.biomeAt(w, -20000, -20000) === 'water' || !!SEA.islandAt(w, -20000, -20000), true);
+  let islands = [];
+  for (let cx = -8; cx <= 9; cx++) for (let cy = -8; cy <= 8; cy++) islands = islands.concat(SEA.chunk(w, cx, cy).islands);
+  assert.ok(islands.length > 80, 'only ' + islands.length + ' islands');
+  const lands = new Set(islands.map((is) => is.main));
+  for (const b of ['tundra', 'volcanic', 'desert']) assert.ok(lands.has(b), 'no ' + b + ' island');
+  // the same seed makes the same islands
+  const w2 = RB.world.generate(121), a = SEA.chunk(w, -5, 3).islands, b = SEA.chunk(w2, -5, 3).islands;
+  assert.deepStrictEqual(a.map((is) => [is.name, Math.round(is.x), Math.round(is.R), is.main]), b.map((is) => [is.name, Math.round(is.x), Math.round(is.R), is.main]));
+  // land, beach and water
+  const is = islands.find((q) => q.sites.some((s) => s.kind === 'arena') && q.sites.some((s) => s.kind === 'house'));
+  assert.ok(is, 'no island with an arena and a village');
+  assert.strictEqual(RB.world.biomeAt(w, is.x, is.y) !== 'water', true);
+  assert.strictEqual(RB.world.biomeAt(w, is.x + is.R * 1.6, is.y), 'water');
+  // its places are on dry land, registered, and have people
+  for (const s of is.sites) {
+    assert.ok(w.site[s.id] === s && RB.world.biomeAt(w, s.x, s.y + 70) !== 'water', s.id);
+    assert.ok(w.npcs.find((n) => n.site === s.id), 'nobody at ' + s.id);
+  }
+  const arena = EC.ARENA[is.sites.find((s) => s.kind === 'arena').id];
+  assert.ok(arena && RB.fight.TWISTS[arena.modes[0]] && arena.boss && EC.arenaOpen(ST.create(1), arena));
+  assert.strictEqual(EC.cards(ST.create(1), arena).length > 0, true);
+  // its birds live on it, follow its race, and change each day
+  const pop = SEA.population(w, is, 2), pop2 = SEA.population(w, is, 2), pop3 = SEA.population(w, is, 3);
+  assert.ok(pop.length > 4);
+  assert.deepStrictEqual(pop.map((e) => e.id + e.sp), pop2.map((e) => e.id + e.sp));
+  assert.notDeepStrictEqual(pop.map((e) => e.sp + Math.round(e.x)), pop3.map((e) => e.sp + Math.round(e.x)));
+  for (const e of pop) assert.notStrictEqual(RB.world.biomeAt(w, e.x, e.y), 'water');
+  assert.ok(pop.some((e) => e.night) && pop.some((e) => !e.night));
+  const big = islands.find((q) => q.race.size > 1.1);
+  if (big) assert.ok(SEA.raceTargets(big, 'chicken').size > 1);
+  // some far islands keep a kind thought extinct
+  assert.ok(islands.some((q) => q.lost && RB.species.SPECIES[q.lost].extinct));
+});

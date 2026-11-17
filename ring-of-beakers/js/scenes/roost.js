@@ -185,8 +185,9 @@
       // header: Dona Nina, and what she says
       ui.rect(0, 0, v.w, 70, pal.ink);
       common.portrait({ P: RB.pheno.express(keeper.g) }, 8, 8, 54, 54, { fill: pal.paper, draw: { clothes: keeper.clothes } });
+      common.keeperTap(S, RB.game.world.npcs.find((n) => n.site === 'roost'), 8, 8, 54, 54, () => RB.game.go('map'));
       ui.text(site.name, 70, 24, { size: 16, color: pal.white, maxW: v.w - 252 });
-      ui.wrap(keeper.name + ': ' + say, v.w - 252, 11, false).slice(0, 3).forEach((ln, i) => ui.text(ln, 70, 40 + i * 13, { size: 11, color: pal.sand, bold: false }));
+      ui.wrap(keeper.name + ': ' + RB.npc.chirp(keeper) + say, v.w - 252, 11, false).slice(0, 3).forEach((ln, i) => ui.text(ln, 70, 40 + i * 13, { size: 11, color: pal.sand, bold: false }));
       ui.money(S.money, v.w - 104, 28, { size: 14, color: pal.white, align: 'right' });
       if (ui.btn(v.w - 96, 14, 88, 42, 'Leave', { icon: 'left', fill: pal.coral, size: 13, key: 'Escape' })) { RB.audio.play('click'); RB.game.save(); RB.game.go('map'); return; }
       ui.text('In the truck: ' + caged().length, v.w - 104, 50, { size: 11, color: pal.sand, align: 'right', bold: false });

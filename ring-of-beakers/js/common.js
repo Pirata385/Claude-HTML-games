@@ -116,6 +116,8 @@
     chores: ['Honest work', 'Muck out a henhouse for $50.', null],
     hybrid2: ['Love is blind', 'Hatch a chick from two very different parents.', (S) => S.birds.some((c) => c.origin === 'born' && RB.state.isCross(c))],
     kidnap: ['Finders keepers', 'Net a person.', (S) => S.stats.kidnapped >= 1],
+    sweep: ['Ghost town', 'Net every single person on the mainland, shopkeepers and all.', (S) => !!(RB.game && RB.game.world) && ST.nettedAll(S, RB.game.world),
+      (S) => (RB.game && RB.game.world ? ST.nettedCount(S, RB.game.world) + ' of ' + ST.mainlanders(RB.game.world).length + ' so far' : '')],
     rich: ['Feathered nest', 'Hold $5000 at once.', (S) => S.money >= 5000],
     clone: ['Send in the clones', 'Turn a creature into a clone with a whole-genome copy.', null],
     roost: ['Golden years', 'Retire a bird to Sunset Roost.', (S) => (S.roost || []).length >= 1],
@@ -210,6 +212,68 @@
         if (n.text) ui.text(n.text, x + 60, y + 51, { size: 11, color: n.ok ? pal.teal : pal.coral, maxW: w - 150 });
         if (ui.btn(x + w - 84, y + 12, 72, 36, n.label || 'Pick', { disabled: !n.ok, size: 13, fill: n.fill })) { RB.audio.play('click'); ui.close(); onPick(c); }
       });
+    } });
+  };
+
+  // ---- whoever minds a place, tapped in the header: net them right there, indoors
+  // base: the person from world.npcs. onCaught(c) runs once they are in the truck.
+  common.keeperTap = function (S, base, x, y, w, h, onCaught) {
+    if (!base) return;
+    const ctx = ui.ctx;
+    // a little net badge on the portrait says it can be tapped
+    ctx.fillStyle = pal.plum; ctx.beginPath(); ctx.arc(x + w - 4, y + h - 4, 10, 0, Math.PI * 2); ctx.fill();
+    ui.icon('net', x + w - 4, y + h - 4, 12, pal.white);
+    if (ui.tapIn(x, y, w + 6, h + 6)) { RB.audio.play('click'); common.netKeeper(S, base, onCaught); }
+  };
+  common.netKeeper = function (S, base, onCaught) {
+    const cur = RB.npc.current(S, base), bird = !!cur.bird;
+    const what = bird
+      ? cur.name + ' minds the place for you. Net it and it goes back in your truck as it was, and the place needs someone new.'
+      : 'Throw a net over ' + cur.name + ' right here. The place stays shut while ' + (cur.sex === 'F' ? 'she is' : 'he is') + ' away, unless you put someone else in charge. The sheriff will hear about it.';
+    ui.open({ draw() {
+      const box = ui.window(cur.name, 360, 250, {});
+      if (!box) return;
+      common.portrait({ P: RB.pheno.express(cur.g) }, box.x, box.y + 2, 76, 76, { draw: { clothes: cur.clothes } });
+      ui.para(what, box.x + 86, box.y + 2, box.w - 86, { size: 12 });
+      const silver = !!S.equip.silvernet, n = ST.count(S, 'net') + ST.count(S, 'bignet');
+      if (ui.btn(box.x, box.y + box.h - 46, box.w, 42, 'Throw a net' + (silver ? ' (silver)' : ' (' + n + ' left)'), { icon: 'net', fill: pal.plum, disabled: !silver && !n })) {
+        if (!ST.useNet(S, 'net')) ST.useNet(S, 'bignet');
+        const c = ST.netKeeper(S, base);
+        if (c.person && !bird) ST.caughtPerson(S, base.role === 'sheriff' ? 70 : 40);
+        ui.close();
+        RB.audio.play('catch');
+        if (c.person) RB.audio.play('error');
+        ui.toast(bird ? c.name + ' is back in the truck, a bird again.' : 'You netted ' + c.name + '! "' + RB.npc.SCREAMS[(S.day + c.id) % RB.npc.SCREAMS.length] + '"', pal.plum);
+        common.checkAch(S);
+        RB.game.save();
+        onCaught(c);
+      }
+    } });
+  };
+
+  // ---- a place with nobody minding it: put a creature from the truck in charge
+  // base: the person from world.npcs; empty: 'away' or 'sold'. onDone runs once someone runs it.
+  common.vacant = function (S, site, base, empty, onDone) {
+    const was = RB.npc.current(S, base);
+    const text = (empty === 'sold' ? 'The place stands empty. Someone new will move in before long.' : 'Nobody is minding the place: ' + was.name + ' is... away.') +
+      ' Or put someone in charge yourself: a person you netted, or any bird in the truck. A bird put in charge wakes up sentient and carries on the trade.';
+    ui.open({ draw() {
+      const box = ui.window(site.kind === 'house' ? 'An empty house' : site.name, 360, 230, {});
+      if (!box) return;
+      ui.para(text, box.x, box.y + 2, box.w, { size: 12 });
+      const list = ST.at(S, 'cage');
+      if (ui.btn(box.x, box.y + box.h - 46, box.w, 42, list.length ? 'Put someone in charge' : 'The truck is empty', { icon: 'right', fill: pal.teal, disabled: !list.length })) {
+        ui.close();
+        common.pick('Who takes over?', list, (c) => {
+          const why = ST.installKeeper(S, base, c);
+          if (why) { ui.toast(why, pal.coral); RB.audio.play('error'); return; }
+          RB.audio.play('good');
+          ui.toast(c.person === base.id ? c.name + ' is back where ' + (c.g.sex === 'F' ? 'she' : 'he') + ' belongs.' : c.person ? c.name + ' takes over. Nobody asks questions.' : c.name + ' blinks, clears its throat and starts talking. It runs the place now.', pal.teal);
+          common.checkAch(S);
+          RB.game.save();
+          onDone();
+        }, (c) => ({ text: c.person ? (c.person === base.id ? 'their own place' : 'a person') : 'will wake up sentient', ok: true, label: 'Hire', fill: pal.teal }));
+      }
     } });
   };
 

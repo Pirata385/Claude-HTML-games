@@ -75,7 +75,7 @@
         let x = isle.x, y = isle.y;
         for (let k = 0; k < 10; k++) { const a = r.range(0, TAU), d = Math.sqrt(r.next()) * isle.R * 0.7; x = isle.x + Math.cos(a) * d; y = isle.y + Math.sin(a) * d; if (WD.inBlob(is.inner, x, y)) break; }
         const w = makeWild(c.g, x, y, 'graze');
-        w.P = ST.pheno(c); w.own = c; w.any = true; w.island = isle.id;
+        w.P = ST.pheno(c); w.own = c; w.any = true; w.island = isle.id; w.clothes = c.clothes || null;
         wild.push(w);
       }
     }
@@ -154,14 +154,14 @@
   }
   function catchPerson(f) {
     f.gone = true;
-    RB.npc.info(S, f.npc.id).gone = true;
-    ST.addBird(S, RB.genome.clone(f.npc.g), { at: 'cage', name: f.npc.name, person: f.npc.id, clothes: f.npc.clothes, bond: 0, origin: 'wild' });
-    S.stats.kidnapped++;
+    const c = ST.netKeeper(S, f.base);
+    RB.audio.play('catch');
+    if (!c.person) { ui.toast(c.name + ' is back in the truck, a bird again.', pal.plum); puff(f.x, f.y - 30, 6, f.P.css.body); common.checkAch(S); return 'caught'; } // a bird you put in charge
     let seenBy = 0;
     for (const o of folk) if (o !== f && !o.gone && Math.hypot(o.x - f.x, o.y - f.y) < 750) { seenBy++; o.scared = 6; }
     ST.caughtPerson(S, (f.npc.role === 'sheriff' ? 70 : 35) + seenBy * 15);
     ui.toast('You netted ' + f.npc.name + '!' + (seenBy ? ' Somebody saw that.' : ''), pal.plum);
-    RB.audio.play('catch'); puff(f.x, f.y - 60, 8, pal.paper, rng.pick(RB.npc.SCREAMS));
+    puff(f.x, f.y - 60, 8, pal.paper, rng.pick(RB.npc.SCREAMS));
     common.checkAch(S);
     return 'caught';
   }
@@ -219,11 +219,10 @@
     }
     const night = site.id === 'cellar' || site.id === 'market';
     if (night && !isNight()) { ui.toast(site.name + ' opens after dark (19:00). Speed time up, or tap the clock to wait.'); return; }
-    let keeper = world.npcs.find((n) => n.site === site.id);
-    if (keeper) keeper = RB.npc.current(S, keeper);
-    const empty = RB.npc.vacancy(S, keeper);
-    if (empty === 'sold') { ui.toast('The house stands empty. Someone new will move in soon.', pal.plum); return; }
-    if (empty === 'away') { ui.toast('Nobody is minding the place. ' + keeper.name + ' is... away.', pal.plum); return; }
+    const base = world.npcs.find((n) => n.site === site.id);
+    const empty = RB.npc.vacancy(S, base);
+    // nobody minding the place: put someone in charge, or come back later
+    if (empty) { common.vacant(S, site, base, empty, () => { refreshFolk(); enter(site); }); return; }
     if (st === 'arena' && !RB.economy.arenaOpen(S, RB.economy.ARENA[site.id])) { ui.toast('The Grand Ring only takes champions: beat the boss at every other arena first.', pal.coral); return; }
     S.pos = { x: car.x, y: car.y };
     RB.game.save();
@@ -244,7 +243,8 @@
     const fine = Math.min(S.money, 50 + Math.round(S.heat * 8));
     S.money -= fine;
     const held = ST.at(S, 'cage').filter((c) => c.person);
-    for (const c of held) { const st = RB.npc.info(S, c.person); st.gone = false; st.rel = Math.max(-100, st.rel - 20); ST.removeBird(S, c); const f = folk.find((o) => o.npc.id === c.person); if (f) f.gone = false; }
+    for (const c of held) { ST.releasePerson(S, c, 20); ST.removeBird(S, c); }
+    refreshFolk();
     S.heat = Math.max(0, S.heat - 45);
     stun = 1.2; car.vx = 0; car.vy = 0;
     RB.audio.play('error');
@@ -267,10 +267,11 @@
       decorCache = new Map();
       if (!paths || paths.seed !== world.seed) { buildPaths(); paths.seed = world.seed; }
       folk = world.npcs.filter((n) => n.site.startsWith('house') || n.role === 'sheriff').map((n0) => {
-        const n = RB.npc.current(S, n0), s = world.site[n.site], P = RB.pheno.express(n.g);
-        return { npc: n, P, x: s.x + (n.role === 'sheriff' ? 160 : 70), y: s.y + 120, hx: s.x + 70, hy: s.y + 120, f: 1, ph: 0, sp: 0, t: rng.range(0, 3), gone: RB.npc.info(S, n.id).gone, scared: 0 };
+        const s = world.site[n0.site];
+        return { base: n0, npc: null, P: null, x: s.x + (n0.role === 'sheriff' ? 160 : 70), y: s.y + 120, hx: s.x + 70, hy: s.y + 120, f: 1, ph: 0, sp: 0, t: rng.range(0, 3), gone: true, scared: 0 };
       });
-      sheriff = folk.find((f) => f.npc.role === 'sheriff');
+      refreshFolk();
+      sheriff = folk.find((f) => f.base.role === 'sheriff');
       RB.audio.setTune(isNight() ? 'night' : 'map');
       // the truck's cage, live: grab the riders, tap one for its card, drag one out to let it go
       pen = new RB.Pen({ drawOpts: common.drawOpts, onTap: (c) => common.card(c, riderActions), onDropOut: (c, sx, sy) => { const w = toWorld(sx, sy); releaseAt(c, w.x, w.y); } });
@@ -529,7 +530,7 @@
           const pose = RB.pose.animPose(w.P, { x: w.x, y: w.y + pit, f: w.f, phase: w.ph, speed: w.sp, time: t, fly: w.alt > 8 ? 1 : 0, alt: w.alt * 1.6 });
           if (w.state === 'trapped') pose.eye = 'scared'; else if (w.state === 'charge') pose.eye = 'angry';
           if (w.state === 'eat' || (w.state === 'graze' && Math.sin(t * 2 + w.ph * 20) > 0.6)) { const k = pose.neck.length; pose.neck[k - 1] += w.P.NL * 0.5; pose.neck[k - 2] += w.f * w.P.NL * 0.3; pose.headAng += w.f > 0 ? 0.9 : -0.9; }
-          RB.art.drawCreature(ctx, w.P, pose, {});
+          RB.art.drawCreature(ctx, w.P, pose, w.clothes ? { clothes: w.clothes } : {});
           if (w.stam <= 0 && w.state === 'flee') props.label(ctx, 'puff...', w.x, w.y - w.P.rest - w.P.TD - 14, 14, pal.ink);
         } else if (e.kind === 3) {
           const f = e.it;
@@ -641,6 +642,15 @@
     debug() { return { car, wild, folk, nets, near, world, throwNet, dig, tool: () => tool, guide: () => guide }; },
   };
 
+  // Who walks out of each house now: its own person, a newcomer, or whoever you put in charge.
+  function refreshFolk() {
+    if (!folk) return;
+    for (const f of folk) {
+      const n = RB.npc.current(S, f.base);
+      if (f.npc !== n) { f.npc = n; f.P = RB.pheno.express(n.g); }
+      f.gone = RB.npc.vacancy(S, f.base) !== '';
+    }
+  }
   function biomeBlocked(x, y, P) { return P.web < 0.5 && WD.biomeAt(world, x, y) === 'water'; }
   function honk() { RB.audio.play('horn'); for (const w of wild) if (Math.hypot(w.x - car.x, w.y - car.y) < 700 && (w.state === 'graze' || w.state === 'walk' || w.state === 'eat')) { w.state = 'flee'; w.t = 1.5; } }
   function dropSeed() {
@@ -666,14 +676,16 @@
   function penBox() { const v = ui.view, w = Math.min(380, v.w - 24); return { x: 12, y: 136, w, h: v.portrait ? 150 : Math.min(140, v.h * 0.3) }; }
   // Let a rider go at a spot on the map: a bird goes back to the wild there, a person walks home.
   function releaseAt(c, wx, wy) {
+    let back = null;
     if (c.person) {
-      const st = RB.npc.info(S, c.person); st.gone = false; st.rel = Math.max(-100, st.rel - 40);
-      const f = folk.find((o) => o.npc.id === c.person);
-      if (f) { f.gone = false; f.x = wx; f.y = wy; f.scared = 5; }
+      back = ST.releasePerson(S, c, 40); // home again; whoever you had put in charge there comes back
+      refreshFolk();
+      const f = folk.find((o) => o.base.id === c.person);
+      if (f && !f.gone) { f.x = wx; f.y = wy; f.scared = 5; }
     } else { const w = addWild(c.g, wx, wy, 'graze'); w.stam = 30; w.t = 2; }
     ST.setFree(S, c, wx, wy); // its genes join the wild around here
     puff(wx, wy - 30, 6, pal.paper);
-    ui.toast(c.name + (c.person ? ' scrambles off home.' : ' is free again.'), pal.ink);
+    ui.toast(c.name + (c.person ? ' scrambles off home.' : ' is free again.') + (back ? ' ' + back.name + ', who was minding the place, hops back into the truck.' : ''), pal.ink);
     RB.audio.play('poof');
   }
   const riderActions = (cc) => [{ label: cc.person ? 'Let go' : 'Set free', icon: 'feather', fill: pal.grey, fn: () => { releaseAt(cc, car.x - car.f * 90, car.y + 30); ui.closeAll(); } }];

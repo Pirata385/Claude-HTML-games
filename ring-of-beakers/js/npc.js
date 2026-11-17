@@ -45,8 +45,10 @@
 
   // Who lives in a house now: the original neighbour, or a newcomer after the last one was sold.
   const SURNAMES = ['Moura', 'Queiroz', 'Bastos', 'Freitas', 'Lacerda', 'Pimentel', 'Saraiva', 'Teles'];
-  const newcomers = new Map();
+  const newcomers = new Map(), subs = new Map();
   function current(S, npc) {
+    const sub = S.npc[npc.id] && S.npc[npc.id].sub;
+    if (sub) return standIn(npc, sub);
     const gen = (S.npc[npc.id] && S.npc[npc.id].gen) || 0;
     if (!gen) return npc;
     const key = npc.id + ':' + gen;
@@ -57,6 +59,19 @@
       n = Object.assign({}, npc, { name, sex, g: personGenome(r, sex), clothes: clothes(r, npc.role === 'sheriff' ? 'star' : r.chance(0.3) ? r.pick(['cowboy', 'bandana']) : null), seed: r.int(1, 2e9) });
       if (npc.role === 'sheriff') { n.clothes.shirt = '#8a7a52'; n.clothes.shirtDark = '#6e6142'; }
       newcomers.set(key, n);
+    }
+    return n;
+  }
+
+  // Whoever you put in charge of a place (state.installKeeper): a person you netted, or a bird that
+  // woke up sentient. They keep the place's role and trade, under their own name and face.
+  function standIn(npc, sub) {
+    const key = npc.id + ':' + sub.id + ':' + sub.name;
+    let n = subs.get(key);
+    if (!n) {
+      const g = RB.genome.deserialize(sub.g);
+      n = Object.assign({}, npc, { name: sub.name, sex: g.sex, g, clothes: sub.clothes || null, hat: sub.hat || null, seed: (npc.seed ^ hashStr(key)) >>> 0, sub: true, bird: !sub.person, was: npc.name });
+      subs.set(key, n);
     }
     return n;
   }
@@ -95,7 +110,7 @@
   function vacancy(S, npc) {
     if (!npc) return '';
     const st = info(S, npc.id);
-    return st.soldOff ? 'sold' : st.gone ? 'away' : '';
+    return st.sub ? '' : st.soldOff ? 'sold' : st.gone ? 'away' : '';
   }
   const period = (S) => Math.floor((S.day - 1) / 3);
 
@@ -169,10 +184,13 @@
     exotic: ['Two heads? Teeth? A glow in the dark? I have them all. Nobody else does.', 'Step inside. Mind the one with arms.', 'Rare, strange and impossible. Prices to match.'] };
   function greeting(S, npc) {
     const r = new Rng((npc.seed ^ S.day) >>> 0), list = GREET[npc.role] || ['Hello.'];
-    return r.pick(list).replace('{w}', wishOf(S, npc).text);
+    return chirp(npc, r) + r.pick(list).replace('{w}', wishOf(S, npc).text);
   }
+  // a bird in charge still sounds like one now and then
+  const CHIRPS = ['Squawk! ', 'Caw. Ahem. ', 'Cluck cluck. I mean: ', '*ruffles feathers* ', 'Prrrt. ', 'Kraa! Sorry. '];
+  function chirp(npc, r) { return npc && npc.bird ? (r || new Rng(npc.seed)).pick(CHIRPS) : ''; }
   const SCREAMS = ['Hey! HEY!', 'Not the net!', 'I have a family!', 'This is a kidnapping!', 'Put me down!', 'My back!'];
 
   const randomName = (r, sex) => r.pick(sex === 'M' ? FIRST_M : FIRST_F);
-  RB.npc = { populate, make, exotic, randomName, personGenome, clothes, current, WISHES, info, vacancy, wishOf, offer, fitText, stockOf, challengeOf, greeting, SCREAMS, period, hashStr };
+  RB.npc = { chirp, populate, make, exotic, randomName, personGenome, clothes, current, WISHES, info, vacancy, wishOf, offer, fitText, stockOf, challengeOf, greeting, SCREAMS, period, hashStr };
 })();

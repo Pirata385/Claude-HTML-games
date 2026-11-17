@@ -8,7 +8,7 @@
   const ui = RB.ui, pal = RB.pal, ST = RB.state, common = RB.common, L = RB.lab, GN = RB.genome, IT = RB.items;
   const BASE_COL = ['#e76f51', '#2a9d8f', '#e9b44c', '#6d4c7d'], BASES = 'ACGT';
 
-  let S, tab, subject, gene, t;
+  let S, tab, subject, gene, t, base;
   const caged = () => ST.at(S, 'cage');
   function tiles(bases, x, y, s, gap) {
     for (let i = 0; i < 4; i++) { ui.rect(x + i * (s + gap), y, s, s, BASE_COL[bases[i]], Math.min(4, s / 4)); if (s >= 14) ui.text(BASES[bases[i]], x + i * (s + gap) + s / 2, y + s / 2 + 0.5, { size: s * 0.6, color: pal.white, align: 'center', base: 'middle' }); }
@@ -304,16 +304,19 @@
     });
   }
   RB.scenes.lab = {
-    enter() { S = RB.game.S; tab = 0; subject = null; gene = -1; t = 0; RB.audio.setTune('lab'); },
+    enter() { S = RB.game.S; tab = 0; subject = null; gene = -1; t = 0; RB.audio.setTune('lab'); base = RB.game.world.npcs.find((n) => n.site === 'lab') || null; },
     update(dt) { t += dt; },
     debug() { return { editWindow, singleGene }; },
     draw(ctx) {
       const v = ui.view;
       ctx.fillStyle = '#e4efec'; ctx.fillRect(0, 0, v.w, v.h);
       ui.rect(0, 0, v.w, 56, pal.ink);
-      ui.icon('beaker', 28, 28, 30, pal.teal);
-      ui.text('The Lab', 52, 24, { size: 16, color: pal.white });
-      ui.text(S.lab.power ? 'All ' + GN.N_GENES + ' genes mapped' : 'No power', 52, 42, { size: 11, color: pal.sand, bold: false });
+      // whoever runs the lab (tap to net them)
+      const boss = base ? RB.npc.current(S, base) : null;
+      if (boss) { common.portrait({ P: RB.pheno.express(boss.g) }, 8, 6, 44, 44, { fill: pal.paper, draw: { clothes: boss.clothes } }); common.keeperTap(S, base, 8, 6, 44, 44, () => RB.game.go('map')); }
+      else ui.icon('beaker', 28, 28, 30, pal.teal);
+      ui.text('The Lab', 60, 24, { size: 16, color: pal.white });
+      ui.text((boss ? boss.name + ' · ' : '') + (S.lab.power ? 'All ' + GN.N_GENES + ' genes mapped' : 'No power'), 60, 42, { size: 11, color: pal.sand, bold: false, maxW: v.w - 180 });
       ui.money(S.money, v.w - 104, 33, { size: 14, color: pal.white, align: 'right' });
       if (ui.btn(v.w - 96, 8, 88, 40, 'Leave', { icon: 'left', fill: pal.coral, size: 13, key: 'Escape' })) { RB.game.save(); RB.game.go('map'); }
       const bw = Math.min(v.w - 16, 700), b = { x: (v.w - bw) / 2, y: 64, w: bw, h: v.h - 72 };
@@ -321,7 +324,7 @@
         const n = ST.count(S, 'fuse');
         ui.panel(b.x, b.y, b.w, 190, {});
         ui.text('The generator is dead', b.x + 14, b.y + 28, { size: 17 });
-        ui.para('Prof. Bequer: "Three fuses and we are in business. There is one buried by the red cross outside. Net & Spade can order them, and people have dug them up all over."', b.x + 14, b.y + 38, b.w - 28, { size: 12 });
+        ui.para((boss ? boss.name : 'Prof. Bequer') + ': "' + (boss ? RB.npc.chirp(boss) : '') + 'Three fuses and we are in business. There is one buried by the red cross outside. Net & Spade can order them, and people have dug them up all over."', b.x + 14, b.y + 38, b.w - 28, { size: 12 });
         for (let i = 0; i < 3; i++) ui.icon('fuse', b.x + 34 + i * 44, b.y + 120, 34, i < n ? pal.mustard : pal.soft);
         if (ui.btn(b.x + 160, b.y + 100, 170, 42, 'Fit the fuses', { disabled: n < 3 })) { L.powerOn(S); RB.audio.play('zap'); common.checkAch(S); RB.game.save(); }
         return;

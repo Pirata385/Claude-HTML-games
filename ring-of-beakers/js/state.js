@@ -16,7 +16,7 @@
   function create(seed, opts) {
     const S = {
       v: 1, seed: seed >>> 0, rs: (seed ^ 0x51ab) >>> 0, day: 1, time: 6, money: 150, debt: 15000, heat: 0, heatPeople: 0, heatDays: 0, nextId: 1,
-      birds: [], eggs: [], roost: [], released: [], markers: {}, visited: {}, isles: [],
+      birds: [], eggs: [], roost: [], released: [], markers: {}, visited: {}, isles: [], netted: {},
       inv: { net: 3, shovel: 10, grain: 8 }, equip: {}, up: { cage: 0, engine: 0, tires: 0, coop: 0, nest: 0, incubator: 0, dummy: 0, boat: 0 },
       feeder: 0, pos: null, dug: {}, marksDug: {}, wildGone: null, npc: {}, league: {}, bets: {},
       lab: { power: false, fuses: 0, atlas: {}, vials: [], fossils: {}, seq: {} },
@@ -108,6 +108,9 @@
   function give(S, item, n) { S.inv[item] = (S.inv[item] || 0) + (n === undefined ? 1 : n); }
   function take(S, item, n) { n = n === undefined ? 1 : n; if (count(S, item) < n) return false; S.inv[item] -= n; if (S.inv[item] <= 0) delete S.inv[item]; return true; }
   function removeBird(S, c) { const i = S.birds.indexOf(c); if (i >= 0) S.birds.splice(i, 1); }
+  // a creature as plain data for the save, and back
+  function serBird(c) { const b = {}; for (const k of Object.keys(c)) if (k[0] !== '_') b[k] = c[k]; b.g = GN.serialize(c.g); return b; }
+  function deBird(b) { const c = JSON.parse(JSON.stringify(b)); c.g = GN.deserialize(b.g); c._P = null; return c; }
 
   // Move a creature: 'home', 'cage', 'crate' (BFC pick-up box) or 'nestN'. Returns '' or why not.
   function move(S, c, to) {
@@ -246,7 +249,7 @@
     // a house left empty gets a new owner after three nights
     for (const id of Object.keys(S.npc)) {
       const st = RB.npc.info(S, id);
-      if (st.soldOff && S.day - st.soldDay >= 3) {
+      if (st.soldOff && !st.sub && S.day - st.soldDay >= 3) {
         st.soldOff = false; st.gone = false; st.gen = (st.gen || 0) + 1; st.rel = 0; st.n = 0; st.sold = {}; st.credit = 0;
         lines.push(id === 'sheriff' ? 'A new sheriff has come to town.' : 'Someone new has moved into an empty house.');
       }
@@ -343,13 +346,13 @@
   // young, the old ones pass away in time, and generation follows generation. Odd mushrooms and
   // isotopes left there make the place radioactive: young born while it is hot come out mutated
   // and deformed. The radiation fades slowly.
-  const CLAIM_COST = 500, RAISE_COST = 2500, RAISE_R = 1300, CLEAN_COST = 300;
+  const CLAIM_COST = 500, RAISE_COST = 2500, RAISE_R = 1300, CLEAN_COST = 300, ISLE_EXTRA = 6;
   const ISLE_ODD = ['teeth', 'arms', 'twoHeads', 'glow', 'tailBone', 'gigas', 'nana', 'cyclops', 'legsExtra', 'earTuft', 'fluff', 'bare'];
   const DOSE = { mushroom: 0.08, isotope: 0.3 };
   const isleOf = (S, id) => (S.isles || []).find((i) => i.id === id) || null;
   // how many birds an island can feed: more on a bigger island
-  const isleCap = (isle) => clamp(Math.round(isle.R * isle.R / 90000), 8, 40);
-  function newIsle(S, o) { const isle = Object.assign({ birds: [], rad: 0, gen: 0, since: S.day }, o); S.isles.push(isle); S.visited[isle.id] = 1; return isle; }
+  const isleCap = (isle) => clamp(Math.round(isle.R * isle.R / 90000), 8, 40) + ISLE_EXTRA;
+  function newIsle(S, o) { const isle = Object.assign({ birds: [], rad: 0, gen: 0, since: S.day, born: 0, died: 0, odd: 0 }, o); S.isles.push(isle); S.visited[isle.id] = 1; return isle; }
   // Claim an island nobody lives on. is: an island from RB.sea. Returns the isle, or why not.
   function claimIsle(S, is) {
     if (isleOf(S, is.id)) return 'It is yours already.';
@@ -367,9 +370,10 @@
     const id = 'u' + S.nextId++, seed = (S.seed ^ hashStr(id)) >>> 0;
     return newIsle(S, { id, name: RB.sea.word(new Rng(seed)) + ' Isle', made: true, x: Math.round(x), y: Math.round(y), R: RAISE_R, land, seed });
   }
-  // Leave a bird on the island, or take one back into the truck. Return '' or why not.
+  // Leave a creature on the island (a bird, or a person you netted: they live there just the same),
+  // or take one back into the truck. Return '' or why not.
   function toIsle(S, isle, c) {
-    if (c.person) return 'Only birds can be left out there.';
+    if (isle.birds.length >= isleCap(isle)) return 'The island is full.';
     removeBird(S, c);
     c.at = 'isle'; c.isle = isle.id; c.gen = c.gen || 0; c.fed = true; c.hungry = 0; c.love = false;
     isle.birds.push(c);
@@ -411,7 +415,7 @@
     for (const c of isle.birds.slice()) {
       if (c.hatched === S.day) continue;
       c.age++; dirty(c);
-      if (c.age >= pheno(c).lifespan + 2) { isle.birds.splice(isle.birds.indexOf(c), 1); died++; } // out here the old pass away
+      if (c.age >= pheno(c).lifespan + 2) { isle.birds.splice(isle.birds.indexOf(c), 1); died++; if (c.person) soldPerson(S, c); } // out here the old pass away
     }
     const adults = isle.birds.filter((c) => isAdult(c) && c.age < pheno(c).lifespan);
     const males = r.shuffle(adults.filter((c) => c.g.sex === 'M')), females = r.shuffle(adults.filter((c) => c.g.sex === 'F'));
@@ -426,9 +430,80 @@
       if (pheno(chick).odd.length) odd++;
     }
     isle.rad = Math.max(0, +(isle.rad - 0.02).toFixed(3));
+    isle.born = (isle.born || 0) + born; isle.died = (isle.died || 0) + died; isle.odd = (isle.odd || 0) + odd;
     if (!born && !died) return null;
     return isle.name + ': ' + (born ? born + ' chick' + (born > 1 ? 's' : '') + ' hatched (generation ' + isle.gen + ')' : 'no chicks') + (died ? ', ' + died + ' old bird' + (died > 1 ? 's' : '') + ' passed away' : '') + '.' + (odd ? ' ' + odd + ' of the young came out strange.' : '');
   }
+
+  // Camp at one of your islands for n nights in a row: each counts as a night at home (the coop
+  // ages, eggs hatch, the colonies breed), and the birds at home and in the truck are fed from the
+  // grain in your bag each night. Returns { lines, fromBag, short } (short: nights grain ran out).
+  const STAY_MAX = 30;
+  function stay(S, n) {
+    n = clamp(Math.round(n), 1, STAY_MAX);
+    const before = (S.isles || []).map((i) => ({ i, n: i.birds.length, born: i.born || 0, died: i.died || 0, odd: i.odd || 0 }));
+    const names = new Set((S.isles || []).map((i) => i.name + ':'));
+    const days = [];
+    let fromBag = 0, short = 0;
+    for (let d = 0; d < n; d++) {
+      const need = S.birds.filter((c) => !c.fed).length - S.feeder;
+      if (need > 0) { const k = Math.min(need, count(S, 'grain')); if (k) { take(S, 'grain', k); S.feeder += k; fromBag += k; } if (k < need) short++; }
+      for (const l of sleep(S).lines) if (![...names].some((nm) => l.startsWith(nm))) days.push('Day ' + S.day + ': ' + l);
+    }
+    const lines = [];
+    for (const b of before) {
+      const i = b.i, born = (i.born || 0) - b.born, died = (i.died || 0) - b.died, odd = (i.odd || 0) - b.odd;
+      lines.push(i.name + ': ' + (born ? born + ' hatched' : 'nobody hatched') + (died ? ', ' + died + ' passed away' : '') + (odd ? ', ' + odd + ' came out strange' : '') + '. Now ' + i.birds.length + ' living there' + (i.gen ? ', generation ' + i.gen : '') + '.');
+    }
+    if (fromBag) lines.push('Your birds ate ' + fromBag + ' grain from your bag.');
+    if (short) lines.push('The grain ran out on ' + short + ' night' + (short > 1 ? 's' : '') + '.');
+    return { lines: lines.concat(days), fromBag, short };
+  }
+
+  // ---- people in charge. Anyone minding a place can be netted, indoors too: their place stays
+  // shut while they are away, or you can put someone else in charge, a person you netted or even a
+  // bird, which wakes up sentient and carries on the trade. (st.sub holds whoever you put there.)
+  // Net whoever minds a place, given the person from world.npcs. Returns the creature now in the truck.
+  function netKeeper(S, base) {
+    const st = RB.npc.info(S, base.id);
+    if (st.sub) { // whoever you put in charge comes back just as they were
+      const c = deBird(st.sub); st.sub = null;
+      delete c.keeps; c.at = 'cage'; c.fed = false; S.birds.push(c);
+      if (c.person) S.stats.kidnapped++;
+      return c;
+    }
+    const cur = RB.npc.current(S, base);
+    st.gone = true;
+    S.stats.kidnapped++; S.netted = S.netted || {}; S.netted[base.id] = 1;
+    return addBird(S, GN.clone(cur.g), { at: 'cage', name: cur.name, person: base.id, clothes: cur.clothes, bond: 0, origin: 'wild' });
+  }
+  // Put a creature from the truck in charge of a place whose person is away (or gone for good).
+  // Their own person put back simply goes home. Returns '' or why not.
+  function installKeeper(S, base, c) {
+    const st = RB.npc.info(S, base.id);
+    if (st.sub) return 'Someone already runs this place.';
+    if (!st.gone && !st.soldOff) return base.name + ' still runs this place.';
+    removeBird(S, c);
+    if (c.person === base.id && !st.soldOff) { st.gone = false; return ''; }
+    c.at = 'keeper'; c.keeps = base.id; c.fed = true; c.hungry = 0; c.love = false; c.tired = false;
+    st.sub = serBird(c); st.subDay = S.day;
+    st.rel = 10; st.n = 0; st.sold = {}; st.credit = 0;
+    return '';
+  }
+  // A netted person let go: they go home and take their place back; whoever you had put in charge
+  // there comes back to the truck (returned). Does not take them out of the flock: the caller does.
+  function releasePerson(S, c, relLoss) {
+    const st = RB.npc.info(S, c.person);
+    st.gone = false; st.rel = Math.max(-100, st.rel - (relLoss || 0));
+    if (!st.sub) return null;
+    const back = deBird(st.sub); st.sub = null;
+    delete back.keeps; back.at = 'cage'; S.birds.push(back);
+    return back;
+  }
+  // The people of the mainland (not the islands out at sea), and whether you have netted them all.
+  const mainlanders = (world) => world.npcs.filter((n) => { const s = world.site[n.site]; return s && !s.island; });
+  const nettedCount = (S, world) => mainlanders(world).filter((n) => S.netted && S.netted[n.id]).length;
+  const nettedAll = (S, world) => { const m = mainlanders(world); return m.length > 0 && nettedCount(S, world) === m.length; };
 
   // ---- Sunset Roost: a home for retired birds, looked after by Dona Nina
   // Check a retired bird in (it leaves your flock and lives at the roost). Returns '' or why not.
@@ -455,9 +530,9 @@
     const o = {};
     for (const k of Object.keys(S)) if (k[0] !== '_') o[k] = S[k];
     o.rs = S._rng.s;
-    o.birds = S.birds.map((c) => { const b = {}; for (const k of Object.keys(c)) if (k[0] !== '_') b[k] = c[k]; b.g = GN.serialize(c.g); return b; });
-    o.roost = S.roost.map((c) => { const b = {}; for (const k of Object.keys(c)) if (k[0] !== '_') b[k] = c[k]; b.g = GN.serialize(c.g); return b; });
-    o.isles = (S.isles || []).map((i) => Object.assign({}, i, { birds: i.birds.map((c) => { const b = {}; for (const k of Object.keys(c)) if (k[0] !== '_') b[k] = c[k]; b.g = GN.serialize(c.g); return b; }) }));
+    o.birds = S.birds.map(serBird);
+    o.roost = S.roost.map(serBird);
+    o.isles = (S.isles || []).map((i) => Object.assign({}, i, { birds: i.birds.map(serBird) }));
     o.eggs = S.eggs.map((e) => Object.assign({}, e, { g: GN.serialize(e.g) }));
     o.lab = Object.assign({}, S.lab);
     return JSON.parse(JSON.stringify(o));
@@ -471,7 +546,13 @@
     S.up.boat = S.up.boat || 0;
     S.markers = S.markers || {}; S.visited = S.visited || {}; // the map's markers, and islands landed on
     S.isles = S.isles || []; // breeding islands
+    // everyone ever netted (for the mainland sweep); older saves rebuild it from what they know
+    if (!S.netted) {
+      S.netted = {};
+      for (const id of Object.keys(S.npc || {})) { const st = S.npc[id]; if (st && (st.gone || st.soldOff || st.gen)) S.netted[id] = 1; }
+    }
     for (const isle of S.isles) for (const c of isle.birds) { c.g = GN.deserialize(c.g); c._P = null; }
+    for (const c of S.birds.concat(...S.isles.map((i) => i.birds))) if (c.person) S.netted[c.person] = 1;
     bossPrizes(S); // saves from before the boss prizes
     for (const c of S.roost) { c.g = GN.deserialize(c.g); c._P = null; }
     for (const e of S.eggs) e.g = GN.deserialize(e.g);
@@ -480,6 +561,7 @@
 
   RB.state = { create, addBird, removeBird, pheno, dirty, kind, isAdult, isRetired, checkIn, checkOut, BOSS_PRIZES, bossPrizes, GOLD_DIGS, goldLeft, digsLeft, useDig, useNet,
     RELEASED_MAX, setFree, genePool, HEAT_DAYS, caughtPerson, trainPreview, openSea, hasBoat, makeBird,
+    serBird, deBird, STAY_MAX, stay, netKeeper, installKeeper, releasePerson, mainlanders, nettedCount, nettedAll, ISLE_EXTRA,
     CLAIM_COST, RAISE_COST, RAISE_R, CLEAN_COST, DOSE, isleOf, isleCap, claimIsle, raiseIsle, toIsle, fromIsle, dose, cleanIsle, colonyNight, byId, at, atHome, cageCap, coopCap, nestCount, count, give, take, move, feed, train, TRAIN,
     layChance, sleep, serialize, deserialize, freeName, BIRD_NAMES, eat, soldPerson, kindKey, isCross, label };
 })();

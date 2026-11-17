@@ -7,7 +7,7 @@
   const { Rng, clamp } = RB.core;
   const ui = RB.ui, pal = RB.pal, ST = RB.state, common = RB.common, EC = RB.economy, IT = RB.items;
 
-  let S, world, site, keeper, tab, say, t;
+  let S, world, site, keeper, base, tab, say, t;
 
   const caged = () => ST.at(S, 'cage');
   function pay(n) { if (S.money < n) { ui.toast('You cannot afford that.', pal.coral); RB.audio.play('error'); return false; } S.money -= n; RB.audio.play('buy'); return true; }
@@ -211,10 +211,10 @@
   function isle(b) {
     const I = ST.isleOf(S, site.isle);
     if (!I) { ui.para('This station is not yours.', b.x + 4, b.y + 6, b.w, { size: 13 }); return; }
-    const y0 = b.y + tabs(['Colony', 'Bring birds', 'Environment'], b.x, b.y, b.w), h = b.h - (y0 - b.y);
+    const y0 = b.y + tabs(['Colony', 'Bring', 'Environment', 'Stay'], b.x, b.y, b.w), h = b.h - (y0 - b.y);
     if (tab === 0) {
-      ui.text(I.birds.length + ' of ' + ST.isleCap(I) + ' birds · ' + (I.gen ? 'generation ' + I.gen : 'the founders') + (I.rad > 0.05 ? ' · radioactive' : ''), b.x + 4, y0 + 12, { size: 12, color: pal.plum, maxW: b.w - 8 });
-      if (!I.birds.length) { ui.para('Nobody lives here yet. Bring birds in the truck and leave them here (Bring birds): pairs raise young every so often, and generation follows generation.', b.x + 4, y0 + 26, b.w - 8, { size: 13 }); return; }
+      ui.text(I.birds.length + ' of ' + ST.isleCap(I) + ' living here · ' + (I.gen ? 'generation ' + I.gen : 'the founders') + (I.born ? ' · ' + I.born + ' hatched so far' : '') + (I.rad > 0.05 ? ' · radioactive' : ''), b.x + 4, y0 + 12, { size: 12, color: pal.plum, maxW: b.w - 8 });
+      if (!I.birds.length) { ui.para('Nobody lives here yet. Bring birds (or people you netted) in the truck and leave them here (Bring): pairs raise young every so often, and generation follows generation. Stay a while to watch it happen.', b.x + 4, y0 + 26, b.w - 8, { size: 13 }); return; }
       const list = I.birds.slice().sort((a, c) => (c.gen || 0) - (a.gen || 0) || a.age - c.age);
       ui.list('isle' + I.id, b.x, y0 + 20, b.w, h - 20, list.length, 60, (i, x, y, w) => {
         const c = list[i], P = ST.pheno(c);
@@ -223,16 +223,18 @@
         }
       });
     } else if (tab === 1) {
-      const list = caged().filter((c) => !c.person);
-      if (!list.length) { ui.para('No birds in the truck. Bring some from home, or net some out here.', b.x + 4, y0 + 6, b.w - 8, { size: 13 }); return; }
+      const list = caged();
+      if (!list.length) { ui.para('Nobody in the truck. Bring birds from home, or net some out here. People you net can live here too.', b.x + 4, y0 + 6, b.w - 8, { size: 13 }); return; }
       const room = ST.isleCap(I) - I.birds.length;
       ui.text(room > 0 ? 'Room for ' + room + ' more. Leave a male and a female of whatever you like.' : 'The island is full: no room for more until some pass away.', b.x + 4, y0 + 12, { size: 12, color: room > 0 ? pal.teal : pal.coral, maxW: b.w - 8 });
       ui.list('bring' + I.id, b.x, y0 + 20, b.w, h - 20, list.length, 60, (i, x, y, w) => {
         const c = list[i];
         if (row(x, y, w, { c, title: c.name, sub: ST.kind(c) + ' · ' + (c.g.sex === 'M' ? 'male' : 'female'), btn: 'Leave', off: room <= 0 })) {
-          ST.toIsle(S, I, c); say = c.name + ' wanders off into its new home.'; RB.audio.play('good'); RB.game.save();
+          if (!ST.toIsle(S, I, c)) { say = c.person ? c.name + ' looks around, sighs, and starts building a hut.' : c.name + ' wanders off into its new home.'; RB.audio.play('good'); RB.game.save(); }
         }
       });
+    } else if (tab === 3) {
+      stayTab(I, b, y0);
     } else {
       const lvl = I.rad, word = lvl < 0.05 ? 'clean' : lvl < 0.3 ? 'faintly radioactive' : lvl < 0.6 ? 'radioactive' : 'glowing hot';
       ui.text('The island is ' + word + '.', b.x + 4, y0 + 16, { size: 14 });
@@ -245,6 +247,25 @@
       if (ui.btn(b.x + 4, y0 + 220, bw, 40, 'Clean it up · $' + ST.CLEAN_COST, { fill: pal.teal, size: 13, disabled: lvl <= 0 })) { const why = ST.cleanIsle(S, I); if (why) ui.toast(why, pal.coral); else { say = 'Scrubbed clean. The next young will be ordinary again.'; RB.game.save(); } }
       ui.text('The Night Market sells odd mushrooms and isotopes.', b.x + 4, y0 + 280, { size: 11, bold: false, color: pal.grey, maxW: b.w - 8 });
     }
+  }
+
+  // Stay at the station for several nights in a row and let the generations roll by.
+  function stayTab(I, b, y0) {
+    const mouths = S.birds.length, grain = ST.count(S, 'grain') + S.feeder, nights = mouths ? Math.floor(grain / mouths) : Infinity;
+    ui.para('Camp at the field station and let the days go by. Every night here counts as a night at home: the colony breeds and grows old, your birds at home age and their eggs hatch. Your birds at home and in the truck are fed from the grain in your bag.', b.x + 4, y0 + 6, b.w - 8, { size: 12 });
+    const enough = nights === Infinity ? 'Nobody at home to feed.' : 'Grain (bag and feeder): ' + grain + ' for ' + mouths + ' mouth' + (mouths === 1 ? '' : 's') + ': enough for ' + nights + ' night' + (nights === 1 ? '' : 's') + '.';
+    ui.text(enough, b.x + 4, y0 + 96, { size: 12, color: nights < 7 ? pal.coral : pal.teal, maxW: b.w - 8 });
+    const opts = [[1, 'One night'], [3, 'Three nights'], [7, 'A week'], [15, 'Two weeks'], [ST.STAY_MAX, 'A month']];
+    const cols = b.w > 420 ? 2 : 1, bw = (Math.min(b.w, 520) - 8 - (cols - 1) * 8) / cols;
+    opts.forEach(([n, label], i) => {
+      const x = b.x + 4 + (i % cols) * (bw + 8), y = y0 + 112 + Math.floor(i / cols) * 48;
+      if (ui.btn(x, y, bw, 40, label, { icon: 'moon', fill: n > nights ? pal.brick : pal.plum, size: 13 })) {
+        const gen0 = I.gen, res = ST.stay(S, n);
+        RB.audio.play('tick'); common.checkAch(S); RB.game.save();
+        say = n === 1 ? 'A quiet night under the stars.' : n + ' days later. Generation ' + I.gen + (I.gen > gen0 ? ', up from ' + gen0 : '') + '.';
+        ui.message(n === 1 ? 'Morning on ' + I.name : n + ' days on ' + I.name, res.lines.join('\n'), null, { ok: 'Back to work' });
+      }
+    });
   }
 
   // ---- the Bone Quarry: what you have dug up so far, and how to make a bird of it
@@ -409,9 +430,9 @@
   RB.scenes.site = {
     enter(args) {
       S = RB.game.S; world = RB.game.world; site = world.site[args.site]; tab = 0; t = 0;
-      keeper = world.npcs.find((n) => n.site === site.id) || null;
-      if (keeper) keeper = RB.npc.current(S, keeper);
-      say = site.kind === 'house' || site.kind === 'exotic' ? RB.npc.greeting(S, keeper) : LINES[site.id] || site.line || 'Hello.';
+      base = world.npcs.find((n) => n.site === site.id) || null;
+      keeper = base ? RB.npc.current(S, base) : null;
+      say = site.kind === 'house' || site.kind === 'exotic' ? RB.npc.greeting(S, keeper) : RB.npc.chirp(keeper) + (LINES[site.id] || site.line || 'Hello.');
       if (keeper) RB.npc.info(S, keeper.id).met = true;
       // each kind of place has its own tune
       RB.audio.setTune(site.id === 'cellar' || site.id === 'market' ? 'cellar' : site.kind === 'arena' ? 'fight' : site.kind === 'carnival' ? 'carnival' : site.kind === 'house' ? 'farm' : 'town');
@@ -423,7 +444,10 @@
       // header: who you are talking to, and what they say
       ui.rect(0, 0, v.w, 70, pal.ink);
       if (site.id === 'bfc') { ui.rect(8, 8, 54, 54, pal.paper, 10); RB.props.coronel(ctx, 35, 60, 0.74); }
-      else if (keeper) common.portrait({ P: RB.pheno.express(keeper.g) }, 8, 8, 54, 54, { fill: pal.paper, draw: { clothes: keeper.clothes } });
+      else if (keeper) {
+        common.portrait({ P: RB.pheno.express(keeper.g) }, 8, 8, 54, 54, { fill: pal.paper, draw: { clothes: keeper.clothes } });
+        if (RB.npc.vacancy(S, base) === '') common.keeperTap(S, base, 8, 8, 54, 54, () => { RB.game.go('map'); });
+      }
       const name = site.id === 'bfc' ? 'Coronel Galo' : keeper ? keeper.name : site.name;
       ui.text(site.kind === 'house' ? name : site.name, 70, 24, { size: 16, color: pal.white, maxW: v.w - 252 });
       const lines = ui.wrap((site.kind === 'house' || site.kind === 'isle' ? '' : name + ': ') + say, v.w - 252, 11, false);

@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="theme-color" content="#29366f">
+<meta name="description" content="Mutatrix: crie vírus procedurais infinitos e injete em ratos, robôs, plantas e amebas.">
+<title>Mutatrix — Laboratório de Vírus Mutantes</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Pixelify+Sans:wght@400..700&family=VT323&display=swap">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<canvas id="scene" aria-label="Laboratório da Mutatrix"></canvas>
+
+<div id="hud" hidden>
+  <header id="topbar">
+    <div class="stats">
+      <div class="stat" id="st-credits" data-tip="Créditos"><i data-icon="coin"></i><b>0</b></div>
+      <div class="stat" id="st-rep" data-tip="Reputação"><i data-icon="medal"></i><b>0</b></div>
+      <div class="stat" id="st-stab" data-tip="Estabilizadores"><i data-icon="pill"></i><b>0</b></div>
+    </div>
+    <nav class="tools" aria-label="Ferramentas">
+      <button class="tool" id="btn-contracts" data-act="contracts" data-tip="Contratos (K)" aria-label="Contratos"><i data-icon="letter"></i><span class="badge" hidden></span></button>
+      <button class="tool" id="btn-shop" data-act="shop" data-tip="Loja (L)" aria-label="Loja"><i data-icon="cart"></i></button>
+      <button class="tool" id="btn-book" data-act="book" data-tip="Mutapédia (C)" aria-label="Mutapédia"><i data-icon="book"></i></button>
+      <button class="tool" id="btn-photo" data-act="photo" data-tip="Ficha de espécime (P)" aria-label="Ficha de espécime"><i data-icon="camera"></i></button>
+      <button class="tool" id="btn-full" data-act="fullscreen" data-tip="Tela cheia (F)" aria-label="Tela cheia"><i data-icon="full"></i></button>
+      <button class="tool" id="btn-pause" data-act="pause" data-tip="Pausa (Esc)" aria-label="Pausa"><i data-icon="menu"></i></button>
+    </nav>
+  </header>
+  <section id="subject-card" hidden aria-live="polite"></section>
+  <div id="terminal" aria-live="polite"><span class="who">MUTATRIX&gt;</span> <span id="term-text"></span></div>
+  <aside id="panel" aria-label="Painel da Mutatrix">
+    <button id="drawer-handle" aria-label="Recolher ou expandir o painel"><span></span></button>
+    <div id="panel-body"></div>
+  </aside>
+  <div id="cards"></div>
+  <div id="fps" hidden></div>
+</div>
+
+<section id="title" class="screen">
+  <div class="title-box">
+    <p class="kicker">Laboratório de Vírus Mutantes</p>
+    <h1 class="logo"><img id="logo-img" alt="Mutatrix"><span class="sr">Mutatrix</span></h1>
+    <p class="subtitle">Crie vírus impossíveis. Injete em ratos, robôs, plantas e amebas. Anote tudo. Conserte depois.</p>
+    <div class="title-buttons">
+      <button class="btn big primary" id="t-continue" data-act="continue" hidden>Continuar</button>
+      <button class="btn big" data-act="newGame">Novo laboratório</button>
+      <div class="row">
+        <button class="btn" data-act="help">Como jogar</button>
+        <button class="btn" data-act="settings">Configurações</button>
+        <button class="btn" data-act="fullscreen">Tela cheia</button>
+      </div>
+      <a class="btn ghost" href="../index.html">Voltar à coleção</a>
+    </div>
+    <p class="title-foot">Trilha de bossa sintetizada ao vivo. Toque em qualquer lugar para ouvir.</p>
+  </div>
+</section>
+
+<div id="toasts" aria-live="polite"></div>
+
+<div id="modal" class="modal" hidden>
+  <div class="sheet" role="dialog" aria-modal="true">
+    <header><h2></h2><button class="icon-btn" data-act="close" aria-label="Fechar"><i data-icon="close"></i></button></header>
+    <div class="content"></div>
+    <footer></footer>
+  </div>
+</div>
+
+<div id="loading">Aquecendo a Mutatrix...</div>
+
+<script src="vendor/pixi.min.js"></script>
+<script src="js/rng.js"></script>
+<script src="js/data.js"></script>
+<script src="js/words.js"></script>
+<script src="js/genetics.js"></script>
+<script src="js/mutations.js"></script>
+<script src="js/subject.js"></script>
+<script src="js/contracts.js"></script>
+<script src="js/economy.js"></script>
+<script src="js/save.js"></script>
+<script src="js/audio.js"></script>
+<script src="js/render/pix.js"></script>
+<script src="js/render/creature.js"></script>
+<script src="js/render/virus.js"></script>
+<script src="js/render/lab.js"></script>
+<script src="js/render/fx.js"></script>
+<script src="js/ui.js"></script>
+<script src="js/main.js"></script>
+</body>
+</html>

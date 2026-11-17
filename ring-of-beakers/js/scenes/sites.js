@@ -41,9 +41,9 @@
       const stock = IT.STOCK[site.id] || site.stock || [];
       ui.list('buy' + site.id, b.x, y, b.w, h, stock.length, 60, (i, x, yy, w) => {
         const it = IT.ITEMS[stock[i]], owned = it.kind === 'equip' && S.equip[it.id];
-        const have = it.kind === 'equip' ? '' : ' · you have ' + ST.count(S, it.id);
+        const have = it.kind === 'equip' ? '' : ' · you have ' + ST.count(S, it.gives || it.id) + (it.gives ? ' ' + IT.ITEMS[it.gives].name.toLowerCase() : '');
         if (row(x, yy, w, { item: it.id, title: it.name, sub: it.desc + have, price: it.price, btn: owned ? 'Owned' : 'Buy', off: owned })) {
-          if (pay(it.price)) { if (it.kind === 'equip') S.equip[it.id] = true; else ST.give(S, it.id, it.uses || 1); }
+          if (pay(it.price)) { if (it.kind === 'equip') S.equip[it.id] = true; else ST.give(S, it.gives || it.id, it.uses || 1); } // a sack fills the grain store
         }
       });
     } else if (tab === 1) {
@@ -205,6 +205,46 @@
     ui.text(ch.opp.P.species.name + ' · ' + common.fmtKg(ch.opp.P.weightKg), x0 + 124, y0 + 46, { size: 12, bold: false });
     ui.text((ch.open ? 'Any weight' : RB.pheno.WEIGHT_CLASSES[ch.wc][0] + 'weight or lighter') + ' · stake $' + ch.fee + ' each', x0 + 124, y0 + 64, { size: 12, bold: false, maxW: w0 - 130 });
     if (ui.btn(x0 + 124, y0 + 76, 150, 40, 'Accept', { fill: pal.coral, disabled: S.money < ch.fee })) enterBout(ch, null, ch.opp);
+  }
+
+  // ---- your island's field station: the colony, bringing birds, and the radiation
+  function isle(b) {
+    const I = ST.isleOf(S, site.isle);
+    if (!I) { ui.para('This station is not yours.', b.x + 4, b.y + 6, b.w, { size: 13 }); return; }
+    const y0 = b.y + tabs(['Colony', 'Bring birds', 'Environment'], b.x, b.y, b.w), h = b.h - (y0 - b.y);
+    if (tab === 0) {
+      ui.text(I.birds.length + ' of ' + ST.isleCap(I) + ' birds · ' + (I.gen ? 'generation ' + I.gen : 'the founders') + (I.rad > 0.05 ? ' · radioactive' : ''), b.x + 4, y0 + 12, { size: 12, color: pal.plum, maxW: b.w - 8 });
+      if (!I.birds.length) { ui.para('Nobody lives here yet. Bring birds in the truck and leave them here (Bring birds): pairs raise young every so often, and generation follows generation.', b.x + 4, y0 + 26, b.w - 8, { size: 13 }); return; }
+      const list = I.birds.slice().sort((a, c) => (c.gen || 0) - (a.gen || 0) || a.age - c.age);
+      ui.list('isle' + I.id, b.x, y0 + 20, b.w, h - 20, list.length, 60, (i, x, y, w) => {
+        const c = list[i], P = ST.pheno(c);
+        if (row(x, y, w, { c, title: c.name + ' · gen ' + (c.gen || 0), sub: ST.kind(c) + ' · ' + P.stage + ', day ' + c.age + (P.odd.length ? ' · ' + P.odd.join(', ') : ''), subCol: P.odd.length ? pal.plum : undefined, btn: 'Take', fill: pal.mustard, color: pal.ink })) {
+          ST.fromIsle(S, I, c); say = c.name + ' hops into the truck.'; RB.audio.play('click'); RB.game.save();
+        }
+      });
+    } else if (tab === 1) {
+      const list = caged().filter((c) => !c.person);
+      if (!list.length) { ui.para('No birds in the truck. Bring some from home, or net some out here.', b.x + 4, y0 + 6, b.w - 8, { size: 13 }); return; }
+      const room = ST.isleCap(I) - I.birds.length;
+      ui.text(room > 0 ? 'Room for ' + room + ' more. Leave a male and a female of whatever you like.' : 'The island is full: no room for more until some pass away.', b.x + 4, y0 + 12, { size: 12, color: room > 0 ? pal.teal : pal.coral, maxW: b.w - 8 });
+      ui.list('bring' + I.id, b.x, y0 + 20, b.w, h - 20, list.length, 60, (i, x, y, w) => {
+        const c = list[i];
+        if (row(x, y, w, { c, title: c.name, sub: ST.kind(c) + ' · ' + (c.g.sex === 'M' ? 'male' : 'female'), btn: 'Leave', off: room <= 0 })) {
+          ST.toIsle(S, I, c); say = c.name + ' wanders off into its new home.'; RB.audio.play('good'); RB.game.save();
+        }
+      });
+    } else {
+      const lvl = I.rad, word = lvl < 0.05 ? 'clean' : lvl < 0.3 ? 'faintly radioactive' : lvl < 0.6 ? 'radioactive' : 'glowing hot';
+      ui.text('The island is ' + word + '.', b.x + 4, y0 + 16, { size: 14 });
+      ui.bar(b.x + 4, y0 + 26, Math.min(360, b.w - 8), 12, lvl, '#58c468');
+      ui.para('Young born while the island is hot come out mutated: odd genes, extreme bodies, now and then teeth, two heads, a glow or extra legs. The hotter, the stranger. It fades a little every night.', b.x + 4, y0 + 52, b.w - 8, { size: 12 });
+      const bw = Math.min(300, b.w - 8);
+      const leave = (item) => { const why = ST.dose(S, I, item); if (why) { ui.toast(why, pal.coral); RB.audio.play('error'); } else { RB.audio.play('zap'); say = item === 'isotope' ? 'The isotope hums in the grass. Best not stand too close.' : 'The mushroom sinks into the soil.'; RB.game.save(); } };
+      if (ui.btn(b.x + 4, y0 + 124, bw, 40, 'Leave an odd mushroom (' + ST.count(S, 'mushroom') + ')', { icon: 'mushroom', fill: pal.plum, size: 13, disabled: !ST.count(S, 'mushroom') })) leave('mushroom');
+      if (ui.btn(b.x + 4, y0 + 172, bw, 40, 'Leave an isotope (' + ST.count(S, 'isotope') + ')', { icon: 'atom', fill: '#3f8f4a', size: 13, disabled: !ST.count(S, 'isotope') })) leave('isotope');
+      if (ui.btn(b.x + 4, y0 + 220, bw, 40, 'Clean it up · $' + ST.CLEAN_COST, { fill: pal.teal, size: 13, disabled: lvl <= 0 })) { const why = ST.cleanIsle(S, I); if (why) ui.toast(why, pal.coral); else { say = 'Scrubbed clean. The next young will be ordinary again.'; RB.game.save(); } }
+      ui.text('The Night Market sells odd mushrooms and isotopes.', b.x + 4, y0 + 280, { size: 11, bold: false, color: pal.grey, maxW: b.w - 8 });
+    }
   }
 
   // ---- the Bone Quarry: what you have dug up so far, and how to make a bird of it
@@ -386,7 +426,7 @@
       else if (keeper) common.portrait({ P: RB.pheno.express(keeper.g) }, 8, 8, 54, 54, { fill: pal.paper, draw: { clothes: keeper.clothes } });
       const name = site.id === 'bfc' ? 'Coronel Galo' : keeper ? keeper.name : site.name;
       ui.text(site.kind === 'house' ? name : site.name, 70, 24, { size: 16, color: pal.white, maxW: v.w - 252 });
-      const lines = ui.wrap((site.kind === 'house' ? '' : name + ': ') + say, v.w - 252, 11, false);
+      const lines = ui.wrap((site.kind === 'house' || site.kind === 'isle' ? '' : name + ': ') + say, v.w - 252, 11, false);
       lines.slice(0, 3).forEach((ln, i) => ui.text(ln, 70, 40 + i * 13, { size: 11, color: pal.sand, bold: false }));
       ui.money(S.money, v.w - 104, 28, { size: 14, color: pal.white, align: 'right' });
       if (ui.btn(v.w - 96, 14, 88, 42, 'Leave', { icon: 'left', fill: pal.coral, size: 13, key: 'Escape' })) { RB.audio.play('click'); RB.game.save(); RB.game.go('map'); }
@@ -400,6 +440,7 @@
       else if (k === 'bfc') bfc(b);
       else if (k === 'house' || k === 'exotic') house(b);
       else if (k === 'quarry') quarry(b);
+      else if (k === 'isle') isle(b);
       else if (k === 'arena') arenaLobby(b);
       else if (k === 'carnival') carnival(b);
     },

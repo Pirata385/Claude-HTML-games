@@ -190,6 +190,16 @@
       ctx.strokeStyle = C.coral; ctx.lineWidth = 3;
       for (let i = 0; i < 5; i++) { const a = Math.PI + (i + 0.5) * Math.PI / 5; ctx.beginPath(); ctx.moveTo(x - 147 + Math.cos(a) * 27, y - 76 + Math.sin(a) * 27); ctx.lineTo(x - 147 + Math.cos(a) * 35, y - 76 + Math.sin(a) * 35); ctx.stroke(); }
       R(ctx, x - 172, y - 78, 50, 5, C.woodD);
+    } else if (site.kind === 'isle') { // your field station: a hut on stilts with a flag, and a warning sign once the place is hot
+      R(ctx, x - 50, y - 18, 6, 18, C.woodD); R(ctx, x + 44, y - 18, 6, 18, C.woodD);
+      R(ctx, x - 56, y - 70, 112, 54, C.wood); P(ctx, C.teal, [x - 66, y - 68, x, y - 108, x + 66, y - 68]);
+      R(ctx, x - 12, y - 52, 24, 36, C.woodD); R(ctx, x + 22, y - 58, 22, 18, C.glass);
+      R(ctx, x + 70, y - 120, 4, 120, C.ink); P(ctx, C.mustard, [x + 74, y - 120, x + 112, y - 110, x + 74, y - 100]);
+      if ((o.rad || 0) > 0.15) {
+        O(ctx, x - 90, y - 50, 18, 18, C.mustard); ctx.fillStyle = C.ink;
+        for (let i = 0; i < 3; i++) { const a = i * TAU / 3 - Math.PI / 2; ctx.beginPath(); ctx.moveTo(x - 90, y - 50); ctx.arc(x - 90, y - 50, 15, a - 0.5, a + 0.5); ctx.closePath(); ctx.fill(); }
+        O(ctx, x - 90, y - 50, 4, 4, C.mustard); R(ctx, x - 92, y - 32, 4, 32, C.ink);
+      }
     } else if (site.kind === 'quarry') { // the Bone Quarry: a canvas tent, a sign with a big bone, a wheelbarrow
       P(ctx, '#c9b07a', [x - 80, y, x, y - 80, x + 80, y]); P(ctx, '#b39a63', [x, y, x, y - 80, x + 80, y]);
       P(ctx, C.ink, [x - 16, y, x, y - 34, x + 16, y]);

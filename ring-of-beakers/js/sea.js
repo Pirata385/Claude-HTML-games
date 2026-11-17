@@ -95,7 +95,7 @@
     }
     if (is.R >= 1700 && r.chance(0.6)) {
       const pool = ['grain', 'worm', 'tonic', 'chili', 'net', 'bignet', 'shovel', 'seed', 'loveseed', 'mushroom', 'gromash', 'fuse', 'bandana', 'party', 'spurs', 'helmet', 'scarf'];
-      add({ id: 's_' + is.id, kind: 'shop', name: is.name.split(' ')[0] + ' Trading Post', stock: r.shuffle(pool.slice()).slice(0, 7), line: 'Not much comes out this far. Have a look.' }, Object.assign(person('keeper'), { id: 'k_s_' + is.id }));
+      add({ id: 's_' + is.id, kind: 'shop', name: is.name.split(' ')[0] + ' Trading Post', stock: r.shuffle(pool.slice()).slice(0, 7).concat(['grainsack']), line: 'Not much comes out this far. Have a look.' }, Object.assign(person('keeper'), { id: 'k_s_' + is.id }));
       add({ id: 'v_' + is.id, kind: 'vet', look: 'vet', name: is.name.split(' ')[0] + ' Bird Doctor', line: 'Bring me the wounded. I have seen it all out here.' }, Object.assign(person('keeper'), { id: 'k_v_' + is.id }));
     }
     if (is.R >= 1900 && r.chance(0.4)) {
@@ -156,6 +156,7 @@
   }
   // An island's wild birds for a day: about the same by day and by night, renewed each morning.
   function population(world, is, day) {
+    if (is.owned) return []; // your own islands keep only the birds you leave there
     const r = new Rng((world.seed ^ hashStr(is.id) ^ Math.imul((day || 0) + 1, 2654435761)) >>> 0), out = [];
     const groups = clamp(Math.round(is.R * is.R / 280000), 4, 26);
     for (let g = 0; g < groups; g++) {
@@ -173,6 +174,7 @@
   }
   // A line about an island's birds, for the chart.
   function describe(is) {
+    if (is.owned && is.isle) { const i = is.isle; return 'your island · ' + i.birds.length + ' bird' + (i.birds.length === 1 ? '' : 's') + (i.gen ? ' · generation ' + i.gen : '') + (i.rad > 0.05 ? ' · radioactive' : ''); }
     const bits = [WD.BIOMES[is.main].name.toLowerCase()];
     if (is.race.size > 1) bits.push('giant birds'); else if (is.race.size < 1) bits.push('little birds');
     if (is.lost) bits.push('a lost kind lives here');
@@ -181,5 +183,37 @@
     return bits.join(' · ');
   }
 
-  RB.sea = { SEA_BIRDS, SEA_FOSSILS, CHUNK, CLEAR, LANDS, chunk, chunkOf, islandAt, biomeAt, onRoad, islandsNear, raceTargets, population, describe };
+  // ---- your own islands (see state.js): raise one, or claim an empty one
+  // Why an island cannot be raised centred here, or ''.
+  const NEAR_MAIN = 'Too close to the mainland.';
+  function raiseSpot(world, x, y, R) {
+    const cx = clamp(x, 0, WD.W), cy = clamp(y, 0, WD.H);
+    if (Math.hypot(x - cx, y - cy) < R + 1500) return NEAR_MAIN;
+    if (WD.biomeAt(world, x, y) !== 'water') return 'There is land here already.';
+    for (const is of islandsNear(world, x, y, R + 4000)) if (Math.hypot(is.x - x, is.y - y) < is.R + R + 500) return 'Too close to ' + is.name + '.';
+    return '';
+  }
+  function raised(isle) {
+    const r = new Rng(isle.seed), shape = WD.blob(r, isle.x, isle.y, isle.R);
+    return { id: isle.id, x: isle.x, y: isle.y, R: isle.R, shape, inner: { x: isle.x, y: isle.y, R: isle.R * 0.84, harm: shape.harm }, main: isle.land, patches: [],
+      fauna: { day: [], night: [] }, strangers: [], lost: null, race: { size: 1, hue: 0, lit: 0, crest: null, tail: 1 }, far: 0, name: isle.name, tier: 1, sites: [], roads: [], made: true };
+  }
+  // Put a save's islands into a world (the world is rebuilt from the seed, so this runs on every
+  // load): raised ones rise again, and each gets its field station. Safe to call again.
+  function restoreIsles(world, S) {
+    for (const isle of S.isles || []) {
+      const c = chunkOf(isle.x, isle.y), ch = chunk(world, c.cx, c.cy);
+      let is = ch.islands.find((q) => q.id === isle.id);
+      if (!is && isle.made) { is = raised(isle); ch.islands.push(is); }
+      if (!is) continue;
+      is.owned = true; is.isle = isle;
+      const id = 'hut_' + isle.id;
+      if (!world.site[id]) {
+        const site = { id, kind: 'isle', name: isle.name + ' Field Station', x: is.x, y: is.y - 70, r: 120, island: is.id, isle: isle.id, line: 'Your field station. The birds out here look after themselves: they pair up, raise young and grow old.' };
+        world.sites.push(site); world.site[id] = site; is.sites.unshift(site);
+      }
+    }
+  }
+
+  RB.sea = { word, raiseSpot, NEAR_MAIN, restoreIsles, SEA_BIRDS, SEA_FOSSILS, CHUNK, CLEAR, LANDS, chunk, chunkOf, islandAt, biomeAt, onRoad, islandsNear, raceTargets, population, describe };
 })();

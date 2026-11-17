@@ -595,9 +595,9 @@
       ui.text(WD.BIOMES[WD.biomeAt(world, car.x, car.y)].name, 12, 84, { size: 11, color: n > 0.5 ? pal.white : pal.ink, bold: false });
       if (det !== null) { ui.rect(12, 90, 92, 16, 'rgba(35,49,74,0.7)', 8); ui.icon('detector', 22, 98, 11, pal.white); ui.bar(34, 94, 64, 8, det, pal.mustard, 'rgba(255,255,255,0.25)'); }
       // tools, bottom right
-      const tools = [S.equip.silvernet ? ['net', '∞', 'Digit1', 'silvernet'] : ['net', ST.count(S, 'net'), 'Digit1']];
-      if (ST.count(S, 'bignet')) tools.push(['bignet', ST.count(S, 'bignet')]);
-      if (ST.count(S, 'seed')) tools.push(['seed', ST.count(S, 'seed')]);
+      const tools = [S.equip.silvernet ? ['net', '∞', 'Digit1', 'silvernet'] : ['net', ST.fmtCount(ST.count(S, 'net')), 'Digit1']];
+      if (ST.count(S, 'bignet')) tools.push(['bignet', ST.fmtCount(ST.count(S, 'bignet'))]);
+      if (ST.count(S, 'seed')) tools.push(['seed', ST.fmtCount(ST.count(S, 'seed'))]);
       const bs = 54, by = v.h - bs - 10;
       // time speed, above the shovel
       const sp1 = RB.game.timeSpeed || 1;
@@ -608,7 +608,7 @@
       const gold = ST.goldLeft(S) > 0;
       if (ui.btn(bx, by, bs, bs, '', { icon: 'shovel', fill: gold ? '#d9a21b' : pal.brick })) dig();
       // the golden shovel's digs left today, then ordinary ones
-      const digs = S.equip.goldshovel && ST.count(S, 'shovel') ? ST.goldLeft(S) + '+' + ST.count(S, 'shovel') : String(ST.digsLeft(S));
+      const digs = ST.endless(S, 'shovel') ? '∞' : S.equip.goldshovel && ST.count(S, 'shovel') ? ST.goldLeft(S) + '+' + ST.count(S, 'shovel') : String(ST.digsLeft(S));
       ui.text(digs, bx + bs - 6, by + bs - 5, { size: 12, color: pal.white, align: 'right' });
       for (const tl of tools.reverse()) {
         bx -= bs + 8;
@@ -639,7 +639,7 @@
       else if (input.touch && t < 12) ui.text('Left thumb drives. Drag from the net to aim, tap it to throw.', v.w / 2, v.h - 76, { size: 12, align: 'center', color: n > 0.5 ? pal.white : pal.ink, maxW: v.w - 16 });
       if (stick) { ctx.fillStyle = 'rgba(35,49,74,0.25)'; ctx.beginPath(); ctx.arc(stick.sx, stick.sy, 46, 0, TAU); ctx.fill(); const dx = stick.x - stick.sx, dy = stick.y - stick.sy, d = Math.hypot(dx, dy) || 1, k = Math.min(46, d) / d; ctx.fillStyle = 'rgba(255,250,240,0.85)'; ctx.beginPath(); ctx.arc(stick.sx + dx * k, stick.sy + dy * k, 20, 0, TAU); ctx.fill(); }
     },
-    debug() { return { car, wild, folk, nets, near, world, throwNet, dig, tool: () => tool, guide: () => guide }; },
+    debug() { return { car, wild, folk, nets, near, world, throwNet, dig, bigMap, tool: () => tool, guide: () => guide }; },
   };
 
   // Who walks out of each house now: its own person, a newcomer, or whoever you put in charge.
@@ -786,7 +786,7 @@
           ctx.fillStyle = WD.BIOMES.coast.ground; ctx.beginPath(); ctx.arc(sx(is.x), sy(is.y), Math.max(2.5, is.R * k), 0, TAU); ctx.fill();
           ctx.fillStyle = WD.BIOMES[is.main].ground; ctx.beginPath(); ctx.arc(sx(is.x), sy(is.y), Math.max(1.5, is.R * 0.84 * k), 0, TAU); ctx.fill();
         }
-        if (S.visited[is.id]) { ctx.strokeStyle = pal.teal; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(sx(is.x), sy(is.y), Math.max(4, is.R * k) + 3, 0, TAU); ctx.stroke(); }
+        if (ST.canSail(S, is)) { ctx.strokeStyle = pal.teal; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(sx(is.x), sy(is.y), Math.max(4, is.R * k) + 3, 0, TAU); ctx.stroke(); }
       }
       if (sel && sel.is) { ctx.strokeStyle = pal.mustard; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(sx(sel.is.x), sy(sel.is.y), Math.max(6, sel.is.R * k) + 7, 0, TAU); ctx.stroke(); }
       // places, and their names once there is room to read them
@@ -831,12 +831,12 @@
       const fy = box.y + box.h - 34;
       if (sel) {
         const here = sel.is ? RB.sea.islandAt(world, car.x, car.y) === sel.is : WD.inMain(car.x, car.y);
-        const txt = sel.is ? sel.is.name + ': ' + RB.sea.describe(sel.is) + (S.visited[sel.is.id] ? '' : ' · not landed on yet') : 'The mainland: home, the town and the five arenas.';
-        const can = boat && !here && (sel.main || S.visited[sel.is.id]);
+        const txt = sel.is ? sel.is.name + ': ' + RB.sea.describe(sel.is) + (ST.canSail(S, sel.is) ? '' : ' · not landed on yet') : 'The mainland: home, the town and the five arenas.';
+        const can = boat && !here && (sel.main || ST.canSail(S, sel.is));
         const d = can ? destOf(sel) : null;
         ui.text(txt, box.x, fy + 21, { size: 11, bold: false, maxW: box.w - (can ? 190 : 4) });
         if (can && ui.btn(box.x + box.w - 180, fy, 180, 32, 'Sail there · ' + travelHours(d.x, d.y) + ' h', { icon: 'right', fill: pal.teal, size: 12 })) travelTo(d);
-      } else ui.text(sea ? 'Drag to look around, pinch or scroll to zoom. Tap an island you have landed on (ringed) to sail there.' : 'Drag to look around, pinch or scroll to zoom. Red crosses mark something buried.', box.x, fy + 21, { size: 11, bold: false, maxW: box.w });
+      } else ui.text(sea ? (S.sandbox ? 'Drag to look around, pinch or scroll to zoom. Tap any island to sail there.' : 'Drag to look around, pinch or scroll to zoom. Tap an island you have landed on (ringed) to sail there.') : 'Drag to look around, pinch or scroll to zoom. Red crosses mark something buried.', box.x, fy + 21, { size: 11, bold: false, maxW: box.w });
       // ---- the markers panel
       if (panel) {
         const P = wide ? { x: box.x + box.w - 220, y: A.y, w: 220, h: A.h } : { x: A.x, y: A.y, w: A.w, h: A.h }; // (fixed width: it may have opened this very frame)

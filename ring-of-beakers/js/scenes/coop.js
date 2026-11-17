@@ -143,7 +143,7 @@
   }
   function wear(c) {
     ui.open({ draw() {
-      const items = Object.keys(S.inv).filter((id) => ['hat', 'gear'].includes(RB.items.ITEMS[id].kind));
+      const items = ST.owned(S).filter((id) => ['hat', 'gear'].includes(RB.items.ITEMS[id].kind));
       const box = ui.window('What ' + c.name + ' wears', 360, Math.min(ui.view.h - 16, 170 + items.length * 50), {});
       if (!box) return;
       const worn = [c.hat, c.gear].filter(Boolean);
@@ -186,14 +186,31 @@
       });
     } });
   }
+  // The feeder: pick how many grains to pour in at once.
   function feederWindow() {
+    const mouths = () => S.birds.length;
+    let n = Math.max(1, mouths() - S.feeder);
     ui.open({ draw() {
-      const box = ui.window('Feeder', 320, 210, {});
+      const box = ui.window('Feeder', 340, 300, {});
       if (!box) return;
-      ui.para('Holds ' + S.feeder + ' grain. Each creature eats one at night. You have ' + ST.count(S, 'grain') + ' grain, and ' + S.birds.length + ' mouths to feed.', box.x, box.y, box.w, { size: 13 });
-      const add = (n) => { const k = Math.min(n, ST.count(S, 'grain')); if (k > 0) { ST.take(S, 'grain', k); S.feeder += k; RB.audio.play('click'); } else { ui.toast('No grain. Feed & Seed sells it.', pal.coral); } };
-      if (ui.btn(box.x, box.y + box.h - 44, (box.w - 10) / 2, 40, 'Add 1', { icon: 'grain', fill: pal.mustard, color: pal.ink })) add(1);
-      if (ui.btn(box.x + (box.w + 10) / 2, box.y + box.h - 44, (box.w - 10) / 2, 40, 'Fill for tonight', { fill: pal.mustard, color: pal.ink, size: 13 })) add(Math.max(0, S.birds.length - S.feeder));
+      const have = ST.count(S, 'grain'), most = Math.min(999, have);
+      n = Math.max(0, Math.min(n, most));
+      const nights = mouths() ? Math.floor(S.feeder / mouths()) : 0;
+      ui.para('Holds ' + S.feeder + ' grain' + (mouths() ? ' (' + (nights === 1 ? 'one night' : nights + ' nights') + ' for your ' + mouths() + ' mouths)' : '') + '. Each creature eats one a night; what is left stays for the next. You have ' + ST.fmtCount(have) + ' grain.', box.x, box.y, box.w, { size: 13 });
+      // the amount: steppers and quick picks
+      const sy = box.y + 76, bw = (box.w - 4 * 6 - 90) / 4;
+      const step = (d, i) => { if (ui.btn(box.x + i * (bw + 6) + (i >= 2 ? 90 + 6 : 0), sy, bw, 40, (d > 0 ? '+' : '−') + Math.abs(d), { fill: pal.soft, color: pal.ink, size: 14, flat: true })) { n = Math.max(0, Math.min(most, n + d)); RB.audio.play('click'); } };
+      step(-10, 0); step(-1, 1); step(1, 2); step(10, 3);
+      ui.rect(box.x + 2 * (bw + 6), sy, 90, 40, pal.paper, 10);
+      ui.text(String(n), box.x + 2 * (bw + 6) + 45, sy + 27, { size: 20, align: 'center' });
+      const qy = sy + 50, qw = (box.w - 12) / 3;
+      const quick = (label, v, i) => { if (ui.btn(box.x + i * (qw + 6), qy, qw, 34, label, { fill: pal.soft, color: pal.ink, size: 12, flat: true, disabled: v <= 0 })) { n = Math.min(most, v); RB.audio.play('click'); } };
+      quick('Tonight', mouths() - S.feeder, 0);
+      quick('A week', mouths() * 7 - S.feeder, 1);
+      quick(have === Infinity ? '100' : 'All (' + most + ')', have === Infinity ? 100 : most, 2);
+      if (ui.btn(box.x, box.y + box.h - 44, box.w, 40, n > 0 ? 'Pour in ' + n + ' grain' : have ? 'Pick an amount' : 'No grain: Feed & Seed sells it', { icon: 'grain', fill: pal.mustard, color: pal.ink, disabled: n <= 0 })) {
+        if (ST.take(S, 'grain', n)) { S.feeder += n; RB.audio.play('click'); ui.toast(n + ' grain in the feeder. It now holds ' + S.feeder + '.', pal.teal); RB.game.save(); n = Math.max(0, Math.min(n, ST.count(S, 'grain'))); }
+      }
     } });
   }
   function eggWindow(e) {
@@ -264,7 +281,7 @@
       }
     },
     exit() { for (const e of birds.slice()) e.rag.remove(); birds = []; bedBox = null; },
-    debug() { return { birds, lay, cam, zoom: zoom(), groundY: groundY(), trainPick }; },
+    debug() { return { birds, lay, cam, zoom: zoom(), groundY: groundY(), trainPick, feederWindow }; },
 
     update(dt) {
       if (common.checkBroke(S, 'coop')) return;
@@ -429,7 +446,7 @@
         bx -= 6;
       }
       // feed bar
-      const feeds = Object.keys(S.inv).filter((id) => RB.items.ITEMS[id] && RB.items.ITEMS[id].kind === 'feed');
+      const feeds = ST.owned(S).filter((id) => RB.items.ITEMS[id].kind === 'feed');
       const barY = v.h - 56, n = feeds.length, step = Math.min(52, (v.w - 96) / Math.max(1, n));
       ui.rect(0, v.h - 64, v.w, 64, 'rgba(35,49,74,0.82)'); ui.zone(0, v.h - 64, v.w, 64);
       ui.text('Coop ' + ST.atHome(S).length + '/' + ST.coopCap(S), v.w - 10, v.h - 28, { size: 12, align: 'right', color: pal.white });
@@ -438,7 +455,7 @@
         const x = 8 + i * step, on = selected === id;
         if (ui.btn(x, barY, step - 6, 46, '', { fill: on ? pal.mustard : pal.paper, flat: true })) { selected = on ? null : id; RB.audio.play('click'); }
         ui.itemIcon(id, x + (step - 6) / 2, barY + 20, 24);
-        ui.text(String(S.inv[id]), x + step - 10, barY + 42, { size: 11, align: 'right' });
+        ui.text(ST.fmtCount(ST.count(S, id)), x + step - 10, barY + 42, { size: 11, align: 'right' });
       });
       if (selected) ui.text(RB.items.ITEMS[selected].name + ': tap a creature to feed it' + (selected === 'grain' ? ', or the feeder' : ''), v.w / 2, v.h - 72, { size: 12, align: 'center', color: sky.night > 0.5 ? pal.white : pal.ink, maxW: v.w - 16 });
     },

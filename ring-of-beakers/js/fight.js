@@ -1,7 +1,9 @@
 // fight.js — a bout between two ragdolls. Each fighter has a small brain that picks actions from
 // what its body can do; damage comes from real contacts (speed of the beak, spur or fist at the
 // moment it lands, sharpness, mass, where it lands). Stamina and morale decide who lasts.
-// Deterministic for a given seed and fixed step, so it runs headless for odds and tests. No DOM.
+// Every bout is fought in a walled pit: nobody falls out. Each arena adds its own twist instead
+// (see TWISTS). Deterministic for a given seed and fixed step, so it runs headless for odds and
+// tests. No DOM.
 (function () {
   'use strict';
   const RB = globalThis.RB;
@@ -15,14 +17,22 @@
   const LOC = { head: 1.7, neck: 1.35, body: 1, leg: 0.7 };
   const COST = { peck: 4.5, kick: 10, punch: 5, buffet: 6, shove: 7, dodge: 5 };
 
-  // How far a bird can leap, wings included.
-  function leapReach(P, g) { const vy = P.jumpV * 0.9 + P.flapV; return P.jumpV * 1.1 * 2 * vy / g; }
+  // What each arena does in place of ring-outs. [name, what it does]
+  const TWISTS = {
+    pit: ['Pit fight', 'A plain walled pit.'],
+    grain: ['Grain toss', 'The crowd tosses grain into the pit: a fighter that gets to it first eats and gets its wind back.'],
+    mud: ['Mud pit', 'A bog in the middle of the ring: slow going in it, and easy to knock off your feet.'],
+    wind: ['Wind tunnel', 'Big fans blow gusts across the ring, one way then the other: light birds get pushed about.'],
+    dark: ['Lights out', 'Now and then the lights go out: big eyes and a steady head still find their mark.'],
+    rounds: ['Three rounds', 'Three rounds with a breather between them; each round won counts on points.'],
+  };
+  const LEGACY = { push: 'mud', aerial: 'wind' }; // the old falling modes
 
   class Fight {
     // o: { a, b: { P, name, auto (AI trainer; default true), bond (0..1), gear: { spurs, helmet, scarf }, hpFrac, fired (chili) },
-    //      mode: 'pit' | 'push' | 'aerial', seed, timeLimit }
+    //      mode: a twist from TWISTS (default 'pit'), seed, timeLimit }
     constructor(o) {
-      this.mode = o.mode || 'pit';
+      this.mode = LEGACY[o.mode] || (TWISTS[o.mode] ? o.mode : 'pit');
       this.rng = new Rng(o.seed || 1);
       this.world = new PH.World();
       this.t = 0; this.acc = 0; this.over = false; this.result = null; this.outro = 0; this.done = false;
@@ -31,25 +41,18 @@
       const L = (this.L = Math.max(Pa.TL + Pa.NL + Pa.LLv, Pb.TL + Pb.NL + Pb.LLv));
       const W = (this.W = clamp(4.2 * L, 170, 950));
       const w = this.world;
-      this.outY = Infinity; this.platforms = [];
-      let startX = W * 0.5;
-      if (this.mode === 'push') {
-        const wp = W * 0.85, D = Math.max(L, Pa.rest * 1.4, Pb.rest * 1.4);
-        this.platforms.push(w.box(-wp, 0, wp, 600));
-        w.box(-W * 4, D, W * 4, 600);
-        this.edge = wp; this.outY = D * 0.3; this.drop = D; startX = wp * 0.55;
-      } else if (this.mode === 'aerial') {
-        // the gap is one both birds can leap, so the bout is about who dares and who gets knocked off
-        const D = Math.max(L * 1.3, Pa.rest * 1.6, Pb.rest * 1.6), pw = W * 0.75, th = Math.max(14, L * 0.12);
-        const gap = clamp(0.45 * Math.min(leapReach(Pa, w.g), leapReach(Pb, w.g)), L * 0.2, L * 1.1);
-        this.platforms.push(w.box(-gap / 2 - pw, 0, -gap / 2, th), w.box(gap / 2, 0, gap / 2 + pw, th));
-        w.box(-W * 4, D, W * 4, 600);
-        this.edge = gap / 2 + pw; this.gap = gap; this.outY = D * 0.3; this.drop = D; startX = gap / 2 + pw * 0.6;
-      } else {
-        w.box(-W * 4, 0, W * 4, 600);
-        w.box(-W * 4, -L * 12, -W, 0); w.box(W, -L * 12, W * 4, 0);
-        this.edge = W;
-      }
+      // the pit: a floor and two walls
+      w.box(-W * 4, 0, W * 4, 600);
+      w.box(-W * 4, -L * 12, -W, 0); w.box(W, -L * 12, W * 4, 0);
+      this.edge = W;
+      const startX = W * 0.5;
+      // the twist's own state (numbers drawn from their own stream, so a plain pit fights as before)
+      this.tr = new Rng(((o.seed || 1) ^ 0x7157) >>> 0);
+      if (this.mode === 'grain') { this.grain = []; this.grainT = 4 + this.tr.next() * 3; }
+      else if (this.mode === 'mud') this.mudW = W * 0.34;
+      else if (this.mode === 'wind') { this.gust = 0; this.gustDir = this.tr.chance(0.5) ? 1 : -1; this.windT = 4; this.gustOn = false; }
+      else if (this.mode === 'dark') { this.dark = 0; this.darkT = 5 + this.tr.next() * 2; this.darkOn = false; }
+      else if (this.mode === 'rounds') { this.round = 1; this.roundLen = this.timeLimit / 3; this.roundDmg = [0, 0]; this.roundsWon = [0, 0]; }
       this.fighters = [this.mkFighter(0, o.a, -startX, 1), this.mkFighter(1, o.b, startX, -1)];
       this.fighters[0].tg = this.targets(this.fighters[1].rag); this.fighters[1].tg = this.targets(this.fighters[0].rag);
       w.solvers.push(this);
@@ -103,7 +106,10 @@
       const a = this.fighters[0], b = this.fighters[1];
       this.t += DT;
       if (!this.over) {
+        this.twist();
         this.brain(a, b); this.brain(b, a);
+        // a gust carries a bird along whatever it wants to do: the lighter, the further
+        if (this.gust > 0.01) for (const me of this.fighters) me.rag.vxDes += this.gustDir * this.gust * Math.min(me.P.speedMax * 0.9, 150 / Math.sqrt(me.P.massRel));
         if (a.auto) this.trainer(a, b);
         if (b.auto) this.trainer(b, a);
       } else this.outroBrain();
@@ -121,7 +127,6 @@
       const rag = me.rag, fr = foe.rag, P = me.P, rng = this.rng, st = rag.state;
       if (st === 'ko' || st === 'down' || st === 'rise') { rag.vxDes = 0; return; }
       const dx = fr.midX() - rag.midX(), dir = dx >= 0 ? 1 : -1;
-      if (this.mode === 'aerial' && st === 'air') this.airControl(me);
       // face the foe (or away from it when running)
       const faceWant = me.flee ? -dir : dir;
       if (faceWant !== rag.f && !rag.act && st === 'stand') { me.turnT += DT; if (me.turnT > 0.15) { rag.flip(); me.turnT = 0; } } else me.turnT = 0;
@@ -134,7 +139,7 @@
         const fa = fr.act;
         if (fa && fa.phase === 0 && !fa.seen && fa.type !== 'duck' && st === 'stand' && !rag.act) {
           fa.seen = true;
-          if (me.stam >= COST.dodge && rng.chance(0.08 + 0.5 * P.cunning * Math.min(1, P.reflex))) {
+          if (me.stam >= COST.dodge && rng.chance((0.08 + 0.5 * P.cunning * Math.min(1, P.reflex)) * (this.dark > 0.5 ? this.sight(me) : 1))) {
             me.stam -= COST.dodge;
             if (rng.chance(0.5) && this.roomBehind(me, dir) > P.TL) rag.hop(-dir * P.jumpV * 0.5, -P.jumpV * 0.35); else rag.startDuck(0.3);
             this.events.push({ type: 'dodge', side: me.side });
@@ -142,6 +147,7 @@
         }
         // attack
         if (me.cd <= 0 && !rag.act && rag.state === 'stand' && !me.resting && me.backoff <= 0 && !me.flee && rag.f === dir) this.attack(me, foe, gap, dir);
+
         // movement
         let want;
         if (me.flee) want = -1;
@@ -149,49 +155,73 @@
         else if (gap > me.prefer) want = (0.55 + 0.45 * P.aggression) * (me.frenzy > 0 ? 1.3 : 1);
         else if (gap < me.prefer * 0.4 && rng.chance(0.3 + 0.5 * P.cunning)) want = -0.5;
         else want = rng.chance(0.2) ? rng.range(-0.25, 0.35) : 0;
-        if (want < 0 && this.roomBehind(me, dir) < P.TL * 0.7) want = 0; // back to the wall or the edge
-        if (this.mode === 'aerial' && want > 0 && !this.samePlatform(me, foe)) {
-          const room = this.roomAhead(me, dir);
-          if (room < P.TL * 1.2 + Math.abs(rag.vx()) * 0.15) { want = 0; this.leap(me, foe, dir, room); }
-        }
+        // grain on the floor: a tired bird goes for it
+        const g = this.grain && !me.flee ? this.nearGrain(rag.midX()) : null;
+        if (g && (me.resting || me.backoff > 0 || me.stam < 0.6 * me.stamMax)) want = Math.sign(g.x - rag.midX()) * dir * 0.9;
+        if (want < 0 && this.roomBehind(me, dir) < P.TL * 0.7) want = 0; // back to the wall
         me.want = want;
       }
-      const sp = P.speedMax * (me.stam < 0.1 * me.stamMax ? 0.55 : 1);
+      const sp = P.speedMax * (me.stam < 0.1 * me.stamMax ? 0.55 : 1) * (this.inMud(rag) ? 0.55 : 1);
       rag.vxDes = rag.act && rag.act.type === 'shove' ? dir * sp : me.want * dir * sp;
       if (rag.act && rag.act.type === 'duck') rag.vxDes = 0;
     }
-    // Aerial bouts: jump the gap to the other perch, if this bird can make it and feels like it.
-    leap(me, foe, dir, room) {
-      const rag = me.rag, P = me.P, g = this.world.g;
-      if (rag.act || rag.state !== 'stand' || me.resting || me.flee || me.stam < 8 || me.cd > 0) return;
-      const need = this.gap + room + P.TL * 0.9, vy = P.jumpV * 0.9, air = 2 * (vy + P.flapV) / g;
-      if (need > P.jumpV * 1.1 * air || !this.rng.chance(0.2 + 0.6 * P.aggression)) return;
-      rag.hop(dir * need / air, -vy); rag.flap(1);
-      me.stam -= 8; me.cd = 0.5;
-      this.events.push({ type: 'swing', side: me.side, how: 'leap' });
+
+    // ---- the arenas' twists
+    inMud(rag) { return this.mudW !== undefined && Math.abs(rag.midX()) < this.mudW; }
+    nearGrain(x) { let best = null; for (const g of this.grain) if (g.y >= 0 && (!best || Math.abs(g.x - x) < Math.abs(best.x - x))) best = g; return best; }
+    // How well a fighter sees with the lights out: big eyes and focus help (owls barely notice).
+    sight(me) { return clamp(0.2 + 0.5 * (me.P.eye - 0.6) + 0.35 * me.P.focus, 0.15, 1); }
+    twist() {
+      const tr = this.tr, W = this.W, L = this.L;
+      if (this.mode === 'grain') {
+        this.grainT -= DT;
+        if (this.grainT <= 0) { this.grainT = tr.range(7, 11); if (this.grain.length < 2) { this.grain.push({ x: tr.range(-W * 0.7, W * 0.7), y: -L * 1.8, vy: 0, life: 10 }); this.events.push({ type: 'grain' }); } }
+        for (const g of this.grain) {
+          g.life -= DT;
+          if (g.y < 0) { g.vy += 1100 * DT; g.y = Math.min(0, g.y + g.vy * DT); continue; }
+          for (const me of this.fighters) {
+            const rag = me.rag;
+            if (g.life <= 0 || (rag.state !== 'stand' && rag.state !== 'rise') || Math.abs(rag.midX() - g.x) > me.P.TD * 0.5 + me.P.NL * 0.4 + 8) continue;
+            g.life = 0;
+            me.stam = Math.min(me.stamMax, me.stam + 0.35 * me.stamMax); me.hp = Math.min(me.hpMax, me.hp + 0.04 * me.hpMax); me.morale = Math.min(100, me.morale + 10);
+            rag.startPeck(() => ({ x: g.x, y: -2 }));
+            this.events.push({ type: 'eat', side: me.side, x: g.x });
+          }
+        }
+        this.grain = this.grain.filter((g) => g.life > 0);
+      } else if (this.mode === 'wind') {
+        this.windT -= DT;
+        if (this.windT <= 0) {
+          this.gustOn = !this.gustOn;
+          if (this.gustOn) { this.windT = tr.range(2, 2.8); this.gustDir = -this.gustDir; this.events.push({ type: 'gust', dir: this.gustDir }); } else this.windT = tr.range(4, 6);
+        }
+        this.gust += ((this.gustOn ? 1 : 0) - this.gust) * Math.min(1, DT * 4);
+        if (this.gust > 0.01) for (const me of this.fighters) {
+          const a = this.gustDir * this.gust * 520 / Math.sqrt(me.P.massRel) * DT * (me.rag.state === 'stand' ? 0.6 : 1);
+          for (const p of me.rag.parts) if (p.im > 0) p.vx += a;
+        }
+      } else if (this.mode === 'dark') {
+        this.darkT -= DT;
+        if (this.darkT <= 0) { this.darkOn = !this.darkOn; this.darkT = this.darkOn ? tr.range(3, 4.5) : tr.range(5, 7); this.events.push({ type: this.darkOn ? 'dark' : 'light' }); }
+        this.dark += ((this.darkOn ? 1 : 0) - this.dark) * Math.min(1, DT * (this.darkOn ? 6 : 3));
+      } else if (this.mode === 'rounds') {
+        if (this.round < 3 && this.t >= this.roundLen * this.round) this.endRound();
+      }
     }
-    // Over the water and falling: flap back towards the nearest perch.
-    airControl(me) {
-      const rag = me.rag, x = rag.midX();
-      me.flapT = (me.flapT || 0) - DT;
-      if (me.flapT > 0 || rag.vy() < 60 || me.stam < 3 || this.aerialRoom(x, 1) > 0 || rag.midY() < -this.L * 1.5) return;
-      let best = null, bd = 1e9;
-      for (const b of this.platforms) { const c = (b.x0 + b.x1) / 2, d = Math.abs(c - x); if (d < bd) { bd = d; best = c; } }
-      me.flapT = 0.22; me.stam -= 3;
-      rag.flap(0.9);
-      const dv = Math.sign(best - x) * 90; rag.H.vx += dv; rag.C.vx += dv;
+    // A round ends: whoever did more damage in it takes it; both get a breather.
+    endRound() {
+      const d = this.roundDmg, w = Math.abs(d[0] - d[1]) < 0.5 ? -1 : d[0] > d[1] ? 0 : 1;
+      if (w >= 0) this.roundsWon[w]++;
+      this.round++; this.roundDmg = [0, 0];
+      for (const me of this.fighters) {
+        me.backoff = 2.2; me.frenzy = 0; me.flee = false; me.fleeT = 0;
+        me.stam = Math.min(me.stamMax, me.stam + 0.4 * me.stamMax); me.morale = Math.min(100, me.morale + (me.side === w ? 25 : 15));
+      }
+      this.events.push({ type: 'round', n: this.round, winner: w });
     }
-    // Free distance behind a fighter before a wall or an edge.
-    roomBehind(me, dir) { const x = me.rag.midX(); return this.mode === 'aerial' ? this.aerialRoom(x, -dir) : dir > 0 ? x + this.edge : this.edge - x; }
-    roomAhead(me, dir) { const x = me.rag.midX(); return this.mode === 'aerial' ? this.aerialRoom(x, dir) : dir > 0 ? this.edge - x : x + this.edge; }
-    aerialRoom(x, dir) {
-      for (const b of this.platforms) if (x >= b.x0 && x <= b.x1) return dir > 0 ? b.x1 - x : x - b.x0;
-      return 0;
-    }
-    samePlatform(me, foe) {
-      if (this.mode !== 'aerial') return true;
-      return Math.sign(me.rag.midX()) === Math.sign(foe.rag.midX());
-    }
+    // Free distance behind or ahead of a fighter before a wall.
+    roomBehind(me, dir) { const x = me.rag.midX(); return dir > 0 ? x + this.edge : this.edge - x; }
+    roomAhead(me, dir) { const x = me.rag.midX(); return dir > 0 ? this.edge - x : x + this.edge; }
 
     attack(me, foe, gap, dir) {
       const rag = me.rag, fr = foe.rag, P = me.P, rng = this.rng;
@@ -202,21 +232,23 @@
       if (gap < me.kickR * 0.8 && rag.planted > 0) opts.push(['kick', me.wKick * (me.stam > COST.kick * 2 ? 1 : 0.4)]);
       if (rag.hands.length && gap < P.armL + 0.2 * P.TL) opts.push(['punch', me.wPunch]);
       if (me.wWing > 0 && gap < P.WL * 0.6) opts.push(['buffet', me.wWing]);
-      if (gap < P.TD * 0.6 + 4) {
-        let ws = 0.6 + 2 * clamp(P.massRel / foe.P.massRel - 1, 0, 1.5);
-        if (this.mode !== 'pit' && this.roomBehind(foe, -dir) < this.L * 1.2) ws += 3;
-        opts.push(['shove', ws]);
-      }
-      if (this.mode === 'aerial' && !this.samePlatform(me, foe)) return; // nothing reaches across the water
+      if (gap < P.TD * 0.6 + 4) opts.push(['shove', 0.6 + 2 * clamp(P.massRel / foe.P.massRel - 1, 0, 1.5) + (this.inMud(fr) ? 1.5 : 0)]);
       if (!opts.length) return;
       const pick = rng.weighted(opts, (o) => o[1] * o[1])[0];
       const cost = COST[pick] / Math.pow(P.muscle, 0.3) * (me.frenzy > 0 ? 1.3 : 1);
       if (me.stam < cost) { me.resting = true; return; }
       let ok = false;
       const aimHead = me.focusNext || rng.chance(0.2 + 0.55 * P.focus);
-      if (pick === 'peck') ok = rag.startPeck(headOk && (aimHead || !bodyOk) ? me.tg.head : me.tg.body, me.stam < 0.25 * me.stamMax ? 1.5 : 1);
-      else if (pick === 'kick') ok = rag.startKick(aimHead && P.jumpV > 220 ? me.tg.head : me.tg.body);
-      else if (pick === 'punch') ok = rag.startPunch(aimHead ? me.tg.head : me.tg.body);
+      // with the lights out a blow goes where the bird thinks the other one is
+      let tHead = me.tg.head, tBody = me.tg.body;
+      if (this.dark > 0.5) {
+        const miss = 1 - this.sight(me), jx = this.tr.range(-1, 1) * this.L * 0.45 * miss, jy = this.tr.range(-1, 1) * this.L * 0.25 * miss;
+        const off = (fn) => () => { const p = fn(); return { x: p.x + jx, y: p.y + jy }; };
+        tHead = off(tHead); tBody = off(tBody);
+      }
+      if (pick === 'peck') ok = rag.startPeck(headOk && (aimHead || !bodyOk) ? tHead : tBody, me.stam < 0.25 * me.stamMax ? 1.5 : 1);
+      else if (pick === 'kick') ok = rag.startKick(aimHead && P.jumpV > 220 ? tHead : tBody);
+      else if (pick === 'punch') ok = rag.startPunch(aimHead ? tHead : tBody);
       else if (pick === 'buffet') ok = rag.startBuffet();
       else ok = rag.startShove();
       if (!ok) return;
@@ -306,12 +338,12 @@
       if (att.gear.spurs && w === 'foot') dmg *= 1.2;
       if (def.gear.helmet && crit) dmg *= 0.75;
       def.hp -= dmg; att.dmg += dmg; att.hits++; def.lastHurt = this.t;
+      if (this.roundDmg) this.roundDmg[att.side] += dmg / def.hpMax * 100;
       att.rag.act.hit = true;
-      // on a platform a shove matters more than a launch, so blows carry less
-      const dv = Math.min(340, Math.pow(A.massRel, 0.9) * rel * KNOCK[w] / D.massRel) * (this.mode === 'pit' ? 1 : 0.55);
+      const dv = Math.min(340, Math.pow(A.massRel, 0.9) * rel * KNOCK[w] / D.massRel);
       def.rag.push(ux * dv, clamp(uy * dv * 0.5 - (w === 'foot' ? dv * 0.12 : 0), -170, 140), crit ? 'head' : 'body');
       if (w === 'beak') { att.rag.head.vx *= -0.2; att.rag.head.vy *= -0.2; }
-      def.stag += dv / (420 * D.balance);
+      def.stag += dv / (420 * D.balance) * (this.inMud(def.rag) ? 1.6 : 1); // the mud takes your feet
       const big = dmg > 0.2 * def.hpMax, st = def.rag.state;
       if ((def.stag >= 1 || big) && st !== 'down' && st !== 'ko' && def.hp > 0) {
         def.stag = 0; def.downs++;
@@ -331,7 +363,7 @@
       me.cmdCd.sic = Math.max(0, me.cmdCd.sic - DT); me.cmdCd.back = Math.max(0, me.cmdCd.back - DT); me.cmdCd.whistle = Math.max(0, me.cmdCd.whistle - DT);
       me.stag = Math.max(0, me.stag - DT * 0.45);
       const sp = Math.abs(rag.vx()) / Math.max(1, P.speedMax);
-      const regen = 5.5 * P.lungs * (me.backoff > 0 || me.resting ? 2.2 : 1) * (me.frenzy > 0 ? 0.5 : 1) - 2.5 * sp * sp;
+      const regen = 5.5 * P.lungs * (me.backoff > 0 || me.resting ? 2.2 : 1) * (me.frenzy > 0 ? 0.5 : 1) - 2.5 * sp * sp - (this.inMud(rag) ? 1.5 : 0);
       me.stam = clamp(me.stam + regen * DT, 0, me.stamMax);
       if (this.t - me.lastHurt > 2) me.morale = Math.min(100, me.morale + 2 * DT);
       if (!this.over && !me.flee && me.morale <= 0 && P.courage < 0.85) { me.flee = true; this.events.push({ type: 'flee', side: me.side }); }
@@ -343,11 +375,12 @@
       for (let s = 0; s < 2; s++) {
         const me = this.fighters[s];
         if (me.fleeT > 2.6) return this.finish(1 - s, 'fled');
-        if (me.rag.midY() > this.outY) return this.finish(1 - s, 'ringout');
       }
       if (this.t >= this.timeLimit) {
         const a = this.fighters[0], b = this.fighters[1];
-        const sa = a.dmg / b.hpMax * 100 + 8 * b.downs, sb = b.dmg / a.hpMax * 100 + 8 * a.downs;
+        if (this.roundsWon) this.endRound(); // the last round counts too
+        const rw = this.roundsWon || [0, 0];
+        const sa = a.dmg / b.hpMax * 100 + 8 * b.downs + 12 * rw[0], sb = b.dmg / a.hpMax * 100 + 8 * a.downs + 12 * rw[1];
         let win;
         if (Math.abs(sa - sb) > 0.5) win = sa > sb ? 0 : 1;
         else if (Math.abs(a.hp / a.hpMax - b.hp / b.hpMax) > 0.01) win = a.hp / a.hpMax > b.hp / b.hpMax ? 0 : 1;
@@ -394,5 +427,5 @@
     return total ? wins / total : 0.5;
   }
 
-  RB.fight = { Fight, estimate, DT, CMD_CD };
+  RB.fight = { Fight, estimate, DT, CMD_CD, TWISTS };
 })();

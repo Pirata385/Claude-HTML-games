@@ -106,6 +106,12 @@
         else if (e.type === 'flee') { const r = F[e.side].rag; text(r.head.x, r.head.y - 24, 'chickens out!', pal.coral, 1.2); RB.audio.voice(F[e.side].P.voice, 'squawk'); }
         else if (e.type === 'cmd') { bubbles.push({ side: e.side, str: e.obey ? CMD.find((c) => c[0] === e.cmd)[1] : '...ignored', t: 1.4, ok: e.obey }); if (e.cmd === 'whistle') RB.audio.play('whistle'); }
         else if (e.type === 'swing') { if (rng.chance(0.3)) RB.audio.voice(F[e.side].P.voice, 'cluck'); }
+        // the arenas' twists
+        else if (e.type === 'grain') { text(0, -fight.L * 1.3, 'grain!', pal.mustard, 1.2); RB.audio.play('cheer'); cheer = 0.8; }
+        else if (e.type === 'eat') { const r = F[e.side].rag; text(r.head.x, r.head.y - 20, 'munch! wind back', pal.teal); RB.audio.play('good'); }
+        else if (e.type === 'gust') { text(-e.dir * fight.W * 0.6, -fight.L * 1.2, e.dir > 0 ? 'gust >>>' : '<<< gust', pal.ink, 1.2); RB.audio.play('whoosh'); }
+        else if (e.type === 'dark') { text(0, -fight.L * 1.4, 'lights out!', pal.white, 1.3); RB.audio.play('zap'); }
+        else if (e.type === 'round') { text(0, -fight.L * 1.4, 'Round ' + e.n + (e.winner >= 0 ? ' · ' + F[e.winner].name + ' took the last' : ''), pal.mustard, 1.3); RB.audio.play('bell'); }
         else if (e.type === 'end') { RB.audio.play('bell'); RB.audio.play('cheer'); cheer = 2.5; const w = F[e.winner]; RB.audio.voice(w.P.voice, 'crow'); }
       }
       for (const p of parts) { p.life -= dt; p.x += p.vx * dt; p.y += p.vy * dt; if (p.kind !== 'text') { p.vy += 500 * dt; p.vx *= 0.98; p.rot += p.vr * dt; if (p.y > -2 && p.vy > 0) { p.y = -2; p.vy = 0; p.vx *= 0.8; } } }
@@ -145,21 +151,34 @@
       const board = dark ? '#5a4a3a' : '#b98a5a', boardD = dark ? '#4a3c30' : '#96693f', sand = dark ? '#8a7a66' : '#e3c98a', sandD = dark ? '#77695a' : '#d4b976';
       ctx.fillStyle = board; ctx.fillRect(X0, -L * 0.72, XW, L * 0.72);
       ctx.fillStyle = boardD; for (let x = -W * 2.4; x < W * 2.4; x += L * 0.5) ctx.fillRect(x, -L * 0.72, L * 0.05, L * 0.72);
-      if (mode === 'pit') {
-        ctx.fillStyle = sand; ctx.fillRect(X0, 0, XW, L * 6);
-        ctx.fillStyle = sandD; ctx.fillRect(X0, L * 0.12, XW, L * 6);
-        ctx.fillStyle = boardD; ctx.fillRect(-W - L * 0.16, -L * 1.5, L * 0.16, L * 1.5); ctx.fillRect(W, -L * 1.5, L * 0.16, L * 1.5);
-      } else {
-        const D = fight.drop;
-        ctx.fillStyle = mode === 'aerial' ? '#6fc3d6' : sandD; ctx.fillRect(X0, D, XW, L * 6);
-        if (mode === 'aerial') { ctx.fillStyle = '#8fd5e4'; for (let x = -W * 2.4; x < W * 2.4; x += L * 0.7) { ctx.beginPath(); ctx.ellipse(x + Math.sin(pt * 1.5 + x) * L * 0.1, D + L * 0.06, L * 0.2, L * 0.04, 0, 0, TAU); ctx.fill(); } }
-        for (const b of fight.platforms) {
-          const h = mode === 'aerial' ? b.y1 - b.y0 : D;
-          ctx.fillStyle = board; ctx.fillRect(b.x0, b.y0, b.x1 - b.x0, h);
-          ctx.fillStyle = pal.coral; ctx.fillRect(b.x0, b.y0, b.x1 - b.x0, L * 0.06);
-          if (mode === 'aerial') { ctx.fillStyle = boardD; ctx.fillRect(b.x0 + (b.x1 - b.x0) * 0.2, b.y1, L * 0.1, D - b.y1); ctx.fillRect(b.x0 + (b.x1 - b.x0) * 0.75, b.y1, L * 0.1, D - b.y1); }
-          else { ctx.fillStyle = boardD; for (let x = b.x0 + L * 0.3; x < b.x1; x += L * 0.6) ctx.fillRect(x, b.y0 + L * 0.06, L * 0.05, h); }
+      // a walled pit: nobody falls out of a ring any more
+      ctx.fillStyle = sand; ctx.fillRect(X0, 0, XW, L * 6);
+      ctx.fillStyle = sandD; ctx.fillRect(X0, L * 0.12, XW, L * 6);
+      ctx.fillStyle = boardD; ctx.fillRect(-W - L * 0.16, -L * 1.5, L * 0.16, L * 1.5); ctx.fillRect(W, -L * 1.5, L * 0.16, L * 1.5);
+      // the arena's twist
+      if (mode === 'mud') { // a bog in the middle
+        const mw = fight.mudW;
+        ctx.fillStyle = '#7a5a3a'; ctx.beginPath(); ctx.ellipse(0, L * 0.03, mw, L * 0.09, 0, 0, TAU); ctx.fill();
+        ctx.fillStyle = '#8f6b47'; for (let i = -3; i <= 3; i++) { ctx.beginPath(); ctx.ellipse(i * mw * 0.27, L * 0.02 + Math.sin(pt * 2 + i) * L * 0.004, mw * 0.08, L * 0.022, 0, 0, TAU); ctx.fill(); }
+      } else if (mode === 'wind') { // a fan on each wall, and streaks while a gust blows
+        for (const sx of [-1, 1]) {
+          const fx = sx * (W + L * 0.08), fy = -L * 0.8, spin = pt * (3 + 25 * fight.gust) * sx;
+          ctx.fillStyle = '#5a6472'; ctx.beginPath(); ctx.arc(fx, fy, L * 0.34, 0, TAU); ctx.fill();
+          ctx.fillStyle = '#c9d3df'; for (let k = 0; k < 3; k++) { const a = spin + k * TAU / 3; ctx.beginPath(); ctx.ellipse(fx + Math.cos(a) * L * 0.15, fy + Math.sin(a) * L * 0.15, L * 0.15, L * 0.05, a, 0, TAU); ctx.fill(); }
+          ctx.fillStyle = '#23314a'; ctx.beginPath(); ctx.arc(fx, fy, L * 0.05, 0, TAU); ctx.fill();
         }
+        if (fight.gust > 0.05) {
+          ctx.strokeStyle = 'rgba(255,255,255,' + (0.7 * fight.gust).toFixed(2) + ')'; ctx.lineWidth = L * 0.018; ctx.lineCap = 'round';
+          for (let i = 0; i < 16; i++) { const yy = -L * (0.1 + ((i * 0.37) % 1.4)), xx = ((((i * 0.618 + pt * 1.4 * fight.gustDir) % 1) + 1) % 1) * 2 * W - W; ctx.beginPath(); ctx.moveTo(xx, yy); ctx.lineTo(xx + fight.gustDir * L * 0.45, yy); ctx.stroke(); }
+        }
+      } else if (mode === 'rounds') { // the gong in the corner
+        ctx.fillStyle = '#96693f'; ctx.fillRect(W * 0.86, -L * 1.25, L * 0.05, L * 1.25); ctx.fillRect(W * 0.74, -L * 1.25, L * 0.29, L * 0.04);
+        ctx.fillStyle = pal.mustard; ctx.beginPath(); ctx.arc(W * 0.86 + L * 0.025, -L * 0.98, L * 0.16, 0, TAU); ctx.fill();
+      }
+      if (fight.grain) for (const g of fight.grain) { // grain thrown in by the crowd
+        ctx.fillStyle = '#e9b44c';
+        for (let k = 0; k < 14; k++) { ctx.beginPath(); ctx.ellipse(g.x + (k - 6.5) * L * 0.03, g.y - L * 0.02 - (k % 3) * L * 0.018, L * 0.03, L * 0.018, k, 0, TAU); ctx.fill(); }
+        ctx.fillStyle = '#c9952e'; ctx.beginPath(); ctx.ellipse(g.x, g.y - L * 0.012, L * 0.16, L * 0.025, 0, 0, TAU); ctx.fill();
       }
       // fighters, then the bits that fly off them
       for (let s = 0; s < 2; s++) {
@@ -172,6 +191,16 @@
         if (rag.state === 'ko' || (rag.state === 'down' && f.hp < f.hpMax * 0.3)) {
           for (let i = 0; i < 3; i++) { const a = pt * 5 + i * TAU / 3; ctx.save(); ctx.translate(rag.head.x + Math.cos(a) * f.P.HR * 2.2, rag.head.y - f.P.HR * 1.8 + Math.sin(a) * f.P.HR * 0.6); ctx.scale(f.P.HR / 6, f.P.HR / 6); ctx.fillStyle = pal.mustard; ctx.beginPath(); for (let k = 0; k < 10; k++) { const r = k % 2 ? 2.2 : 5, b = k * Math.PI / 5; ctx.lineTo(Math.cos(b) * r, Math.sin(b) * r); } ctx.closePath(); ctx.fill(); ctx.restore(); }
         }
+      }
+      // lights out: the dark, with a little light where each bird can still see (one pool when they are close)
+      if (mode === 'dark' && fight.dark > 0.02) {
+        ctx.fillStyle = 'rgba(8,6,20,' + (0.85 * fight.dark).toFixed(2) + ')';
+        ctx.beginPath(); ctx.rect(X0, -L * 14, XW, L * 20);
+        const pools = F.map((f) => ({ x: f.rag.head.x, y: f.rag.head.y, r: L * (0.12 + 0.4 * fight.sight(f)) }));
+        const [p, q] = pools, d = Math.hypot(p.x - q.x, p.y - q.y);
+        const holes = d < p.r + q.r ? [{ x: (p.x + q.x) / 2, y: (p.y + q.y) / 2, r: Math.max(p.r, q.r) + d / 2 }] : pools;
+        for (const h of holes) { ctx.moveTo(h.x + h.r, h.y); ctx.arc(h.x, h.y, h.r, 0, TAU); }
+        ctx.fill('evenodd');
       }
       const fs = L * 0.07;
       for (const p of parts) {
@@ -200,7 +229,7 @@
       }
       const left = Math.max(0, Math.ceil(fight.timeLimit - fight.t));
       ui.rect(v.w / 2 - 26, 8, 52, 30, pal.ink, 10); ui.text(String(left), v.w / 2, 23.5, { size: 17, color: pal.white, align: 'center', base: 'middle' });
-      const modeName = { pit: 'Pit fight', push: 'Push-out', aerial: 'Aerial bout' }[mode];
+      const modeName = mode === 'rounds' ? 'Round ' + Math.min(3, fight.round) + ' of 3' : (RB.fight.TWISTS[mode] || RB.fight.TWISTS.pit)[0];
       ui.text(modeName, v.w / 2, 52, { size: 11, align: 'center', color: dark ? pal.white : pal.ink });
       if (phase !== 'end' && ui.btn(v.w / 2 - 26, 58, 52, 26, 'x' + speed, { fill: pal.grey, size: 12, flat: true })) { speed = speed === 1 ? 2 : speed === 2 ? 4 : 1; RB.game.settings.fast = speed > 1; RB.save.setSettings(RB.game.settings); }
 

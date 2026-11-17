@@ -11,11 +11,13 @@
     'Capitao', 'Baronesa', 'Duque', 'Marques', 'Comadre', 'Valente', 'Mimoso', 'Furacao', 'Chuvisco', 'Garoa', 'Poeira', 'Carvao', 'Ferrugem', 'Canela', 'Cravo',
     'Mostarda', 'Pequi', 'Jabuti', 'Tucupi', 'Feijao', 'Torresmo', 'Bolacha', 'Cocada', 'Brigadeiro', 'Goiabada', 'Catuaba', 'Bambu', 'Graveto', 'Pedrita'];
 
-  function create(seed) {
+  // opts: { sandbox: everything unlocked from the start (every upgrade and tool, the lab powered,
+  //   no debt, the open sea) }
+  function create(seed, opts) {
     const S = {
       v: 1, seed: seed >>> 0, rs: (seed ^ 0x51ab) >>> 0, day: 1, time: 6, money: 150, debt: 15000, heat: 0, heatPeople: 0, heatDays: 0, nextId: 1,
       birds: [], eggs: [], roost: [], released: [],
-      inv: { net: 3, shovel: 10, grain: 8 }, equip: {}, up: { cage: 0, engine: 0, tires: 0, coop: 0, nest: 0, incubator: 0, dummy: 0 },
+      inv: { net: 3, shovel: 10, grain: 8 }, equip: {}, up: { cage: 0, engine: 0, tires: 0, coop: 0, nest: 0, incubator: 0, dummy: 0, boat: 0 },
       feeder: 0, pos: null, dug: {}, marksDug: {}, wildGone: null, npc: {}, league: {}, bets: {},
       lab: { power: false, fuses: 0, atlas: {}, vials: [], fossils: {}, seq: {} },
       codex: { species: {}, ach: {} }, bfc: { stamps: 0, sold: 0 },
@@ -27,8 +29,18 @@
     addBird(S, RB.species.make('chicken', r, { sex: 'M', sport: 0 }), { name: 'Capitao', bond: 0.5, origin: 'start' });
     addBird(S, RB.species.make('chicken', r, { sex: 'F', sport: 0 }), { name: 'Farofa', bond: 0.5, origin: 'start' });
     S.codex.species.chicken = true;
+    if (opts && opts.sandbox) {
+      S.sandbox = true; S.debt = 0; S.money = 5000;
+      for (const id of Object.keys(RB.items.UPGRADES)) S.up[id] = RB.items.UPGRADES[id].prices.length;
+      for (const id of ['detector', 'launcher', 'lantern', 'silvernet', 'goldshovel']) S.equip[id] = true;
+      S.lab.power = true; S.inv.net = 10; S.inv.bignet = 5; S.inv.seed = 5;
+    }
     return S;
   }
+  // The open sea: unlocked by beating the Grand Ring and paying off the debt (or from the start in
+  // a sandbox game). Reaching it takes the speedboat kit.
+  const openSea = (S) => !!S.sandbox || (!!S.won && S.debt <= 0);
+  const hasBoat = (S) => !!(S.up && S.up.boat);
 
   function freeName(S, r) {
     const used = new Set(S.birds.concat(S.roost || []).map((b) => b.name));
@@ -360,6 +372,7 @@
     for (const c of S.birds) { c.g = GN.deserialize(c.g); c._P = null; }
     S.roost = S.roost || []; // saves from before Sunset Roost opened
     S.released = S.released || [];
+    S.up.boat = S.up.boat || 0;
     bossPrizes(S); // saves from before the boss prizes
     for (const c of S.roost) { c.g = GN.deserialize(c.g); c._P = null; }
     for (const e of S.eggs) e.g = GN.deserialize(e.g);
@@ -367,6 +380,6 @@
   }
 
   RB.state = { create, addBird, removeBird, pheno, dirty, kind, isAdult, isRetired, checkIn, checkOut, BOSS_PRIZES, bossPrizes, GOLD_DIGS, goldLeft, digsLeft, useDig, useNet,
-    RELEASED_MAX, setFree, genePool, HEAT_DAYS, caughtPerson, trainPreview, byId, at, atHome, cageCap, coopCap, nestCount, count, give, take, move, feed, train, TRAIN,
+    RELEASED_MAX, setFree, genePool, HEAT_DAYS, caughtPerson, trainPreview, openSea, hasBoat, byId, at, atHome, cageCap, coopCap, nestCount, count, give, take, move, feed, train, TRAIN,
     layChance, sleep, serialize, deserialize, freeName, BIRD_NAMES, eat, soldPerson, kindKey, isCross, label };
 })();

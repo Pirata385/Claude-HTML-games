@@ -55,7 +55,8 @@ test('a knocked-down bird gets up again, and a hop lands on its feet', () => {
 test('a bout is deterministic for a seed and always ends', () => {
   const rng = new Rng(5);
   const mk = (id) => RB.pheno.express(RB.species.make(id, rng, { sex: 'M', sport: 0 }));
-  const pairs = [['chicken', 'gamecock', 'pit'], ['goose', 'eagle', 'pit'], ['duck', 'chicken', 'push'], ['ostrich', 'moa', 'push'], ['falcon', 'raven', 'aerial'], ['human', 'cassowary', 'pit']];
+  const pairs = [['chicken', 'gamecock', 'pit'], ['goose', 'eagle', 'grain'], ['duck', 'chicken', 'mud'], ['ostrich', 'moa', 'mud'], ['falcon', 'raven', 'wind'],
+    ['owl', 'eagle', 'dark'], ['gamecock', 'turkey', 'rounds'], ['human', 'cassowary', 'pit'], ['quail', 'hummingbird', 'wind']];
   for (const [a, b, mode] of pairs) {
     const A = mk(a), B = mk(b);
     const f1 = new RB.fight.Fight({ a: { P: A }, b: { P: B }, mode, seed: 42 }), r1 = f1.run();
@@ -64,8 +65,35 @@ test('a bout is deterministic for a seed and always ends', () => {
     assert.ok(r1.t <= 60.01, 'ran past the time limit');
     assert.deepStrictEqual(r1, r2);
     assert.ok(finite(f1.world), a + ' v ' + b + ' went non-finite');
-    assert.ok(['ko', 'fled', 'ringout', 'decision'].includes(r1.how));
+    assert.ok(['ko', 'fled', 'decision'].includes(r1.how), 'no more ring-outs: ' + r1.how);
+    // nobody leaves the pit, whatever the twist
+    for (const f of f1.fighters) assert.ok(Math.abs(f.rag.midX()) <= f1.W + 1 && f.rag.midY() < 5, a + ' v ' + b + ' (' + mode + ') left the pit');
   }
+});
+
+test('each arena twist does its job', () => {
+  const rng = new Rng(8), mk = (id) => RB.pheno.express(RB.species.make(id, rng, { sex: 'M', sport: 0 }));
+  // grain gets eaten
+  let ate = 0;
+  for (let s = 1; s <= 6; s++) { const f = new RB.fight.Fight({ a: { P: mk('chicken') }, b: { P: mk('chicken') }, mode: 'grain', seed: s }); f.run(); ate += f.events.filter((e) => e.type === 'eat').length; }
+  assert.ok(ate > 0, 'nobody ate the grain');
+  // gusts push a light bird further than a heavy one
+  const light = mk('hummingbird'), heavy = mk('ostrich');
+  const drift = (P) => { const f = new RB.fight.Fight({ a: { P, auto: false }, b: { P: mk('quail'), auto: false }, mode: 'wind', seed: 3 }); f.brain = (me) => { me.rag.vxDes = 0; }; f.gustOn = true; f.windT = 99; f.gustDir = 1; const x0 = f.fighters[0].rag.midX(); for (let i = 0; i < 120; i++) f.step(); return (f.fighters[0].rag.midX() - x0) / P.TL; };
+  // measured in body lengths: a gust sweeps a hummingbird along and barely moves an ostrich
+  assert.ok(drift(light) > 2 * drift(heavy) && drift(light) > 0.5, 'light ' + drift(light).toFixed(2) + ' heavy ' + drift(heavy).toFixed(2));
+  // an owl sees better in the dark than a chicken
+  const f = new RB.fight.Fight({ a: { P: mk('owl') }, b: { P: mk('chicken') }, mode: 'dark', seed: 1 });
+  assert.ok(f.sight(f.fighters[0]) > f.sight(f.fighters[1]));
+  // mud slows and three rounds are scored
+  const m = new RB.fight.Fight({ a: { P: mk('chicken') }, b: { P: mk('chicken') }, mode: 'mud', seed: 1 });
+  assert.ok(m.mudW > 0 && m.inMud({ midX: () => 0 }) && !m.inMud({ midX: () => m.W * 0.9 }));
+  const r = new RB.fight.Fight({ a: { P: mk('gamecock') }, b: { P: mk('gamecock') }, mode: 'rounds', seed: 4 });
+  r.run();
+  assert.ok(r.round >= 2 || r.result.how !== 'decision');
+  // old saves' falling modes become twists
+  assert.strictEqual(new RB.fight.Fight({ a: { P: mk('duck') }, b: { P: mk('duck') }, mode: 'push', seed: 1 }).mode, 'mud');
+  assert.strictEqual(new RB.fight.Fight({ a: { P: mk('duck') }, b: { P: mk('duck') }, mode: 'aerial', seed: 1 }).mode, 'wind');
 });
 
 test('weapons matter: long spurs and talons beat bare heels', () => {

@@ -243,10 +243,10 @@ test('buyers pay more for what they wished for, breeders sell, trainers challeng
   assert.ok(RB.npc.offer(S, buyer, fit) / EC.value(fit) > RB.npc.offer(S, buyer, miss) / EC.value(miss) * 1.8);
   const breeder = w.npcs.find((n) => n.role === 'breeder');
   const stock = RB.npc.stockOf(S, w, breeder);
-  assert.strictEqual(stock.length, 2);
+  assert.strictEqual(stock.length, 3, 'breeders keep three');
   assert.ok(stock.every((s) => s.price > 0));
   RB.npc.info(S, breeder.id).sold[stock[0].key] = true;
-  assert.strictEqual(RB.npc.stockOf(S, w, breeder).length, 1);
+  assert.strictEqual(RB.npc.stockOf(S, w, breeder).length, 2);
   const trainer = w.npcs.find((n) => n.role === 'trainer');
   const ch = RB.npc.challengeOf(S, trainer);
   assert.ok(ch && ch.opp.P.hpMax > 0 && ch.purse === ch.fee * 2);
@@ -492,8 +492,9 @@ test('Sunset Roost is on the map with Dona Nina, and adding it left the rest of 
   }
   // the older sites and people come out exactly as before (Sunset Roost draws its own numbers)
   const w = RB.world.generate(99);
-  assert.strictEqual(w.sites.indexOf(w.site.roost), w.sites.length - 1);
-  assert.strictEqual(w.npcs[w.npcs.length - 1].site, 'roost');
+  // sites opened later come after all the others, in the order they opened
+  assert.deepStrictEqual(w.sites.slice(-3).map((x) => x.id), ['roost', 'oddities', 'quarry']);
+  assert.deepStrictEqual(w.npcs.slice(-3).map((n) => n.site), ['roost', 'oddities', 'quarry']);
 });
 
 test('the first boss gives the silver net (never used up), the second the golden shovel (10 digs a day)', () => {
@@ -588,8 +589,8 @@ test('the Andean condor lives in the highlands and the harpy eagle in the jungle
   if (!Px.species.pure) assert.ok(Px.voice.kind2);
   // the wild population turns them up
   const w = RB.world.generate(5), seen = {};
-  for (let d = 1; d <= 6; d++) for (const e of RB.world.population(w, d)) seen[e.sp] = true;
-  assert.ok(seen.condor && seen.harpy, 'not seen in a week: ' + JSON.stringify({ condor: !!seen.condor, harpy: !!seen.harpy }));
+  for (let d = 1; d <= 14; d++) for (const e of RB.world.population(w, d)) if (!e.night) seen[e.sp] = true;
+  assert.ok(seen.condor && seen.harpy, 'not seen in two weeks: ' + JSON.stringify({ condor: !!seen.condor, harpy: !!seen.harpy }));
 });
 
 test('the heat clears in one night per person netted, three nights at most', () => {
@@ -627,4 +628,177 @@ test('training says which numbers go up and by how much, and does exactly that',
   assert.strictEqual(ST.trainPreview(c, 'lungs').gain, 0.03);
   c.train.reflex = 0.15;
   assert.strictEqual(ST.trainPreview(c, 'reflex').gain, 0);
+});
+
+test('after dark the night birds come out in place of the day birds, in about the same numbers', () => {
+  const w = RB.world.generate(71), pop = RB.world.population(w, 5);
+  const day = pop.filter((e) => !e.night), night = pop.filter((e) => e.night);
+  assert.ok(day.length > 150, 'only ' + day.length + ' by day');
+  assert.ok(night.length > 0.6 * day.length && night.length < 1.6 * day.length, day.length + ' by day, ' + night.length + ' by night');
+  const nightKinds = new Set();
+  for (const b of Object.keys(RB.world.FAUNA)) for (const e of RB.world.FAUNA[b].night) nightKinds.add(e[0]);
+  for (const e of night) if (!e.cross && !e.kin) assert.ok(nightKinds.has(e.sp), e.sp + ' out at night');
+  const seen = new Set(night.map((e) => e.sp));
+  for (const id of ['owl', 'nightjar', 'potoo']) assert.ok(seen.has(id), 'no ' + id + ' at night');
+  assert.ok(RB.species.SPECIES.nightjar.night && RB.species.SPECIES.potoo.night);
+});
+
+test('no arena throws anyone out: each has its own twist instead', () => {
+  const twists = EC.ARENAS.map((a) => a.modes[0]);
+  assert.deepStrictEqual(twists, ['grain', 'mud', 'wind', 'dark', 'rounds']);
+  for (const a of EC.ARENAS) for (const m of a.modes) assert.ok(RB.fight.TWISTS[m] && m !== 'push' && m !== 'aerial', a.id + ' ' + m);
+  const S = ST.create(111);
+  for (const a of EC.ARENAS) for (const c of EC.cards(S, a)) assert.ok(RB.fight.TWISTS[c.mode], a.id + ' card ' + c.mode);
+});
+
+test('every neighbour buys, sells and trades; the Curio Aviary sells truly strange birds', () => {
+  const S = ST.create(113), w = RB.world.generate(S.seed);
+  for (const n of w.npcs.filter((q) => q.site.startsWith('house'))) assert.ok(RB.npc.stockOf(S, w, n).length >= 2, n.role + ' has nothing to sell');
+  const dealer = w.npcs.find((n) => n.role === 'exotic');
+  assert.ok(dealer && w.site[dealer.site].kind === 'exotic' && w.site.oddities);
+  const stock = RB.npc.stockOf(S, w, dealer);
+  assert.strictEqual(stock.length, 5);
+  for (const s of stock) {
+    assert.ok(s.momKey !== s.dadKey, 'an exotic is a cross of two kinds');
+    const sw = ['teeth', 'arms', 'twoHeadsA', 'glow', 'tailBone', 'gigas', 'cyclops', 'legsExtra', 'earTuft', 'fluff', 'bare'].filter((id) => RB.genome.switchOn(s.g, id));
+    assert.ok(sw.length >= 2, 'only ' + sw.join(',') + ' switched on');
+  }
+  // the dealer buys oddities too
+  const odd = ST.addBird(S, stock[0].g, { at: 'cage' }), plain = ST.addBird(S, RB.species.make('chicken', new Rng(1), { sport: 0 }), { at: 'cage' });
+  assert.ok(RB.npc.offer(S, dealer, odd) > RB.npc.offer(S, dealer, plain));
+});
+
+test('a sandbox game starts with everything; a normal one earns the open sea', () => {
+  const S = ST.create(117, { sandbox: true });
+  assert.ok(S.sandbox && S.debt === 0 && S.lab.power);
+  for (const id of Object.keys(RB.items.UPGRADES)) assert.strictEqual(S.up[id], RB.items.UPGRADES[id].prices.length, id);
+  for (const id of ['detector', 'launcher', 'lantern', 'silvernet', 'goldshovel']) assert.ok(S.equip[id], id);
+  assert.ok(ST.openSea(S) && ST.hasBoat(S));
+  assert.ok(EC.arenaOpen(S, EC.ARENA.grand));
+  const back = ST.deserialize(JSON.parse(JSON.stringify(ST.serialize(S))));
+  assert.ok(back.sandbox && ST.hasBoat(back));
+  // a normal game: the sea opens once the Grand Ring is won and the debt is paid
+  const N = ST.create(119);
+  assert.ok(!ST.openSea(N) && !ST.hasBoat(N));
+  N.won = true; assert.ok(!ST.openSea(N), 'not while the debt is owed');
+  N.debt = 0; assert.ok(ST.openSea(N));
+  assert.ok(RB.items.UPGRADES.boat.open && RB.items.UPGRADES.boat.at === 'garage');
+});
+
+test('the open sea is endless, with islands of their own lands, birds, villages, shops and arenas', () => {
+  const w = RB.world.generate(121), SEA = RB.sea;
+  // the mainland keeps its waters clear, and the old map is untouched
+  for (let cx = -1; cx <= 2; cx++) for (let cy = -1; cy <= 1; cy++) assert.strictEqual(SEA.chunk(w, cx, cy).islands.length, 0);
+  assert.strictEqual(RB.world.biomeAt(w, -20000, -20000) === 'water' || !!SEA.islandAt(w, -20000, -20000), true);
+  let islands = [];
+  for (let cx = -8; cx <= 9; cx++) for (let cy = -8; cy <= 8; cy++) islands = islands.concat(SEA.chunk(w, cx, cy).islands);
+  assert.ok(islands.length > 80, 'only ' + islands.length + ' islands');
+  const lands = new Set(islands.map((is) => is.main));
+  for (const b of ['tundra', 'volcanic', 'desert']) assert.ok(lands.has(b), 'no ' + b + ' island');
+  // the same seed makes the same islands
+  const w2 = RB.world.generate(121), a = SEA.chunk(w, -5, 3).islands, b = SEA.chunk(w2, -5, 3).islands;
+  assert.deepStrictEqual(a.map((is) => [is.name, Math.round(is.x), Math.round(is.R), is.main]), b.map((is) => [is.name, Math.round(is.x), Math.round(is.R), is.main]));
+  // land, beach and water
+  const is = islands.find((q) => q.sites.some((s) => s.kind === 'arena') && q.sites.some((s) => s.kind === 'house'));
+  assert.ok(is, 'no island with an arena and a village');
+  assert.strictEqual(RB.world.biomeAt(w, is.x, is.y) !== 'water', true);
+  assert.strictEqual(RB.world.biomeAt(w, is.x + is.R * 1.6, is.y), 'water');
+  // its places are on dry land, registered, and have people
+  for (const s of is.sites) {
+    assert.ok(w.site[s.id] === s && RB.world.biomeAt(w, s.x, s.y + 70) !== 'water', s.id);
+    assert.ok(w.npcs.find((n) => n.site === s.id), 'nobody at ' + s.id);
+  }
+  const arena = EC.ARENA[is.sites.find((s) => s.kind === 'arena').id];
+  assert.ok(arena && RB.fight.TWISTS[arena.modes[0]] && arena.boss && EC.arenaOpen(ST.create(1), arena));
+  assert.strictEqual(EC.cards(ST.create(1), arena).length > 0, true);
+  // its birds live on it, follow its race, and change each day
+  const pop = SEA.population(w, is, 2), pop2 = SEA.population(w, is, 2), pop3 = SEA.population(w, is, 3);
+  assert.ok(pop.length > 4);
+  assert.deepStrictEqual(pop.map((e) => e.id + e.sp), pop2.map((e) => e.id + e.sp));
+  assert.notDeepStrictEqual(pop.map((e) => e.sp + Math.round(e.x)), pop3.map((e) => e.sp + Math.round(e.x)));
+  for (const e of pop) assert.notStrictEqual(RB.world.biomeAt(w, e.x, e.y), 'water');
+  assert.ok(pop.some((e) => e.night) && pop.some((e) => !e.night));
+  const big = islands.find((q) => q.race.size > 1.1);
+  if (big) assert.ok(SEA.raceTargets(big, 'chicken').size > 1);
+  // some far islands keep a kind thought extinct
+  assert.ok(islands.some((q) => q.lost && RB.species.SPECIES[q.lost].extinct));
+});
+
+test('two more night birds, the shoebill by day, and the elephant bird from the Bone Quarry', () => {
+  const SP = RB.species.SPECIES, F = RB.world.FAUNA;
+  assert.ok(SP.kakapo.night && SP.thickknee.night && !SP.shoebill.night && SP.elephant.extinct);
+  const nights = new Set(), days = new Set();
+  for (const b of Object.keys(F)) { for (const e of F[b].night) nights.add(e[0]); for (const e of F[b].day) days.add(e[0]); }
+  assert.ok(nights.has('kakapo') && nights.has('thickknee'));
+  assert.ok(F.wetland.day.some((e) => e[0] === 'shoebill'));
+  // the elephant bird is the heaviest kind there is, and a fossil set the lab can rebuild
+  const r = new Rng(5), kg = (id) => { const ws = []; for (let i = 0; i < 41; i++) ws.push(RB.pheno.express(RB.species.make(id, r, { sport: 0 })).weightKg); return ws.sort((a, b) => a - b)[20]; };
+  for (const id of RB.species.IDS) if (id !== 'elephant' && id !== 'trex' && !SP[id].person) assert.ok(kg('elephant') > kg(id), 'the ' + id + ' outweighs the elephant bird'); // the heaviest bird (the tyrannosaur is no bird)
+  assert.ok(RB.items.FOSSILS.elephant);
+  const S = ST.create(131);
+  for (let i = 0; i < 4; i++) RB.lab.addFragment(S, 'elephant');
+  S.money = 1000;
+  assert.strictEqual(RB.lab.rebuild(S, 'elephant'), '');
+  assert.strictEqual(RB.species.classify(S.eggs[S.eggs.length - 1].g).id, 'elephant');
+  // the Bone Quarry: on dry land, with a pit where fossils are the most common find
+  for (const seed of [1, 99, 4242]) {
+    const w = RB.world.generate(seed), q = w.site.quarry;
+    assert.ok(q && q.kind === 'quarry' && w.npcs.find((n) => n.site === 'quarry'));
+    assert.notStrictEqual(RB.world.biomeAt(w, q.x, q.y + RB.world.QUARRY_DY), 'water');
+    const count = (inside) => {
+      const out = { all: 0, fossil: 0, elephant: 0, other: {} };
+      for (let day = 1; day <= 4; day++) for (let cx = -12; cx <= 12; cx++) for (let cy = -12; cy <= 12; cy++) {
+        const x = q.x + cx * RB.world.CELL * (inside ? 0.35 : 6), y = q.y + RB.world.QUARRY_DY + cy * RB.world.CELL * (inside ? 0.22 : 4);
+        if (RB.world.inQuarry(w, x, y) !== inside || RB.world.biomeAt(w, x, y) === 'water') continue;
+        const c = RB.world.cellOf(x, y), l = RB.world.lootAt(w, c.cx, c.cy, day);
+        if (!l || l.marked) continue;
+        out.all++;
+        if (l.type === 'fossil') { out.fossil++; if (l.set === 'elephant') out.elephant++; } else out.other[l.type] = (out.other[l.type] || 0) + 1;
+      }
+      return out;
+    };
+    const pit = count(true), away = count(false);
+    assert.ok(pit.all > 30, 'too few cells in the pit');
+    assert.ok(pit.fossil / pit.all > 0.5, 'fossils are ' + pit.fossil + ' of ' + pit.all + ' finds in the pit');
+    for (const k of Object.keys(pit.other)) assert.ok(pit.fossil > pit.other[k], k + ' beats fossils in the pit');
+    assert.ok(pit.elephant > 0, 'no elephant bird in the pit');
+    assert.ok(away.fossil / away.all < 0.15, 'fossils are common everywhere: ' + away.fossil + ' of ' + away.all);
+  }
+});
+
+test('three birds and three fossils of the open sea, and a dinosaur', () => {
+  const SP = RB.species.SPECIES, F = RB.world.FAUNA, SEA = RB.sea;
+  // the sea birds live only on islands
+  for (const id of SEA.SEA_BIRDS) {
+    assert.ok(SP[id] && !SP[id].extinct);
+    for (const b of Object.keys(F)) assert.ok(!F[b].day.concat(F[b].night).some((e) => e[0] === id), id + ' on the mainland (' + b + ')');
+  }
+  const w = RB.world.generate(141);
+  let islands = [];
+  for (let cx = -7; cx <= 8; cx++) for (let cy = -7; cy <= 7; cy++) islands = islands.concat(SEA.chunk(w, cx, cy).islands);
+  for (const id of SEA.SEA_BIRDS) assert.ok(islands.some((is) => is.fauna.day.some((e) => e[0] === id)), 'no island has ' + id);
+  assert.ok(islands.every((is) => is.fauna.day.some((e) => e[0] === 'albatross')));
+  const seen = new Set();
+  for (const is of islands.slice(0, 40)) for (const e of SEA.population(w, is, 3)) seen.add(e.sp);
+  for (const id of SEA.SEA_BIRDS) assert.ok(seen.has(id), id + ' never turns up');
+  // the sea fossils are dug up only out at sea
+  const sets = (pred) => { const out = {}; for (const is of islands.slice(0, 30)) for (let i = 0; i < 60; i++) { const a = i * 2.4, d = is.R * 0.6 * Math.sqrt(i / 60), x = is.x + Math.cos(a) * d, y = is.y + Math.sin(a) * d; if (!pred(x, y)) continue; const c = RB.world.cellOf(x, y); for (let day = 1; day <= 3; day++) { const l = RB.world.lootAt(w, c.cx, c.cy, day); if (l && l.type === 'fossil') out[l.set] = (out[l.set] || 0) + 1; } } return out; };
+  const atSea = sets((x, y) => RB.world.biomeAt(w, x, y) !== 'water');
+  for (const id of SEA.SEA_FOSSILS) { assert.ok(SP[id].extinct && RB.items.FOSSILS[id]); assert.ok(atSea[id] > 0, 'no ' + id + ' dug up at sea'); }
+  const main = {};
+  for (let cx = 5; cx < 120; cx += 3) for (let cy = 5; cy < 80; cy += 3) for (let day = 1; day <= 3; day++) { const l = RB.world.lootAt(w, cx, cy, day); if (l && l.type === 'fossil') main[l.set] = 1; }
+  for (const id of SEA.SEA_FOSSILS) assert.ok(!main[id], id + ' dug up on the mainland');
+  // the dinosaur: a titanic tyrannosaur with teeth, arms and a bony tail, from the Bone Quarry and volcanic islands
+  const P = RB.pheno.express(RB.species.make('trex', new Rng(4), { sport: 0 }));
+  assert.ok(SP.trex.extinct && RB.items.FOSSILS.trex && P.weightClass === RB.pheno.WEIGHT_CLASSES.length - 1);
+  for (const sw of ['teeth', 'arms', 'tailBone']) assert.ok(RB.genome.switchOn(RB.species.make('trex', new Rng(5), { sport: 0 }), sw), sw);
+  const q = w.site.quarry;
+  let rex = 0;
+  for (let cx = -8; cx <= 8; cx++) for (let cy = -5; cy <= 5; cy++) for (let day = 1; day <= 6; day++) { const x = q.x + cx * 34, y = q.y + RB.world.QUARRY_DY + cy * 34, c = RB.world.cellOf(x, y), l = RB.world.lootAt(w, c.cx, c.cy, day); if (RB.world.inQuarry(w, x, y) && l && l.set === 'trex') rex++; }
+  assert.ok(rex > 0, 'no tyrannosaur at the quarry');
+  const S = ST.create(143);
+  for (let i = 0; i < 4; i++) RB.lab.addFragment(S, 'trex');
+  S.money = 1000;
+  assert.strictEqual(RB.lab.rebuild(S, 'trex'), '');
+  assert.strictEqual(RB.species.classify(S.eggs[S.eggs.length - 1].g).id, 'trex');
 });

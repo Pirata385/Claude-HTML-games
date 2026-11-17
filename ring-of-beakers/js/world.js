@@ -16,18 +16,26 @@
     jungle: { name: 'Jungle', ground: '#5fa56b', dark: '#4f945c', slow: 0.7 },
     water: { name: 'Water', ground: '#6fc3d6', dark: '#5fb3c8', slow: 0.3 },
     town: { name: 'Town', ground: '#d9cdb4', dark: '#cbbd9f', slow: 1 },
+    // only on islands out at sea
+    tundra: { name: 'Tundra', ground: '#e9f0f3', dark: '#d3dee6', slow: 0.8 },
+    volcanic: { name: 'Volcanic', ground: '#6a6270', dark: '#57505e', slow: 0.9 },
+    desert: { name: 'Desert', ground: '#efd593', dark: '#e2c579', slow: 0.75 },
   };
-  // Who turns up where: [species, weight]. Night lists are added after dark.
+  // Who turns up where: [species, weight]. By day the day list; after dark the night list takes
+  // over (the day birds roost and the night birds come out in their place).
   const FAUNA = {
-    farm: { day: [['chicken', 30], ['bantam', 10], ['quail', 12], ['pheasant', 8], ['turkey', 6], ['gamecock', 3], ['raven', 8], ['duck', 5], ['goose', 4]], night: [['owl', 14]] },
-    wetland: { day: [['duck', 25], ['goose', 14], ['swan', 6], ['heron', 14], ['flamingo', 8], ['pelican', 4], ['raven', 3]], night: [['owl', 8], ['kiwi', 6]] },
-    savanna: { day: [['ostrich', 10], ['emu', 8], ['roadrunner', 14], ['secretary', 5], ['vulture', 10], ['quail', 10], ['turkey', 4]], night: [['owl', 8]] },
-    highlands: { day: [['falcon', 12], ['eagle', 7], ['vulture', 10], ['raven', 14], ['pheasant', 8], ['condor', 4]], night: [['owl', 20]] },
-    coast: { day: [['gull', 30], ['pelican', 12], ['penguin', 8], ['flamingo', 8], ['heron', 6]], night: [['owl', 4]] },
-    jungle: { day: [['parrot', 14], ['toucan', 12], ['peafowl', 8], ['cassowary', 4], ['hummingbird', 12], ['pheasant', 4], ['harpy', 3]], night: [['kiwi', 16], ['owl', 8]] },
-    town: { day: [['chicken', 10], ['raven', 10], ['gull', 4]], night: [['owl', 6]] },
+    farm: { day: [['chicken', 30], ['bantam', 10], ['quail', 12], ['pheasant', 8], ['turkey', 6], ['gamecock', 3], ['raven', 8], ['duck', 5], ['goose', 4]], night: [['owl', 14], ['nightjar', 10], ['thickknee', 5]] },
+    wetland: { day: [['duck', 25], ['goose', 14], ['swan', 6], ['heron', 14], ['flamingo', 8], ['pelican', 4], ['raven', 3], ['shoebill', 4]], night: [['owl', 8], ['kiwi', 6], ['heron', 5], ['nightjar', 4]] },
+    savanna: { day: [['ostrich', 10], ['emu', 8], ['roadrunner', 14], ['secretary', 5], ['vulture', 10], ['quail', 10], ['turkey', 4]], night: [['owl', 8], ['nightjar', 12], ['thickknee', 10]] },
+    highlands: { day: [['falcon', 12], ['eagle', 7], ['vulture', 10], ['raven', 14], ['pheasant', 8], ['condor', 4]], night: [['owl', 20], ['nightjar', 5], ['kakapo', 4]] },
+    coast: { day: [['gull', 30], ['pelican', 12], ['penguin', 8], ['flamingo', 8], ['heron', 6]], night: [['owl', 4], ['penguin', 6], ['kiwi', 3], ['gull', 3], ['thickknee', 6]] },
+    jungle: { day: [['parrot', 14], ['toucan', 12], ['peafowl', 8], ['cassowary', 4], ['hummingbird', 12], ['pheasant', 4], ['harpy', 3]], night: [['kiwi', 16], ['owl', 8], ['potoo', 12], ['kakapo', 6]] },
+    town: { day: [['chicken', 10], ['raven', 10], ['gull', 4]], night: [['owl', 6], ['nightjar', 4]] },
+    tundra: { day: [['penguin', 20], ['goose', 10], ['swan', 8], ['raven', 8], ['falcon', 6], ['owl', 6], ['gull', 8]], night: [['owl', 20], ['penguin', 6]] },
+    volcanic: { day: [['vulture', 12], ['condor', 8], ['raven', 10], ['eagle', 6], ['cassowary', 4], ['gull', 4]], night: [['owl', 10], ['nightjar', 8]] },
+    desert: { day: [['ostrich', 10], ['roadrunner', 16], ['vulture', 10], ['quail', 10], ['falcon', 6], ['emu', 6]], night: [['owl', 10], ['nightjar', 14], ['thickknee', 10]] },
   };
-  const FOSSIL_BIOME = { coast: 'dodo', savanna: 'terror', jungle: 'moa', wetland: 'archaeo', highlands: 'raptor' };
+  const FOSSIL_BIOME = { coast: 'dodo', savanna: 'terror', jungle: 'moa', wetland: 'archaeo', highlands: 'raptor', tundra: 'moa', volcanic: 'trex', desert: 'elephant' };
 
   function blob(r, x, y, R) {
     const harm = [];
@@ -50,7 +58,14 @@
     ['lab', 'lab', 'The Lab', 3950, 3050], ['cellar', 'arena', 'The Cellar', 2450, 6250], ['grand', 'arena', 'Grand Ring', 6000, 1150], ['market', 'shop', 'Night Market', 4350, 6820],
   ];
   // Opened after the first release: id, kind, name, x, y, road, keeper [name, sex, hat]
-  const LATER = [['roost', 'roost', 'Sunset Roost', 4880, 4120, ['home', 'roost'], ['Dona Nina', 'F', null]]];
+  // keeper: [name, sex, hat, role (default 'keeper')]
+  const LATER = [['roost', 'roost', 'Sunset Roost', 4880, 4120, ['home', 'roost'], ['Dona Nina', 'F', null]],
+    ['oddities', 'exotic', 'Curio Aviary', 7120, 5300, ['bank', 'oddities'], ['Madame Zuleica', 'F', 'tophat', 'exotic']],
+    ['quarry', 'quarry', 'Bone Quarry', 10450, 5500, ['carnival', 'quarry'], ['Dr. Ossa', 'F', 'cowboy']]];
+  // The Bone Quarry's dig: a pit south of the paleontologist's tent where most finds are fossils.
+  const QUARRY_R = 560, QUARRY_DY = 430;
+  function inQuarry(world, x, y) { const q = world.site && world.site.quarry; return !!q && Math.hypot(x - q.x, y - (q.y + QUARRY_DY)) < QUARRY_R; }
+  const QUARRY_SETS = [['elephant', 32], ['trex', 10], ['dodo', 11.6], ['terror', 11.6], ['moa', 11.6], ['archaeo', 11.6], ['raptor', 11.6]];
   const HOUSES = [[5050, 3700], [4500, 4500], [6400, 5250], [5800, 5600], [6700, 3500], [9700, 2500], [10300, 3500], [2700, 2700], [2900, 5300], [5600, 6700], [8300, 6750], [6900, 1500]];
   const ROADS = [
     ['home', 'feed', 'tools', 'bfc', 'garage', 'hatter', 'vet', 'city'], ['garage', 'bank', 'city'], ['home', 'backyard'], ['bfc', 'county', 'carnival'],
@@ -103,13 +118,23 @@
       const site = { id: s[0], kind: s[1], name: s[2], x: s[3] + r2.range(-40, 40), y: s[4] + r2.range(-40, 40), r: 120 };
       world.sites.push(site); world.site[site.id] = site;
       world.roads.push(road(s[5], r2));
-      if (RB.npc) world.npcs.push(RB.npc.make(r2, 'k_' + s[0], s[6][0], 'keeper', s[0], s[6][1], s[6][2]));
+      if (RB.npc) world.npcs.push(RB.npc.make(r2, 'k_' + s[0], s[6][0], s[6][3] || 'keeper', s[0], s[6][1], s[6][2]));
     }
     return world;
   }
 
   const seaY = (world, x) => { const s = world.sea; return s.y + s.a1 * Math.sin(x * s.k1 + s.p1) + s.a2 * Math.sin(x * s.k2 + s.p2); };
+  // Past the old map's edges: a ragged beach around the mainland (above the sea line), then the
+  // open sea, which has islands in it (see sea.js).
+  const shoreW = (x, y) => 260 + 150 * Math.sin(x * 0.0023 + 1.3) * Math.sin(y * 0.0019 + 0.4) + 80 * Math.sin((x + y) * 0.006);
+  const inMain = (x, y) => x >= 0 && x <= W && y >= 0 && y <= H;
+  function outside(world, x, y) {
+    const cx = Math.min(W, Math.max(0, x)), cy = Math.min(H, Math.max(0, y));
+    if (cy < seaY(world, cx) - 40 && Math.hypot(x - cx, y - cy) < shoreW(x, y)) return 'coast';
+    return (RB.sea && RB.sea.biomeAt(world, x, y)) || 'water';
+  }
   function biomeAt(world, x, y) {
+    if (!inMain(x, y)) return outside(world, x, y);
     const sy = seaY(world, x);
     if (y > sy) return 'water';
     for (const p of world.ponds) if (inBlob(p, x, y)) return 'water';
@@ -118,6 +143,7 @@
     return 'farm';
   }
   function onRoad(world, x, y) {
+    if (!inMain(x, y)) return RB.sea ? RB.sea.onRoad(world, x, y) : false;
     for (const road of world.roads) {
       for (let i = 0; i < road.length - 1; i++) {
         const a = road[i], b = road[i + 1], t = RB.physics.closestT(x, y, a.x, a.y, b.x, b.y);
@@ -137,7 +163,7 @@
     const b = biomeAt(world, x, y);
     if (b === 'water') return null;
     const f = FAUNA[b];
-    return rng.weighted(night ? f.night.concat(f.day.slice(0, 3)) : f.day, (e) => e[1])[0];
+    return rng.weighted(night ? f.night : f.day, (e) => e[1])[0];
   }
 
   // The treasure mark (red X) in a cell, if there is one.
@@ -145,6 +171,11 @@
   // What is buried in a cell on a given day. Ordinary holes fill back in overnight and the ground
   // holds something new the next day; a treasure mark always holds its own find.
   // Returns null or { type: 'money' | 'item' | 'fossil' | 'chest' | 'creature', ..., metal }.
+  // The day birds of a spot's land, as [[species, weight], ...] (for neighbours' stock).
+  function faunaAt(world, x, y) {
+    const b = biomeAt(world, x, y);
+    return (FAUNA[b] || FAUNA.farm).day;
+  }
   function lootAt(world, cx, cy, day) {
     const m = markAt(world, cx, cy);
     if (m) return Object.assign({ metal: m.loot.type !== 'fossil', marked: true }, m.loot);
@@ -153,13 +184,23 @@
     if (u > 0.97) return null; // coming up empty is rare
     const b = biomeAt(world, x, y);
     if (b === 'water') return null;
+    // at the Bone Quarry most finds are fossils, a third of them from the elephant bird
+    if (inQuarry(world, x, y) && u < 0.62) {
+      let w = v * 100;
+      for (const e of QUARRY_SETS) { if (w < e[1]) return { type: 'fossil', set: e[0], quarry: true }; w -= e[1]; }
+      return { type: 'fossil', set: 'elephant', quarry: true };
+    }
     const k = u / 0.97;
     if (k < 0.34) return { type: 'money', money: 4 + Math.floor(v * 34), metal: true };
     if (k < 0.52) return { type: 'item', id: 'worm', n: 1 + Math.floor(v * 3) };
     if (k < 0.62) return { type: 'item', id: 'cap', metal: true };
     if (k < 0.69) return { type: 'item', id: 'boot' };
     if (k < 0.76) return { type: 'item', id: 'shard' };
-    if (k < 0.84) return FOSSIL_BIOME[b] ? { type: 'fossil', set: FOSSIL_BIOME[b] } : { type: 'item', id: 'worm', n: 2 };
+    if (k < 0.84) {
+      // out at sea most fossils are the sea's own: Haast's eagle, the great auk and Pelagornis
+      if (!inMain(x, y)) { const sv = hash2(cx, cy, ds + 177); return { type: 'fossil', set: sv < 0.75 ? RB.sea.SEA_FOSSILS[Math.floor(sv / 0.75 * 3)] : FOSSIL_BIOME[b] || 'pelagornis' }; }
+      return FOSSIL_BIOME[b] ? { type: 'fossil', set: FOSSIL_BIOME[b] } : { type: 'item', id: 'worm', n: 2 };
+    }
     if (k < 0.9) return b === 'jungle' || b === 'wetland' ? { type: 'item', id: 'mushroom' } : { type: 'money', money: 20 + Math.floor(v * 40), metal: true };
     if (k < 0.925) return { type: 'item', id: 'oldspur', metal: true };
     if (k < 0.945) return { type: 'item', id: 'fuse', metal: true };
@@ -194,10 +235,11 @@
     const r = new Rng((world.seed ^ Math.imul((day || 0) + 1, 2654435761) ^ 0x51d) >>> 0);
     const out = [], ids = RB.species.IDS.filter((id) => !RB.species.SPECIES[id].extinct && !RB.species.SPECIES[id].person);
     let made = 0;
-    for (let tries = 0; made < (groups || 140) && tries < 4000; tries++) {
+    for (let tries = 0; made < (groups || 280) && tries < 8000; tries++) {
       const x = r.range(150, W - 150), y = r.range(150, H - 150);
       if (biomeAt(world, x, y) === 'water' || nearestSite(world, x, y, 260)) continue;
-      const night = r.chance(0.2), sp = spawnSpecies(world, x, y, night, r);
+      // a day group here, and the night group that comes out in its place after dark
+      const night = r.chance(0.5), sp = spawnSpecies(world, x, y, night, r);
       if (!sp) continue;
       made++;
       const n = r.int(1, RB.species.SPECIES[sp].tier <= 2 ? 3 : 2);
@@ -239,18 +281,19 @@
   const DECOR = {
     farm: ['tree', 'bush', 'hay', 'flower', 'flower'], wetland: ['reed', 'reed', 'willow', 'bush'], savanna: ['acacia', 'drybush', 'rock', 'mound'],
     highlands: ['pine', 'pine', 'rock', 'boulder'], coast: ['palm', 'shell', 'rock'], jungle: ['bigleaf', 'bigleaf', 'fern', 'tree'], town: ['bush', 'flower'], water: ['lily'],
+    tundra: ['snowpine', 'snowpine', 'snowrock', 'drift'], volcanic: ['lavarock', 'deadtree', 'fumarole', 'lavarock'], desert: ['cactus', 'cactus', 'dune', 'drybush'],
   };
   function decorAt(world, gx, gy, size) {
     const out = [], n = hash2(gx, gy, world.seed + 5) < 0.55 ? 1 : hash2(gx, gy, world.seed + 6) < 0.5 ? 2 : 0;
     for (let i = 0; i < n; i++) {
       const x = (gx + hash2(gx * 3 + i, gy, world.seed + 7)) * size, y = (gy + hash2(gx, gy * 3 + i, world.seed + 8)) * size;
       const b = biomeAt(world, x, y), list = DECOR[b];
-      if (b === 'water' && biomeAt(world, x, y - 200) === 'water' && y > seaY(world, x)) continue; // open sea stays empty
-      if (onRoad(world, x, y) || nearestSite(world, x, y, 190)) continue;
+      if (b === 'water' && (!inMain(x, y) || (biomeAt(world, x, y - 200) === 'water' && y > seaY(world, x)))) continue; // open sea stays empty
+      if (onRoad(world, x, y) || nearestSite(world, x, y, 190) || inQuarry(world, x, y)) continue;
       out.push({ kind: list[Math.floor(hash2(gx + i, gy - i, world.seed + 9) * list.length)], x, y, s: 0.8 + 0.5 * hash2(gx - i, gy + i, world.seed + 10) });
     }
     return out;
   }
 
-  RB.world = { W, H, CELL, BIOMES, FAUNA, CROSS_RATE, GENE_FLOW, GENE_REACH, youngOf, generate, biomeAt, seaY, inBlob, blobR, onRoad, nearestSite, spawnSpecies, markAt, lootAt, cellOf, population, decorAt };
+  RB.world = { inQuarry, QUARRY_R, QUARRY_DY, faunaAt, blob, shoreW, inMain, W, H, CELL, BIOMES, FAUNA, CROSS_RATE, GENE_FLOW, GENE_REACH, youngOf, generate, biomeAt, seaY, inBlob, blobR, onRoad, nearestSite, spawnSpecies, markAt, lootAt, cellOf, population, decorAt };
 })();

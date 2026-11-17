@@ -64,12 +64,14 @@
     nest: { name: 'Nest box', prices: [300, 900], at: 'feed', desc: 'One more breeding pair.' },
     incubator: { name: 'Incubator', prices: [500], at: 'feed', desc: 'Eggs hatch a day sooner.' },
     dummy: { name: 'Training dummy', prices: [280], at: 'feed', desc: 'Train a bird once a day.' },
+    // only for sale once the open sea is unlocked (the Grand Ring won and the debt paid)
+    boat: { name: 'Speedboat kit', prices: [6000], at: 'garage', open: true, desc: 'The truck turns into a speedboat as soon as it drives into water. The open sea is yours.' },
   };
   // the truck carries as many creatures as you can catch
   const CAGE = [Infinity, Infinity, Infinity, Infinity], COOP = [6, 10, 16, 24];
 
   // Fossil sets for the lab's fossil bench: four fragments rebuild one.
-  const FOSSILS = { dodo: 'Dodo', terror: 'Terror bird', moa: 'Moa', archaeo: 'Archaeopteryx', raptor: 'Raptor' };
+  const FOSSILS = { dodo: 'Dodo', terror: 'Terror bird', moa: 'Moa', archaeo: 'Archaeopteryx', raptor: 'Raptor', elephant: 'Elephant bird', trex: 'Tyrannosaurus', haast: 'Haast\'s eagle', auk: 'Great auk', pelagornis: 'Pelagornis' };
 
   RB.items = { ITEMS, STOCK, UPGRADES, CAGE, COOP, FOSSILS, sellPrice: (id) => Math.max(1, Math.floor(ITEMS[id].price * 0.5)) };
 })();

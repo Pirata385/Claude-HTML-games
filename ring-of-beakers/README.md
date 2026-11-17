@@ -66,6 +66,7 @@ They cover the genome (layout, meiosis, sex ratio, mutation, saving), all kinds 
 
 ## Notes
 
+- Settings (the gear button) can switch off the gene-edit mini-game and the goal hints at the top of the screen, for a cleaner view.
 - Add `?scene=coop&seed=7` to the address to jump into a throwaway game that is never saved (also `map`, `lab`, `codex`).
 - Saves live in the browser's local storage. The bag button on the title screen exports a save as text and imports one.
 - The game is a spiritual successor to the breed-and-race genre, with its own theme, world, art and text.

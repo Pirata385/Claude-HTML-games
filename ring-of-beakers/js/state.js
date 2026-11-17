@@ -3,7 +3,7 @@
 (function () {
   'use strict';
   const RB = globalThis.RB;
-  const { Rng, clamp } = RB.core;
+  const { Rng, clamp, hashStr } = RB.core;
   const GN = RB.genome;
 
   const BIRD_NAMES = ['Pepper', 'Biscuit', 'Farofa', 'Pimenta', 'Trovao', 'Pipoca', 'Fuba', 'Quindim', 'Pacoca', 'Cuscuz', 'Jilo', 'Faisca', 'Brasa', 'Ticao',
@@ -16,7 +16,7 @@
   function create(seed, opts) {
     const S = {
       v: 1, seed: seed >>> 0, rs: (seed ^ 0x51ab) >>> 0, day: 1, time: 6, money: 150, debt: 15000, heat: 0, heatPeople: 0, heatDays: 0, nextId: 1,
-      birds: [], eggs: [], roost: [], released: [], markers: {}, visited: {},
+      birds: [], eggs: [], roost: [], released: [], markers: {}, visited: {}, isles: [],
       inv: { net: 3, shovel: 10, grain: 8 }, equip: {}, up: { cage: 0, engine: 0, tires: 0, coop: 0, nest: 0, incubator: 0, dummy: 0, boat: 0 },
       feeder: 0, pos: null, dug: {}, marksDug: {}, wildGone: null, npc: {}, league: {}, bets: {},
       lab: { power: false, fuses: 0, atlas: {}, vials: [], fossils: {}, seq: {} },
@@ -49,16 +49,17 @@
   }
 
   // o: { name, age, bond, origin, at, person (npc id), clothes, mom, dad (species labels of the parents) }
-  function addBird(S, genome, o) {
+  // A new creature, not yet anywhere (addBird puts it in your flock).
+  function makeBird(S, genome, o) {
     o = o || {};
     const c = { id: S.nextId++, name: o.name || freeName(S, S._rng), g: genome, age: 0, bond: o.bond === undefined ? 0.1 : o.bond, at: o.at || 'home', origin: o.origin || 'wild',
       train: { muscle: 0, lungs: 0, reflex: 0, courage: 0 }, cond: 1, hp: 1, rest: 0, tired: false, fed: false, hungry: 0, bouts: 0, trained: false, wins: 0, losses: 0,
       hat: null, gear: null, buff: null, love: false, person: o.person || null, clothes: o.clothes || null, mom: o.mom || null, dad: o.dad || null, momKey: o.momKey || null, dadKey: o.dadKey || null, inj: 0 };
     c.age = o.age === undefined ? pheno(c).growDays + 1 : o.age;
     c._P = null;
-    S.birds.push(c);
     return c;
   }
+  function addBird(S, genome, o) { const c = makeBird(S, genome, o); S.birds.push(c); return c; }
 
   // Phenotype of a creature, cached until something that shapes it changes.
   function pheno(c) {
@@ -231,6 +232,8 @@
     }
     // Dona Nina feeds the residents of Sunset Roost and tends their wounds
     for (const c of S.roost || []) { c.fed = true; c.hungry = 0; c.tired = false; c.rest = 0; c.bouts = 0; c.love = false; if (c.hp < 1) c.hp = Math.min(1, c.hp + 0.25); if (c.cond < 1) { c.cond = Math.min(1, c.cond + 0.25); dirty(c); } }
+    // your islands: the colonies there live their own lives
+    for (const isle of S.isles || []) { const ln = colonyNight(S, isle, r); if (ln) lines.push(ln); }
     // the heat dies down: back to nothing after one night for each person netted (three at most)
     if (S.heat > 0) {
       const n = Math.max(1, S.heatDays || 1);
@@ -335,6 +338,98 @@
     });
   }
 
+  // ---- breeding islands: an island of your own out at sea, claimed (an empty one) or raised from
+  // the water, where the birds you leave live on their own. Every night the pairs there may raise
+  // young, the old ones pass away in time, and generation follows generation. Odd mushrooms and
+  // isotopes left there make the place radioactive: young born while it is hot come out mutated
+  // and deformed. The radiation fades slowly.
+  const CLAIM_COST = 500, RAISE_COST = 2500, RAISE_R = 1300, CLEAN_COST = 300;
+  const ISLE_ODD = ['teeth', 'arms', 'twoHeads', 'glow', 'tailBone', 'gigas', 'nana', 'cyclops', 'legsExtra', 'earTuft', 'fluff', 'bare'];
+  const DOSE = { mushroom: 0.08, isotope: 0.3 };
+  const isleOf = (S, id) => (S.isles || []).find((i) => i.id === id) || null;
+  // how many birds an island can feed: more on a bigger island
+  const isleCap = (isle) => clamp(Math.round(isle.R * isle.R / 90000), 8, 40);
+  function newIsle(S, o) { const isle = Object.assign({ birds: [], rad: 0, gen: 0, since: S.day }, o); S.isles.push(isle); S.visited[isle.id] = 1; return isle; }
+  // Claim an island nobody lives on. is: an island from RB.sea. Returns the isle, or why not.
+  function claimIsle(S, is) {
+    if (isleOf(S, is.id)) return 'It is yours already.';
+    if (is.made || is.sites.length) return 'People live there: only an empty island can be claimed.';
+    if (S.money < CLAIM_COST) return 'Claiming it costs $' + CLAIM_COST + '.';
+    S.money -= CLAIM_COST;
+    return newIsle(S, { id: is.id, name: is.name, made: false, x: is.x, y: is.y, R: is.R, land: is.main });
+  }
+  // Raise a new island centred on (x, y) in open water. land: what it is made of (a biome id).
+  function raiseIsle(S, world, x, y, land) {
+    if (S.money < RAISE_COST) return 'Raising an island costs $' + RAISE_COST + '.';
+    const why = RB.sea.raiseSpot(world, x, y, RAISE_R);
+    if (why) return why;
+    S.money -= RAISE_COST;
+    const id = 'u' + S.nextId++, seed = (S.seed ^ hashStr(id)) >>> 0;
+    return newIsle(S, { id, name: RB.sea.word(new Rng(seed)) + ' Isle', made: true, x: Math.round(x), y: Math.round(y), R: RAISE_R, land, seed });
+  }
+  // Leave a bird on the island, or take one back into the truck. Return '' or why not.
+  function toIsle(S, isle, c) {
+    if (c.person) return 'Only birds can be left out there.';
+    removeBird(S, c);
+    c.at = 'isle'; c.isle = isle.id; c.gen = c.gen || 0; c.fed = true; c.hungry = 0; c.love = false;
+    isle.birds.push(c);
+    return '';
+  }
+  function fromIsle(S, isle, c) {
+    const i = isle.birds.indexOf(c);
+    if (i < 0) return '';
+    isle.birds.splice(i, 1);
+    c.at = 'cage'; delete c.isle;
+    S.birds.push(c);
+    return '';
+  }
+  // Leave an odd mushroom or an isotope there: the place gets radioactive.
+  function dose(S, isle, item) {
+    if (!DOSE[item]) return 'That does nothing out there.';
+    if (!take(S, item)) return 'You have no ' + RB.items.ITEMS[item].name.toLowerCase() + '.';
+    isle.rad = Math.min(1, +(isle.rad + DOSE[item]).toFixed(3));
+    return '';
+  }
+  function cleanIsle(S, isle) {
+    if (S.money < CLEAN_COST) return 'A clean-up costs $' + CLEAN_COST + '.';
+    S.money -= CLEAN_COST; isle.rad = 0;
+    return '';
+  }
+  // What radiation does to a young bird's genes: the hotter, the stranger.
+  function mutateYoung(g, rad, r) {
+    if (rad <= 0) return;
+    GN.mutate(g, r, Math.round(rad * 14));
+    if (r.chance(rad * 0.6)) GN.sport(g, r, r.int(1, 3));
+    if (r.chance(rad * 0.45)) {
+      const id = r.pick(ISLE_ODD);
+      for (const sw of id === 'twoHeads' ? ['twoHeadsA', 'twoHeadsB'] : [id]) for (const gi of GN.TRAITS[sw].genes) GN.setGeneBases(g, gi, [3, 3, 3, 3], 'both');
+    }
+  }
+  // One night on an island. Returns a line for the morning report, or null.
+  function colonyNight(S, isle, r) {
+    let born = 0, died = 0, odd = 0;
+    for (const c of isle.birds.slice()) {
+      if (c.hatched === S.day) continue;
+      c.age++; dirty(c);
+      if (c.age >= pheno(c).lifespan + 2) { isle.birds.splice(isle.birds.indexOf(c), 1); died++; } // out here the old pass away
+    }
+    const adults = isle.birds.filter((c) => isAdult(c) && c.age < pheno(c).lifespan);
+    const males = r.shuffle(adults.filter((c) => c.g.sex === 'M')), females = r.shuffle(adults.filter((c) => c.g.sex === 'F'));
+    for (let i = 0; i < Math.min(males.length, females.length) && isle.birds.length < isleCap(isle); i++) {
+      const mom = females[i], dad = males[i];
+      if (!r.chance(layChance(mom, dad) * 0.7)) continue;
+      const g = GN.breed(mom.g, dad.g, r, { mutRate: 0.003 + isle.rad * 0.02 });
+      mutateYoung(g, isle.rad, r);
+      const chick = makeBird(S, g, { age: 0, bond: 0.05, origin: 'born', at: 'isle', mom: label(mom), dad: label(dad), momKey: kindKey(mom), dadKey: kindKey(dad) });
+      chick.isle = isle.id; chick.hatched = S.day; chick.fed = true; chick.gen = Math.max(mom.gen || 0, dad.gen || 0) + 1;
+      isle.birds.push(chick); isle.gen = Math.max(isle.gen, chick.gen); born++;
+      if (pheno(chick).odd.length) odd++;
+    }
+    isle.rad = Math.max(0, +(isle.rad - 0.02).toFixed(3));
+    if (!born && !died) return null;
+    return isle.name + ': ' + (born ? born + ' chick' + (born > 1 ? 's' : '') + ' hatched (generation ' + isle.gen + ')' : 'no chicks') + (died ? ', ' + died + ' old bird' + (died > 1 ? 's' : '') + ' passed away' : '') + '.' + (odd ? ' ' + odd + ' of the young came out strange.' : '');
+  }
+
   // ---- Sunset Roost: a home for retired birds, looked after by Dona Nina
   // Check a retired bird in (it leaves your flock and lives at the roost). Returns '' or why not.
   function checkIn(S, c) {
@@ -362,6 +457,7 @@
     o.rs = S._rng.s;
     o.birds = S.birds.map((c) => { const b = {}; for (const k of Object.keys(c)) if (k[0] !== '_') b[k] = c[k]; b.g = GN.serialize(c.g); return b; });
     o.roost = S.roost.map((c) => { const b = {}; for (const k of Object.keys(c)) if (k[0] !== '_') b[k] = c[k]; b.g = GN.serialize(c.g); return b; });
+    o.isles = (S.isles || []).map((i) => Object.assign({}, i, { birds: i.birds.map((c) => { const b = {}; for (const k of Object.keys(c)) if (k[0] !== '_') b[k] = c[k]; b.g = GN.serialize(c.g); return b; }) }));
     o.eggs = S.eggs.map((e) => Object.assign({}, e, { g: GN.serialize(e.g) }));
     o.lab = Object.assign({}, S.lab);
     return JSON.parse(JSON.stringify(o));
@@ -374,6 +470,8 @@
     S.released = S.released || [];
     S.up.boat = S.up.boat || 0;
     S.markers = S.markers || {}; S.visited = S.visited || {}; // the map's markers, and islands landed on
+    S.isles = S.isles || []; // breeding islands
+    for (const isle of S.isles) for (const c of isle.birds) { c.g = GN.deserialize(c.g); c._P = null; }
     bossPrizes(S); // saves from before the boss prizes
     for (const c of S.roost) { c.g = GN.deserialize(c.g); c._P = null; }
     for (const e of S.eggs) e.g = GN.deserialize(e.g);
@@ -381,6 +479,7 @@
   }
 
   RB.state = { create, addBird, removeBird, pheno, dirty, kind, isAdult, isRetired, checkIn, checkOut, BOSS_PRIZES, bossPrizes, GOLD_DIGS, goldLeft, digsLeft, useDig, useNet,
-    RELEASED_MAX, setFree, genePool, HEAT_DAYS, caughtPerson, trainPreview, openSea, hasBoat, byId, at, atHome, cageCap, coopCap, nestCount, count, give, take, move, feed, train, TRAIN,
+    RELEASED_MAX, setFree, genePool, HEAT_DAYS, caughtPerson, trainPreview, openSea, hasBoat, makeBird,
+    CLAIM_COST, RAISE_COST, RAISE_R, CLEAN_COST, DOSE, isleOf, isleCap, claimIsle, raiseIsle, toIsle, fromIsle, dose, cleanIsle, colonyNight, byId, at, atHome, cageCap, coopCap, nestCount, count, give, take, move, feed, train, TRAIN,
     layChance, sleep, serialize, deserialize, freeName, BIRD_NAMES, eat, soldPerson, kindKey, isCross, label };
 })();

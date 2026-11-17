@@ -4,10 +4,10 @@
 (function () {
   'use strict';
   const RB = globalThis.RB;
-  const { Rng, clamp, lerp, TAU, hash2 } = RB.core;
+  const { Rng, clamp, lerp, TAU, hash2, hashStr } = RB.core;
   const ui = RB.ui, pal = RB.pal, input = RB.input, ST = RB.state, common = RB.common, props = RB.props, WD = RB.world;
 
-  let seaWarned = false, guide = null, guideAt = 0;
+  let seaWarned = false, guide = null, guideAt = 0, isleHint = null, hintAt = 0, raiseAt = null;
   let S, world, car, cam, wild, folk, sheriff, nets, flying, seeds, parts, t, rng, tool, aim, stick, digT, near, paths, decorCache, det, stun, warned, sirenT, pen;
 
   const zoom = () => clamp(Math.max(ui.view.w, ui.view.h) / 1500, 0.45, 0.8);
@@ -62,6 +62,51 @@
     for (const e of WD.population(world, S.day, undefined, ST.genePool(S))) if (!gone.has(e.id)) list.push(makeWild(e.g, e.x, e.y, 'graze', e));
     RB.game.wild = { key, list };
     return list;
+  }
+  // The birds living on your islands walk about there too (they are yours: the field station is
+  // where you take one back). Rebuilt whenever the map opens or a colony changes.
+  function syncColonies() {
+    if (!wild) return;
+    for (let i = wild.length - 1; i >= 0; i--) if (wild[i].own) wild.splice(i, 1);
+    for (const isle of S.isles || []) {
+      const r = new Rng((hashStr(isle.id) ^ Math.imul(S.day, 977)) >>> 0), is = RB.sea.islandAt(world, isle.x, isle.y);
+      if (!is) continue;
+      for (const c of isle.birds) {
+        let x = isle.x, y = isle.y;
+        for (let k = 0; k < 10; k++) { const a = r.range(0, TAU), d = Math.sqrt(r.next()) * isle.R * 0.7; x = isle.x + Math.cos(a) * d; y = isle.y + Math.sin(a) * d; if (WD.inBlob(is.inner, x, y)) break; }
+        const w = makeWild(c.g, x, y, 'graze');
+        w.P = ST.pheno(c); w.own = c; w.any = true; w.island = isle.id;
+        wild.push(w);
+      }
+    }
+  }
+  // Claim the empty island you stand on, or raise a new one from the sea ahead of the boat.
+  function claimHere(is) {
+    ui.confirm('Claim ' + is.name + '?', 'For $' + ST.CLAIM_COST + ' this island is yours. Its wild birds move on, and you get a field station: leave birds there and they live on their own, pair up and raise young, generation after generation. Odd mushrooms and isotopes left there make the young come out strange.', 'Claim', () => {
+      const res = ST.claimIsle(S, is);
+      if (typeof res === 'string') { ui.toast(res, pal.coral); RB.audio.play('error'); return; }
+      RB.sea.restoreIsles(world, S);
+      for (let i = wild.length - 1; i >= 0; i--) if (wild[i].island === is.id && !wild[i].own) wild.splice(i, 1);
+      syncColonies(); RB.audio.play('found'); RB.game.save();
+      ui.toast(is.name + ' is yours. Its field station is in the middle of the island.', pal.teal);
+    }, { fill: pal.teal });
+  }
+  function raiseHere(at) {
+    ui.open({ draw() {
+      const box = ui.window('Raise an island', 360, 330, {});
+      if (!box) return;
+      ui.para('For $' + ST.RAISE_COST + ' a new island rises from the sea right ahead of the boat, empty and yours, with a field station. What should it be made of?', box.x, box.y, box.w, { size: 12 });
+      const lands = RB.sea.LANDS, cols = 2, bw = (box.w - 8) / cols;
+      lands.forEach((land, i) => {
+        const x = box.x + (i % cols) * (bw + 8), y = box.y + 64 + Math.floor(i / cols) * 46;
+        if (ui.btn(x, y, bw, 38, WD.BIOMES[land].name, { fill: WD.BIOMES[land].ground, color: pal.ink, size: 13, disabled: S.money < ST.RAISE_COST })) {
+          const res = ST.raiseIsle(S, world, at.x, at.y, land);
+          if (typeof res === 'string') { ui.toast(res, pal.coral); RB.audio.play('error'); return; }
+          ui.close(); RB.sea.restoreIsles(world, S); syncColonies(); RB.audio.play('found'); RB.game.save();
+          ui.toast(res.name + ' rises from the sea. Its field station is in the middle.', pal.teal);
+        }
+      });
+    } });
   }
   // Out at sea each island's birds join the day's wild list as you come near it.
   function loadIslands() {
@@ -133,7 +178,7 @@
   function landNet(n) {
     const R = n.id === 'bignet' ? 100 : 78;
     let best = null, bd = R;
-    for (const w of wild) { if (w.alt > 40 || !awake(w)) continue; const d = Math.hypot(w.x - n.x1, w.y - n.y1); if (d < bd) { bd = d; best = w; } }
+    for (const w of wild) { if (w.alt > 40 || !awake(w) || w.own) continue; const d = Math.hypot(w.x - n.x1, w.y - n.y1); if (d < bd) { bd = d; best = w; } }
     let who = null;
     for (const f of folk) { if (f.gone) continue; const d = Math.hypot(f.x - n.x1, f.y - n.y1); if (d < bd) { bd = d; who = f; best = null; } }
     let res = 'miss';
@@ -216,7 +261,9 @@
       nets = []; flying = []; seeds = []; parts = []; t = 0; tool = 'net'; aim = null; stick = null; digT = 0; near = null; det = null; stun = 0; warned = false; sirenT = 0;
       // treasure marks dug in older saves were kept in S.dug
       if (!S.marksDug) { S.marksDug = {}; for (const m of world.marks) { const k = m.cx + ',' + m.cy; if (S.dug[k]) S.marksDug[k] = true; } }
+      RB.sea.restoreIsles(world, S); // your islands, and their field stations
       wild = loadWild();
+      syncColonies();
       decorCache = new Map();
       if (!paths || paths.seed !== world.seed) { buildPaths(); paths.seed = world.seed; }
       folk = world.npcs.filter((n) => n.site.startsWith('house') || n.role === 'sheriff').map((n0) => {
@@ -266,6 +313,16 @@
         if (!seaWarned) { seaWarned = true; ui.toast('The open sea! Biu\'s Garage can fit a speedboat kit.', pal.teal); }
       }
       car.x = nx; car.y = ny;
+      isleHint = null;
+      if (open && !near) {
+        const isl = car.boat ? null : RB.sea.islandAt(world, car.x, car.y);
+        if (isl && !isl.owned && !isl.made && !isl.sites.length) isleHint = { claim: isl };
+        else if (car.boat) {
+          // out on the open sea the button is always there; where an island cannot rise it says why
+          if (t - hintAt > 0.4) { hintAt = t; const at = { x: car.x + car.f * (ST.RAISE_R + 260), y: car.y }; at.why = RB.sea.raiseSpot(world, at.x, at.y, ST.RAISE_R); raiseAt = at; }
+          if (raiseAt && raiseAt.why !== RB.sea.NEAR_MAIN) isleHint = { raise: raiseAt };
+        }
+      }
       if (open) {
         loadIslands();
         // landing on an island puts it on the list you can sail back to from the map
@@ -414,6 +471,7 @@
         ctx.fillStyle = WD.BIOMES.coast.ground; ctx.fill(ip.shape);
         ctx.fillStyle = WD.BIOMES[is.main].ground; ctx.fill(ip.inner);
         for (const q of ip.patches) { ctx.save(); ctx.clip(ip.inner); ctx.fillStyle = WD.BIOMES[q[0]].ground; ctx.fill(q[1]); ctx.restore(); }
+        if (is.isle && is.isle.rad > 0.02) { ctx.fillStyle = 'rgba(120,255,90,' + (0.08 + 0.22 * is.isle.rad * (0.8 + 0.2 * Math.sin(t * 2))).toFixed(3) + ')'; ctx.fill(ip.inner); } // radioactive
         ctx.strokeStyle = '#dcccaa'; ctx.lineWidth = 78; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
         for (const road of is.roads) { ctx.beginPath(); ctx.moveTo(road[0].x, road[0].y); for (let i = 1; i < road.length; i++) ctx.lineTo(road[i].x, road[i].y); ctx.stroke(); }
       }
@@ -462,7 +520,7 @@
         if (e.kind === 0) props.decor(ctx, e.it, t);
         else if (e.kind === 1) {
           const s = e.it, keeper = world.npcs.find((q) => q.site === s.id), closed = ((s.id === 'cellar' || s.id === 'market') && !isNight()) || RB.npc.vacancy(S, keeper) !== '' || (s.kind === 'arena' && !RB.economy.arenaOpen(S, RB.economy.ARENA[s.id]));
-          props.building(ctx, s, t, { closed, power: S.lab.power });
+          props.building(ctx, s, t, { closed, power: S.lab.power, rad: s.isle ? (ST.isleOf(S, s.isle) || {}).rad : 0 });
           const name = s.kind === 'house' ? (world.npcs.find((q) => q.site === s.id) || {}).name || 'House' : s.name;
           props.label(ctx, name, s.x, s.y - (s.kind === 'arena' ? 118 : s.id === 'carnival' ? 150 : 130), 20, pal.ink);
         } else if (e.kind === 2) {
@@ -562,10 +620,20 @@
         for (const p of input.ptrs) if (p.fresh && p.sx >= bx && p.sx <= bx + bs && p.sy >= by && p.sy <= by + bs) { tool = tl[0]; if (isNet) p.owner = 'aim'; }
         if (ui.tapIn(bx, by, bs, bs)) { tool = tl[0]; if (isNet) autoThrow(); else dropSeed(); } // a plain tap throws at the nearest animal
       }
+      // the big action button sits bottom centre, or above the tools when they would overlap (portrait)
+      const actY = (w) => (v.w + w) / 2 > bx - 6 ? by - 54 : v.h - 62;
       if (near) {
         const label = near.kind === 'home' ? 'Go home' : 'Enter ' + (near.kind === 'house' ? (world.npcs.find((q) => q.site === near.id) || {}).name + '\'s' : near.name);
         const w = Math.min(v.w - 150, ui.width(label, 15) + 44);
-        if (ui.btn((v.w - w) / 2, v.h - 62, w, 46, label, { icon: 'right', fill: pal.teal, size: 15 })) enter(near);
+        if (ui.btn((v.w - w) / 2, actY(w), w, 46, label, { icon: 'right', fill: pal.teal, size: 15 })) enter(near);
+      } else if (isleHint) {
+        const label = isleHint.claim ? 'Claim this island · $' + ST.CLAIM_COST : 'Raise an island here · $' + ST.RAISE_COST;
+        const w = Math.min(v.w - 150, ui.width(label, 14) + 44), why = isleHint.raise && isleHint.raise.why;
+        if (ui.btn((v.w - w) / 2, actY(w), w, 46, label, { icon: isleHint.claim ? 'flag' : 'up', fill: why ? pal.grey : pal.plum, size: 14 })) {
+          if (isleHint.claim) claimHere(isleHint.claim);
+          else if (why) { ui.toast(why + ' An island needs open water, away from land.', pal.coral); RB.audio.play('error'); }
+          else raiseHere(isleHint.raise);
+        }
       } else if (!input.touch && t < 12) ui.text('WASD or arrows to drive · click to throw a net · Q digs · E enters · T speeds time', v.w / 2, v.h - 20, { size: 12, align: 'center', color: n > 0.5 ? pal.white : pal.ink });
       else if (input.touch && t < 12) ui.text('Left thumb drives. Drag from the net to aim, tap it to throw.', v.w / 2, v.h - 76, { size: 12, align: 'center', color: n > 0.5 ? pal.white : pal.ink, maxW: v.w - 16 });
       if (stick) { ctx.fillStyle = 'rgba(35,49,74,0.25)'; ctx.beginPath(); ctx.arc(stick.sx, stick.sy, 46, 0, TAU); ctx.fill(); const dx = stick.x - stick.sx, dy = stick.y - stick.sy, d = Math.hypot(dx, dy) || 1, k = Math.min(46, d) / d; ctx.fillStyle = 'rgba(255,250,240,0.85)'; ctx.beginPath(); ctx.arc(stick.sx + dx * k, stick.sy + dy * k, 20, 0, TAU); ctx.fill(); }

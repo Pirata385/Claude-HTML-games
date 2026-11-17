@@ -19,6 +19,7 @@
       { id: 'village', label: 'Villages and houses', group: 'Places' },
       { id: 'exotic', label: 'Exotic bird dealers', group: 'Places' },
       { id: 'mark', label: 'Treasure marks', group: 'Places' },
+      { id: 'isle', label: 'Your islands', group: 'Places', sea: true },
     ];
     for (const id of Object.keys(RB.items.FOSSILS)) out.push({ id: 'fossil:' + id, label: RB.items.FOSSILS[id] + ' fossils', group: 'Fossils', sea: RB.sea.SEA_FOSSILS.includes(id) });
     for (const id of RB.sea.SEA_BIRDS) out.push({ id: 'bird:' + id, label: RB.species.generic(id) + 's', group: 'Birds', sea: true });
@@ -44,6 +45,8 @@
     } else if (cat === 'village') {
       for (const s of world.sites) if (s.kind === 'house' && !s.island) add(s.x, s.y, (keeperOf(s) || {}).name || 'House');
       for (const is of islands) { const h = is.sites.find((q) => q.kind === 'house'); if (h) add(h.x, h.y, is.name + ' village'); }
+    } else if (cat === 'isle') {
+      for (const isle of S.isles || []) add(isle.x, isle.y, isle.name);
     } else if (cat === 'mark') {
       for (const m of world.marks) if (!S.marksDug[m.cx + ',' + m.cy]) add(m.x, m.y, 'Treasure');
     } else if (cat.startsWith('fossil:')) {

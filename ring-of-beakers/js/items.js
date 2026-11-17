@@ -16,6 +16,8 @@
     goldshovel: { name: 'Golden shovel', kind: 'equip', price: 0, prize: true, desc: 'Dona Zefa\'s prize. Digs ten holes a day, every day, and never wears out.' },
 
     grain: { name: 'Grain', kind: 'feed', price: 4, desc: 'Plain feed. Fill the feeder or hand it out.' },
+    // bought as a sack, it goes into your store as 100 grains
+    grainsack: { name: 'Sack of grain', kind: 'feed', price: 350, gives: 'grain', uses: 100, desc: '100 grains in one go: a bit cheaper than loose grain.' },
     worm: { name: 'Worms', kind: 'feed', price: 6, desc: 'A treat. Feeds a bird and it trusts you more.' },
     chili: { name: 'Chili', kind: 'feed', price: 25, desc: 'Next bout: much more aggressive.' },
     tonic: { name: 'Tonic', kind: 'feed', price: 60, desc: 'Restores vigour: a worn-out bird can fight again today. Does not heal wounds.' },
@@ -52,7 +54,7 @@
   // What each shop sells. Coop and vehicle upgrades are handled by their own shops.
   const STOCK = {
     tools: ['net', 'bignet', 'shovel', 'seed', 'lantern', 'detector', 'launcher', 'fuse'],
-    feed: ['grain', 'worm', 'chili', 'tonic', 'gromash', 'loveseed'],
+    feed: ['grain', 'grainsack', 'worm', 'chili', 'tonic', 'gromash', 'loveseed'],
     hatter: ['party', 'bandana', 'cowboy', 'tophat', 'crown', 'scarf', 'anklets', 'helmet', 'spurs'],
     market: ['mushroom', 'isotope', 'elixir', 'fuse', 'bignet'],
   };

@@ -844,3 +844,127 @@ test('a night out costs nothing: the next day starts wherever you are', () => {
   assert.strictEqual(S.day, 2); assert.strictEqual(S.time, 6); assert.strictEqual(S.money, 150);
   assert.deepStrictEqual(S.pos, { x: 7000, y: 3000 });
 });
+
+test('food shops and trading posts sell a sack of 100 grains for $350', () => {
+  const IT = RB.items, sack = IT.ITEMS.grainsack;
+  assert.strictEqual(sack.price, 350); assert.strictEqual(sack.uses, 100); assert.strictEqual(sack.gives, 'grain');
+  assert.ok(IT.STOCK.feed.includes('grainsack'));
+  assert.ok(sack.price < IT.ITEMS.grain.price * 100, 'a sack should be cheaper than loose grain');
+  // every island trading post has it too
+  const w = RB.world.generate(161);
+  let posts = 0;
+  for (let cx = -6; cx <= 7; cx++) for (let cy = -6; cy <= 6; cy++) for (const is of RB.sea.chunk(w, cx, cy).islands) for (const s of is.sites) if (s.stock) { posts++; assert.ok(s.stock.includes('grainsack'), s.id); }
+  assert.ok(posts > 0, 'no island shops found');
+});
+
+test('an empty island can be claimed, an island can be raised from the sea, and birds can be left there', () => {
+  const S = ST.create(163, { sandbox: true }), w = RB.world.generate(S.seed), SEA = RB.sea;
+  S.money = 10000;
+  let islands = [];
+  for (let cx = -6; cx <= 7; cx++) for (let cy = -6; cy <= 6; cy++) islands = islands.concat(SEA.chunk(w, cx, cy).islands);
+  const empty = islands.find((q) => !q.sites.length), lived = islands.find((q) => q.sites.length);
+  assert.ok(empty && lived);
+  // claiming: only empty islands, only once, for $500
+  assert.ok(typeof ST.claimIsle(S, lived) === 'string');
+  const I = ST.claimIsle(S, empty);
+  assert.ok(I && I.id === empty.id); assert.strictEqual(S.money, 10000 - ST.CLAIM_COST);
+  assert.ok(typeof ST.claimIsle(S, empty) === 'string');
+  SEA.restoreIsles(w, S);
+  assert.ok(empty.owned && empty.isle === I);
+  assert.deepStrictEqual(SEA.population(w, empty, 1), [], 'no wild birds on your own island');
+  const hut = w.site['hut_' + empty.id];
+  assert.ok(hut && hut.kind === 'isle' && hut.isle === I.id && empty.sites[0] === hut);
+  SEA.restoreIsles(w, S);
+  assert.strictEqual(w.sites.filter((s) => s.id === hut.id).length, 1, 'restoring twice adds the station once');
+  assert.ok(RB.guide.find(w, S, 'isle', empty.x, empty.y, 1000, true).some((p) => p.name === I.name));
+  // raising: not on land, not by the mainland or another island; in open water for $2500
+  assert.ok(SEA.raiseSpot(w, 4000, 4000, ST.RAISE_R));
+  assert.ok(SEA.raiseSpot(w, empty.x, empty.y, ST.RAISE_R));
+  let spot = null;
+  for (let t = 0; t < 400 && !spot; t++) { const x = -30000 + (t % 20) * 3000, y = -30000 + Math.floor(t / 20) * 3000; if (!SEA.raiseSpot(w, x, y, ST.RAISE_R)) spot = { x, y }; }
+  assert.ok(spot, 'no open water found');
+  const before = S.money, U = ST.raiseIsle(S, w, spot.x, spot.y, 'jungle');
+  assert.ok(U && U.made && U.land === 'jungle' && / Isle$/.test(U.name)); assert.strictEqual(S.money, before - ST.RAISE_COST);
+  assert.strictEqual(RB.world.biomeAt(w, spot.x, spot.y), 'water', 'it rises once the save is put into the world');
+  SEA.restoreIsles(w, S);
+  assert.strictEqual(RB.world.biomeAt(w, spot.x, spot.y), 'jungle');
+  assert.ok(SEA.raiseSpot(w, spot.x, spot.y, ST.RAISE_R), 'cannot raise on top of it');
+  // the same island rises again in a fresh world after a load
+  const back = ST.deserialize(JSON.parse(JSON.stringify(ST.serialize(S)))), w2 = RB.world.generate(back.seed);
+  SEA.restoreIsles(w2, back);
+  assert.strictEqual(RB.world.biomeAt(w2, spot.x, spot.y), 'jungle');
+  assert.strictEqual(SEA.islandAt(w2, spot.x, spot.y).name, U.name);
+  // leaving birds and taking them back; people stay in the truck
+  const [a, b] = S.birds;
+  assert.strictEqual(ST.toIsle(S, I, a), ''); assert.strictEqual(ST.toIsle(S, I, b), '');
+  assert.strictEqual(S.birds.length, 0); assert.strictEqual(I.birds.length, 2); assert.strictEqual(a.at, 'isle');
+  const guy = ST.addBird(S, RB.species.make('human', new Rng(4), { sex: 'M' }), { at: 'cage', person: 'npc1' });
+  assert.ok(ST.toIsle(S, I, guy)); assert.ok(S.birds.includes(guy));
+  assert.strictEqual(ST.fromIsle(S, I, a), '');
+  assert.strictEqual(a.at, 'cage'); assert.ok(S.birds.includes(a) && !I.birds.includes(a));
+});
+
+test('island colonies breed on their own, generation after generation, and radiation makes them strange', () => {
+  // two islands with the same founders: one clean, one kept hot
+  function colony(seed, hot) {
+    const S = ST.create(seed), I = { id: 'x', name: 'Test Isle', R: 2400, birds: [], rad: 0, gen: 0 };
+    S.isles.push(I);
+    for (const c of S.birds.slice()) ST.toIsle(S, I, c);
+    for (let i = 0; i < 6; i++) for (const sex of ['M', 'F']) ST.toIsle(S, I, ST.addBird(S, RB.species.make('chicken', new Rng(seed * 10 + i), { sex, sport: 0 }), { age: 10, at: 'cage' }));
+    let odd = 0, born = 0, lines = 0;
+    for (let n = 0; n < 40; n++) {
+      if (hot) I.rad = 0.9;
+      const ids = new Set(I.birds.map((c) => c.id));
+      const r = ST.sleep(S);
+      for (const c of I.birds) if (!ids.has(c.id)) { born++; if (ST.pheno(c).odd.length) odd++; }
+      if (r.lines.some((l) => l.startsWith('Test Isle'))) lines++;
+    }
+    return { S, I, odd, born, lines };
+  }
+  const clean = colony(171, false), hot = colony(171, true);
+  for (const k of [clean, hot]) {
+    assert.ok(k.born > 6, 'only ' + k.born + ' chicks');
+    assert.ok(k.I.gen >= 2, 'only reached generation ' + k.I.gen);
+    assert.ok(k.I.birds.length <= ST.isleCap(k.I));
+    assert.ok(k.lines > 0, 'no morning report');
+    assert.ok(k.I.birds.every((c) => c.at === 'isle' && c.isle === 'x'));
+  }
+  assert.ok(ST.isleCap({ R: 2400 }) === 40 && ST.isleCap({ R: 600 }) === 8);
+  assert.ok(hot.odd > clean.odd + 3 && hot.odd / hot.born > 0.3, 'hot ' + hot.odd + '/' + hot.born + ' vs clean ' + clean.odd + '/' + clean.born);
+  // the old pass away out there
+  const S = ST.create(173), I = { id: 'y', name: 'Old Isle', R: 1000, birds: [], rad: 0, gen: 0 };
+  S.isles.push(I);
+  const old = S.birds[0]; ST.toIsle(S, I, old);
+  old.age = ST.pheno(old).lifespan + 1;
+  const r = ST.sleep(S);
+  assert.strictEqual(I.birds.length, 0);
+  assert.ok(r.lines.some((l) => l.includes('passed away')));
+});
+
+test('mushrooms and isotopes make an island radioactive; it fades, can be cleaned, and saves keep it all', () => {
+  const S = ST.create(175), I = { id: 'z', name: 'Hot Isle', R: 1300, birds: [], rad: 0, gen: 0, made: true, x: -20000, y: 5000, land: 'tundra', seed: 9 };
+  S.isles.push(I); S.money = 1000;
+  assert.ok(ST.dose(S, I, 'isotope'), 'none in the bag');
+  ST.give(S, 'isotope', 2); ST.give(S, 'mushroom', 1);
+  assert.strictEqual(ST.dose(S, I, 'isotope'), ''); assert.strictEqual(ST.dose(S, I, 'mushroom'), '');
+  assert.strictEqual(I.rad, +(ST.DOSE.isotope + ST.DOSE.mushroom).toFixed(3));
+  assert.strictEqual(ST.count(S, 'isotope'), 1); assert.strictEqual(ST.count(S, 'mushroom'), 0);
+  assert.ok(ST.dose(S, I, 'grain'));
+  ST.give(S, 'isotope', 5);
+  for (let i = 0; i < 5; i++) assert.strictEqual(ST.dose(S, I, 'isotope'), '');
+  assert.strictEqual(I.rad, 1, 'it tops out');
+  assert.ok(I.rad <= 1);
+  const was = I.rad; ST.sleep(S);
+  assert.ok(I.rad < was, 'radiation fades at night');
+  // saves keep the islands and their birds
+  ST.toIsle(S, I, S.birds[0]);
+  const back = ST.deserialize(JSON.parse(JSON.stringify(ST.serialize(S))));
+  assert.strictEqual(back.isles.length, 1);
+  assert.strictEqual(back.isles[0].rad, I.rad);
+  assert.strictEqual(RB.genome.hash(back.isles[0].birds[0].g), RB.genome.hash(I.birds[0].g));
+  assert.strictEqual(ST.cleanIsle(S, I), ''); assert.strictEqual(I.rad, 0); assert.strictEqual(S.money, 1000 - ST.CLEAN_COST);
+  S.money = 0; assert.ok(ST.cleanIsle(S, I));
+  // old saves have no islands
+  const old = ST.serialize(S); delete old.isles;
+  assert.deepStrictEqual(ST.deserialize(JSON.parse(JSON.stringify(old))).isles, []);
+});

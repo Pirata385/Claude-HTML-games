@@ -12,6 +12,8 @@
   const WD = RB.world, SP = () => RB.species.SPECIES;
 
   const CHUNK = 7000, CLEAR = 2600; // chunk size, and no islands this close to the mainland's edge
+  // Birds that live only out at sea, and fossils dug up only on its islands.
+  const SEA_BIRDS = ['albatross', 'frigatebird', 'puffin'], SEA_FOSSILS = ['haast', 'auk', 'pelagornis'];
   const LANDS = ['farm', 'wetland', 'savanna', 'highlands', 'jungle', 'tundra', 'volcanic', 'desert'];
   const TWISTS = ['grain', 'mud', 'wind', 'dark', 'rounds'];
   const SYL = ['ka', 'lo', 'ma', 'ru', 'te', 'vi', 'no', 'sa', 'pe', 'ba', 'qui', 'tor', 'mel', 'ya', 'zu', 'ori', 'an', 'el', 'is', 'ur', 'do', 'fa'];
@@ -54,7 +56,11 @@
     const ids = RB.species.IDS.filter((s) => !SP()[s].person);
     const day = WD.FAUNA[main].day.map((e) => e.slice()), night = WD.FAUNA[main].night.map((e) => e.slice());
     const strangers = [];
-    for (let i = 0; i < 2; i++) { const s = r.pick(ids.filter((s) => !SP()[s].extinct && !SP()[s].night)); strangers.push(s); day.push([s, r.range(5, 12)]); }
+    for (let i = 0; i < 2; i++) { const s = r.pick(ids.filter((s) => !SP()[s].extinct && !SP()[s].night && !SEA_BIRDS.includes(s))); strangers.push(s); day.push([s, r.range(5, 12)]); }
+    // the sea's own birds: albatrosses everywhere, frigatebirds where it is warm, puffins where it is cold
+    day.push(['albatross', 6]);
+    if (['jungle', 'desert', 'savanna', 'volcanic', 'farm', 'wetland'].includes(main)) day.push(['frigatebird', 8]);
+    if (['tundra', 'highlands'].includes(main)) day.push(['puffin', 12]);
     let lost = null;
     if (r.chance(0.08 + 0.17 * far)) { lost = r.pick(ids.filter((s) => SP()[s].extinct)); day.push([lost, 6]); }
     // a local race: every bird here is a little different from its kind elsewhere
@@ -175,5 +181,5 @@
     return bits.join(' · ');
   }
 
-  RB.sea = { CHUNK, CLEAR, LANDS, chunk, chunkOf, islandAt, biomeAt, onRoad, islandsNear, raceTargets, population, describe };
+  RB.sea = { SEA_BIRDS, SEA_FOSSILS, CHUNK, CLEAR, LANDS, chunk, chunkOf, islandAt, biomeAt, onRoad, islandsNear, raceTargets, population, describe };
 })();

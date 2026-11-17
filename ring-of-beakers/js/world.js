@@ -35,7 +35,7 @@
     volcanic: { day: [['vulture', 12], ['condor', 8], ['raven', 10], ['eagle', 6], ['cassowary', 4], ['gull', 4]], night: [['owl', 10], ['nightjar', 8]] },
     desert: { day: [['ostrich', 10], ['roadrunner', 16], ['vulture', 10], ['quail', 10], ['falcon', 6], ['emu', 6]], night: [['owl', 10], ['nightjar', 14], ['thickknee', 10]] },
   };
-  const FOSSIL_BIOME = { coast: 'dodo', savanna: 'terror', jungle: 'moa', wetland: 'archaeo', highlands: 'raptor', tundra: 'moa', volcanic: 'raptor', desert: 'elephant' };
+  const FOSSIL_BIOME = { coast: 'dodo', savanna: 'terror', jungle: 'moa', wetland: 'archaeo', highlands: 'raptor', tundra: 'moa', volcanic: 'trex', desert: 'elephant' };
 
   function blob(r, x, y, R) {
     const harm = [];
@@ -65,7 +65,7 @@
   // The Bone Quarry's dig: a pit south of the paleontologist's tent where most finds are fossils.
   const QUARRY_R = 560, QUARRY_DY = 430;
   function inQuarry(world, x, y) { const q = world.site && world.site.quarry; return !!q && Math.hypot(x - q.x, y - (q.y + QUARRY_DY)) < QUARRY_R; }
-  const QUARRY_SETS = [['elephant', 35], ['dodo', 13], ['terror', 13], ['moa', 13], ['archaeo', 13], ['raptor', 13]];
+  const QUARRY_SETS = [['elephant', 32], ['trex', 10], ['dodo', 11.6], ['terror', 11.6], ['moa', 11.6], ['archaeo', 11.6], ['raptor', 11.6]];
   const HOUSES = [[5050, 3700], [4500, 4500], [6400, 5250], [5800, 5600], [6700, 3500], [9700, 2500], [10300, 3500], [2700, 2700], [2900, 5300], [5600, 6700], [8300, 6750], [6900, 1500]];
   const ROADS = [
     ['home', 'feed', 'tools', 'bfc', 'garage', 'hatter', 'vet', 'city'], ['garage', 'bank', 'city'], ['home', 'backyard'], ['bfc', 'county', 'carnival'],
@@ -196,7 +196,11 @@
     if (k < 0.62) return { type: 'item', id: 'cap', metal: true };
     if (k < 0.69) return { type: 'item', id: 'boot' };
     if (k < 0.76) return { type: 'item', id: 'shard' };
-    if (k < 0.84) return FOSSIL_BIOME[b] ? { type: 'fossil', set: FOSSIL_BIOME[b] } : { type: 'item', id: 'worm', n: 2 };
+    if (k < 0.84) {
+      // out at sea most fossils are the sea's own: Haast's eagle, the great auk and Pelagornis
+      if (!inMain(x, y)) { const sv = hash2(cx, cy, ds + 177); return { type: 'fossil', set: sv < 0.75 ? RB.sea.SEA_FOSSILS[Math.floor(sv / 0.75 * 3)] : FOSSIL_BIOME[b] || 'pelagornis' }; }
+      return FOSSIL_BIOME[b] ? { type: 'fossil', set: FOSSIL_BIOME[b] } : { type: 'item', id: 'worm', n: 2 };
+    }
     if (k < 0.9) return b === 'jungle' || b === 'wetland' ? { type: 'item', id: 'mushroom' } : { type: 'money', money: 20 + Math.floor(v * 40), metal: true };
     if (k < 0.925) return { type: 'item', id: 'oldspur', metal: true };
     if (k < 0.945) return { type: 'item', id: 'fuse', metal: true };

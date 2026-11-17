@@ -115,6 +115,32 @@
     // like tree trunks. Slow to anger, impossible to move.
     elephant: { name: 'Elephant Bird', short: 'Elephant', tier: 5, extinct: true,
       t: { size: 2.7, posture: 0.25, bodyDepth: 1.7, bodyLen: 1.15, neckLen: 1.3, neckThick: 1.6, neckCurve: 0.3, headSize: 1.05, eyeSize: 0.6, beakLen: 1.3, beakDepth: 1.35, beakHook: 0.05, legLen: 1.75, legThick: 1.9, footSize: 1.85, talon: 0.5, spur: 0, wingSize: 0.05, tailLen: 0.3, tailFan: 0.5, tailUp: 0.3, comb: 0, wattle: 0, crest: 0, hue: 0.07, sat: 0.35, lit: 0.28, beakTone: 0.25, legTone: 0.22, muscle: 1.45, bone: 1.5, hide: 1.35, lungs: 1.2, reflex: 0.65, aggression: 0.45, courage: 0.85, lifespan: 22, voicePitch: 0, voiceRasp: 0.6, voiceLen: 1 } },
+    // Birds of the open sea: they live only on the islands out there.
+    // The albatross: a white ocean wanderer with the longest wings of any bird and a pink hooked bill.
+    albatross: { name: 'Albatross', tier: 3,
+      t: { size: 1.35, posture: 0.3, bodyLen: 1.15, bodyDepth: 1.0, neckLen: 0.55, headSize: 1.1, beakLen: 1.5, beakDepth: 1.0, beakHook: 0.8, legLen: 0.6, legThick: 1.0, footSize: 1.5, web: 1, talon: 0.05, spur: 0, wingSize: 2.3, wingPoint: 1, tailLen: 0.6, tailFan: 0.2, tailUp: 0.2, comb: 0, wattle: 0, crest: 0, hue: 0.1, sat: 0.05, lit: 0.93, litWing: -0.3, litTail: -0.1, beakTone: 0.95, legTone: 1, eyeTone: 0.1, lungs: 1.5, courage: 0.6, aggression: 0.45, voicePitch: 0.35, voiceRasp: 0.5, voiceLen: 0.8 } },
+    // The frigatebird: a glossy black pirate of the tropics on long angled wings, with a forked tail, a
+    // hooked bill and a red throat pouch it blows up like a balloon.
+    frigatebird: { name: 'Frigatebird', short: 'Frigate', tier: 3,
+      t: { size: 1.15, posture: 0.55, bodyLen: 1.0, bodyDepth: 0.85, neckLen: 0.45, headSize: 0.95, beakLen: 1.45, beakDepth: 0.7, beakHook: 1, legLen: 0.35, legThick: 0.6, footSize: 0.8, web: 0.3, talon: 0.3, spur: 0, wingSize: 2.3, wingPoint: 1, tailLen: 1.9, tailFan: 0.1, tailUp: 0.15, comb: 0, wattle: 1, combHue: -0.03, hue: 0.7, sat: 0.2, lit: 0.08, sheen: 0.6, beakTone: 0.25, legTone: 0.25, cunning: 0.95, aggression: 0.75, reflex: 1.3, voicePitch: 0.3, voiceRasp: 0.7, voiceLen: 0.8 } },
+    // The puffin: a small black-and-white diver with a white face, orange feet and a big striped
+    // orange bill that holds a row of fish.
+    puffin: { name: 'Puffin', tier: 3,
+      t: { size: 0.55, posture: 0.8, bodyDepth: 1.2, bodyLen: 1.0, neckLen: 0.3, headSize: 1.35, beakLen: 0.8, beakDepth: 1.7, beakHook: 0.3, legLen: 0.4, legThick: 1.0, footSize: 1.25, web: 1, talon: 0.1, spur: 0, wingSize: 0.9, wingPoint: 1, tailLen: 0.3, tailFan: 0.1, tailUp: 0.1, comb: 0, wattle: 0, crest: 0, hue: 0.62, sat: 0.1, lit: 0.1, litHead: 0.4, belly: 1, beakTone: 0.75, legTone: 0.75, eyeTone: 0.1, courage: 0.6, aggression: 0.5, reflex: 1.2, voicePitch: 0.3, voiceRasp: 0.7, voiceLen: 0.7 } },
+    // Fossils of the open sea, dug up only on its islands.
+    // Haast's eagle: the giant eagle that hunted moa, with talons like a tiger's claws.
+    haast: { name: 'Haast\'s Eagle', short: 'Haast', tier: 5, extinct: true,
+      t: { size: 1.95, posture: 0.6, bodyDepth: 1.2, neckLen: 0.55, neckThick: 1.3, headSize: 1.3, eyeSize: 1.2, beakLen: 1.0, beakDepth: 1.7, beakHook: 1, legLen: 1.1, legThick: 1.9, footSize: 1.9, talon: 1, spur: 0, wingSize: 1.6, wingPoint: 0, tailLen: 1.1, tailFan: 0.4, tailUp: 0.1, comb: 0, wattle: 0, crest: 0.2, hue: 0.07, sat: 0.4, lit: 0.22, litHead: 0.2, beakTone: 0.55, legTone: 0.55, eyeTone: 0.9, muscle: 1.5, bone: 1.3, reflex: 1.2, aggression: 0.95, courage: 0.95, focus: 0.9 } },
+    // The great auk: a tall flightless seabird of the north, black and white, with a deep grooved bill.
+    auk: { name: 'Great Auk', short: 'Auk', tier: 5, extinct: true,
+      t: { size: 1.15, posture: 0.85, bodyDepth: 1.3, bodyLen: 1.15, neckLen: 0.45, headSize: 1.2, beakLen: 1.4, beakDepth: 1.7, beakHook: 0.7, legLen: 0.4, legThick: 1.2, footSize: 1.5, web: 1, talon: 0.1, spur: 0, wingSize: 0.4, wingPoint: 1, tailLen: 0.3, tailFan: 0.1, tailUp: 0.1, comb: 0, wattle: 0, crest: 0, hue: 0.62, sat: 0.1, lit: 0.1, litHead: 0.1, belly: 1, beakTone: 0.05, legTone: 0.05, bone: 1.3, hide: 1.25, lungs: 1.4, courage: 0.75, aggression: 0.6 } },
+    // Pelagornis: the biggest flying bird there ever was, with bony teeth along a long bill.
+    pelagornis: { name: 'Pelagornis', short: 'Pelagorn', tier: 5, extinct: true, sw: ['teeth'],
+      t: { size: 1.75, posture: 0.4, bodyDepth: 0.95, bodyLen: 1.1, neckLen: 1.0, headSize: 1.25, beakLen: 2.2, beakDepth: 1.0, beakHook: 0.7, legLen: 0.6, legThick: 0.9, footSize: 1.4, web: 1, talon: 0.1, spur: 0, wingSize: 2.3, wingPoint: 1, tailLen: 0.7, tailFan: 0.2, tailUp: 0.2, comb: 0, wattle: 0, crest: 0, hue: 0.6, sat: 0.08, lit: 0.75, litWing: -0.25, beakTone: 0.5, legTone: 0.75, lungs: 1.5, reflex: 1.1, aggression: 0.7, courage: 0.7 } },
+    // A dinosaur. Tyrannosaurus: a titanic bare-skinned two-legged hunter with a great toothy head,
+    // a long stiff tail and comically small arms. Dug up at the Bone Quarry and on volcanic islands.
+    trex: { name: 'Tyrannosaurus', short: 'Tyranno', tier: 5, extinct: true, sw: ['teeth', 'tailBone', 'arms', 'bare'],
+      t: { size: 2.7, posture: 0.15, bodyLen: 1.3, bodyDepth: 1.35, neckLen: 0.9, neckThick: 1.7, neckCurve: 0.6, headSize: 1.6, eyeSize: 0.8, beakLen: 1.6, beakDepth: 1.7, beakHook: 0.1, legLen: 2.0, legThick: 1.9, footSize: 1.9, talon: 1, spur: 0, wingSize: 0, tailLen: 2.6, tailFan: 0.05, tailUp: 0.5, comb: 0, wattle: 0, crest: 0, hue: 0.22, sat: 0.35, lit: 0.32, pattern: 0.27, patContrast: 0.3, belly: 0.6, beakTone: 0.22, legTone: 0.3, eyeTone: 0.85, armLen: 0.55, muscle: 1.5, bone: 1.5, hide: 1.4, lungs: 1.3, reflex: 0.9, aggression: 1, courage: 1, focus: 0.8, voicePitch: 0, voiceRasp: 1, voiceLen: 1 } },
   };
   for (const id of Object.keys(SPECIES)) { const s = SPECIES[id]; s.id = id; s.sw = s.sw || []; }
   const IDS = Object.keys(SPECIES);

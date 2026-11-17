@@ -103,6 +103,7 @@
     secretary: 'croak', heron: 'croak', toucan: 'frog', vulture: 'hiss', condor: 'hiss', harpy: 'wail', owl: 'hoot', pelican: 'grunt', gull: 'laugh',
     penguin: 'bray', parrot: 'parrot', raven: 'caw', hummingbird: 'chirp', archaeo: 'chirp', roadrunner: 'coo', dodo: 'coo', terror: 'roar', raptor: 'roar', human: 'human',
     nightjar: 'churr', potoo: 'lament', kakapo: 'boom', thickknee: 'curlee', shoebill: 'clatter', elephant: 'boom',
+    albatross: 'clatter', frigatebird: 'frog', puffin: 'grunt', haast: 'scream', auk: 'grunt', pelagornis: 'laugh', trex: 'roar',
   };
   const rnd = (a, b) => a + Math.random() * (b - a);
   const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];

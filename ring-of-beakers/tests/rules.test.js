@@ -589,8 +589,8 @@ test('the Andean condor lives in the highlands and the harpy eagle in the jungle
   if (!Px.species.pure) assert.ok(Px.voice.kind2);
   // the wild population turns them up
   const w = RB.world.generate(5), seen = {};
-  for (let d = 1; d <= 6; d++) for (const e of RB.world.population(w, d)) seen[e.sp] = true;
-  assert.ok(seen.condor && seen.harpy, 'not seen in a week: ' + JSON.stringify({ condor: !!seen.condor, harpy: !!seen.harpy }));
+  for (let d = 1; d <= 14; d++) for (const e of RB.world.population(w, d)) if (!e.night) seen[e.sp] = true;
+  assert.ok(seen.condor && seen.harpy, 'not seen in two weeks: ' + JSON.stringify({ condor: !!seen.condor, harpy: !!seen.harpy }));
 });
 
 test('the heat clears in one night per person netted, three nights at most', () => {
@@ -733,7 +733,7 @@ test('two more night birds, the shoebill by day, and the elephant bird from the 
   assert.ok(F.wetland.day.some((e) => e[0] === 'shoebill'));
   // the elephant bird is the heaviest kind there is, and a fossil set the lab can rebuild
   const r = new Rng(5), kg = (id) => { const ws = []; for (let i = 0; i < 41; i++) ws.push(RB.pheno.express(RB.species.make(id, r, { sport: 0 })).weightKg); return ws.sort((a, b) => a - b)[20]; };
-  for (const id of RB.species.IDS) if (id !== 'elephant' && !SP[id].person) assert.ok(kg('elephant') > kg(id), 'the ' + id + ' outweighs the elephant bird');
+  for (const id of RB.species.IDS) if (id !== 'elephant' && id !== 'trex' && !SP[id].person) assert.ok(kg('elephant') > kg(id), 'the ' + id + ' outweighs the elephant bird'); // the heaviest bird (the tyrannosaur is no bird)
   assert.ok(RB.items.FOSSILS.elephant);
   const S = ST.create(131);
   for (let i = 0; i < 4; i++) RB.lab.addFragment(S, 'elephant');
@@ -764,4 +764,41 @@ test('two more night birds, the shoebill by day, and the elephant bird from the 
     assert.ok(pit.elephant > 0, 'no elephant bird in the pit');
     assert.ok(away.fossil / away.all < 0.15, 'fossils are common everywhere: ' + away.fossil + ' of ' + away.all);
   }
+});
+
+test('three birds and three fossils of the open sea, and a dinosaur', () => {
+  const SP = RB.species.SPECIES, F = RB.world.FAUNA, SEA = RB.sea;
+  // the sea birds live only on islands
+  for (const id of SEA.SEA_BIRDS) {
+    assert.ok(SP[id] && !SP[id].extinct);
+    for (const b of Object.keys(F)) assert.ok(!F[b].day.concat(F[b].night).some((e) => e[0] === id), id + ' on the mainland (' + b + ')');
+  }
+  const w = RB.world.generate(141);
+  let islands = [];
+  for (let cx = -7; cx <= 8; cx++) for (let cy = -7; cy <= 7; cy++) islands = islands.concat(SEA.chunk(w, cx, cy).islands);
+  for (const id of SEA.SEA_BIRDS) assert.ok(islands.some((is) => is.fauna.day.some((e) => e[0] === id)), 'no island has ' + id);
+  assert.ok(islands.every((is) => is.fauna.day.some((e) => e[0] === 'albatross')));
+  const seen = new Set();
+  for (const is of islands.slice(0, 40)) for (const e of SEA.population(w, is, 3)) seen.add(e.sp);
+  for (const id of SEA.SEA_BIRDS) assert.ok(seen.has(id), id + ' never turns up');
+  // the sea fossils are dug up only out at sea
+  const sets = (pred) => { const out = {}; for (const is of islands.slice(0, 30)) for (let i = 0; i < 60; i++) { const a = i * 2.4, d = is.R * 0.6 * Math.sqrt(i / 60), x = is.x + Math.cos(a) * d, y = is.y + Math.sin(a) * d; if (!pred(x, y)) continue; const c = RB.world.cellOf(x, y); for (let day = 1; day <= 3; day++) { const l = RB.world.lootAt(w, c.cx, c.cy, day); if (l && l.type === 'fossil') out[l.set] = (out[l.set] || 0) + 1; } } return out; };
+  const atSea = sets((x, y) => RB.world.biomeAt(w, x, y) !== 'water');
+  for (const id of SEA.SEA_FOSSILS) { assert.ok(SP[id].extinct && RB.items.FOSSILS[id]); assert.ok(atSea[id] > 0, 'no ' + id + ' dug up at sea'); }
+  const main = {};
+  for (let cx = 5; cx < 120; cx += 3) for (let cy = 5; cy < 80; cy += 3) for (let day = 1; day <= 3; day++) { const l = RB.world.lootAt(w, cx, cy, day); if (l && l.type === 'fossil') main[l.set] = 1; }
+  for (const id of SEA.SEA_FOSSILS) assert.ok(!main[id], id + ' dug up on the mainland');
+  // the dinosaur: a titanic tyrannosaur with teeth, arms and a bony tail, from the Bone Quarry and volcanic islands
+  const P = RB.pheno.express(RB.species.make('trex', new Rng(4), { sport: 0 }));
+  assert.ok(SP.trex.extinct && RB.items.FOSSILS.trex && P.weightClass === RB.pheno.WEIGHT_CLASSES.length - 1);
+  for (const sw of ['teeth', 'arms', 'tailBone']) assert.ok(RB.genome.switchOn(RB.species.make('trex', new Rng(5), { sport: 0 }), sw), sw);
+  const q = w.site.quarry;
+  let rex = 0;
+  for (let cx = -8; cx <= 8; cx++) for (let cy = -5; cy <= 5; cy++) for (let day = 1; day <= 6; day++) { const x = q.x + cx * 34, y = q.y + RB.world.QUARRY_DY + cy * 34, c = RB.world.cellOf(x, y), l = RB.world.lootAt(w, c.cx, c.cy, day); if (RB.world.inQuarry(w, x, y) && l && l.set === 'trex') rex++; }
+  assert.ok(rex > 0, 'no tyrannosaur at the quarry');
+  const S = ST.create(143);
+  for (let i = 0; i < 4; i++) RB.lab.addFragment(S, 'trex');
+  S.money = 1000;
+  assert.strictEqual(RB.lab.rebuild(S, 'trex'), '');
+  assert.strictEqual(RB.species.classify(S.eggs[S.eggs.length - 1].g).id, 'trex');
 });

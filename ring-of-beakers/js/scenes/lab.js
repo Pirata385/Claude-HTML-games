@@ -289,15 +289,16 @@
 
   function fossils(b) {
     const sets = Object.keys(IT.FOSSILS);
-    ui.para('Fossil fragments turn up when you dig. Four of a kind and $' + L.REBUILD_COST + ' rebuild the animal as an egg, sent to your coop.', b.x + 4, b.y, b.w - 8, { size: 12 });
+    ui.para(S.sandbox ? 'Sandbox: every fossil is complete. Rebuild any of them as often as you like, free: each one is an egg sent to your coop.' : 'Fossil fragments turn up when you dig. Four of a kind and $' + L.REBUILD_COST + ' rebuild the animal as an egg, sent to your coop.', b.x + 4, b.y, b.w - 8, { size: 12 });
     ui.list('fossils', b.x, b.y + 40, b.w, b.h - 40, sets.length, 60, (i, x, y, w) => {
       const id = sets[i], n = L.fragments(S, id);
       ui.rect(x, y + 2, w - 6, 54, pal.paper, 10);
       ui.icon('skull', x + 28, y + 29, 26, n ? pal.ink : pal.grey);
       ui.text(IT.FOSSILS[id], x + 60, y + 24, { size: 14 });
       for (let k = 0; k < L.FRAGMENTS; k++) ui.rect(x + 60 + k * 20, y + 34, 16, 10, k < n ? pal.plum : pal.soft, 4);
-      if (n > L.FRAGMENTS) ui.text('+' + (n - L.FRAGMENTS), x + 146, y + 44, { size: 11 });
-      if (ui.btn(x + w - 100, y + 10, 88, 38, 'Rebuild', { size: 13, fill: pal.plum, disabled: n < L.FRAGMENTS || S.money < L.REBUILD_COST })) {
+      if (S.sandbox) ui.text('∞', x + 146, y + 44, { size: 13 });
+      else if (n > L.FRAGMENTS) ui.text('+' + (n - L.FRAGMENTS), x + 146, y + 44, { size: 11 });
+      if (ui.btn(x + w - 100, y + 10, 88, 38, 'Rebuild', { size: 13, fill: pal.plum, disabled: n < L.FRAGMENTS || (!S.sandbox && S.money < L.REBUILD_COST) })) {
         const msg = L.rebuild(S, id);
         if (msg) ui.toast(msg, pal.coral); else { common.award(S, 'fossil'); RB.audio.play('zap'); ui.message('It lives', 'An egg is on its way to your coop. It hatches in two mornings.', null, { head: pal.plum }); RB.game.save(); }
       }

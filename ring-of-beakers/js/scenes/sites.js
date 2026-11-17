@@ -40,14 +40,14 @@
     if (tab === 0) {
       const stock = IT.STOCK[site.id] || site.stock || [];
       ui.list('buy' + site.id, b.x, y, b.w, h, stock.length, 60, (i, x, yy, w) => {
-        const it = IT.ITEMS[stock[i]], owned = it.kind === 'equip' && S.equip[it.id];
-        const have = it.kind === 'equip' ? '' : ' · you have ' + ST.count(S, it.gives || it.id) + (it.gives ? ' ' + IT.ITEMS[it.gives].name.toLowerCase() : '');
-        if (row(x, yy, w, { item: it.id, title: it.name, sub: it.desc + have, price: it.price, btn: owned ? 'Owned' : 'Buy', off: owned })) {
+        const it = IT.ITEMS[stock[i]], endless = ST.endless(S, it.gives || it.id), owned = (it.kind === 'equip' && S.equip[it.id]) || endless;
+        const have = it.kind === 'equip' ? '' : endless ? ' · endless in a sandbox game' : ' · you have ' + ST.count(S, it.gives || it.id) + (it.gives ? ' ' + IT.ITEMS[it.gives].name.toLowerCase() : '');
+        if (row(x, yy, w, { item: it.id, title: it.name, sub: it.desc + have, price: it.price, btn: endless ? '∞' : owned ? 'Owned' : 'Buy', off: owned })) {
           if (pay(it.price)) { if (it.kind === 'equip') S.equip[it.id] = true; else ST.give(S, it.gives || it.id, it.uses || 1); } // a sack fills the grain store
         }
       });
     } else if (tab === 1) {
-      const inv = Object.keys(S.inv).filter((id) => IT.ITEMS[id]);
+      const inv = Object.keys(S.inv).filter((id) => IT.ITEMS[id] && !ST.endless(S, id) && S.inv[id] > 0); // endless sandbox stock is not for sale
       const k = site.id === 'market' ? 1.5 : 1;
       if (!inv.length) ui.text('Nothing to sell.', b.x + 6, y + 24, { size: 13, bold: false });
       ui.list('sell' + site.id, b.x, y, b.w, h, inv.length, 60, (i, x, yy, w) => {
@@ -242,8 +242,8 @@
       ui.para('Young born while the island is hot come out mutated: odd genes, extreme bodies, now and then teeth, two heads, a glow or extra legs. The hotter, the stranger. It fades a little every night.', b.x + 4, y0 + 52, b.w - 8, { size: 12 });
       const bw = Math.min(300, b.w - 8);
       const leave = (item) => { const why = ST.dose(S, I, item); if (why) { ui.toast(why, pal.coral); RB.audio.play('error'); } else { RB.audio.play('zap'); say = item === 'isotope' ? 'The isotope hums in the grass. Best not stand too close.' : 'The mushroom sinks into the soil.'; RB.game.save(); } };
-      if (ui.btn(b.x + 4, y0 + 124, bw, 40, 'Leave an odd mushroom (' + ST.count(S, 'mushroom') + ')', { icon: 'mushroom', fill: pal.plum, size: 13, disabled: !ST.count(S, 'mushroom') })) leave('mushroom');
-      if (ui.btn(b.x + 4, y0 + 172, bw, 40, 'Leave an isotope (' + ST.count(S, 'isotope') + ')', { icon: 'atom', fill: '#3f8f4a', size: 13, disabled: !ST.count(S, 'isotope') })) leave('isotope');
+      if (ui.btn(b.x + 4, y0 + 124, bw, 40, 'Leave an odd mushroom (' + ST.fmtCount(ST.count(S, 'mushroom')) + ')', { icon: 'mushroom', fill: pal.plum, size: 13, disabled: !ST.count(S, 'mushroom') })) leave('mushroom');
+      if (ui.btn(b.x + 4, y0 + 172, bw, 40, 'Leave an isotope (' + ST.fmtCount(ST.count(S, 'isotope')) + ')', { icon: 'atom', fill: '#3f8f4a', size: 13, disabled: !ST.count(S, 'isotope') })) leave('isotope');
       if (ui.btn(b.x + 4, y0 + 220, bw, 40, 'Clean it up · $' + ST.CLEAN_COST, { fill: pal.teal, size: 13, disabled: lvl <= 0 })) { const why = ST.cleanIsle(S, I); if (why) ui.toast(why, pal.coral); else { say = 'Scrubbed clean. The next young will be ordinary again.'; RB.game.save(); } }
       ui.text('The Night Market sells odd mushrooms and isotopes.', b.x + 4, y0 + 280, { size: 11, bold: false, color: pal.grey, maxW: b.w - 8 });
     }
@@ -253,7 +253,7 @@
   function stayTab(I, b, y0) {
     const mouths = S.birds.length, grain = ST.count(S, 'grain') + S.feeder, nights = mouths ? Math.floor(grain / mouths) : Infinity;
     ui.para('Camp at the field station and let the days go by. Every night here counts as a night at home: the colony breeds and grows old, your birds at home age and their eggs hatch. Your birds at home and in the truck are fed from the grain in your bag.', b.x + 4, y0 + 6, b.w - 8, { size: 12 });
-    const enough = nights === Infinity ? 'Nobody at home to feed.' : 'Grain (bag and feeder): ' + grain + ' for ' + mouths + ' mouth' + (mouths === 1 ? '' : 's') + ': enough for ' + nights + ' night' + (nights === 1 ? '' : 's') + '.';
+    const enough = ST.endless(S, 'grain') ? 'Endless grain: nobody goes hungry.' : nights === Infinity ? 'Nobody at home to feed.' : 'Grain (bag and feeder): ' + grain + ' for ' + mouths + ' mouth' + (mouths === 1 ? '' : 's') + ': enough for ' + nights + ' night' + (nights === 1 ? '' : 's') + '.';
     ui.text(enough, b.x + 4, y0 + 96, { size: 12, color: nights < 7 ? pal.coral : pal.teal, maxW: b.w - 8 });
     const opts = [[1, 'One night'], [3, 'Three nights'], [7, 'A week'], [15, 'Two weeks'], [ST.STAY_MAX, 'A month']];
     const cols = b.w > 420 ? 2 : 1, bw = (Math.min(b.w, 520) - 8 - (cols - 1) * 8) / cols;
@@ -271,10 +271,10 @@
   // ---- the Bone Quarry: what you have dug up so far, and how to make a bird of it
   function quarry(b) {
     const sets = Object.keys(IT.FOSSILS);
-    ui.para('Dig anywhere in the roped-off pit south of my tent: most finds there are fossil fragments: about a third of them elephant bird, and now and then a tyrannosaur. Four fragments of one kind rebuild it at the Lab.', b.x + 4, b.y + 4, b.w - 8, { size: 13 });
+    ui.para('Dig anywhere in the roped-off pit south of my tent: most finds there are fossil fragments: nearly a third of them elephant bird, and now and then a dinosaur (a tyrannosaur, or the ostrich-like Gallimimus). Four fragments of one kind rebuild it at the Lab.', b.x + 4, b.y + 4, b.w - 8, { size: 13 });
     ui.list('quarry', b.x, b.y + 76, b.w, b.h - 76, sets.length, 60, (i, x, y, w) => {
       const id = sets[i], n = RB.lab.fragments(S, id), seen = S.codex.species[id];
-      const where = RB.sea.SEA_FOSSILS.includes(id) ? ' · only on islands out at sea' : id === 'trex' ? ' · a dinosaur: here, or on volcanic islands' : '';
+      const where = id === 'pteranodon' ? ' · a flying reptile: only on islands out at sea' : RB.sea.SEA_FOSSILS.includes(id) ? ' · only on islands out at sea' : id === 'trex' ? ' · a dinosaur: here, or on volcanic islands' : id === 'gallimimus' ? ' · a dinosaur: only here' : id === 'gastornis' ? ' · under farmland, here and out at sea' : '';
       row(x, y, w, { P: RB.pheno.express(RB.species.make(id, new Rng(RB.core.hashStr(id)), { sex: 'M', sport: 0 })), title: IT.FOSSILS[id] + (id === 'elephant' ? ' · the giant' : ''), sub: n + ' of ' + RB.lab.FRAGMENTS + ' fragments' + where + (n >= RB.lab.FRAGMENTS ? ' · ready to rebuild at the Lab' : '') + (seen ? ' · rebuilt before' : ''), subCol: n >= RB.lab.FRAGMENTS ? pal.teal : undefined });
     });
   }

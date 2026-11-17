@@ -1071,3 +1071,76 @@ test('netting every person on the mainland is a feat; sea islanders do not count
   const back = ST.deserialize(JSON.parse(JSON.stringify(old)));
   assert.ok(ST.nettedAll(back, w));
 });
+
+test('twelve new kinds: three night birds, three day birds, three sea birds and three fossils', () => {
+  const SP = RB.species.SPECIES, F = RB.world.FAUNA, SEA = RB.sea;
+  const night = ['frogmouth', 'oilbird', 'boatbill'], day = ['crane', 'kookaburra', 'marabou'], sea = ['cormorant', 'booby', 'tropicbird'], fossils = ['gastornis', 'gallimimus', 'pteranodon'];
+  for (const id of night) assert.ok(SP[id] && SP[id].night && !SP[id].extinct, id);
+  for (const id of day.concat(sea)) assert.ok(SP[id] && !SP[id].night && !SP[id].extinct, id);
+  for (const id of fossils) assert.ok(SP[id] && SP[id].extinct && RB.items.FOSSILS[id], id);
+  // where they live: night birds after dark, day birds by day, the cormorant on the mainland's coast
+  const lives = (id, when) => Object.keys(F).filter((b) => F[b][when].some((e) => e[0] === id));
+  for (const id of night) assert.ok(lives(id, 'night').length >= 2 && !lives(id, 'day').length, id);
+  for (const id of day) assert.ok(lives(id, 'day').length >= 2, id);
+  assert.ok(lives('cormorant', 'day').includes('coast'));
+  // boobies and tropicbirds only out at sea, on warm islands; markers find them
+  assert.ok(SEA.SEA_BIRDS.includes('booby') && SEA.SEA_BIRDS.includes('tropicbird') && !lives('booby', 'day').length);
+  const w = RB.world.generate(191);
+  let islands = [];
+  for (let cx = -6; cx <= 7; cx++) for (let cy = -6; cy <= 6; cy++) islands = islands.concat(SEA.chunk(w, cx, cy).islands);
+  for (const is of islands) {
+    const has = (id) => is.fauna.day.some((e) => e[0] === id);
+    assert.strictEqual(has('booby'), ['jungle', 'desert', 'savanna', 'volcanic'].includes(is.main), is.name);
+    // islands charted before these kinds came keep their random strangers and lost kinds as they were
+    for (const s of is.strangers) assert.ok(!SEA.LATE.includes(s), is.name + ' ' + s);
+    if (is.lost) assert.ok(!SEA.LATE.includes(is.lost));
+  }
+  // where the fossils are: Gastornis under farmland, Gallimimus at the Bone Quarry, Pteranodon at sea
+  assert.strictEqual(RB.world.FOSSIL_BIOME.farm, 'gastornis');
+  assert.ok(RB.world.QUARRY_SETS.some((e) => e[0] === 'gallimimus'));
+  assert.ok(Math.abs(RB.world.QUARRY_SETS.reduce((t, e) => t + e[1], 0) - 100) < 1e-9);
+  assert.ok(SEA.SEA_FOSSILS.includes('pteranodon'));
+  const seaSets = new Set();
+  for (let cx = -300; cx < -200; cx++) for (let cy = -300; cy < -200; cy++) { const l = RB.world.lootAt(w, cx, cy, 1); if (l && l.type === 'fossil') seaSets.add(l.set); }
+  for (const id of SEA.SEA_FOSSILS) assert.ok(seaSets.has(id), 'never dug up at sea: ' + id);
+  const G = RB.guide.categories().map((c) => c.id);
+  for (const id of fossils) assert.ok(G.includes('fossil:' + id));
+  assert.ok(G.includes('bird:booby') && G.includes('bird:tropicbird'));
+  // rebuilt from fossils, each comes out as itself
+  const S = ST.create(193); S.money = 1e6;
+  for (const id of fossils) { for (let i = 0; i < RB.lab.FRAGMENTS; i++) RB.lab.addFragment(S, id); assert.strictEqual(RB.lab.rebuild(S, id), ''); assert.strictEqual(RB.species.classify(S.eggs[S.eggs.length - 1].g).id, id); }
+});
+
+test('sandbox: endless items (not relics), endless free fossils, and every island a sail away', () => {
+  const S = ST.create(195, { sandbox: true }), N = ST.create(195);
+  for (const id of ['net', 'bignet', 'shovel', 'seed', 'grain', 'worm', 'tonic', 'isotope', 'elixir', 'spurs', 'scarf', 'tophat', 'crown', 'bucket', 'enzyme', 'beaker']) {
+    assert.strictEqual(ST.count(S, id), Infinity, id); assert.ok(ST.take(S, id, 5)); assert.strictEqual(ST.count(S, id), Infinity, id);
+    assert.notStrictEqual(ST.count(N, id), Infinity, id);
+  }
+  assert.strictEqual(ST.digsLeft(S), Infinity);
+  // relics are ordinary, even in a sandbox
+  for (const id of ['cap', 'boot', 'shard', 'oldspur', 'idol']) { assert.strictEqual(ST.count(S, id), 0); ST.give(S, id, 2); assert.strictEqual(ST.count(S, id), 2); assert.ok(ST.take(S, id)); assert.strictEqual(ST.count(S, id), 1); }
+  assert.ok(!ST.endless(S, 'grainsack'));
+  const owned = ST.owned(S);
+  for (const id of ['crown', 'helmet', 'loveseed', 'gromash', 'cap']) assert.ok(owned.includes(id), id);
+  assert.ok(!ST.owned(N).includes('crown'));
+  assert.strictEqual(ST.fmtCount(Infinity), '∞'); assert.strictEqual(ST.fmtCount(3), '3');
+  // feeding and wearing never run anything down
+  const c = S.birds[0];
+  assert.ok(ST.feed(S, c, 'tonic')); assert.strictEqual(ST.count(S, 'tonic'), Infinity);
+  // the endless stock survives a save
+  const back = ST.deserialize(JSON.parse(JSON.stringify(ST.serialize(S))));
+  assert.strictEqual(ST.count(back, 'crown'), Infinity);
+  // every fossil complete, rebuilt as often as you like, for free
+  const money = S.money;
+  for (const id of Object.keys(RB.items.FOSSILS)) {
+    assert.strictEqual(RB.lab.fragments(S, id), RB.lab.FRAGMENTS);
+    for (let k = 0; k < 3; k++) assert.strictEqual(RB.lab.rebuild(S, id), '');
+  }
+  assert.strictEqual(S.money, money); assert.strictEqual(S.eggs.length, 3 * Object.keys(RB.items.FOSSILS).length);
+  assert.strictEqual(RB.lab.fragments(N, 'dodo'), 0); assert.ok(RB.lab.rebuild(N, 'dodo'));
+  // fast travel: any island in a sandbox game, only the ones landed on otherwise
+  const w = RB.world.generate(S.seed), is = RB.sea.chunk(w, -4, 2).islands[0] || RB.sea.chunk(w, 5, 3).islands[0];
+  assert.ok(ST.canSail(S, is)); assert.ok(!ST.canSail(N, is));
+  N.visited[is.id] = 1; assert.ok(ST.canSail(N, is));
+});

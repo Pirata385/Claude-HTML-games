@@ -236,7 +236,7 @@
       common.portrait({ P: RB.pheno.express(cur.g) }, box.x, box.y + 2, 76, 76, { draw: { clothes: cur.clothes } });
       ui.para(what, box.x + 86, box.y + 2, box.w - 86, { size: 12 });
       const silver = !!S.equip.silvernet, n = ST.count(S, 'net') + ST.count(S, 'bignet');
-      if (ui.btn(box.x, box.y + box.h - 46, box.w, 42, 'Throw a net' + (silver ? ' (silver)' : ' (' + n + ' left)'), { icon: 'net', fill: pal.plum, disabled: !silver && !n })) {
+      if (ui.btn(box.x, box.y + box.h - 46, box.w, 42, 'Throw a net' + (silver ? ' (silver)' : ' (' + ST.fmtCount(n) + ' left)'), { icon: 'net', fill: pal.plum, disabled: !silver && !n })) {
         if (!ST.useNet(S, 'net')) ST.useNet(S, 'bignet');
         const c = ST.netKeeper(S, base);
         if (c.person && !bird) ST.caughtPerson(S, base.role === 'sheriff' ? 70 : 40);

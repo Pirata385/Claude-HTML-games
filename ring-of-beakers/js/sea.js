@@ -13,7 +13,10 @@
 
   const CHUNK = 7000, CLEAR = 2600; // chunk size, and no islands this close to the mainland's edge
   // Birds that live only out at sea, and fossils dug up only on its islands.
-  const SEA_BIRDS = ['albatross', 'frigatebird', 'puffin'], SEA_FOSSILS = ['haast', 'auk', 'pelagornis'];
+  const SEA_BIRDS = ['albatross', 'frigatebird', 'puffin', 'booby', 'tropicbird'], SEA_FOSSILS = ['haast', 'auk', 'pelagornis', 'pteranodon'];
+  // kinds added after the sea was charted: kept out of the islands' random picks (strangers, lost
+  // kinds) so islands already visited keep the birds they had; they arrive by land type instead
+  const LATE = ['frogmouth', 'oilbird', 'boatbill', 'crane', 'kookaburra', 'marabou', 'cormorant', 'booby', 'tropicbird', 'gastornis', 'gallimimus', 'pteranodon'];
   const LANDS = ['farm', 'wetland', 'savanna', 'highlands', 'jungle', 'tundra', 'volcanic', 'desert'];
   const TWISTS = ['grain', 'mud', 'wind', 'dark', 'rounds'];
   const SYL = ['ka', 'lo', 'ma', 'ru', 'te', 'vi', 'no', 'sa', 'pe', 'ba', 'qui', 'tor', 'mel', 'ya', 'zu', 'ori', 'an', 'el', 'is', 'ur', 'do', 'fa'];
@@ -53,7 +56,7 @@
     // further out is wilder
     const far = clamp((Math.hypot(x - WD.W / 2, y - WD.H / 2) - 9000) / 45000, 0, 1);
     // the birds: the land's own, a couple of strangers, and now and then a kind thought long gone
-    const ids = RB.species.IDS.filter((s) => !SP()[s].person);
+    const ids = RB.species.IDS.filter((s) => !SP()[s].person && !LATE.includes(s));
     const day = WD.FAUNA[main].day.map((e) => e.slice()), night = WD.FAUNA[main].night.map((e) => e.slice());
     const strangers = [];
     for (let i = 0; i < 2; i++) { const s = r.pick(ids.filter((s) => !SP()[s].extinct && !SP()[s].night && !SEA_BIRDS.includes(s))); strangers.push(s); day.push([s, r.range(5, 12)]); }
@@ -61,6 +64,9 @@
     day.push(['albatross', 6]);
     if (['jungle', 'desert', 'savanna', 'volcanic', 'farm', 'wetland'].includes(main)) day.push(['frigatebird', 8]);
     if (['tundra', 'highlands'].includes(main)) day.push(['puffin', 12]);
+    // and the later ones: boobies and tropicbirds where it is warm, cormorants on the cooler shores
+    if (['jungle', 'desert', 'savanna', 'volcanic'].includes(main)) day.push(['booby', 9], ['tropicbird', 7]);
+    if (['farm', 'wetland', 'highlands'].includes(main)) day.push(['cormorant', 7]);
     let lost = null;
     if (r.chance(0.08 + 0.17 * far)) { lost = r.pick(ids.filter((s) => SP()[s].extinct)); day.push([lost, 6]); }
     // a local race: every bird here is a little different from its kind elsewhere
@@ -215,5 +221,5 @@
     }
   }
 
-  RB.sea = { word, raiseSpot, NEAR_MAIN, restoreIsles, SEA_BIRDS, SEA_FOSSILS, CHUNK, CLEAR, LANDS, chunk, chunkOf, islandAt, biomeAt, onRoad, islandsNear, raceTargets, population, describe };
+  RB.sea = { LATE, word, raiseSpot, NEAR_MAIN, restoreIsles, SEA_BIRDS, SEA_FOSSILS, CHUNK, CLEAR, LANDS, chunk, chunkOf, islandAt, biomeAt, onRoad, islandsNear, raceTargets, population, describe };
 })();

@@ -141,6 +141,59 @@
     // a long stiff tail and comically small arms. Dug up at the Bone Quarry and on volcanic islands.
     trex: { name: 'Tyrannosaurus', short: 'Tyranno', tier: 5, extinct: true, sw: ['teeth', 'tailBone', 'arms', 'bare'],
       t: { size: 2.7, posture: 0.15, bodyLen: 1.3, bodyDepth: 1.35, neckLen: 0.9, neckThick: 1.7, neckCurve: 0.6, headSize: 1.6, eyeSize: 0.8, beakLen: 1.6, beakDepth: 1.7, beakHook: 0.1, legLen: 2.0, legThick: 1.9, footSize: 1.9, talon: 1, spur: 0, wingSize: 0, tailLen: 2.6, tailFan: 0.05, tailUp: 0.5, comb: 0, wattle: 0, crest: 0, hue: 0.22, sat: 0.35, lit: 0.32, pattern: 0.27, patContrast: 0.3, belly: 0.6, beakTone: 0.22, legTone: 0.3, eyeTone: 0.85, armLen: 0.55, muscle: 1.5, bone: 1.5, hide: 1.4, lungs: 1.3, reflex: 0.9, aggression: 1, courage: 1, focus: 0.8, voicePitch: 0, voiceRasp: 1, voiceLen: 1 } },
+    // Three more for the night.
+    // The tawny frogmouth: a grey, bark-streaked bird with a huge flat head, a bill like a wide frog's
+    // mouth and yellow eyes. By day it poses as a broken branch; at night it thumps out low 'oom's.
+    frogmouth: { name: 'Frogmouth', tier: 3, night: true,
+      t: { size: 0.8, posture: 0.85, bodyDepth: 1.1, bodyLen: 0.95, neckLen: 0.25, headSize: 1.6, eyeSize: 1.3, beakLen: 0.75, beakDepth: 0.85, beakHook: 0.8, beakFlat: 1, legLen: 0.3, legThick: 0.8, footSize: 0.8, talon: 0.15, spur: 0, wingSize: 1.25, wingPoint: 0.2, tailLen: 1.15, tailFan: 0.35, tailUp: 0.05, comb: 0, wattle: 0, crest: 0.25, hue: 0.08, sat: 0.06, lit: 0.55, pattern: 0.73, patContrast: 0.45, belly: 0.55, beakTone: 0.25, legTone: 0.3, eyeTone: 0.9, focus: 0.85, cunning: 0.7, courage: 0.5, aggression: 0.35, hide: 1.1, voicePitch: 0.1, voiceRasp: 0.15, voiceLen: 0.6 } },
+    // The oilbird: a chestnut cave bird speckled with white, with a strong hooked bill, long wings, a
+    // long tail and tiny feet. It finds its way in the dark by clicking, and screams when disturbed.
+    oilbird: { name: 'Oilbird', tier: 3, night: true,
+      t: { size: 0.82, posture: 0.6, bodyLen: 1.15, bodyDepth: 0.9, neckLen: 0.35, headSize: 1.1, eyeSize: 1.5, beakLen: 0.75, beakDepth: 1.2, beakHook: 1, beakFlat: 0.3, legLen: 0.42, legThick: 0.55, footSize: 0.9, talon: 0.2, spur: 0, wingSize: 2.0, wingPoint: 0.6, tailLen: 1.7, tailFan: 0.5, tailUp: 0.2, comb: 0, wattle: 0, crest: 0, hue: 0.05, sat: 0.55, lit: 0.33, pattern: 0.73, patContrast: 0.4, belly: 0.4, beakTone: 0.55, legTone: 0.92, eyeTone: 0.1, cunning: 0.6, reflex: 1.2, courage: 0.4, aggression: 0.45, hide: 1.0, voicePitch: 0.75, voiceRasp: 0.9, voiceLen: 0.7 } },
+    // The boat-billed heron: a stocky night heron with a black cap and crest, enormous dark eyes and
+    // a broad bill shaped like an upturned boat, for scooping up whatever moves in the shallows.
+    boatbill: { name: 'Boat-billed Heron', short: 'Boatbill', tier: 3, night: true,
+      t: { size: 1.0, posture: 0.55, bodyDepth: 1.05, bodyLen: 1.0, neckLen: 0.9, neckCurve: 0.8, neckThick: 1.0, headSize: 1.35, eyeSize: 1.8, beakLen: 1.1, beakDepth: 1.15, beakFlat: 1, beakHook: 0.35, legLen: 1.2, legThick: 0.7, footSize: 1.3, talon: 0.15, spur: 0, wingSize: 1.5, tailLen: 0.45, tailFan: 0.2, tailUp: 0.2, comb: 0, wattle: 0, crest: 0.8, hue: 0.6, sat: 0.12, lit: 0.72, litHead: -0.55, belly: 0.7, beakTone: 0.15, legTone: 0.5, eyeTone: 0.1, focus: 0.8, reflex: 1.15, courage: 0.5, aggression: 0.5, voicePitch: 0.25, voiceRasp: 0.7, voiceLen: 0.5 } },
+    // Three more by day.
+    // The grey crowned crane: a tall grey crane with white wings, a black-and-white face, a red throat
+    // wattle and a crown of stiff golden feathers. It dances, bows and booms.
+    crane: { name: 'Crowned Crane', short: 'Crane', tier: 3,
+      t: { size: 1.3, posture: 0.55, bodyDepth: 0.9, bodyLen: 1.0, neckLen: 1.7, neckCurve: 0.5, neckThick: 0.7, headSize: 0.9, eyeSize: 1.0, beakLen: 0.85, beakDepth: 0.7, beakHook: 0, legLen: 2.2, legThick: 0.65, footSize: 1.1, talon: 0.15, spur: 0, wingSize: 1.7, tailLen: 0.55, tailFan: 0.3, tailUp: 0.3, comb: 0, wattle: 0.6, crest: 1, hue: 0.6, sat: 0.08, lit: 0.55, litWing: 0.35, litHead: -0.4, beakTone: 0.2, legTone: 0.15, eyeTone: 0.6, bone: 0.75, reflex: 1.2, aggression: 0.5, courage: 0.6, voicePitch: 0.35, voiceRasp: 0.3, voiceLen: 0.8 } },
+    // The laughing kookaburra: a big stocky kingfisher with a cream head, a dark eye stripe, a huge
+    // straight bill and a rufous barred tail. Its call is a loud, mad cackle.
+    kookaburra: { name: 'Kookaburra', tier: 2,
+      t: { size: 0.68, posture: 0.65, bodyDepth: 1.15, bodyLen: 0.95, neckLen: 0.3, headSize: 1.5, eyeSize: 1.0, beakLen: 1.55, beakDepth: 1.25, beakHook: 0.15, beakFlat: 0.2, legLen: 0.35, legThick: 0.8, footSize: 0.8, talon: 0.3, spur: 0, wingSize: 1.2, wingPoint: 0.3, tailLen: 1.1, tailFan: 0.3, tailUp: 0.15, comb: 0, wattle: 0, crest: 0.3, hue: 0.08, sat: 0.35, lit: 0.62, litWing: -0.3, litHead: 0.12, hueTail: -0.03, belly: 0.8, beakTone: 0.08, legTone: 0.2, eyeTone: 0.2, cunning: 0.8, reflex: 1.25, aggression: 0.75, courage: 0.75, voicePitch: 0.55, voiceRasp: 0.4, voiceLen: 1 } },
+    // The marabou stork: a huge undertaker of a stork, black-cloaked and white-bellied, with a bare
+    // pink head, a dangling throat pouch and a bill like a pickaxe. Clatters its bill instead of calling.
+    marabou: { name: 'Marabou Stork', short: 'Marabou', tier: 3,
+      t: { size: 1.65, posture: 0.6, bodyDepth: 1.15, bodyLen: 1.0, neckLen: 1.2, neckCurve: 0.8, neckThick: 0.9, headSize: 1.0, eyeSize: 0.9, beakLen: 2.0, beakDepth: 1.4, beakHook: 0.05, beakFlat: 0.2, pouch: 0.8, legLen: 2.0, legThick: 0.85, footSize: 1.3, talon: 0.15, spur: 0, wingSize: 2.1, wingPoint: 0.2, tailLen: 0.5, tailFan: 0.3, tailUp: 0.2, comb: 0, wattle: 0.2, bareHead: 1, combHue: -0.04, hue: 0.6, sat: 0.1, lit: 0.22, belly: 0.85, beakTone: 0.6, legTone: 0.6, eyeTone: 0.5, hide: 1.3, cunning: 0.7, aggression: 0.6, courage: 0.7, voicePitch: 0.1, voiceRasp: 0.8, voiceLen: 0.6 } },
+    // Three more birds of the sea.
+    // The cormorant: a glossy black diver with a long snaky neck, a thin hooked bill, big webbed feet
+    // and a stiff tail. Stands on rocks with its wings hung out to dry. Lives on the coast as well.
+    cormorant: { name: 'Cormorant', tier: 2,
+      t: { size: 0.95, posture: 0.7, bodyLen: 1.2, bodyDepth: 0.85, neckLen: 1.5, neckCurve: 0.6, neckThick: 0.7, headSize: 0.85, eyeSize: 1.0, beakLen: 1.25, beakDepth: 0.6, beakHook: 0.8, beakFlat: 0, legLen: 0.4, legThick: 1.0, footSize: 1.6, web: 1, talon: 0.1, spur: 0, wingSize: 1.4, wingPoint: 0.4, tailLen: 1.1, tailFan: 0.25, tailUp: 0.2, comb: 0, wattle: 0, crest: 0.2, hue: 0.45, sat: 0.25, lit: 0.08, sheen: 0.8, beakTone: 0.1, legTone: 0, eyeTone: 0.7, lungs: 1.3, reflex: 1.2, courage: 0.6, aggression: 0.6, voicePitch: 0.15, voiceRasp: 0.8, voiceLen: 0.5 } },
+    // The red-footed booby: a brown-and-white plunge-diver with a pale pointed bill, long pointed
+    // wings and bright red webbed feet it shows off in a high-stepping dance.
+    booby: { name: 'Red-footed Booby', short: 'Booby', tier: 3,
+      t: { size: 0.95, posture: 0.55, bodyLen: 1.1, bodyDepth: 1.0, neckLen: 0.6, headSize: 1.1, eyeSize: 1.1, beakLen: 1.25, beakDepth: 1.3, beakHook: 0, beakFlat: 0, legLen: 0.45, legThick: 0.9, footSize: 1.85, web: 1, talon: 0.05, spur: 0, wingSize: 2.05, wingPoint: 1, tailLen: 1.0, tailFan: 0.1, tailUp: 0.25, comb: 0, wattle: 0, hue: 0.08, sat: 0.25, lit: 0.55, litWing: -0.3, belly: 0.8, beakTone: 0.25, legTone: 1, eyeTone: 0.5, lungs: 1.2, reflex: 1.2, courage: 0.65, aggression: 0.5, voicePitch: 0.45, voiceRasp: 0.5, voiceLen: 0.5 } },
+    // The red-billed tropicbird: a white seabird with a black eye stripe, a fine-barred back, a
+    // coral-red bill and two white tail streamers longer than the rest of it. Barely able to walk.
+    tropicbird: { name: 'Tropicbird', tier: 3,
+      t: { size: 0.7, posture: 0.3, bodyLen: 1.1, bodyDepth: 0.9, neckLen: 0.4, headSize: 1.05, eyeSize: 1.1, beakLen: 0.95, beakDepth: 0.9, beakHook: 0.2, legLen: 0.42, legThick: 0.6, footSize: 1.2, web: 1, talon: 0.05, spur: 0, wingSize: 1.75, wingPoint: 1, tailLen: 2.6, tailFan: 0, tailUp: 0.2, comb: 0, wattle: 0, sat: 0.03, lit: 0.95, litWing: -0.15, pattern: 0, beakTone: 1, legTone: 0.6, eyeTone: 0.05, reflex: 1.35, courage: 0.5, aggression: 0.5, voicePitch: 0.85, voiceRasp: 0.3, voiceLen: 0.6 } },
+    // Three more fossils.
+    // Gastornis: a giant flightless bird of the old forests, taller than a man, with stumpy wings,
+    // legs like posts and a bill so deep it could crack a coconut. Dug up under farmland.
+    gastornis: { name: 'Gastornis', tier: 5, extinct: true,
+      t: { size: 2.3, posture: 0.35, bodyDepth: 1.35, bodyLen: 1.05, neckLen: 1.1, neckThick: 1.6, neckCurve: 0.4, headSize: 1.6, eyeSize: 0.8, beakLen: 1.35, beakDepth: 1.7, beakHook: 0.2, legLen: 1.35, legThick: 1.8, footSize: 1.6, talon: 0.6, spur: 0, wingSize: 0.15, tailLen: 0.4, tailFan: 0.4, tailUp: 0.3, comb: 0, wattle: 0, crest: 0, hue: 0.06, sat: 0.3, lit: 0.3, belly: 0.6, beakTone: 0.55, legTone: 0.25, muscle: 1.45, bone: 1.4, hide: 1.3, reflex: 0.8, aggression: 0.7, courage: 0.9, voicePitch: 0.05, voiceRasp: 0.6, voiceLen: 1 } },
+    // Gallimimus: a feathered dinosaur built like an ostrich with a stiff tail and little clawed arms,
+    // with a toothless beak. The fastest thing on two legs. Dug up at the Bone Quarry.
+    gallimimus: { name: 'Gallimimus', short: 'Gallimim', tier: 5, extinct: true, sw: ['tailBone', 'arms'],
+      t: { size: 2.2, posture: 0.25, bodyLen: 1.25, bodyDepth: 0.95, neckLen: 1.9, neckThick: 0.8, neckCurve: 0.3, headSize: 0.8, eyeSize: 1.4, beakLen: 1.1, beakDepth: 0.6, beakHook: 0, beakFlat: 0.3, legLen: 2.2, legThick: 1.3, footSize: 1.3, talon: 0.6, spur: 0, wingSize: 0.3, tailLen: 2.4, tailFan: 0.1, tailUp: 0.45, comb: 0, wattle: 0, crest: 0, hue: 0.1, sat: 0.4, lit: 0.45, litWing: -0.15, belly: 0.75, beakTone: 0.35, legTone: 0.3, eyeTone: 0.8, armLen: 0.8, muscle: 1.25, lungs: 1.4, reflex: 1.35, courage: 0.4, aggression: 0.35, voicePitch: 0.2, voiceRasp: 0.5, voiceLen: 0.9 } },
+    // Pteranodon: not a bird at all but a flying reptile, leathery and bare, with wings longer than a
+    // boat, no tail, and a long toothless bill balanced by a crest sweeping back from its head.
+    // Dug up on the islands of the open sea.
+    pteranodon: { name: 'Pteranodon', short: 'Pterano', tier: 5, extinct: true, sw: ['bare'],
+      t: { size: 1.5, posture: 0.5, bodyLen: 0.9, bodyDepth: 0.75, neckLen: 0.9, neckThick: 0.7, headSize: 1.2, eyeSize: 1.0, beakLen: 2.3, beakDepth: 0.7, beakHook: 0, legLen: 0.65, legThick: 0.6, footSize: 0.9, web: 0.3, talon: 0.5, spur: 0, wingSize: 2.3, wingPoint: 1, tailLen: 0.05, tailFan: 0, comb: 0, wattle: 0, crest: 1, hue: 0.05, sat: 0.35, lit: 0.45, beakTone: 0.6, legTone: 0.4, eyeTone: 0.8, reflex: 1.2, cunning: 0.6, aggression: 0.6, courage: 0.7, voicePitch: 0.5, voiceRasp: 0.9, voiceLen: 0.7 } },
   };
   for (const id of Object.keys(SPECIES)) { const s = SPECIES[id]; s.id = id; s.sw = s.sw || []; }
   const IDS = Object.keys(SPECIES);

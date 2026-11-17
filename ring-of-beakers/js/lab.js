@@ -124,13 +124,16 @@
   }
 
   // ---- fossils
-  const fragments = (S, set) => S.lab.fossils[set] || 0;
-  function addFragment(S, set) { S.lab.fossils[set] = fragments(S, set) + 1; }
+  // in a sandbox game every fossil is always complete: rebuild as many as you like, for free
+  const fragments = (S, set) => (S.sandbox ? FRAGMENTS : S.lab.fossils[set] || 0);
+  function addFragment(S, set) { S.lab.fossils[set] = (S.lab.fossils[set] || 0) + 1; }
   // Four fragments and a fee give an egg of the lost species.
   function rebuild(S, set) {
     if (fragments(S, set) < FRAGMENTS) return 'You need ' + FRAGMENTS + ' fragments.';
-    if (S.money < REBUILD_COST) return 'Rebuilding costs $' + REBUILD_COST + '.';
-    S.money -= REBUILD_COST; S.lab.fossils[set] -= FRAGMENTS;
+    if (!S.sandbox) {
+      if (S.money < REBUILD_COST) return 'Rebuilding costs $' + REBUILD_COST + '.';
+      S.money -= REBUILD_COST; S.lab.fossils[set] -= FRAGMENTS;
+    }
     const g = RB.species.make(set, S._rng, { sport: 0.1 });
     const name = RB.species.nameOf(RB.species.SPECIES[set], g.sex);
     S.eggs.push({ id: S.nextId++, g, nest: -1, hatch: S.day + 2, mom: RB.species.generic(set), dad: RB.species.generic(set), momKey: set, dadKey: set, col: '#e8dcc0', spot: '#8a7a5a' });

@@ -52,6 +52,7 @@ js/birdart.js  props.js    drawing creatures and scenery
 js/input.js  ui.js  audio.js  save.js  common.js  main.js     the shell
 js/scenes/          title, coop, ring, map, sites, lab, codex, chores, roost
 tests/              logic tests
+android/            the Android app (APK) wrapper: see android/README.md
 ```
 
 Everything up to `state.js` runs without a browser, which is how the tests and the betting odds work.
@@ -69,4 +70,5 @@ They cover the genome (layout, meiosis, sex ratio, mutation, saving), all kinds 
 - Settings (the gear button) can switch off the gene-edit mini-game and the goal hints at the top of the screen, for a cleaner view.
 - Add `?scene=coop&seed=7` to the address to jump into a throwaway game that is never saved (also `map`, `lab`, `codex`).
 - Saves live in the browser's local storage. The bag button on the title screen exports a save as text and imports one.
+- `android/build.sh` builds an Android APK of the game, locked to landscape (see `android/README.md`).
 - The game is a spiritual successor to the breed-and-race genre, with its own theme, world, art and text.

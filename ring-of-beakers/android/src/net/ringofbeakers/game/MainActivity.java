@@ -15,8 +15,11 @@ import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
 
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.nio.charset.Charset;
 
 /** Runs the bundled HTML game full screen in a WebView, served from the APK's assets. */
 public class MainActivity extends Activity {
@@ -24,7 +27,24 @@ public class MainActivity extends Activity {
     private static final String HOST = "appassets.androidplatform.net";
     private static final String START = "https://" + HOST + "/game/index.html";
 
+    // Injected at the top of the game's <head> (only inside the app, the game files are untouched).
+    // It keeps hold of every AudioContext the game makes, so the app can mute it while in the background.
+    private static final String PAUSE_HOOK = "<script>(function(){"
+            + "var list=[],paused=false,was=[];"
+            + "function wrap(C){if(!C)return C;function W(a,b){var c=arguments.length>1?new C(a,b):arguments.length?new C(a):new C();"
+            + "list.push(c);if(paused&&c.suspend)c.suspend();return c;}W.prototype=C.prototype;return W;}"
+            + "if(window.AudioContext)window.AudioContext=wrap(window.AudioContext);"
+            + "if(window.webkitAudioContext)window.webkitAudioContext=wrap(window.webkitAudioContext);"
+            + "window.__rbAppPause=function(){if(paused)return;paused=true;"
+            + "try{if(window.RB&&RB.game&&RB.game.save)RB.game.save();}catch(e){}"
+            + "was=list.filter(function(c){return c.state==='running';});"
+            + "list.forEach(function(c){try{c.suspend();}catch(e){}});};"
+            + "window.__rbAppResume=function(){if(!paused)return;paused=false;"
+            + "was.forEach(function(c){try{c.resume();}catch(e){}});was=[];};"
+            + "})();</script>";
+
     private WebView web;
+    private boolean paused;
 
     @Override
     protected void onCreate(Bundle state) {
@@ -82,10 +102,23 @@ public class MainActivity extends Activity {
         if (rel.endsWith("/")) rel += "index.html";
         try {
             InputStream in = getAssets().open(rel);
+            if (rel.equals("game/index.html")) in = withPauseHook(in);
             return new WebResourceResponse(mime(rel), mime(rel).startsWith("text/") || rel.endsWith(".js") ? "utf-8" : null, in);
         } catch (IOException e) {
             return notFound();
         }
+    }
+
+    private static InputStream withPauseHook(InputStream in) throws IOException {
+        ByteArrayOutputStream buf = new ByteArrayOutputStream();
+        byte[] chunk = new byte[8192];
+        for (int n; (n = in.read(chunk)) > 0; ) buf.write(chunk, 0, n);
+        in.close();
+        Charset utf8 = Charset.forName("UTF-8");
+        String html = new String(buf.toByteArray(), utf8);
+        int head = html.toLowerCase().indexOf("<head>");
+        html = head >= 0 ? html.substring(0, head + 6) + PAUSE_HOOK + html.substring(head + 6) : PAUSE_HOOK + html;
+        return new ByteArrayInputStream(html.getBytes(utf8));
     }
 
     private static WebResourceResponse notFound() {
@@ -146,17 +179,29 @@ public class MainActivity extends Activity {
         });
     }
 
+    // Leaving the app (home button, app switcher, screen off, a call) freezes the game where it is:
+    // it saves, its sound is suspended, then every JavaScript timer and animation frame stops.
+    // Coming back carries on from the same moment (the game caps each frame's step, so no time jumps).
     @Override
     protected void onPause() {
-        // Let the page save (visibilitychange) before timers are paused.
         super.onPause();
+        paused = true;
+        web.evaluateJavascript("window.__rbAppPause&&window.__rbAppPause()", new ValueCallback<String>() {
+            @Override
+            public void onReceiveValue(String v) {
+                if (paused && web != null) web.pauseTimers();
+            }
+        });
         web.onPause();
     }
 
     @Override
     protected void onResume() {
         super.onResume();
+        paused = false;
+        web.resumeTimers();
         web.onResume();
+        web.evaluateJavascript("window.__rbAppResume&&window.__rbAppResume()", null);
         hideBars();
     }
 

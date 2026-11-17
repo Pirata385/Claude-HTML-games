@@ -111,10 +111,11 @@
     s.vec = SHAPE.map((tid) => { const def = G.TRAITS[tid]; return G.unmapTrait(def, s.t[tid] !== undefined ? s.t[tid] : def.mid); });
   }
 
-  // A fresh member of a species. opts: { sex, variation, sport (chance of a visible oddity) }
+  // A fresh member of a species. opts: { sex, variation, sport (chance of a visible oddity),
+  //   targets (trait targets laid over the species' own: an island's local race) }
   function make(id, rng, opts) {
     opts = opts || {};
-    const s = SPECIES[id];
+    const s0 = SPECIES[id], s = opts.targets ? Object.assign({}, s0, { t: Object.assign({}, s0.t, opts.targets) }) : s0;
     // colour morphs turn up now and then in every kind, and often in domestic ones
     const carriers = Object.assign({ melanic: 0.006, leucistic: 0.02 }, s.morph);
     const g = G.fromTargets(s.t, s.sw, rng, { sex: opts.sex, variation: opts.variation, colorVar: s.cv === undefined ? 0.045 : s.cv, carriers });

@@ -11,7 +11,7 @@
   const del = (k) => { delete mem[k]; try { if (store) store.removeItem(KEY + k); } catch (e) { /* nothing to remove */ } };
 
   function save(slot, S) {
-    const meta = { day: S.day, money: S.money, birds: S.birds.length, won: !!S.won };
+    const meta = { day: S.day, money: S.money, birds: S.birds.length, won: !!S.won, sandbox: !!S.sandbox };
     return set('slot' + slot, JSON.stringify({ meta, data: RB.state.serialize(S) }));
   }
   function info(slot) { try { const o = JSON.parse(get('slot' + slot) || 'null'); return o ? o.meta : null; } catch (e) { return null; } }

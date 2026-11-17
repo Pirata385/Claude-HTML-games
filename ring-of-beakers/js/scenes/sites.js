@@ -38,7 +38,7 @@
     const names = ['Buy', 'Sell'].concat(up.length ? ['Upgrades'] : []);
     const y = b.y + tabs(names, b.x, b.y, b.w), h = b.h - 40;
     if (tab === 0) {
-      const stock = IT.STOCK[site.id] || [];
+      const stock = IT.STOCK[site.id] || site.stock || [];
       ui.list('buy' + site.id, b.x, y, b.w, h, stock.length, 60, (i, x, yy, w) => {
         const it = IT.ITEMS[stock[i]], owned = it.kind === 'equip' && S.equip[it.id];
         const have = it.kind === 'equip' ? '' : ' · you have ' + ST.count(S, it.id);
@@ -58,7 +58,11 @@
   }
   function upgrades(x0, y0, w0, h0, ids) {
     ui.list('up' + site.id, x0, y0, w0, h0, ids.length, 60, (i, x, y, w) => {
-      const u = IT.UPGRADES[ids[i]], lvl = S.up[ids[i]], max = lvl >= u.prices.length;
+      const u = IT.UPGRADES[ids[i]], lvl = S.up[ids[i]] || 0, max = lvl >= u.prices.length;
+      if (u.open && !ST.openSea(S) && !max) { // the speedboat kit waits for the end of the story
+        row(x, y, w, { icon: 'truck', iconCol: pal.grey, title: u.name, sub: 'Win the Grand Ring and pay off the bank, and Biu will fit it.', subCol: pal.grey, btn: 'Locked', off: true });
+        return;
+      }
       if (row(x, y, w, { icon: ids[i] === 'cage' || ids[i] === 'engine' || ids[i] === 'tires' ? 'truck' : ids[i] === 'nest' || ids[i] === 'incubator' ? 'egg' : ids[i] === 'dummy' ? 'weight' : 'home', iconCol: pal.teal,
         title: u.name + (u.prices.length > 1 ? ' (' + lvl + '/' + u.prices.length + ')' : ''), sub: u.desc, price: max ? undefined : u.prices[lvl], btn: max ? 'Done' : 'Buy', off: max })) {
         if (pay(u.prices[lvl])) S.up[ids[i]]++;
@@ -355,7 +359,7 @@
       S = RB.game.S; world = RB.game.world; site = world.site[args.site]; tab = 0; t = 0;
       keeper = world.npcs.find((n) => n.site === site.id) || null;
       if (keeper) keeper = RB.npc.current(S, keeper);
-      say = site.kind === 'house' || site.kind === 'exotic' ? RB.npc.greeting(S, keeper) : LINES[site.id] || 'Hello.';
+      say = site.kind === 'house' || site.kind === 'exotic' ? RB.npc.greeting(S, keeper) : LINES[site.id] || site.line || 'Hello.';
       if (keeper) RB.npc.info(S, keeper.id).met = true;
       // each kind of place has its own tune
       RB.audio.setTune(site.id === 'cellar' || site.id === 'market' ? 'cellar' : site.kind === 'arena' ? 'fight' : site.kind === 'carnival' ? 'carnival' : site.kind === 'house' ? 'farm' : 'town');

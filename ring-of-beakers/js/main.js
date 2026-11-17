@@ -18,8 +18,9 @@
     view.w = cw / view.s; view.h = ch / view.s; view.dpr = dpr; view.portrait = ch > cw;
   }
   game.go = function (name, args) { game.pending = { name, args: args || {} }; };
-  game.newGame = function (slot, seed) {
-    game.slot = slot; game.S = RB.state.create(seed === undefined ? (Date.now() ^ (Math.random() * 1e9)) >>> 0 : seed);
+  // opts: { sandbox } (see state.create)
+  game.newGame = function (slot, seed, opts) {
+    game.slot = slot; game.S = RB.state.create(seed === undefined ? (Date.now() ^ (Math.random() * 1e9)) >>> 0 : seed, opts);
     game.world = RB.world.generate(game.S.seed); game.save();
   };
   game.load = function (slot) {

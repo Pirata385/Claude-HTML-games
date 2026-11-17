@@ -143,8 +143,11 @@
     const a = r.pick(r.chance(0.2) ? ids : live);
     let b = r.pick(live); while (b === a) b = r.pick(live);
     const g = RB.genome.breed(RB.species.make(a, r, { sex: 'F', sport: 0 }), RB.species.make(b, r, { sex: 'M', sport: 0 }), r);
-    RB.genome.sport(g, r, r.int(2, 4));
-    RB.genome.mutate(g, r, r.int(4, 12));
+    // two or three of the strangest switches, on in both copies so they always show
+    const GN = RB.genome, odd = r.shuffle(['teeth', 'arms', 'twoHeads', 'glow', 'tailBone', 'gigas', 'cyclops', 'legsExtra', 'earTuft', 'fluff', 'bare']).slice(0, r.int(2, 3));
+    for (const id of odd) for (const sw of id === 'twoHeads' ? ['twoHeadsA', 'twoHeadsB'] : [id]) for (const gi of GN.TRAITS[sw].genes) GN.setGeneBases(g, gi, [3, 3, 3, 3], 'both');
+    GN.sport(g, r, r.int(1, 3));
+    GN.mutate(g, r, r.int(4, 12));
     return { g, mom: RB.species.generic(a), dad: RB.species.generic(b), momKey: a, dadKey: b };
   }
   // A rival trainer's challenge for today, or null if already fought.
@@ -170,5 +173,6 @@
   }
   const SCREAMS = ['Hey! HEY!', 'Not the net!', 'I have a family!', 'This is a kidnapping!', 'Put me down!', 'My back!'];
 
-  RB.npc = { populate, make, exotic, personGenome, clothes, current, WISHES, info, vacancy, wishOf, offer, fitText, stockOf, challengeOf, greeting, SCREAMS, period, hashStr };
+  const randomName = (r, sex) => r.pick(sex === 'M' ? FIRST_M : FIRST_F);
+  RB.npc = { populate, make, exotic, randomName, personGenome, clothes, current, WISHES, info, vacancy, wishOf, offer, fitText, stockOf, challengeOf, greeting, SCREAMS, period, hashStr };
 })();

@@ -7,6 +7,7 @@
   const { Rng, clamp, lerp, TAU, hash2 } = RB.core;
   const ui = RB.ui, pal = RB.pal, input = RB.input, ST = RB.state, common = RB.common, props = RB.props, WD = RB.world;
 
+  let seaWarned = false;
   let S, world, car, cam, wild, folk, sheriff, nets, flying, seeds, parts, t, rng, tool, aim, stick, digT, near, paths, decorCache, det, stun, warned, sirenT, pen;
 
   const zoom = () => clamp(Math.max(ui.view.w, ui.view.h) / 1500, 0.45, 0.8);
@@ -17,8 +18,33 @@
   const cageRoom = () => ST.cageCap(S) - ST.at(S, 'cage').length;
   function puff(x, y, n, col, text) { for (let i = 0; i < n; i++) parts.push({ x: x + rng.range(-14, 14), y: y + rng.range(-10, 10), vx: rng.range(-60, 60), vy: rng.range(-110, -30), life: rng.range(0.5, 1), col, text: i === 0 ? text : null }); }
 
+  // The beach around the mainland, past the old map's edges (it matches world.biomeAt).
+  function shorePath() {
+    const p = new Path2D(), W = WD.W, sw = WD.shoreW, yl = WD.seaY(world, 0) - 40, yr = WD.seaY(world, W) - 40;
+    p.moveTo(0, yl);
+    for (let y = yl; y > 0; y -= 100) p.lineTo(-sw(-200, y), y);
+    const c0 = sw(-200, -200) * 0.7, c1 = sw(W + 200, -200) * 0.7;
+    p.lineTo(-c0, -c0);
+    for (let x = 0; x <= W; x += 100) p.lineTo(x, -sw(x, -200));
+    p.lineTo(W + c1, -c1);
+    for (let y = 0; y <= yr; y += 100) p.lineTo(W + sw(W + 200, y), y);
+    p.lineTo(W, yr); p.lineTo(0, yl); p.closePath();
+    return p;
+  }
+  // An island's outline, beach and lands, made once and kept.
+  const islandPaths = new Map();
+  function islandPath(is) {
+    let ip = islandPaths.get(is.id);
+    if (!ip) {
+      const mk = (b) => { const p = new Path2D(); for (let i = 0; i <= 64; i++) { const th = i / 64 * TAU, r = WD.blobR(b, th); const x = b.x + Math.cos(th) * r, y = b.y + Math.sin(th) * r; if (i) p.lineTo(x, y); else p.moveTo(x, y); } p.closePath(); return p; };
+      ip = { shape: mk(is.shape), inner: mk(is.inner), patches: is.patches.map((q) => [q[0], mk(q[1])]) };
+      islandPaths.set(is.id, ip);
+    }
+    return ip;
+  }
   function buildPaths() {
     paths = { blobs: [], ponds: [] };
+    paths.shore = shorePath();
     const mk = (b) => { const p = new Path2D(); for (let i = 0; i <= 56; i++) { const th = i / 56 * TAU, r = WD.blobR(b, th); const x = b.x + Math.cos(th) * r, y = b.y + Math.sin(th) * r; if (i) p.lineTo(x, y); else p.moveTo(x, y); } p.closePath(); return p; };
     for (const b of world.blobs) paths.blobs.push([b[0], mk(b[1])]);
     for (const b of world.ponds) paths.ponds.push(mk(b));
@@ -37,11 +63,23 @@
     RB.game.wild = { key, list };
     return list;
   }
+  // Out at sea each island's birds join the day's wild list as you come near it.
+  function loadIslands() {
+    const cache = RB.game.wild;
+    if (!cache) return;
+    cache.islands = cache.islands || new Set();
+    const gone = new Set(S.wildGone ? S.wildGone.ids : []);
+    for (const is of RB.sea.islandsNear(world, car.x, car.y, 9000)) {
+      if (cache.islands.has(is.id)) continue;
+      cache.islands.add(is.id);
+      for (const e of RB.sea.population(world, is, S.day)) if (!gone.has(e.id)) wild.push(makeWild(e.g, e.x, e.y, 'graze', e));
+    }
+  }
   function makeWild(g, x, y, state, e) {
     const P = RB.pheno.express(g);
-    return { id: e ? e.id : null, night: !!(e && e.night), cross: e ? e.cross : null, kin: e ? e.kin : null, g, P, x, y, f: rng.chance(0.5) ? 1 : -1, state: state || 'graze', t: rng.range(0.5, 4), ph: rng.next(), sp: 0, stam: 100, alt: 0, tx: x, ty: y, mean: P.aggression > 0.8 && P.courage > 0.7 && P.S > 0.8 };
+    return { id: e ? e.id : null, night: !!(e && e.night), cross: e ? e.cross : null, kin: e ? e.kin : null, island: e ? e.island || null : null, g, P, x, y, f: rng.chance(0.5) ? 1 : -1, state: state || 'graze', t: rng.range(0.5, 4), ph: rng.next(), sp: 0, stam: 100, alt: 0, tx: x, ty: y, mean: P.aggression > 0.8 && P.courage > 0.7 && P.S > 0.8 };
   }
-  function addWild(g, x, y, state) { const w = makeWild(g, x, y, state); w.any = true; wild.push(w); return w; }
+  function addWild(g, x, y, state) { const w = makeWild(g, x, y, state); w.any = true; if (!WD.inMain(x, y)) w.island = 'sea'; wild.push(w); return w; }
   // Day birds roost after dark and the night birds come out in their place. Animals you let go or
   // dig up are about at any hour.
   const awake = (w) => w.any || (w.night ? isNight() : !isNight());
@@ -202,12 +240,22 @@
       }
       const il = Math.hypot(ix, iy); if (il > 1) { ix /= il; iy /= il; }
       const biome = WD.biomeAt(world, car.x, car.y), road = WD.onRoad(world, car.x, car.y);
+      // the open sea: no more edges, and with the speedboat kit the truck takes to the water
+      const open = ST.openSea(S), boat = open && ST.hasBoat(S);
+      car.boat = boat && biome === 'water';
       let slow = road ? 1.2 : WD.BIOMES[biome].slow;
       if (S.up.tires && biome !== 'water' && !road) slow = Math.max(slow, 1);
+      if (car.boat) slow = 1.45;
       const vmax = (330 + 75 * S.up.engine) * slow * (stun > 0 || digT > 0 ? 0 : 1);
       car.vx += (ix * vmax - car.vx) * Math.min(1, dt * 5); car.vy += (iy * vmax - car.vy) * Math.min(1, dt * 5);
-      const nx = clamp(car.x + car.vx * dt, 80, WD.W - 80), ny = clamp(car.y + car.vy * dt, 80, Math.min(WD.H - 80, WD.seaY(world, car.x) + 240));
+      let nx = car.x + car.vx * dt, ny = car.y + car.vy * dt;
+      if (!open) { nx = clamp(nx, 80, WD.W - 80); ny = clamp(ny, 80, Math.min(WD.H - 80, WD.seaY(world, car.x) + 240)); }
+      else if (!boat && WD.biomeAt(world, nx, ny) === 'water' && (!WD.inMain(nx, ny) || ny > WD.seaY(world, nx) + 240)) {
+        nx = car.x; ny = car.y; car.vx = 0; car.vy = 0; // deep water stops a truck
+        if (!seaWarned) { seaWarned = true; ui.toast('The open sea! Biu\'s Garage can fit a speedboat kit.', pal.teal); }
+      }
       car.x = nx; car.y = ny;
+      if (open) loadIslands();
       if (Math.abs(car.vx) > 20) car.f = car.vx > 0 ? 1 : -1;
       const sp = Math.hypot(car.vx, car.vy);
       car.bob = sp > 30 ? Math.abs(Math.sin(t * 22)) * 2.5 : 0;
@@ -281,7 +329,9 @@
           else if (w.t <= 0 || d > 800) { w.state = 'graze'; w.t = 2; }
         } else if (w.state === 'trapped') { if (w.t <= 0) { w.state = 'flee'; w.t = 2; } }
         if (biomeBlocked(w.x + vx * dt, w.y + vy * dt, P)) { vx = -vx * 0.5; vy = -vy * 0.5; if (w.state === 'walk') w.state = 'graze'; }
-        w.x = clamp(w.x + vx * dt, 60, WD.W - 60); w.y = clamp(w.y + vy * dt, 60, WD.H - 60);
+        // mainland animals keep to the mainland; island birds roam their own island (water stops them)
+        if (w.island) { w.x += vx * dt; w.y += vy * dt; }
+        else { w.x = clamp(w.x + vx * dt, 60, WD.W - 60); w.y = clamp(w.y + vy * dt, 60, WD.H - 60); }
         const s = Math.hypot(vx, vy);
         if (Math.abs(vx) > 5) w.f = vx > 0 ? 1 : -1;
         w.sp = clamp(s / ms, 0, 1); w.ph = (w.ph + dt * (0.6 + w.sp * 2.4)) % 1;
@@ -329,14 +379,28 @@
     draw(ctx) {
       const v = ui.view, z = zoom(), n = common.night(S.time);
       const x0 = cam.x - v.w / 2 / z, y0 = cam.y - v.h / 2 / z, x1 = cam.x + v.w / 2 / z, y1 = cam.y + v.h / 2 / z;
-      ctx.fillStyle = WD.BIOMES.farm.ground; ctx.fillRect(0, 0, v.w, v.h);
+      // the sea all round, the mainland's beach, then the mainland
+      ctx.fillStyle = WD.BIOMES.water.ground; ctx.fillRect(0, 0, v.w, v.h);
       ctx.save();
       ctx.translate(v.w / 2 - cam.x * z, v.h / 2 - cam.y * z); ctx.scale(z, z);
+      ctx.fillStyle = WD.BIOMES.coast.ground; ctx.fill(paths.shore);
+      ctx.fillStyle = WD.BIOMES.farm.ground; ctx.fillRect(0, 0, WD.W, WD.H);
       for (let i = paths.blobs.length - 1; i >= 0; i--) { ctx.fillStyle = WD.BIOMES[paths.blobs[i][0]].ground; ctx.fill(paths.blobs[i][1]); }
-      // the coast and the sea follow the same wavy line
-      const strip = (off, col) => { ctx.fillStyle = col; ctx.beginPath(); ctx.moveTo(x0 - 50, y1 + 400); for (let x = x0 - 50; x <= x1 + 60; x += 50) ctx.lineTo(x, WD.seaY(world, x) + off); ctx.lineTo(x1 + 60, y1 + 400); ctx.closePath(); ctx.fill(); };
-      if (y1 > world.sea.y - 800) { strip(-620, WD.BIOMES.coast.ground); strip(0, WD.BIOMES.water.ground); strip(90 + Math.sin(t) * 10, WD.BIOMES.water.dark); }
+      // the coast and the sea follow the same wavy line (across the mainland only)
+      const sx0 = Math.max(0, x0 - 50), sx1 = Math.min(WD.W, x1 + 60);
+      const strip = (off, col) => { ctx.fillStyle = col; ctx.beginPath(); ctx.moveTo(sx0, y1 + 400); for (let x = sx0; x <= sx1; x += 50) ctx.lineTo(x, WD.seaY(world, x) + off); ctx.lineTo(sx1, WD.seaY(world, sx1) + off); ctx.lineTo(sx1, y1 + 400); ctx.closePath(); ctx.fill(); };
+      if (y1 > world.sea.y - 800 && sx1 > sx0) { strip(-620, WD.BIOMES.coast.ground); strip(0, WD.BIOMES.water.ground); strip(90 + Math.sin(t) * 10, WD.BIOMES.water.dark); }
       ctx.fillStyle = WD.BIOMES.water.ground; for (const p of paths.ponds) ctx.fill(p);
+      // islands out at sea
+      const viewR = Math.hypot(x1 - x0, y1 - y0) / 2 + 400;
+      for (const is of RB.sea.islandsNear(world, cam.x, cam.y, viewR)) {
+        const ip = islandPath(is);
+        ctx.fillStyle = WD.BIOMES.coast.ground; ctx.fill(ip.shape);
+        ctx.fillStyle = WD.BIOMES[is.main].ground; ctx.fill(ip.inner);
+        for (const q of ip.patches) { ctx.save(); ctx.clip(ip.inner); ctx.fillStyle = WD.BIOMES[q[0]].ground; ctx.fill(q[1]); ctx.restore(); }
+        ctx.strokeStyle = '#dcccaa'; ctx.lineWidth = 78; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+        for (const road of is.roads) { ctx.beginPath(); ctx.moveTo(road[0].x, road[0].y); for (let i = 1; i < road.length; i++) ctx.lineTo(road[i].x, road[i].y); ctx.stroke(); }
+      }
       // ground texture: one small tuft per cell, darker than its biome
       const gs = 150;
       for (let gx = Math.floor(x0 / gs); gx <= Math.floor(x1 / gs); gx++) for (let gy = Math.floor(y0 / gs); gy <= Math.floor(y1 / gs); gy++) {
@@ -389,11 +453,12 @@
           if (f.scared > 0) { pose.eye = 'scared'; pose.beakOpen = 1; }
           RB.art.drawCreature(ctx, f.P, pose, { clothes: f.npc.clothes });
         } else {
-          RB.art.drawShadow(ctx, car.x, car.y + 2, 62);
           const caged = ST.at(S, 'cage'), len = clamp(80 + 14 * Math.max(0, caged.length - 3), 80, 170);
-          props.truckBack(ctx, car.x, car.y, car.f, { bob: car.bob, len });
-          caged.slice(-12).forEach((c, i, arr) => { const w = (len - 8) / Math.max(1, arr.length), bx = car.f > 0 ? car.x + 18 - len + 4 + i * w : car.x - 18 + 4 + i * w; RB.art.drawFitted(ctx, ST.pheno(c), bx, car.y - 83 - car.bob, w, 37, Object.assign({ f: car.f, fill: 1 }, common.drawOpts(c))); });
-          props.truckFront(ctx, car.x, car.y, car.f, { bob: car.bob, len });
+          const bob = car.boat ? Math.sin(t * 3) * 2.5 : car.bob;
+          if (car.boat) props.boatBack(ctx, car.x, car.y, car.f, { len, t }); else RB.art.drawShadow(ctx, car.x, car.y + 2, 62);
+          props.truckBack(ctx, car.x, car.y, car.f, { bob, len });
+          caged.slice(-12).forEach((c, i, arr) => { const w = (len - 8) / Math.max(1, arr.length), bx = car.f > 0 ? car.x + 18 - len + 4 + i * w : car.x - 18 + 4 + i * w; RB.art.drawFitted(ctx, ST.pheno(c), bx, car.y - 83 - bob, w, 37, Object.assign({ f: car.f, fill: 1 }, common.drawOpts(c))); });
+          if (car.boat) props.boatFront(ctx, car.x, car.y, car.f, { bob, len }); else props.truckFront(ctx, car.x, car.y, car.f, { bob, len });
           if (digT > 0) { ctx.save(); ctx.translate(car.x + car.f * 80, car.y - 6); ctx.rotate(Math.sin(digT * 16) * 0.5); ctx.fillStyle = pal.brick; ctx.fillRect(-3, -50, 6, 46); ctx.fillStyle = pal.grey; ctx.fillRect(-11, -8, 22, 18); ctx.restore(); }
         }
       }
@@ -508,10 +573,49 @@
     common.pick('In the truck', list, (c) => common.card(c, riderActions), () => ({ text: '', ok: true, label: 'Look' }));
   }
   // The whole world at a glance.
+  // Out at sea the map becomes a chart of the waters round the truck: the mainland, the islands
+  // (coloured by their land), and the arenas, shops and villages on them.
+  let chart = false;
+  function seaChart(box) {
+    const ctx = ui.ctx, R = 26000, k = Math.min(box.w, box.h - 30) / (2 * R), cx = box.x + box.w / 2, cy = box.y + 30 + (box.h - 30) / 2;
+    const sx = (x) => cx + (x - car.x) * k, sy = (y) => cy + (y - car.y) * k;
+    ctx.save(); ctx.beginPath(); ctx.rect(box.x, box.y + 30, box.w, box.h - 30); ctx.clip();
+    ctx.fillStyle = WD.BIOMES.water.ground; ctx.fillRect(box.x, box.y + 30, box.w, box.h - 30);
+    ctx.save(); ctx.translate(sx(0), sy(0)); ctx.scale(k, k);
+    ctx.fillStyle = WD.BIOMES.coast.ground; ctx.fill(paths.shore);
+    ctx.fillStyle = WD.BIOMES.farm.ground; ctx.fillRect(0, 0, WD.W, WD.seaY(world, WD.W / 2));
+    for (let i = paths.blobs.length - 1; i >= 0; i--) { ctx.fillStyle = WD.BIOMES[paths.blobs[i][0]].ground; ctx.fill(paths.blobs[i][1]); }
+    ctx.restore();
+    const isl = RB.sea.islandsNear(world, car.x, car.y, R * 1.4);
+    for (const is of isl) {
+      ctx.fillStyle = WD.BIOMES.coast.ground; ctx.beginPath(); ctx.arc(sx(is.x), sy(is.y), Math.max(3, is.R * k), 0, TAU); ctx.fill();
+      ctx.fillStyle = WD.BIOMES[is.main].ground; ctx.beginPath(); ctx.arc(sx(is.x), sy(is.y), Math.max(2, is.R * 0.84 * k), 0, TAU); ctx.fill();
+    }
+    const taken = []; // labels that would overlap one already written are left out
+    for (const is of isl.slice().sort((a, b) => Math.hypot(a.x - car.x, a.y - car.y) - Math.hypot(b.x - car.x, b.y - car.y))) {
+      const arena = is.sites.find((q) => q.kind === 'arena'), shop = is.sites.some((q) => q.kind === 'shop'), houses = is.sites.some((q) => q.kind === 'house');
+      if (arena) ui.rect(sx(is.x) - 4, sy(is.y) - 4, 8, 8, pal.coral, 2);
+      else if (shop) ui.rect(sx(is.x) - 3, sy(is.y) - 3, 6, 6, pal.ink, 2);
+      else if (houses) ui.rect(sx(is.x) - 3, sy(is.y) - 3, 6, 6, pal.brick, 1);
+      const label = is.name + (arena ? ' · arena' : ''), lw = ui.width(label, 9), lx = sx(is.x) - lw / 2, ly = sy(is.y) - Math.max(6, is.R * k) - 12;
+      if (taken.some((q) => lx < q.x + q.w && q.x < lx + lw && ly < q.y + 12 && q.y < ly + 12)) continue;
+      taken.push({ x: lx, y: ly, w: lw });
+      ui.text(label, sx(is.x), ly + 9, { size: 9, align: 'center', bold: !!arena });
+    }
+    ctx.restore();
+    ui.icon('truck', cx, cy, 18, pal.coral);
+    const near = isl.filter((is) => Math.hypot(is.x - car.x, is.y - car.y) < is.R + 4000).sort((a, b) => Math.hypot(a.x - car.x, a.y - car.y) - Math.hypot(b.x - car.x, b.y - car.y))[0];
+    ui.text(near ? near.name + ': ' + RB.sea.describe(near) : 'Open water. Squares are arenas, dots are villages and trading posts.', box.x + 4, box.y + box.h - 4, { size: 10, bold: false, maxW: box.w - 8 });
+  }
   function bigMap() {
+    chart = ST.openSea(S) && !WD.inMain(car.x, car.y);
     ui.open({ draw() {
-      const v = ui.view, box = ui.window('Map', v.w - 16, v.h - 16, {});
+      const v = ui.view, box = ui.window(chart ? 'Sea chart' : 'Map', v.w - 16, v.h - 16, {});
       if (!box) return;
+      if (ST.openSea(S)) {
+        if (ui.btn(box.x, box.y, 130, 26, chart ? 'Mainland' : 'Sea chart', { fill: pal.teal, size: 12, flat: true })) chart = !chart;
+        if (chart) { seaChart(box); return; }
+      }
       const ctx = ui.ctx, k = Math.min(box.w / WD.W, box.h / WD.H), ox = box.x + (box.w - WD.W * k) / 2, oy = box.y + (box.h - WD.H * k) / 2;
       ctx.save(); ctx.beginPath(); ctx.rect(ox, oy, WD.W * k, WD.H * k); ctx.clip();
       ctx.translate(ox, oy); ctx.scale(k, k);

@@ -56,6 +56,8 @@
   ];
   const ARENA = {};
   for (const a of ARENAS) ARENA[a.id] = a;
+  // Arenas out on the islands of the open sea register themselves here when their island is found.
+  function addArena(a) { if (!ARENA[a.id]) ARENA[a.id] = a; return ARENA[a.id]; }
   const TRAINERS = ['Tonho', 'Dona Cida', 'Juca', 'Neide', 'Chico', 'Lurdes', 'Tiao', 'Dirce', 'Zeca', 'Marlene', 'Biu', 'Socorro', 'Nando', 'Jurema', 'Raimundo', 'Ivete', 'Gil', 'Odete'];
 
   // Which weight class each species normally fights in.
@@ -75,7 +77,7 @@
   const leagueOf = (S, id) => (S.league[id] = S.league[id] || { wins: 0, boss: false });
   // Every arena is open from the start, except the last: the Grand Ring only takes the champion of
   // every other arena.
-  function arenaOpen(S, arena) { return !arena.boss.final || ARENAS.every((a) => a === arena || leagueOf(S, a.id).boss); }
+  function arenaOpen(S, arena) { return !arena.boss.final || !!S.sandbox || ARENAS.every((a) => a === arena || leagueOf(S, a.id).boss); }
 
   // A rough fighting score, used to pick the better of a few random opponents.
   function fightScore(P) { const r = P.rate; return r.power * 1.4 + r.tough + r.speed * 0.5 + r.stamina * 0.6 + r.guts * 0.8 + r.fury * 0.5; }
@@ -204,6 +206,6 @@
     return { taste: r.pick(['big', 'tiny', 'bright', 'odd']), seed: r.int(1, 1e9) };
   }
 
-  RB.economy = { value, bfcSpecial, bfcIsSpecial, bfcPrice, ARENAS, ARENA, TRAINERS, speciesByClass, leagueOf, arenaOpen, makeOpponent, makeBoss, cards, opponentFor, exhibition, exhibitionDone,
+  RB.economy = { addArena, value, bfcSpecial, bfcIsSpecial, bfcPrice, ARENAS, ARENA, TRAINERS, speciesByClass, leagueOf, arenaOpen, makeOpponent, makeBoss, cards, opponentFor, exhibition, exhibitionDone,
     canEnter, BET_RETURN, fightScore, SHOWS, dashTime, hopHeight, pageantScore, showOfDay };
 })();

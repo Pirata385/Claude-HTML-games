@@ -16,6 +16,10 @@
     jungle: { name: 'Jungle', ground: '#5fa56b', dark: '#4f945c', slow: 0.7 },
     water: { name: 'Water', ground: '#6fc3d6', dark: '#5fb3c8', slow: 0.3 },
     town: { name: 'Town', ground: '#d9cdb4', dark: '#cbbd9f', slow: 1 },
+    // only on islands out at sea
+    tundra: { name: 'Tundra', ground: '#e9f0f3', dark: '#d3dee6', slow: 0.8 },
+    volcanic: { name: 'Volcanic', ground: '#6a6270', dark: '#57505e', slow: 0.9 },
+    desert: { name: 'Desert', ground: '#efd593', dark: '#e2c579', slow: 0.75 },
   };
   // Who turns up where: [species, weight]. By day the day list; after dark the night list takes
   // over (the day birds roost and the night birds come out in their place).
@@ -27,8 +31,11 @@
     coast: { day: [['gull', 30], ['pelican', 12], ['penguin', 8], ['flamingo', 8], ['heron', 6]], night: [['owl', 4], ['penguin', 6], ['kiwi', 3], ['gull', 3]] },
     jungle: { day: [['parrot', 14], ['toucan', 12], ['peafowl', 8], ['cassowary', 4], ['hummingbird', 12], ['pheasant', 4], ['harpy', 3]], night: [['kiwi', 16], ['owl', 8], ['potoo', 12]] },
     town: { day: [['chicken', 10], ['raven', 10], ['gull', 4]], night: [['owl', 6], ['nightjar', 4]] },
+    tundra: { day: [['penguin', 20], ['goose', 10], ['swan', 8], ['raven', 8], ['falcon', 6], ['owl', 6], ['gull', 8]], night: [['owl', 20], ['penguin', 6]] },
+    volcanic: { day: [['vulture', 12], ['condor', 8], ['raven', 10], ['eagle', 6], ['cassowary', 4], ['gull', 4]], night: [['owl', 10], ['nightjar', 8]] },
+    desert: { day: [['ostrich', 10], ['roadrunner', 16], ['vulture', 10], ['quail', 10], ['falcon', 6], ['emu', 6]], night: [['owl', 10], ['nightjar', 14]] },
   };
-  const FOSSIL_BIOME = { coast: 'dodo', savanna: 'terror', jungle: 'moa', wetland: 'archaeo', highlands: 'raptor' };
+  const FOSSIL_BIOME = { coast: 'dodo', savanna: 'terror', jungle: 'moa', wetland: 'archaeo', highlands: 'raptor', tundra: 'moa', volcanic: 'raptor', desert: 'terror' };
 
   function blob(r, x, y, R) {
     const harm = [];
@@ -112,7 +119,17 @@
   }
 
   const seaY = (world, x) => { const s = world.sea; return s.y + s.a1 * Math.sin(x * s.k1 + s.p1) + s.a2 * Math.sin(x * s.k2 + s.p2); };
+  // Past the old map's edges: a ragged beach around the mainland (above the sea line), then the
+  // open sea, which has islands in it (see sea.js).
+  const shoreW = (x, y) => 260 + 150 * Math.sin(x * 0.0023 + 1.3) * Math.sin(y * 0.0019 + 0.4) + 80 * Math.sin((x + y) * 0.006);
+  const inMain = (x, y) => x >= 0 && x <= W && y >= 0 && y <= H;
+  function outside(world, x, y) {
+    const cx = Math.min(W, Math.max(0, x)), cy = Math.min(H, Math.max(0, y));
+    if (cy < seaY(world, cx) - 40 && Math.hypot(x - cx, y - cy) < shoreW(x, y)) return 'coast';
+    return (RB.sea && RB.sea.biomeAt(world, x, y)) || 'water';
+  }
   function biomeAt(world, x, y) {
+    if (!inMain(x, y)) return outside(world, x, y);
     const sy = seaY(world, x);
     if (y > sy) return 'water';
     for (const p of world.ponds) if (inBlob(p, x, y)) return 'water';
@@ -121,6 +138,7 @@
     return 'farm';
   }
   function onRoad(world, x, y) {
+    if (!inMain(x, y)) return RB.sea ? RB.sea.onRoad(world, x, y) : false;
     for (const road of world.roads) {
       for (let i = 0; i < road.length - 1; i++) {
         const a = road[i], b = road[i + 1], t = RB.physics.closestT(x, y, a.x, a.y, b.x, b.y);
@@ -248,18 +266,19 @@
   const DECOR = {
     farm: ['tree', 'bush', 'hay', 'flower', 'flower'], wetland: ['reed', 'reed', 'willow', 'bush'], savanna: ['acacia', 'drybush', 'rock', 'mound'],
     highlands: ['pine', 'pine', 'rock', 'boulder'], coast: ['palm', 'shell', 'rock'], jungle: ['bigleaf', 'bigleaf', 'fern', 'tree'], town: ['bush', 'flower'], water: ['lily'],
+    tundra: ['snowpine', 'snowpine', 'snowrock', 'drift'], volcanic: ['lavarock', 'deadtree', 'fumarole', 'lavarock'], desert: ['cactus', 'cactus', 'dune', 'drybush'],
   };
   function decorAt(world, gx, gy, size) {
     const out = [], n = hash2(gx, gy, world.seed + 5) < 0.55 ? 1 : hash2(gx, gy, world.seed + 6) < 0.5 ? 2 : 0;
     for (let i = 0; i < n; i++) {
       const x = (gx + hash2(gx * 3 + i, gy, world.seed + 7)) * size, y = (gy + hash2(gx, gy * 3 + i, world.seed + 8)) * size;
       const b = biomeAt(world, x, y), list = DECOR[b];
-      if (b === 'water' && biomeAt(world, x, y - 200) === 'water' && y > seaY(world, x)) continue; // open sea stays empty
+      if (b === 'water' && (!inMain(x, y) || (biomeAt(world, x, y - 200) === 'water' && y > seaY(world, x)))) continue; // open sea stays empty
       if (onRoad(world, x, y) || nearestSite(world, x, y, 190)) continue;
       out.push({ kind: list[Math.floor(hash2(gx + i, gy - i, world.seed + 9) * list.length)], x, y, s: 0.8 + 0.5 * hash2(gx - i, gy + i, world.seed + 10) });
     }
     return out;
   }
 
-  RB.world = { faunaAt, W, H, CELL, BIOMES, FAUNA, CROSS_RATE, GENE_FLOW, GENE_REACH, youngOf, generate, biomeAt, seaY, inBlob, blobR, onRoad, nearestSite, spawnSpecies, markAt, lootAt, cellOf, population, decorAt };
+  RB.world = { faunaAt, blob, shoreW, inMain, W, H, CELL, BIOMES, FAUNA, CROSS_RATE, GENE_FLOW, GENE_REACH, youngOf, generate, biomeAt, seaY, inBlob, blobR, onRoad, nearestSite, spawnSpecies, markAt, lootAt, cellOf, population, decorAt };
 })();

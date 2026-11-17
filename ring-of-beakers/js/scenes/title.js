@@ -65,11 +65,11 @@
       for (let i = 0; i < 3; i++) {
         const info = RB.save.info(i), x = tall ? x0 : x0 + i * (sw + 10), y = tall ? top + i * (sh + 10) : top;
         const label = info ? 'Day ' + info.day + (info.won ? ' ★' : '') : 'New game';
-        const sub = info ? '$' + info.money + ' · ' + info.birds + ' creature' + (info.birds === 1 ? '' : 's') : 'Slot ' + (i + 1);
+        const sub = info ? (info.sandbox ? 'Sandbox · ' : '') + '$' + info.money + ' · ' + info.birds + ' creature' + (info.birds === 1 ? '' : 's') : 'Slot ' + (i + 1);
         if (ui.btn(x, y, sw - (info ? 42 : 0), sh, label, { sub, fill: info ? pal.teal : pal.mustard, color: info ? pal.white : pal.ink, size: 17 })) {
           RB.audio.play('click');
           if (info && game.load(i)) game.go('coop');
-          else { game.newGame(i); game.go('coop', { intro: true }); }
+          else newGameWindow(i);
         }
         if (info && ui.btn(x + sw - 36, y, 36, sh, '', { icon: 'trash', fill: pal.brick })) {
           ui.confirm('Delete save', 'Delete the game in slot ' + (i + 1) + '? This cannot be undone.', 'Delete', () => RB.save.remove(i));
@@ -83,6 +83,20 @@
       if (ui.btn(v.w - 122, by, 112, 38, 'All games', { icon: 'left', fill: pal.ink, size: 13 })) location.href = '../index.html';
     },
   };
+
+  // A new game: the story (start with a coop, two chickens and a debt), or a sandbox with
+  // everything unlocked and the open sea from day one.
+  function newGameWindow(slot) {
+    const start = (sandbox) => { ui.closeAll(); RB.game.newGame(slot, undefined, { sandbox }); RB.game.go('coop', { intro: !sandbox }); };
+    ui.open({ draw() {
+      const box = ui.window('New game', 360, 300, {});
+      if (!box) return;
+      ui.para('How do you want to play?', box.x, box.y, box.w, { size: 13 });
+      const bh = 100, y1 = box.y + 30, y2 = y1 + bh + 12;
+      if (ui.btn(box.x, y1, box.w, bh, 'Normal', { sub: 'A coop, two chickens and a debt. Unlock everything as you go.', fill: pal.mustard, color: pal.ink, size: 18 })) { RB.audio.play('click'); start(false); }
+      if (ui.btn(box.x, y2, box.w, bh, 'Sandbox', { sub: 'Every upgrade and tool, no debt, and the open sea from the start.', fill: pal.teal, size: 18 })) { RB.audio.play('click'); start(true); }
+    } });
+  }
 
   // Copy a slot out as text, or paste one in.
   function backup() {

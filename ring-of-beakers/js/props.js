@@ -48,6 +48,30 @@
     ctx.restore();
   };
   props.truck = function (ctx, x, y, f, o) { props.truckBack(ctx, x, y, f, o); props.truckFront(ctx, x, y, f, o); };
+  // The speedboat kit: in water the truck rides on a hull, with the cage on deck (drawn by
+  // props.truckBack) and an outboard motor. o: { len, bob, t }
+  props.boatBack = function (ctx, x, y, f, o) {
+    o = o || {};
+    const len = o.len || 80, x0 = 18 - len, t = o.t || 0;
+    ctx.save(); ctx.translate(x, y); ctx.scale(f, 1);
+    // the wake and the bow wave
+    ctx.fillStyle = 'rgba(255,255,255,0.55)';
+    for (let i = 0; i < 4; i++) { const k = (t * 1.6 + i / 4) % 1; O(ctx, x0 - 30 - k * 120, -4 + Math.sin(i) * 3, 18 + k * 30, 5 + k * 3, 'rgba(255,255,255,' + (0.6 * (1 - k)).toFixed(2) + ')'); }
+    ctx.restore();
+  };
+  props.boatFront = function (ctx, x, y, f, o) {
+    o = o || {};
+    const len = o.len || 80, x0 = 18 - len, bob = o.bob || 0;
+    ctx.save(); ctx.translate(x, y - bob); ctx.scale(f, 1);
+    P(ctx, C.paper, [x0 - 6, -44, 70, -44, 96, -40, 76, -6, x0 + 4, -6]);            // hull
+    R(ctx, x0 - 2, -30, 82 - x0, 6, C.teal);                                          // stripe
+    P(ctx, C.glass, [22, -44, 36, -66, 44, -66, 44, -44]);                              // windscreen
+    R(ctx, x0 - 16, -56, 10, 30, C.ink); R(ctx, x0 - 20, -60, 16, 10, C.coral);       // outboard motor
+    R(ctx, x0, -48, len, 4, C.ink);                                                     // front rail of the cage
+    R(ctx, x0, -86, 3, 40, C.ink); R(ctx, 15, -86, 3, 40, C.ink);
+    ctx.restore();
+    O(ctx, x + f * 60, y - 4, 26, 4, 'rgba(255,255,255,0.7)');                          // spray at the bow
+  };
 
   // Yard furniture
   props.house = function (ctx, x, y) {
@@ -117,7 +141,7 @@
   }
   props.building = function (ctx, site, t, o) {
     o = o || {};
-    const x = site.x, y = site.y + 60, k = site.id;
+    const x = site.x, y = site.y + 60, k = site.look || site.id;
     ctx.save();
     if (o.closed) ctx.globalAlpha = 0.72;
     if (site.kind === 'house') { base(ctx, x, y, 130, 86, C.cream, o.roof || C.brick, 56); R(ctx, x + 28, y - 62, 24, 22, C.glass); R(ctx, x - 52, y - 62, 24, 22, C.glass); }
@@ -166,6 +190,15 @@
       ctx.strokeStyle = C.coral; ctx.lineWidth = 3;
       for (let i = 0; i < 5; i++) { const a = Math.PI + (i + 0.5) * Math.PI / 5; ctx.beginPath(); ctx.moveTo(x - 147 + Math.cos(a) * 27, y - 76 + Math.sin(a) * 27); ctx.lineTo(x - 147 + Math.cos(a) * 35, y - 76 + Math.sin(a) * 35); ctx.stroke(); }
       R(ctx, x - 172, y - 78, 50, 5, C.woodD);
+    } else if (site.kind === 'exotic') { // the Curio Aviary: a striped menagerie tent with a strange bird on its sign
+      P(ctx, C.plum, [x - 100, y, x - 70, y - 96, x + 70, y - 96, x + 100, y]);
+      for (let i = 0; i < 5; i++) P(ctx, i % 2 ? C.plum : C.mustard, [x - 70 + i * 28, y - 96, x - 42 + i * 28, y - 96, x - 52 + i * 34 - 10, y, x - 86 + i * 34, y]);
+      P(ctx, C.ink, [x - 18, y, x, y - 50, x + 18, y]);
+      P(ctx, C.plum, [x - 80, y - 96, x, y - 140, x + 80, y - 96]);
+      R(ctx, x - 2, y - 168, 4, 30, C.ink);
+      O(ctx, x, y - 176, 16, 12, C.teal); O(ctx, x - 9, y - 188, 5, 5, C.coral); O(ctx, x + 9, y - 188, 5, 5, C.coral); // two heads
+      const glow = 0.4 + 0.3 * Math.sin(t * 3);
+      O(ctx, x, y - 176, 26, 20, 'rgba(233,180,76,' + glow.toFixed(2) + ')');
     } else if (k === 'market') { R(ctx, x - 80, y - 60, 6, 60, C.woodD); R(ctx, x + 74, y - 60, 6, 60, C.woodD); for (let i = 0; i < 6; i++) P(ctx, i % 2 ? C.plum : C.paper, [x - 90 + i * 30, y - 62, x - 60 + i * 30, y - 62, x - 64 + i * 30, y - 92, x - 86 + i * 30, y - 92]); R(ctx, x - 74, y - 30, 148, 30, C.wood); }
     else { // a shop
       const roof = k === 'feed' ? C.leaf : k === 'tools' ? C.teal : k === 'hatter' ? C.plum : C.brick;
@@ -198,6 +231,15 @@
       case 'bigleaf': R(ctx, x - 6 * s, y - 50 * s, 12 * s, 50 * s, '#7a5a3a'); O(ctx, x + sway, y - 74 * s, 44 * s, 30 * s, '#2f7d4a'); O(ctx, x - 22 * s + sway, y - 58 * s, 26 * s, 18 * s, '#3b8f57'); O(ctx, x + 24 * s + sway, y - 56 * s, 24 * s, 16 * s, '#3b8f57'); break;
       case 'fern': ctx.fillStyle = '#3b8f57'; for (let i = -2; i <= 2; i++) { ctx.beginPath(); ctx.ellipse(x + i * 8 * s, y - 12 * s, 5 * s, 16 * s, i * 0.35, 0, TAU); ctx.fill(); } break;
       case 'lily': O(ctx, x, y, 14 * s, 7 * s, '#6fae6a'); O(ctx, x + 4 * s, y - 2 * s, 4 * s, 3 * s, '#f2a7c0'); break;
+      // island lands: tundra, volcanic, desert
+      case 'snowpine': R(ctx, x - 4 * s, y - 20 * s, 8 * s, 20 * s, C.woodD); P(ctx, '#4b7a6a', [x - 26 * s, y - 16 * s, x, y - 64 * s, x + 26 * s, y - 16 * s]); P(ctx, '#f6fafc', [x - 14 * s, y - 40 * s, x, y - 64 * s, x + 14 * s, y - 40 * s]); break;
+      case 'snowrock': P(ctx, '#aab6c4', [x - 22 * s, y, x - 12 * s, y - 18 * s, x + 10 * s, y - 22 * s, x + 24 * s, y]); P(ctx, '#f6fafc', [x - 12 * s, y - 18 * s, x + 10 * s, y - 22 * s, x + 4 * s, y - 14 * s]); break;
+      case 'drift': O(ctx, x, y - 5 * s, 30 * s, 9 * s, '#f6fafc'); break;
+      case 'lavarock': P(ctx, '#3f3a45', [x - 24 * s, y, x - 10 * s, y - 20 * s, x + 12 * s, y - 24 * s, x + 26 * s, y]); ctx.fillStyle = '#e76f51'; ctx.fillRect(x - 4 * s, y - 14 * s, 9 * s, 2.5 * s); break;
+      case 'deadtree': ctx.strokeStyle = '#3f3a45'; ctx.lineWidth = 5 * s; ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x, y - 46 * s); ctx.moveTo(x, y - 30 * s); ctx.lineTo(x - 16 * s, y - 44 * s); ctx.moveTo(x, y - 36 * s); ctx.lineTo(x + 14 * s, y - 52 * s); ctx.stroke(); break;
+      case 'fumarole': O(ctx, x, y - 3 * s, 16 * s, 6 * s, '#3f3a45'); for (let i = 0; i < 3; i++) { const k = (t * 0.4 + i / 3) % 1; O(ctx, x + Math.sin(k * 5 + i) * 6 * s, y - 10 * s - k * 60 * s, (8 + k * 16) * s, (6 + k * 12) * s, 'rgba(230,230,235,' + (0.5 * (1 - k)).toFixed(2) + ')'); } break;
+      case 'cactus': R(ctx, x - 6 * s, y - 52 * s, 12 * s, 52 * s, '#5f9a52'); R(ctx, x - 20 * s, y - 34 * s, 8 * s, 18 * s, '#5f9a52'); R(ctx, x - 20 * s, y - 20 * s, 16 * s, 6 * s, '#5f9a52'); R(ctx, x + 12 * s, y - 42 * s, 8 * s, 16 * s, '#5f9a52'); R(ctx, x + 4 * s, y - 30 * s, 16 * s, 6 * s, '#5f9a52'); break;
+      case 'dune': O(ctx, x, y - 6 * s, 42 * s, 12 * s, '#e2c579'); O(ctx, x - 8 * s, y - 9 * s, 28 * s, 7 * s, '#efd593'); break;
       default: break;
     }
   };

@@ -295,5 +295,5 @@
     return out;
   }
 
-  RB.world = { inQuarry, QUARRY_R, QUARRY_DY, faunaAt, blob, shoreW, inMain, W, H, CELL, BIOMES, FAUNA, CROSS_RATE, GENE_FLOW, GENE_REACH, youngOf, generate, biomeAt, seaY, inBlob, blobR, onRoad, nearestSite, spawnSpecies, markAt, lootAt, cellOf, population, decorAt };
+  RB.world = { FOSSIL_BIOME, QUARRY_SETS, inQuarry, QUARRY_R, QUARRY_DY, faunaAt, blob, shoreW, inMain, W, H, CELL, BIOMES, FAUNA, CROSS_RATE, GENE_FLOW, GENE_REACH, youngOf, generate, biomeAt, seaY, inBlob, blobR, onRoad, nearestSite, spawnSpecies, markAt, lootAt, cellOf, population, decorAt };
 })();

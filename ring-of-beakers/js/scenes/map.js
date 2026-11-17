@@ -7,7 +7,7 @@
   const { Rng, clamp, lerp, TAU, hash2 } = RB.core;
   const ui = RB.ui, pal = RB.pal, input = RB.input, ST = RB.state, common = RB.common, props = RB.props, WD = RB.world;
 
-  let seaWarned = false;
+  let seaWarned = false, guide = null, guideAt = 0;
   let S, world, car, cam, wild, folk, sheriff, nets, flying, seeds, parts, t, rng, tool, aim, stick, digT, near, paths, decorCache, det, stun, warned, sirenT, pen;
 
   const zoom = () => clamp(Math.max(ui.view.w, ui.view.h) / 1500, 0.45, 0.8);
@@ -184,6 +184,17 @@
     RB.game.save();
     RB.game.go(st === 'lab' ? 'lab' : st === 'roost' ? 'roost' : 'site', { site: site.id });
   }
+  // Dawn out on the road or at sea: the night passes at home as if you had slept there (the feeder,
+  // the nests, the eggs, a day older), and you carry on from where you are.
+  function dawn() {
+    const rep = ST.sleep(S);
+    RB.game.timeSpeed = 1;
+    wild = loadWild();
+    S.pos = { x: car.x, y: car.y };
+    common.checkAch(S);
+    RB.game.save();
+    ui.message('Day ' + S.day, 'The sun comes up while you are still out. The new day starts right here.' + (rep.lines.length ? '\n' + rep.lines.join('\n') : ''), null, { ok: 'Good morning' });
+  }
   function fined() {
     const fine = Math.min(S.money, 50 + Math.round(S.heat * 8));
     S.money -= fine;
@@ -228,8 +239,8 @@
       const before = S.time, g = RB.game;
       S.time += dt / 30 * (g.timeSpeed || 1);
       if (before < 19 && S.time >= 19) { if (g.timeSpeed > 1) g.timeSpeed = 1; ui.toast('Night falls. The Cellar and the Night Market are open.', pal.plum); }
-      if (S.time > 23.5 && g.timeSpeed > 1) g.timeSpeed = 1;
-      if (S.time >= 26) { S.pos = null; RB.game.go('coop', { passOut: true }); return; }
+      // staying out all night costs nothing: at dawn the new day simply starts wherever you are
+      if (S.time >= 30) { dawn(); return; }
       // ---- driving
       let ix = (input.key('KeyD', 'ArrowRight') ? 1 : 0) - (input.key('KeyA', 'ArrowLeft') ? 1 : 0), iy = (input.key('KeyS', 'ArrowDown') ? 1 : 0) - (input.key('KeyW', 'ArrowUp') ? 1 : 0);
       stick = null;
@@ -255,7 +266,12 @@
         if (!seaWarned) { seaWarned = true; ui.toast('The open sea! Biu\'s Garage can fit a speedboat kit.', pal.teal); }
       }
       car.x = nx; car.y = ny;
-      if (open) loadIslands();
+      if (open) {
+        loadIslands();
+        // landing on an island puts it on the list you can sail back to from the map
+        const isl = car.boat ? null : RB.sea.islandAt(world, car.x, car.y);
+        if (isl && !S.visited[isl.id]) { S.visited[isl.id] = 1; ui.toast('You land on ' + isl.name + '. From now on you can sail back here from the map.', pal.teal); }
+      }
       if (Math.abs(car.vx) > 20) car.f = car.vx > 0 ? 1 : -1;
       const sp = Math.hypot(car.vx, car.vy);
       car.bob = sp > 30 ? Math.abs(Math.sin(t * 22)) * 2.5 : 0;
@@ -486,6 +502,21 @@
         ctx.fillStyle = g; ctx.fillRect(0, 0, v.w, v.h);
       }
 
+      // the guide: an arrow to the nearest place of any kind switched on in the map's markers
+      const gcats = RB.guide.on(S).filter((id) => { const c = RB.guide.categories().find((q) => q.id === id); return c && (!c.sea || ST.openSea(S)); });
+      if (gcats.length) {
+        if (!guideAt || t - guideAt > 1) { guide = RB.guide.nearest(world, S, gcats, car.x, car.y, ST.openSea(S) ? 60000 : 16000, ST.openSea(S)); guideAt = t; }
+        if (guide && guide.d > 260) {
+          const a = Math.atan2(guide.y - car.y, guide.x - car.x), R = Math.min(v.w, v.h) * 0.34, ax = v.w / 2 + Math.cos(a) * R, ay = v.h / 2 + Math.sin(a) * R * 0.8;
+          ctx.save(); ctx.translate(ax, ay); ctx.rotate(a);
+          ctx.fillStyle = 'rgba(35,49,74,0.35)'; ctx.beginPath(); ctx.moveTo(20, 3); ctx.lineTo(-12, -11); ctx.lineTo(-6, 3); ctx.lineTo(-12, 17); ctx.closePath(); ctx.fill();
+          ctx.fillStyle = pal.coral; ctx.beginPath(); ctx.moveTo(18, 0); ctx.lineTo(-12, -14); ctx.lineTo(-6, 0); ctx.lineTo(-12, 14); ctx.closePath(); ctx.fill();
+          ctx.restore();
+          const km = guide.d / 1000, txt = RB.guide.label(guide.cat).replace(/ fossils$/, ' fossils') + ': ' + guide.name + ' · ' + (km < 10 ? km.toFixed(1) : Math.round(km)) + ' km';
+          const tw = Math.min(v.w - 20, ui.width(txt, 11) + 16), tx = clamp(ax - tw / 2, 10, v.w - 10 - tw), ty = clamp(ay + 20, 50, v.h - 90);
+          ui.rect(tx, ty, tw, 20, 'rgba(255,250,240,0.92)', 10); ui.text(txt, tx + tw / 2, ty + 14, { size: 11, align: 'center', maxW: tw - 10 });
+        }
+      } else guide = null;
       // ---- interface
       common.hud(S);
       common.drawGoal(S, 44);
@@ -513,7 +544,6 @@
       const sp1 = RB.game.timeSpeed || 1;
       if (ui.btn(v.w - 10 - bs, by - 46, bs, 38, 'x' + sp1, { icon: 'clock', fill: sp1 > 1 ? pal.plum : pal.paper, color: sp1 > 1 ? pal.white : pal.ink, iconCol: sp1 > 1 ? pal.white : pal.plum, size: 13, key: 'KeyT' })) {
         RB.game.timeSpeed = sp1 === 1 ? 4 : sp1 === 4 ? 12 : 1; RB.audio.play('click');
-        if (RB.game.timeSpeed > 1 && S.time > 23.5) { RB.game.timeSpeed = 1; ui.toast('Too late to hurry the clock. Head home.', pal.coral); }
       }
       let bx = v.w - 10 - bs;
       const gold = ST.goldLeft(S) > 0;
@@ -539,9 +569,8 @@
       } else if (!input.touch && t < 12) ui.text('WASD or arrows to drive · click to throw a net · Q digs · E enters · T speeds time', v.w / 2, v.h - 20, { size: 12, align: 'center', color: n > 0.5 ? pal.white : pal.ink });
       else if (input.touch && t < 12) ui.text('Left thumb drives. Drag from the net to aim, tap it to throw.', v.w / 2, v.h - 76, { size: 12, align: 'center', color: n > 0.5 ? pal.white : pal.ink, maxW: v.w - 16 });
       if (stick) { ctx.fillStyle = 'rgba(35,49,74,0.25)'; ctx.beginPath(); ctx.arc(stick.sx, stick.sy, 46, 0, TAU); ctx.fill(); const dx = stick.x - stick.sx, dy = stick.y - stick.sy, d = Math.hypot(dx, dy) || 1, k = Math.min(46, d) / d; ctx.fillStyle = 'rgba(255,250,240,0.85)'; ctx.beginPath(); ctx.arc(stick.sx + dx * k, stick.sy + dy * k, 20, 0, TAU); ctx.fill(); }
-      if (S.time > 24.5) ui.text('It is very late. Head home before you nod off.', v.w / 2, 82, { size: 12, align: 'center', color: pal.white });
     },
-    debug() { return { car, wild, folk, nets, near, world, throwNet, dig, tool: () => tool }; },
+    debug() { return { car, wild, folk, nets, near, world, throwNet, dig, tool: () => tool, guide: () => guide }; },
   };
 
   function biomeBlocked(x, y, P) { return P.web < 0.5 && WD.biomeAt(world, x, y) === 'water'; }
@@ -585,70 +614,163 @@
     common.pick('In the truck', list, (c) => common.card(c, riderActions), () => ({ text: '', ok: true, label: 'Look' }));
   }
   // The whole world at a glance.
-  // Out at sea the map becomes a chart of the waters round the truck: the mainland, the islands
-  // (coloured by their land), and the arenas, shops and villages on them.
-  let chart = false;
-  function seaChart(box) {
-    const ctx = ui.ctx, R = 26000, k = Math.min(box.w, box.h - 30) / (2 * R), cx = box.x + box.w / 2, cy = box.y + 30 + (box.h - 30) / 2;
-    const sx = (x) => cx + (x - car.x) * k, sy = (y) => cy + (y - car.y) * k;
-    ctx.save(); ctx.beginPath(); ctx.rect(box.x, box.y + 30, box.w, box.h - 30); ctx.clip();
-    ctx.fillStyle = WD.BIOMES.water.ground; ctx.fillRect(box.x, box.y + 30, box.w, box.h - 30);
-    ctx.save(); ctx.translate(sx(0), sy(0)); ctx.scale(k, k);
+  // ---- the map window: zoom (buttons, wheel, pinch), drag to look around, markers, and fast travel
+  // between islands you have landed on (and home). Out at sea it doubles as a sea chart.
+  const GD = RB.guide;
+  const MARKER_COL = { Places: pal.ink, Fossils: pal.plum, Birds: pal.teal };
+  function drawMainland(ctx, k) {
     ctx.fillStyle = WD.BIOMES.coast.ground; ctx.fill(paths.shore);
-    ctx.fillStyle = WD.BIOMES.farm.ground; ctx.fillRect(0, 0, WD.W, WD.seaY(world, WD.W / 2));
+    ctx.fillStyle = WD.BIOMES.farm.ground; ctx.fillRect(0, 0, WD.W, WD.H);
     for (let i = paths.blobs.length - 1; i >= 0; i--) { ctx.fillStyle = WD.BIOMES[paths.blobs[i][0]].ground; ctx.fill(paths.blobs[i][1]); }
-    ctx.restore();
-    const isl = RB.sea.islandsNear(world, car.x, car.y, R * 1.4);
-    for (const is of isl) {
-      ctx.fillStyle = WD.BIOMES.coast.ground; ctx.beginPath(); ctx.arc(sx(is.x), sy(is.y), Math.max(3, is.R * k), 0, TAU); ctx.fill();
-      ctx.fillStyle = WD.BIOMES[is.main].ground; ctx.beginPath(); ctx.arc(sx(is.x), sy(is.y), Math.max(2, is.R * 0.84 * k), 0, TAU); ctx.fill();
-    }
-    const taken = []; // labels that would overlap one already written are left out
-    for (const is of isl.slice().sort((a, b) => Math.hypot(a.x - car.x, a.y - car.y) - Math.hypot(b.x - car.x, b.y - car.y))) {
-      const arena = is.sites.find((q) => q.kind === 'arena'), shop = is.sites.some((q) => q.kind === 'shop'), houses = is.sites.some((q) => q.kind === 'house');
-      if (arena) ui.rect(sx(is.x) - 4, sy(is.y) - 4, 8, 8, pal.coral, 2);
-      else if (shop) ui.rect(sx(is.x) - 3, sy(is.y) - 3, 6, 6, pal.ink, 2);
-      else if (houses) ui.rect(sx(is.x) - 3, sy(is.y) - 3, 6, 6, pal.brick, 1);
-      const label = is.name + (arena ? ' · arena' : ''), lw = ui.width(label, 9), lx = sx(is.x) - lw / 2, ly = sy(is.y) - Math.max(6, is.R * k) - 12;
-      if (taken.some((q) => lx < q.x + q.w && q.x < lx + lw && ly < q.y + 12 && q.y < ly + 12)) continue;
-      taken.push({ x: lx, y: ly, w: lw });
-      ui.text(label, sx(is.x), ly + 9, { size: 9, align: 'center', bold: !!arena });
-    }
-    ctx.restore();
-    ui.icon('truck', cx, cy, 18, pal.coral);
-    const near = isl.filter((is) => Math.hypot(is.x - car.x, is.y - car.y) < is.R + 4000).sort((a, b) => Math.hypot(a.x - car.x, a.y - car.y) - Math.hypot(b.x - car.x, b.y - car.y))[0];
-    ui.text(near ? near.name + ': ' + RB.sea.describe(near) : 'Open water. Squares are arenas, dots are villages and trading posts.', box.x + 4, box.y + box.h - 4, { size: 10, bold: false, maxW: box.w - 8 });
+    const strip = (off, col) => { ctx.fillStyle = col; ctx.beginPath(); ctx.moveTo(0, WD.H); for (let x = 0; x <= WD.W; x += 200) ctx.lineTo(x, WD.seaY(world, x) + off); ctx.lineTo(WD.W, WD.H); ctx.closePath(); ctx.fill(); };
+    strip(-620, WD.BIOMES.coast.ground); strip(0, WD.BIOMES.water.ground);
+    ctx.fillStyle = WD.BIOMES.water.ground; for (const p of paths.ponds) ctx.fill(p);
+    ctx.strokeStyle = '#dcccaa'; ctx.lineWidth = Math.max(60, 3 / k); ctx.lineJoin = 'round'; ctx.lineCap = 'round';
+    for (const road of world.roads) { ctx.beginPath(); ctx.moveTo(road[0].x, road[0].y); for (let i = 1; i < road.length; i++) ctx.lineTo(road[i].x, road[i].y); ctx.stroke(); }
+    ctx.strokeStyle = pal.coral; ctx.lineWidth = Math.max(40, 2.5 / k);
+    const xs = Math.max(80, 7 / k);
+    for (const m of world.marks) if (!S.marksDug[m.cx + ',' + m.cy]) { ctx.beginPath(); ctx.moveTo(m.x - xs, m.y - xs * 0.75); ctx.lineTo(m.x + xs, m.y + xs * 0.75); ctx.moveTo(m.x + xs, m.y - xs * 0.75); ctx.lineTo(m.x - xs, m.y + xs * 0.75); ctx.stroke(); }
+  }
+  // Fast travel: sail straight to an island you have landed on before, or home. It takes time.
+  function travelHours(x, y) { return Math.max(0.5, Math.min(8, Math.round(Math.hypot(x - car.x, y - car.y) / 15000 * 2) / 2)); }
+  function travelTo(dest) {
+    const h = travelHours(dest.x, dest.y);
+    car.x = dest.x; car.y = dest.y; car.vx = 0; car.vy = 0; cam.x = car.x; cam.y = car.y - 30;
+    S.time += h; S.pos = { x: car.x, y: car.y };
+    ui.closeAll();
+    ui.toast('You sail to ' + dest.name + '. ' + h + ' hour' + (h === 1 ? '' : 's') + ' at sea.', pal.teal);
+    RB.audio.play('whoosh');
+    RB.game.save();
+  }
+  function destOf(sel) {
+    if (sel.main) { const h = world.site.home; return { x: h.x, y: h.y + 160, name: 'home' }; }
+    const is = sel.is, s = is.sites[0];
+    return s ? { x: s.x, y: s.y + 170, name: is.name } : { x: is.x, y: is.y, name: is.name };
   }
   function bigMap() {
-    chart = ST.openSea(S) && !WD.inMain(car.x, car.y);
-    ui.open({ draw() {
-      const v = ui.view, box = ui.window(chart ? 'Sea chart' : 'Map', v.w - 16, v.h - 16, {});
+    const sea = ST.openSea(S), boat = sea && ST.hasBoat(S);
+    const MV = { x: car.x, y: car.y, k: 0 };
+    let drag = null, pinch = null, sel = null, panel = false;
+    ui.open({ draw(u, dt) {
+      const v = ui.view, ctx = ui.ctx, box = ui.window(sea ? 'Map and sea chart' : 'Map', v.w - 16, v.h - 16, {});
       if (!box) return;
-      if (ST.openSea(S)) {
-        if (ui.btn(box.x, box.y, 130, 26, chart ? 'Mainland' : 'Sea chart', { fill: pal.teal, size: 12, flat: true })) chart = !chart;
-        if (chart) { seaChart(box); return; }
+      const wide = box.w >= 560, side = wide && panel ? 220 : 0;
+      const A = { x: box.x, y: box.y + 36, w: box.w - side - (side ? 8 : 0), h: box.h - 36 - 40 };
+      // how far it zooms: from the whole of the waters round you to a close look at a village
+      const fit = Math.min(A.w / WD.W, A.h / WD.H) * 0.95, kMin = sea ? Math.min(A.w, A.h) / 110000 : fit, kMax = Math.min(A.w, A.h) / 1200;
+      if (!MV.k) { if (sea && !WD.inMain(car.x, car.y)) MV.k = Math.min(A.w, A.h) / 40000; else { MV.k = fit; MV.x = WD.W / 2; MV.y = WD.H / 2; } }
+      const zoomAt = (f, px, py) => {
+        const k2 = clamp(MV.k * f, kMin, kMax), wx = MV.x + (px - (A.x + A.w / 2)) / MV.k, wy = MV.y + (py - (A.y + A.h / 2)) / MV.k;
+        MV.x = wx - (px - (A.x + A.w / 2)) / k2; MV.y = wy - (py - (A.y + A.h / 2)) / k2; MV.k = k2;
+      };
+      const inA = (px, py) => px >= A.x && px <= A.x + A.w && py >= A.y && py <= A.y + A.h && !(panel && !wide);
+      // the wheel zooms where the mouse is; one finger drags, two pinch
+      if (input.wheel && inA(input.mx, input.my)) zoomAt(Math.pow(1.25, -input.wheel), input.mx, input.my);
+      const ps = input.ptrs.filter((p) => inA(p.sx, p.sy));
+      if (ps.length >= 2) {
+        const d = Math.hypot(ps[0].x - ps[1].x, ps[0].y - ps[1].y), mx = (ps[0].x + ps[1].x) / 2, my = (ps[0].y + ps[1].y) / 2;
+        if (pinch) { zoomAt(d / Math.max(1, pinch.d), mx, my); MV.x -= (mx - pinch.mx) / MV.k; MV.y -= (my - pinch.my) / MV.k; }
+        pinch = { d, mx, my }; drag = null;
+      } else {
+        pinch = null;
+        const p = ps[0];
+        if (p) { if (drag && drag.id === p.id) { MV.x -= (p.x - drag.x) / MV.k; MV.y -= (p.y - drag.y) / MV.k; } drag = { id: p.id, x: p.x, y: p.y }; } else drag = null;
       }
-      const ctx = ui.ctx, k = Math.min(box.w / WD.W, box.h / WD.H), ox = box.x + (box.w - WD.W * k) / 2, oy = box.y + (box.h - WD.H * k) / 2;
-      ctx.save(); ctx.beginPath(); ctx.rect(ox, oy, WD.W * k, WD.H * k); ctx.clip();
-      ctx.translate(ox, oy); ctx.scale(k, k);
-      ctx.fillStyle = WD.BIOMES.farm.ground; ctx.fillRect(0, 0, WD.W, WD.H);
-      for (let i = paths.blobs.length - 1; i >= 0; i--) { ctx.fillStyle = WD.BIOMES[paths.blobs[i][0]].ground; ctx.fill(paths.blobs[i][1]); }
-      const strip = (off, col) => { ctx.fillStyle = col; ctx.beginPath(); ctx.moveTo(0, WD.H); for (let x = 0; x <= WD.W; x += 200) ctx.lineTo(x, WD.seaY(world, x) + off); ctx.lineTo(WD.W, WD.H); ctx.closePath(); ctx.fill(); };
-      strip(-620, WD.BIOMES.coast.ground); strip(0, WD.BIOMES.water.ground);
-      ctx.fillStyle = WD.BIOMES.water.ground; for (const p of paths.ponds) ctx.fill(p);
-      ctx.strokeStyle = '#dcccaa'; ctx.lineWidth = 60; ctx.lineJoin = 'round';
-      for (const road of world.roads) { ctx.beginPath(); ctx.moveTo(road[0].x, road[0].y); for (let i = 1; i < road.length; i++) ctx.lineTo(road[i].x, road[i].y); ctx.stroke(); }
-      ctx.strokeStyle = pal.coral; ctx.lineWidth = 40;
-      for (const m of world.marks) if (!S.marksDug[m.cx + ',' + m.cy]) { ctx.beginPath(); ctx.moveTo(m.x - 80, m.y - 60); ctx.lineTo(m.x + 80, m.y + 60); ctx.moveTo(m.x + 80, m.y - 60); ctx.lineTo(m.x - 80, m.y + 60); ctx.stroke(); }
-      ctx.restore();
+      // before the sea opens there is only the mainland to look at
+      if (!sea) { MV.x = clamp(MV.x, 0, WD.W); MV.y = clamp(MV.y, 0, WD.H); }
+      const k = MV.k, cx = A.x + A.w / 2, cy = A.y + A.h / 2, sx = (x) => cx + (x - MV.x) * k, sy = (y) => cy + (y - MV.y) * k;
+      const reach = Math.hypot(A.w, A.h) / 2 / k + 3000;
+      // a tap picks an island (or the mainland) to read about or sail to
+      for (const tp of input.taps) {
+        if (tp.used || !inA(tp.x, tp.y)) continue;
+        tp.used = true;
+        const wx = MV.x + (tp.x - cx) / k, wy = MV.y + (tp.y - cy) / k;
+        const is = sea ? RB.sea.islandsNear(world, wx, wy, 6 / k + 500).filter((q) => Math.hypot(q.x - wx, q.y - wy) < q.R + 8 / k).sort((a, b) => Math.hypot(a.x - wx, a.y - wy) - Math.hypot(b.x - wx, b.y - wy))[0] : null;
+        sel = is ? { is } : WD.inMain(wx, wy) || WD.biomeAt(world, wx, wy) === 'coast' && Math.abs(wx - WD.W / 2) < WD.W ? { main: true } : null;
+      }
+      // ---- the picture
+      ctx.save(); ctx.beginPath(); ctx.rect(A.x, A.y, A.w, A.h); ctx.clip();
+      ctx.fillStyle = WD.BIOMES.water.ground; ctx.fillRect(A.x, A.y, A.w, A.h);
+      ctx.save(); ctx.translate(sx(0), sy(0)); ctx.scale(k, k); drawMainland(ctx, k); ctx.restore();
+      const isl = sea ? RB.sea.islandsNear(world, MV.x, MV.y, reach) : [];
+      for (const is of isl) {
+        if (is.R * k > 18) { // close enough to see its shape, lands and tracks
+          const ip = islandPath(is);
+          ctx.save(); ctx.translate(sx(0), sy(0)); ctx.scale(k, k);
+          ctx.fillStyle = WD.BIOMES.coast.ground; ctx.fill(ip.shape); ctx.fillStyle = WD.BIOMES[is.main].ground; ctx.fill(ip.inner);
+          for (const q of ip.patches) { ctx.save(); ctx.clip(ip.inner); ctx.fillStyle = WD.BIOMES[q[0]].ground; ctx.fill(q[1]); ctx.restore(); }
+          ctx.strokeStyle = '#dcccaa'; ctx.lineWidth = Math.max(60, 3 / k); ctx.lineCap = 'round';
+          for (const road of is.roads) { ctx.beginPath(); ctx.moveTo(road[0].x, road[0].y); for (let i = 1; i < road.length; i++) ctx.lineTo(road[i].x, road[i].y); ctx.stroke(); }
+          ctx.restore();
+        } else {
+          ctx.fillStyle = WD.BIOMES.coast.ground; ctx.beginPath(); ctx.arc(sx(is.x), sy(is.y), Math.max(2.5, is.R * k), 0, TAU); ctx.fill();
+          ctx.fillStyle = WD.BIOMES[is.main].ground; ctx.beginPath(); ctx.arc(sx(is.x), sy(is.y), Math.max(1.5, is.R * 0.84 * k), 0, TAU); ctx.fill();
+        }
+        if (S.visited[is.id]) { ctx.strokeStyle = pal.teal; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(sx(is.x), sy(is.y), Math.max(4, is.R * k) + 3, 0, TAU); ctx.stroke(); }
+      }
+      if (sel && sel.is) { ctx.strokeStyle = pal.mustard; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(sx(sel.is.x), sy(sel.is.y), Math.max(6, sel.is.R * k) + 7, 0, TAU); ctx.stroke(); }
+      // places, and their names once there is room to read them
+      const taken = [];
+      const label = (txt, x, y, o) => { const w = ui.width(txt, o.size || 10), lx = x - w / 2, ly = y - 12; if (taken.some((q) => lx < q.x + q.w && q.x < lx + w && ly < q.y + 13 && q.y < ly + 13)) return; taken.push({ x: lx, y: ly, w }); ui.text(txt, x, y, Object.assign({ align: 'center' }, o)); };
       for (const s of world.sites) {
-        if (s.kind === 'house') { ui.rect(ox + s.x * k - 3, oy + s.y * k - 3, 6, 6, pal.brick, 1); continue; }
+        if (s.island && !sea) continue;
+        const px = sx(s.x), py = sy(s.y);
+        if (px < A.x - 20 || px > A.x + A.w + 20 || py < A.y - 20 || py > A.y + A.h + 20) continue;
+        if (s.island && k < 0.012) continue;
+        if (s.kind === 'house') { ui.rect(px - 3, py - 3, 6, 6, pal.brick, 1); continue; }
         const col = s.kind === 'arena' ? pal.coral : s.id === 'home' ? pal.teal : s.id === 'bfc' ? '#d7372f' : s.id === 'roost' ? pal.plum : s.id === 'quarry' ? pal.mustard : pal.ink;
-        ui.rect(ox + s.x * k - 5, oy + s.y * k - 5, 10, 10, col, 3);
-        ui.text(s.name, ox + s.x * k, oy + s.y * k - 8, { size: 10, align: 'center' });
+        ui.rect(px - 5, py - 5, 10, 10, col, 3);
+        if (k > 0.03 || (!s.island && k >= fit * 0.9)) label(s.name, px, py - 8, { size: 10 });
       }
-      ui.icon('truck', ox + car.x * k, oy + car.y * k, 18, pal.coral);
-      ui.text('Red crosses mark something buried.', box.x + 4, box.y + box.h - 4, { size: 10, bold: false });
+      if (sea) for (const is of isl.slice().sort((a, b) => b.R - a.R)) {
+        const arena = is.sites.some((q) => q.kind === 'arena');
+        if (is.R * k > 7 || arena || is === (sel && sel.is)) label(is.name + (arena ? ' · arena' : ''), sx(is.x), sy(is.y) - Math.max(6, is.R * k) - 3, { size: 9, bold: arena });
+      }
+      // markers switched on
+      for (const cat of GD.on(S)) {
+        const c = GD.categories().find((q) => q.id === cat);
+        if (!c || (c.sea && !sea)) continue;
+        for (const m of GD.find(world, S, cat, MV.x, MV.y, reach, sea)) {
+          const px = sx(m.x), py = sy(m.y);
+          if (px < A.x || px > A.x + A.w || py < A.y || py > A.y + A.h) continue;
+          const col = MARKER_COL[c.group] || pal.ink;
+          ctx.fillStyle = col; ctx.beginPath(); ctx.moveTo(px, py); ctx.lineTo(px - 6, py - 12); ctx.arc(px, py - 15, 7, Math.PI * 0.8, Math.PI * 0.2); ctx.closePath(); ctx.fill();
+          ctx.fillStyle = pal.white; ctx.beginPath(); ctx.arc(px, py - 15, 3, 0, TAU); ctx.fill();
+          if (k > 0.004) label(c.label.replace(/ fossils$/, ''), px, py - 26, { size: 9, color: col, bold: true });
+        }
+      }
+      ctx.restore();
+      ui.icon(car.boat ? 'truck' : 'truck', sx(car.x), sy(car.y), 18, pal.coral);
+      // ---- the controls: zoom, back to the truck, markers
+      const bw = 40, by = box.y;
+      if (ui.btn(box.x, by, bw, 30, '', { icon: 'plus', fill: pal.ink, flat: true })) zoomAt(1.6, cx, cy);
+      if (ui.btn(box.x + bw + 6, by, bw, 30, '', { icon: 'minus', fill: pal.ink, flat: true })) zoomAt(1 / 1.6, cx, cy);
+      if (ui.btn(box.x + 2 * (bw + 6), by, 84, 30, 'Truck', { icon: 'truck', fill: pal.coral, size: 12, flat: true })) { MV.x = car.x; MV.y = car.y; if (MV.k < 0.01) MV.k = Math.min(kMax, Math.max(MV.k, Math.min(A.w, A.h) / 20000)); }
+      if (ui.btn(box.x + 2 * (bw + 6) + 90, by, 104, 30, 'Markers' + (GD.on(S).length ? ' (' + GD.on(S).length + ')' : ''), { icon: 'eye', fill: panel ? pal.mustard : pal.plum, color: panel ? pal.ink : pal.white, size: 12, flat: true })) panel = !panel;
+      // ---- the bottom line: what is picked, and fast travel
+      const fy = box.y + box.h - 34;
+      if (sel) {
+        const here = sel.is ? RB.sea.islandAt(world, car.x, car.y) === sel.is : WD.inMain(car.x, car.y);
+        const txt = sel.is ? sel.is.name + ': ' + RB.sea.describe(sel.is) + (S.visited[sel.is.id] ? '' : ' · not landed on yet') : 'The mainland: home, the town and the five arenas.';
+        const can = boat && !here && (sel.main || S.visited[sel.is.id]);
+        const d = can ? destOf(sel) : null;
+        ui.text(txt, box.x, fy + 21, { size: 11, bold: false, maxW: box.w - (can ? 190 : 4) });
+        if (can && ui.btn(box.x + box.w - 180, fy, 180, 32, 'Sail there · ' + travelHours(d.x, d.y) + ' h', { icon: 'right', fill: pal.teal, size: 12 })) travelTo(d);
+      } else ui.text(sea ? 'Drag to look around, pinch or scroll to zoom. Tap an island you have landed on (ringed) to sail there.' : 'Drag to look around, pinch or scroll to zoom. Red crosses mark something buried.', box.x, fy + 21, { size: 11, bold: false, maxW: box.w });
+      // ---- the markers panel
+      if (panel) {
+        const P = wide ? { x: box.x + box.w - 220, y: A.y, w: 220, h: A.h } : { x: A.x, y: A.y, w: A.w, h: A.h }; // (fixed width: it may have opened this very frame)
+        ui.rect(P.x, P.y, P.w, P.h, pal.paper, 10);
+        const cats = GD.categories().filter((c) => !c.sea || sea), rows = [];
+        let g = null;
+        for (const c of cats) { if (c.group !== g) { g = c.group; rows.push({ head: g }); } rows.push({ c }); }
+        ui.list('markers', P.x + 4, P.y + 4, P.w - 8, P.h - 8, rows.length, 32, (i, x, y, w) => {
+          const r = rows[i];
+          if (r.head) { ui.text(r.head, x + 4, y + 22, { size: 12, color: MARKER_COL[r.head] }); return; }
+          const onNow = !!S.markers[r.c.id];
+          if (ui.btn(x, y + 2, w - 6, 28, r.c.label, { fill: onNow ? MARKER_COL[r.c.group] : pal.soft, color: onNow ? pal.white : pal.ink, size: 11, flat: true, icon: onNow ? 'check' : null })) { S.markers[r.c.id] = !onNow; RB.audio.play('click'); }
+        });
+      }
     } });
   }
 })();

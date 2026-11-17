@@ -10,7 +10,8 @@
 
   common.fmtTime = (h) => { const hh = Math.floor(h) % 24, mm = Math.floor((h % 1) * 60); return hh + ':' + (mm < 10 ? '0' : '') + mm; };
   common.fmtKg = (kg) => (kg < 1 ? Math.round(kg * 1000) + ' g' : kg < 10 ? kg.toFixed(1) + ' kg' : Math.round(kg) + ' kg');
-  common.night = (time) => smooth((time - 18.3) / 2.4);
+  // dark from nightfall, and light again towards dawn for anyone still out after midnight
+  common.night = (time) => smooth((time - 18.3) / 2.4) * (1 - smooth((time - 28.2) / 1.8));
   const rgbOf = (c) => (c[0] === '#' ? [1, 3, 5].map((i) => parseInt(c.slice(i, i + 2), 16)) : c.slice(4, -1).split(',').map(Number));
   // Blend two colours given as #rrggbb or rgb(r,g,b).
   function mix(a, b, t) {
@@ -58,9 +59,9 @@
       const box = ui.window('Pass time', 320, 236, {});
       if (!box) return;
       ui.para('It is ' + common.fmtTime(S.time) + '. The Cellar and the Night Market open at 19:00. On the map, the clock button speeds time up.', box.x, box.y, box.w, { size: 12 });
-      const wait = (to) => { S.time = Math.min(25, to); RB.audio.play('tick'); ui.close(); ui.toast('It is ' + common.fmtTime(S.time) + '.', pal.plum); };
+      const wait = (to) => { S.time = Math.min(29.5, to); RB.audio.play('tick'); ui.close(); ui.toast('It is ' + common.fmtTime(S.time) + '.', pal.plum); };
       const y = box.y + box.h - 94;
-      if (ui.btn(box.x, y, box.w, 42, 'Wait one hour', { icon: 'clock', disabled: S.time >= 24.9 })) wait(S.time + 1);
+      if (ui.btn(box.x, y, box.w, 42, 'Wait one hour', { icon: 'clock', disabled: S.time >= 28.9 })) wait(S.time + 1);
       if (ui.btn(box.x, y + 50, box.w, 42, S.time < 19 ? 'Wait until nightfall (19:00)' : 'It is already night', { icon: 'moon', fill: pal.plum, disabled: S.time >= 19 })) wait(19);
     } });
   };

@@ -16,7 +16,7 @@
   function create(seed, opts) {
     const S = {
       v: 1, seed: seed >>> 0, rs: (seed ^ 0x51ab) >>> 0, day: 1, time: 6, money: 150, debt: 15000, heat: 0, heatPeople: 0, heatDays: 0, nextId: 1,
-      birds: [], eggs: [], roost: [], released: [],
+      birds: [], eggs: [], roost: [], released: [], markers: {}, visited: {},
       inv: { net: 3, shovel: 10, grain: 8 }, equip: {}, up: { cage: 0, engine: 0, tires: 0, coop: 0, nest: 0, incubator: 0, dummy: 0, boat: 0 },
       feeder: 0, pos: null, dug: {}, marksDug: {}, wildGone: null, npc: {}, league: {}, bets: {},
       lab: { power: false, fuses: 0, atlas: {}, vials: [], fossils: {}, seq: {} },
@@ -373,6 +373,7 @@
     S.roost = S.roost || []; // saves from before Sunset Roost opened
     S.released = S.released || [];
     S.up.boat = S.up.boat || 0;
+    S.markers = S.markers || {}; S.visited = S.visited || {}; // the map's markers, and islands landed on
     bossPrizes(S); // saves from before the boss prizes
     for (const c of S.roost) { c.g = GN.deserialize(c.g); c._P = null; }
     for (const e of S.eggs) e.g = GN.deserialize(e.g);

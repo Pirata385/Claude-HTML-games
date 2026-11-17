@@ -118,49 +118,30 @@
     });
   }
 
-  // ---- neighbours
+  // ---- neighbours: every one of them buys, sells and trades; some also do a thing of their own
+  // (collectors buy relics, trainers fight you, the exotic dealer sells the strangest birds there are)
+  function houseTabs(role) {
+    const t = role === 'exotic' ? ['Buy', 'Sell', 'Trade'] : ['Sell', 'Buy', 'Trade'];
+    if (role === 'collector') t.push('Relics');
+    if (role === 'trainer') t.push('Duel');
+    return t;
+  }
   function house(b) {
-    const role = keeper.role, st = RB.npc.info(S, keeper.id);
-    if (role === 'breeder') {
-      const stock = RB.npc.stockOf(S, world, keeper);
-      // a swap: hand over a bird for credit towards one of theirs
-      st.credit = st.credit || 0;
-      ui.text('Trade-in credit: $' + st.credit, b.x + 4, b.y + 22, { size: 13 });
-      if (ui.btn(b.x + b.w - 170, b.y, 164, 34, 'Trade in a bird', { icon: 'swap', fill: pal.mustard, color: pal.ink, size: 12 })) {
-        common.pick('Trade in', caged().filter((c) => !c.person), (c) => { st.credit += Math.round(EC.value(c) * 0.9); ST.removeBird(S, c); RB.audio.play('coin'); say = 'A fair swap. That is credit with me.'; }, (c) => (ST.isRetired(c) ? { text: 'Retired: too old to breed.', ok: false, label: 'Trade' } : { text: 'credit $' + Math.round(EC.value(c) * 0.9), ok: true, label: 'Trade' }));
-      }
-      if (!stock.length) { ui.para('Sold out. Come back in a few days.', b.x + 4, b.y + 46, b.w, { size: 13 }); return; }
-      ui.list('stock', b.x, b.y + 42, b.w, b.h - 42, stock.length, 60, (i, x, y, w) => {
-        const s = stock[i], cash = Math.max(0, s.price - st.credit);
-        if (row(x, y, w, { P: s.P, title: s.name + ', ' + s.P.species.name.toLowerCase(), sub: common.fmtKg(s.P.weightKg) + ' · power ' + s.P.rate.power + ' · speed ' + s.P.rate.speed + (s.P.odd.length ? ' · ' + s.P.odd.join(', ') : ''), price: cash, btn: cash < s.price ? 'Swap' : 'Buy' })) {
-          if (pay(cash)) { st.credit -= s.price - cash; st.sold[s.key] = true; const c = ST.addBird(S, s.g, { at: 'cage', name: s.name, age: 3, bond: 0.2, origin: 'bought' }); common.discover(S, c); st.rel = Math.min(100, st.rel + 5); }
-        }
-      });
-      return;
-    }
-    if (role === 'trainer') {
-      const ch = RB.npc.challengeOf(S, keeper);
-      if (!ch) { ui.para('We have fought today. Come back tomorrow, if you dare.', b.x + 4, b.y + 6, b.w, { size: 13 }); return; }
-      common.portrait({ P: ch.opp.P }, b.x + 4, b.y + 4, 110, 110);
-      ui.text(ch.opp.name, b.x + 124, b.y + 26, { size: 17 });
-      ui.text(ch.opp.P.species.name + ' · ' + common.fmtKg(ch.opp.P.weightKg), b.x + 124, b.y + 46, { size: 12, bold: false });
-      ui.text((ch.open ? 'Any weight' : RB.pheno.WEIGHT_CLASSES[ch.wc][0] + 'weight or lighter') + ' · stake $' + ch.fee + ' each', b.x + 124, b.y + 64, { size: 12, bold: false, maxW: b.w - 130 });
-      if (ui.btn(b.x + 124, b.y + 76, 150, 40, 'Accept', { fill: pal.coral, disabled: S.money < ch.fee })) enterBout(ch, null, ch.opp);
-      return;
-    }
-    // buyers and collectors
+    const role = keeper.role, st = RB.npc.info(S, keeper.id), names = houseTabs(role);
+    st.credit = st.credit || 0; st.sold = st.sold || {};
+    const y0 = b.y + tabs(names, b.x, b.y, b.w), h = b.h - (y0 - b.y), now = names[Math.min(tab, names.length - 1)];
+    if (now === 'Sell') sellTo(b.x, y0, b.w, h, st);
+    else if (now === 'Buy') buyFrom(b.x, y0, b.w, h, st);
+    else if (now === 'Trade') tradeWith(b.x, y0, b.w, h, st);
+    else if (now === 'Relics') relics(b.x, y0, b.w);
+    else duel(b.x, y0, b.w);
+  }
+  // they buy your birds, paying more for what they wish for
+  function sellTo(x0, y0, w0, h0, st) {
     const wish = RB.npc.wishOf(S, keeper), list = caged().filter((c) => !c.person);
-    let y = b.y;
-    if (role === 'collector') {
-      const loot = Object.keys(S.inv).filter((id) => IT.ITEMS[id] && IT.ITEMS[id].kind === 'loot');
-      if (loot.length && ui.btn(b.x, y, Math.min(260, b.w), 36, 'Sell all relics ($' + loot.reduce((s, id) => s + Math.round(IT.ITEMS[id].price * 0.9 * keeper.wealth) * S.inv[id], 0) + ')', { fill: pal.mustard, color: pal.ink, size: 13 })) {
-        let sum = 0; for (const id of loot) { sum += Math.round(IT.ITEMS[id].price * 0.9 * keeper.wealth) * S.inv[id]; delete S.inv[id]; }
-        earn(sum); say = 'Marvellous. Dirt and all.';
-      }
-      if (loot.length) y += 44;
-    }
-    if (!list.length) { ui.para('Bring birds in your truck and I will make you an offer.', b.x + 4, y + 6, b.w, { size: 13 }); return; }
-    ui.list('offer', b.x, y, b.w, b.h - (y - b.y), list.length, 60, (i, x, yy, w) => {
+    ui.text('Wants ' + wish.text + '.', x0 + 4, y0 + 12, { size: 12, bold: false, color: pal.plum, maxW: w0 - 8 });
+    if (!list.length) { ui.para('Bring birds in your truck and I will make you an offer.', x0 + 4, y0 + 26, w0, { size: 13 }); return; }
+    ui.list('offer' + keeper.id, x0, y0 + 20, w0, h0 - 20, list.length, 60, (i, x, yy, w) => {
       const c = list[i], m = wish.score(ST.pheno(c), c), price = RB.npc.offer(S, keeper, c);
       if (row(x, yy, w, { c, title: c.name, sub: RB.npc.fitText(m), subCol: m > 0.45 ? pal.teal : pal.grey, price, priceCol: m > 0.45 ? pal.teal : pal.ink, btn: 'Sell', fill: pal.mustard, color: pal.ink })) {
         ui.confirm('Sell ' + c.name + '?', keeper.name + ' pays $' + price + '. (Worth about $' + EC.value(c) + ' on a plain day.)', 'Sell', () => {
@@ -170,6 +151,56 @@
         }, { fill: pal.teal });
       }
     });
+  }
+  // their own birds, paid in cash or with trade-in credit
+  function buyFrom(x0, y0, w0, h0, st) {
+    const stock = RB.npc.stockOf(S, world, keeper);
+    ui.text(st.credit ? 'Your trade-in credit here: $' + st.credit : keeper.role === 'exotic' ? 'New arrivals every three days.' : 'A few birds of my own. New ones every three days.', x0 + 4, y0 + 12, { size: 12, bold: false, color: pal.plum, maxW: w0 - 8 });
+    if (!stock.length) { ui.para('Sold out. Come back in a few days.', x0 + 4, y0 + 26, w0, { size: 13 }); return; }
+    ui.list('stock' + keeper.id, x0, y0 + 20, w0, h0 - 20, stock.length, 60, (i, x, y, w) => {
+      const s = stock[i], cash = Math.max(0, s.price - st.credit);
+      const kind = s.momKey && s.dadKey && s.momKey !== s.dadKey ? RB.species.blendNames(s.dad, s.mom) : s.P.species.name;
+      if (row(x, y, w, { P: s.P, title: s.name + ', ' + kind.toLowerCase(), sub: common.fmtKg(s.P.weightKg) + ' · power ' + s.P.rate.power + ' · speed ' + s.P.rate.speed + (s.P.odd.length ? ' · ' + s.P.odd.join(', ') : ''), subCol: s.P.odd.length ? pal.plum : undefined, price: cash, btn: cash < s.price ? 'Swap' : 'Buy' })) {
+        if (pay(cash)) {
+          st.credit -= s.price - cash; st.sold[s.key] = true;
+          const c = ST.addBird(S, s.g, { at: 'cage', name: s.name, age: 3, bond: 0.2, origin: 'bought', mom: s.mom, dad: s.dad, momKey: s.momKey, dadKey: s.dadKey });
+          common.discover(S, c); st.rel = Math.min(100, st.rel + 5);
+          say = keeper.role === 'exotic' ? 'No refunds. Do not feed it after midnight.' : 'Look after it.';
+          common.checkAch(S);
+        }
+      }
+    });
+  }
+  // hand over a bird for credit towards one of theirs
+  function tradeWith(x0, y0, w0, h0, st) {
+    const list = caged().filter((c) => !c.person);
+    ui.text('Trade-in credit: $' + st.credit + ' (spend it in Buy)', x0 + 4, y0 + 12, { size: 12, color: pal.plum, maxW: w0 - 8 });
+    if (!list.length) { ui.para('Bring a bird in your truck to swap.', x0 + 4, y0 + 26, w0, { size: 13 }); return; }
+    ui.list('trade' + keeper.id, x0, y0 + 20, w0, h0 - 20, list.length, 60, (i, x, y, w) => {
+      const c = list[i], credit = Math.round(EC.value(c) * 0.9), old = ST.isRetired(c);
+      if (row(x, y, w, { c, title: c.name, sub: old ? 'Retired: too old to breed.' : ST.kind(c), subCol: old ? pal.coral : undefined, price: old ? undefined : credit, btn: 'Trade', fill: pal.mustard, color: pal.ink, off: old })) {
+        st.credit += credit; ST.removeBird(S, c); RB.audio.play('coin'); say = 'A fair swap. That is credit with me.';
+      }
+    });
+  }
+  function relics(x0, y0, w0) {
+    const loot = Object.keys(S.inv).filter((id) => IT.ITEMS[id] && IT.ITEMS[id].kind === 'loot');
+    if (!loot.length) { ui.para('No relics on you. Dig some up and bring them here.', x0 + 4, y0 + 6, w0, { size: 13 }); return; }
+    const each = (id) => Math.round(IT.ITEMS[id].price * 0.9 * keeper.wealth);
+    if (ui.btn(x0, y0, Math.min(260, w0), 36, 'Sell all relics ($' + loot.reduce((s, id) => s + each(id) * S.inv[id], 0) + ')', { fill: pal.mustard, color: pal.ink, size: 13 })) {
+      let sum = 0; for (const id of loot) { sum += each(id) * S.inv[id]; delete S.inv[id]; }
+      earn(sum); say = 'Marvellous. Dirt and all.';
+    }
+    loot.forEach((id, i) => ui.text(IT.ITEMS[id].name + ' x' + S.inv[id] + ' · $' + each(id) + ' each', x0 + 4, y0 + 60 + i * 18, { size: 12, bold: false }));
+  }
+  function duel(x0, y0, w0) {
+    const ch = RB.npc.challengeOf(S, keeper);
+    if (!ch) { ui.para('We have fought today. Come back tomorrow, if you dare.', x0 + 4, y0 + 6, w0, { size: 13 }); return; }
+    common.portrait({ P: ch.opp.P }, x0 + 4, y0 + 4, 110, 110);
+    ui.text(ch.opp.name, x0 + 124, y0 + 26, { size: 17 });
+    ui.text(ch.opp.P.species.name + ' · ' + common.fmtKg(ch.opp.P.weightKg), x0 + 124, y0 + 46, { size: 12, bold: false });
+    ui.text((ch.open ? 'Any weight' : RB.pheno.WEIGHT_CLASSES[ch.wc][0] + 'weight or lighter') + ' · stake $' + ch.fee + ' each', x0 + 124, y0 + 64, { size: 12, bold: false, maxW: w0 - 130 });
+    if (ui.btn(x0 + 124, y0 + 76, 150, 40, 'Accept', { fill: pal.coral, disabled: S.money < ch.fee })) enterBout(ch, null, ch.opp);
   }
 
   // ---- arenas
@@ -241,9 +272,14 @@
     const arena = EC.ARENA[site.id], lg = EC.leagueOf(S, arena.id), cards = EC.cards(S, arena), exs = [EC.exhibition(S, arena, 0), EC.exhibition(S, arena, 1)];
     ui.text(lg.boss ? 'You are champion here.' : 'Wins ' + lg.wins + ' of ' + arena.need + ' to face ' + arena.boss.trainer, b.x + 4, b.y + 14, { size: 13 });
     ui.bar(b.x + 4, b.y + 22, Math.min(300, b.w - 8), 8, lg.boss ? 1 : lg.wins / arena.need, pal.mustard);
+    // what this arena does instead of ring-outs
+    const tw = RB.fight.TWISTS[arena.modes[0]] || RB.fight.TWISTS.pit;
+    ui.text(tw[0] + ': ' + tw[1], b.x + 4, b.y + 44, { size: 11, bold: false, color: pal.plum, maxW: b.w - 8 });
     // the exhibitions come first: there are always two to watch and bet on
-    const rows = cards.length + exs.length, modes = { pit: 'Pit fight', push: 'Push-out', aerial: 'Aerial bout' };
-    ui.list('cards' + site.id, b.x, b.y + 38, b.w, b.h - 38, rows, 76, (i, x, y, w) => {
+    const rows = cards.length + exs.length, modes = {};
+    for (const k of Object.keys(RB.fight.TWISTS)) modes[k] = RB.fight.TWISTS[k][0];
+    modes.push = modes.mud; modes.aerial = modes.wind;
+    ui.list('cards' + site.id, b.x, b.y + 54, b.w, b.h - 54, rows, 76, (i, x, y, w) => {
       ui.rect(x, y + 2, w - 6, 70, i < exs.length ? '#f1e6f4' : pal.paper, 10);
       if (i < exs.length) {
         const ex = exs[i];
@@ -319,7 +355,7 @@
       S = RB.game.S; world = RB.game.world; site = world.site[args.site]; tab = 0; t = 0;
       keeper = world.npcs.find((n) => n.site === site.id) || null;
       if (keeper) keeper = RB.npc.current(S, keeper);
-      say = site.kind === 'house' ? RB.npc.greeting(S, keeper) : LINES[site.id] || 'Hello.';
+      say = site.kind === 'house' || site.kind === 'exotic' ? RB.npc.greeting(S, keeper) : LINES[site.id] || 'Hello.';
       if (keeper) RB.npc.info(S, keeper.id).met = true;
       // each kind of place has its own tune
       RB.audio.setTune(site.id === 'cellar' || site.id === 'market' ? 'cellar' : site.kind === 'arena' ? 'fight' : site.kind === 'carnival' ? 'carnival' : site.kind === 'house' ? 'farm' : 'town');
@@ -327,7 +363,7 @@
     update(dt) { if (common.checkBroke(S, 'map')) return; t += dt; },
     draw(ctx) {
       const v = ui.view;
-      ctx.fillStyle = site.id === 'cellar' ? '#4a4460' : site.id === 'bfc' ? '#f7e3de' : pal.cream; ctx.fillRect(0, 0, v.w, v.h);
+      ctx.fillStyle = site.id === 'cellar' ? '#4a4460' : site.id === 'bfc' ? '#f7e3de' : site.kind === 'exotic' ? '#efe2f2' : pal.cream; ctx.fillRect(0, 0, v.w, v.h);
       // header: who you are talking to, and what they say
       ui.rect(0, 0, v.w, 70, pal.ink);
       if (site.id === 'bfc') { ui.rect(8, 8, 54, 54, pal.paper, 10); RB.props.coronel(ctx, 35, 60, 0.74); }
@@ -346,7 +382,7 @@
       else if (k === 'vet') vet(b);
       else if (k === 'bank') bank(b);
       else if (k === 'bfc') bfc(b);
-      else if (k === 'house') house(b);
+      else if (k === 'house' || k === 'exotic') house(b);
       else if (k === 'arena') arenaLobby(b);
       else if (k === 'carnival') carnival(b);
     },

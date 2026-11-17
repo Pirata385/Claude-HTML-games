@@ -102,7 +102,7 @@
   function wishOf(S, npc) {
     const st = info(S, npc.id);
     const r = new Rng((npc.seed ^ Math.imul(period(S) + 1, 7919) ^ Math.imul(st.n + 1, 104729)) >>> 0);
-    if (npc.role === 'collector') return WISHES.find((w) => w.id === 'odd');
+    if (npc.role === 'collector' || npc.role === 'exotic') return WISHES.find((w) => w.id === 'odd');
     if (r.chance(0.3)) {
       const id = r.pick(WISH_SPECIES), s = RB.species.SPECIES[id], name = RB.species.nameOf(s, 'F').toLowerCase();
       return { id: 'sp:' + id, text: (/^[aeiou]/.test(name) ? 'an ' : 'a ') + name, score: (P) => (P.species.id === id ? (P.species.pure ? 1 : 0.6) : 0) };
@@ -113,25 +113,39 @@
   function offer(S, npc, c) {
     if (c.person) return 0;
     const P = RB.state.pheno(c), st = info(S, npc.id), m = wishOf(S, npc).score(P, c);
-    const k = npc.role === 'collector' ? 0.5 + 2.6 * m : 0.85 + 1.9 * m;
+    const k = npc.role === 'collector' || npc.role === 'exotic' ? 0.5 + 2.6 * m : 0.85 + 1.9 * m;
     return Math.max(3, Math.round(RB.economy.value(c) * k * npc.wealth * (1 + st.rel / 250)));
   }
   const fitText = (m) => (m > 0.8 ? 'Exactly what I wanted!' : m > 0.45 ? 'That would do nicely.' : m > 0.15 ? 'Not quite what I had in mind.' : 'Not what I am after, but I will take it off your hands.');
 
-  // A breeder's birds for sale this period: [{ key, g, price, name }]
+  // Every neighbour has a few birds for sale each period: [{ key, g, price, name, P, mom, dad, momKey, dadKey }]
+  // Breeders keep more and sell cheaper; the exotic dealer sells the strangest birds there are.
+  const STOCK_N = { breeder: 3, exotic: 5 };
+  const blank = (g) => ({ g, age: 3, train: { muscle: 0, lungs: 0, reflex: 0, courage: 0 }, cond: 1, wins: 0, hp: 1, _P: null });
   function stockOf(S, world, npc) {
     const st = info(S, npc.id), site = world.site[npc.site], out = [];
-    const biome = RB.world.biomeAt(world, site.x, site.y), fauna = RB.world.FAUNA[biome === 'water' ? 'farm' : biome].day;
-    for (let i = 0; i < 2; i++) {
+    st.sold = st.sold || {};
+    const fauna = RB.world.faunaAt(world, site.x, site.y);
+    for (let i = 0; i < (STOCK_N[npc.role] || 2); i++) {
       const key = period(S) + ':' + i;
       if (st.sold[key]) continue;
       const r = new Rng((npc.seed ^ Math.imul(period(S) + 3, 15485863) ^ i) >>> 0);
-      const id = r.weighted(fauna, (e) => e[1])[0];
-      const g = RB.species.make(id, r, { sport: 0.25 });
-      const c = { g, age: 3, train: { muscle: 0, lungs: 0, reflex: 0, courage: 0 }, cond: 1, wins: 0, hp: 1, _P: null };
-      out.push({ key, g, name: r.pick(RB.state.BIRD_NAMES), price: Math.round(RB.economy.value(c) * 1.7 * (1 - st.rel / 400)), P: RB.state.pheno(c) });
+      const e = npc.role === 'exotic' ? exotic(r) : { g: RB.species.make(r.weighted(fauna, (x) => x[1])[0], r, { sport: 0.25 }) };
+      const c = blank(e.g), k = npc.role === 'exotic' ? 2.6 : npc.role === 'breeder' ? 1.7 : 1.9;
+      out.push(Object.assign({ key, name: r.pick(RB.state.BIRD_NAMES), price: Math.round(RB.economy.value(c) * k * (1 - st.rel / 400)), P: RB.state.pheno(c) }, e));
     }
     return out;
+  }
+  // A bizarre bird: a cross of two kinds that have no business together (now and then one of them
+  // long extinct), with a handful of oddities switched on and its genes stirred.
+  function exotic(r) {
+    const ids = RB.species.IDS.filter((id) => !RB.species.SPECIES[id].person), live = ids.filter((id) => !RB.species.SPECIES[id].extinct);
+    const a = r.pick(r.chance(0.2) ? ids : live);
+    let b = r.pick(live); while (b === a) b = r.pick(live);
+    const g = RB.genome.breed(RB.species.make(a, r, { sex: 'F', sport: 0 }), RB.species.make(b, r, { sex: 'M', sport: 0 }), r);
+    RB.genome.sport(g, r, r.int(2, 4));
+    RB.genome.mutate(g, r, r.int(4, 12));
+    return { g, mom: RB.species.generic(a), dad: RB.species.generic(b), momKey: a, dadKey: b };
   }
   // A rival trainer's challenge for today, or null if already fought.
   function challengeOf(S, npc) {
@@ -148,12 +162,13 @@
 
   const GREET = { villager: ['Morning! I am looking for {w}.', 'You catch birds, right? I want {w}.', 'If you ever find {w}, think of me.'],
     breeder: ['Fresh from my own yard. Have a look.', 'Good stock, fair prices.'], collector: ['I collect the strange and the old. Show me {w}.', 'Bones, relics, oddities. What have you dug up?'],
-    trainer: ['My bird would flatten yours. Care to prove me wrong?', 'Put your money where your beak is.'] };
+    trainer: ['My bird would flatten yours. Care to prove me wrong?', 'Put your money where your beak is.'],
+    exotic: ['Two heads? Teeth? A glow in the dark? I have them all. Nobody else does.', 'Step inside. Mind the one with arms.', 'Rare, strange and impossible. Prices to match.'] };
   function greeting(S, npc) {
     const r = new Rng((npc.seed ^ S.day) >>> 0), list = GREET[npc.role] || ['Hello.'];
     return r.pick(list).replace('{w}', wishOf(S, npc).text);
   }
   const SCREAMS = ['Hey! HEY!', 'Not the net!', 'I have a family!', 'This is a kidnapping!', 'Put me down!', 'My back!'];
 
-  RB.npc = { populate, make, personGenome, clothes, current, WISHES, info, vacancy, wishOf, offer, fitText, stockOf, challengeOf, greeting, SCREAMS, period, hashStr };
+  RB.npc = { populate, make, exotic, personGenome, clothes, current, WISHES, info, vacancy, wishOf, offer, fitText, stockOf, challengeOf, greeting, SCREAMS, period, hashStr };
 })();

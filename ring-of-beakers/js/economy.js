@@ -41,16 +41,17 @@
   }
 
   // ---- arenas
+  // modes: each arena's twist (see fight.js TWISTS): nobody falls out of a ring any more
   const ARENAS = [
-    { id: 'backyard', name: 'Backyard Pit', tier: 0, modes: ['pit'], classes: [1, 2, 3], fee: 15, purse: 70, need: 3, betCap: 300,
+    { id: 'backyard', name: 'Backyard Pit', tier: 0, modes: ['grain'], classes: [1, 2, 3], fee: 15, purse: 70, need: 3, betCap: 300,
       boss: { trainer: 'Old Bira', bird: 'Sete Facas', mix: ['gamecock', 'gamecock'], wc: 3, purse: 400, gear: null } },
-    { id: 'county', name: 'County Ring', tier: 1, modes: ['pit', 'push'], classes: [2, 3, 4], fee: 50, purse: 220, need: 4, betCap: 1000,
-      boss: { trainer: 'Dona Zefa', bird: 'Tempestade', mix: ['goose', 'swan'], wc: 4, purse: 1400, gear: 'scarf', mode: 'push' } },
-    { id: 'city', name: 'City Arena', tier: 2, modes: ['pit', 'push', 'aerial'], classes: [3, 4, 5], fee: 150, purse: 650, need: 4, betCap: 3000,
+    { id: 'county', name: 'County Ring', tier: 1, modes: ['mud'], classes: [2, 3, 4], fee: 50, purse: 220, need: 4, betCap: 1000,
+      boss: { trainer: 'Dona Zefa', bird: 'Tempestade', mix: ['goose', 'swan'], wc: 4, purse: 1400, gear: 'scarf' } },
+    { id: 'city', name: 'City Arena', tier: 2, modes: ['wind'], classes: [3, 4, 5], fee: 150, purse: 650, need: 4, betCap: 3000,
       boss: { trainer: 'Dr. Quill', bird: 'Bisturi', mix: ['eagle', 'secretary'], wc: 4, purse: 4000, gear: 'helmet' } },
-    { id: 'cellar', name: 'The Cellar', tier: 3, modes: ['pit', 'push'], classes: [6], fee: 400, purse: 1700, need: 5, betCap: 8000, night: true,
+    { id: 'cellar', name: 'The Cellar', tier: 3, modes: ['dark'], classes: [6], fee: 400, purse: 1700, need: 5, betCap: 8000, night: true,
       boss: { trainer: 'The Butcher', bird: 'Machado', mix: ['cassowary', 'cassowary'], wc: 6, purse: 9000, gear: 'spurs' } },
-    { id: 'grand', name: 'Grand Ring', tier: 4, modes: ['pit'], classes: [4, 5, 6], fee: 1000, purse: 4500, need: 5, betCap: 20000,
+    { id: 'grand', name: 'Grand Ring', tier: 4, modes: ['rounds'], classes: [4, 5, 6], fee: 1000, purse: 4500, need: 5, betCap: 20000,
       boss: { trainer: 'Madame Plume', bird: 'Imperatriz', mix: ['terror', 'cassowary'], wc: 6, purse: 25000, gear: 'spurs', final: true } },
   ];
   const ARENA = {};
@@ -140,7 +141,7 @@
     }
     const lg = leagueOf(S, arena.id);
     if (lg.wins >= arena.need && !lg.boss) {
-      list.push({ key: arena.id + ':boss', i: list.length, wc: arena.boss.wc, mode: arena.boss.mode || 'pit', open: arena.boss.wc >= 6, fee: arena.fee * 2, purse: arena.boss.purse, boss: true, tier: arena.tier });
+      list.push({ key: arena.id + ':boss', i: list.length, wc: arena.boss.wc, mode: arena.boss.mode || arena.modes[0], open: arena.boss.wc >= 6, fee: arena.fee * 2, purse: arena.boss.purse, boss: true, tier: arena.tier });
     }
     return list;
   }

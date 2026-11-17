@@ -89,6 +89,15 @@
     // white belly, legs as thick as a child's wrist and huge talons. Calls with a long, thin wail.
     harpy: { name: 'Harpy Eagle', short: 'Harpy', tier: 4,
       t: { size: 1.36, posture: 0.8, bodyDepth: 1.2, bodyLen: 1.0, neckLen: 0.55, neckThick: 1.2, headSize: 1.4, eyeSize: 1.3, beakLen: 0.85, beakDepth: 1.65, beakHook: 1, legLen: 1.05, legThick: 1.9, footSize: 1.9, talon: 1, spur: 0, wingSize: 1.65, wingPoint: 0, tailLen: 1.25, tailFan: 0.35, tailUp: 0.1, crest: 1, comb: 0, wattle: 0, hue: 0.6, sat: 0.07, lit: 0.28, litHead: 0.4, litWing: -0.2, litTail: -0.05, belly: 1, pattern: 0.5, beakTone: 0.05, legTone: 0.5, eyeTone: 0.15, muscle: 1.5, bone: 1.25, reflex: 1.3, hide: 1.15, aggression: 0.9, courage: 0.95, focus: 0.95, cunning: 0.6, voicePitch: 0.9, voiceRasp: 0.1, voiceLen: 0.95 } },
+    // Two night birds, so the dark has more than owls and kiwis in it.
+    // The nightjar: a mottled bark-brown bird with a tiny bill, a huge gape, big eyes, long wings and
+    // short legs, flat on the ground by day. Churrs all night.
+    nightjar: { name: 'Nightjar', tier: 2, night: true,
+      t: { size: 0.55, posture: 0.1, bodyLen: 1.2, bodyDepth: 0.85, neckLen: 0.25, headSize: 1.25, eyeSize: 1.65, beakLen: 0.3, beakDepth: 0.5, beakHook: 0.1, beakFlat: 0.6, legLen: 0.32, legThick: 0.6, footSize: 0.7, talon: 0.05, spur: 0, wingSize: 1.75, wingPoint: 0.85, tailLen: 1.45, tailFan: 0.3, tailUp: 0.15, comb: 0, wattle: 0, crest: 0, hue: 0.08, sat: 0.3, lit: 0.36, litHead: -0.05, pattern: 0.73, patContrast: 0.65, belly: 0.4, beakTone: 0.15, legTone: 0.3, eyeTone: 0.05, reflex: 1.35, focus: 0.7, cunning: 0.85, courage: 0.35, aggression: 0.35, voicePitch: 0.3, voiceRasp: 0.4, voiceLen: 1 } },
+    // The potoo: sits bolt upright like a broken branch, with enormous yellow eyes and a gape that
+    // splits its head in two. Its mournful call sounds like someone crying in the dark.
+    potoo: { name: 'Potoo', tier: 3, night: true,
+      t: { size: 0.78, posture: 1, bodyLen: 0.95, bodyDepth: 1.05, neckLen: 0.2, headSize: 1.55, eyeSize: 1.9, beakLen: 0.35, beakDepth: 1.25, beakHook: 0.4, beakFlat: 0.7, legLen: 0.3, legThick: 0.7, footSize: 0.8, talon: 0.3, spur: 0, wingSize: 1.45, wingPoint: 0.3, tailLen: 1.6, tailFan: 0.35, tailUp: 0.05, comb: 0, wattle: 0, crest: 0, hue: 0.09, sat: 0.18, lit: 0.48, litHead: 0.05, litWing: -0.1, pattern: 0.73, patContrast: 0.5, belly: 0.5, beakTone: 0.25, legTone: 0.3, eyeTone: 0.95, focus: 0.9, cunning: 0.75, courage: 0.55, aggression: 0.4, hide: 1.15, voicePitch: 0.2, voiceRasp: 0.1, voiceLen: 1 } },
   };
   for (const id of Object.keys(SPECIES)) { const s = SPECIES[id]; s.id = id; s.sw = s.sw || []; }
   const IDS = Object.keys(SPECIES);

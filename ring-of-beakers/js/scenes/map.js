@@ -26,7 +26,7 @@
 
   // The wild animals: the day's population (see world.population), kept for the whole day so they
   // stay where they were while you go in and out of places. Animals caught today are remembered in
-  // the save; everything is renewed the next morning. Night groups only come out after dark.
+  // the save; everything is renewed the next morning. By day the day birds are out; after dark they roost and the night birds take their place.
   function loadWild() {
     const key = S.seed + ':' + S.day, cache = RB.game.wild;
     if (cache && cache.key === key) return cache.list;
@@ -41,8 +41,10 @@
     const P = RB.pheno.express(g);
     return { id: e ? e.id : null, night: !!(e && e.night), cross: e ? e.cross : null, kin: e ? e.kin : null, g, P, x, y, f: rng.chance(0.5) ? 1 : -1, state: state || 'graze', t: rng.range(0.5, 4), ph: rng.next(), sp: 0, stam: 100, alt: 0, tx: x, ty: y, mean: P.aggression > 0.8 && P.courage > 0.7 && P.S > 0.8 };
   }
-  function addWild(g, x, y, state) { const w = makeWild(g, x, y, state); wild.push(w); return w; }
-  const awake = (w) => !w.night || isNight();
+  function addWild(g, x, y, state) { const w = makeWild(g, x, y, state); w.any = true; wild.push(w); return w; }
+  // Day birds roost after dark and the night birds come out in their place. Animals you let go or
+  // dig up are about at any hour.
+  const awake = (w) => w.any || (w.night ? isNight() : !isNight());
   function removeWild(w) {
     const i = wild.indexOf(w);
     if (i >= 0) wild.splice(i, 1);

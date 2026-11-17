@@ -243,10 +243,10 @@ test('buyers pay more for what they wished for, breeders sell, trainers challeng
   assert.ok(RB.npc.offer(S, buyer, fit) / EC.value(fit) > RB.npc.offer(S, buyer, miss) / EC.value(miss) * 1.8);
   const breeder = w.npcs.find((n) => n.role === 'breeder');
   const stock = RB.npc.stockOf(S, w, breeder);
-  assert.strictEqual(stock.length, 2);
+  assert.strictEqual(stock.length, 3, 'breeders keep three');
   assert.ok(stock.every((s) => s.price > 0));
   RB.npc.info(S, breeder.id).sold[stock[0].key] = true;
-  assert.strictEqual(RB.npc.stockOf(S, w, breeder).length, 1);
+  assert.strictEqual(RB.npc.stockOf(S, w, breeder).length, 2);
   const trainer = w.npcs.find((n) => n.role === 'trainer');
   const ch = RB.npc.challengeOf(S, trainer);
   assert.ok(ch && ch.opp.P.hpMax > 0 && ch.purse === ch.fee * 2);
@@ -492,8 +492,9 @@ test('Sunset Roost is on the map with Dona Nina, and adding it left the rest of 
   }
   // the older sites and people come out exactly as before (Sunset Roost draws its own numbers)
   const w = RB.world.generate(99);
-  assert.strictEqual(w.sites.indexOf(w.site.roost), w.sites.length - 1);
-  assert.strictEqual(w.npcs[w.npcs.length - 1].site, 'roost');
+  // sites opened later come after all the others, in the order they opened
+  assert.deepStrictEqual(w.sites.slice(-2).map((x) => x.id), ['roost', 'oddities']);
+  assert.deepStrictEqual(w.npcs.slice(-2).map((n) => n.site), ['roost', 'oddities']);
 });
 
 test('the first boss gives the silver net (never used up), the second the golden shovel (10 digs a day)', () => {
@@ -627,4 +628,17 @@ test('training says which numbers go up and by how much, and does exactly that',
   assert.strictEqual(ST.trainPreview(c, 'lungs').gain, 0.03);
   c.train.reflex = 0.15;
   assert.strictEqual(ST.trainPreview(c, 'reflex').gain, 0);
+});
+
+test('after dark the night birds come out in place of the day birds, in about the same numbers', () => {
+  const w = RB.world.generate(71), pop = RB.world.population(w, 5);
+  const day = pop.filter((e) => !e.night), night = pop.filter((e) => e.night);
+  assert.ok(day.length > 150, 'only ' + day.length + ' by day');
+  assert.ok(night.length > 0.6 * day.length && night.length < 1.6 * day.length, day.length + ' by day, ' + night.length + ' by night');
+  const nightKinds = new Set();
+  for (const b of Object.keys(RB.world.FAUNA)) for (const e of RB.world.FAUNA[b].night) nightKinds.add(e[0]);
+  for (const e of night) if (!e.cross && !e.kin) assert.ok(nightKinds.has(e.sp), e.sp + ' out at night');
+  const seen = new Set(night.map((e) => e.sp));
+  for (const id of ['owl', 'nightjar', 'potoo']) assert.ok(seen.has(id), 'no ' + id + ' at night');
+  assert.ok(RB.species.SPECIES.nightjar.night && RB.species.SPECIES.potoo.night);
 });

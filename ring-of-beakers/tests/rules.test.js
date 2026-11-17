@@ -802,3 +802,45 @@ test('three birds and three fossils of the open sea, and a dinosaur', () => {
   assert.strictEqual(RB.lab.rebuild(S, 'trex'), '');
   assert.strictEqual(RB.species.classify(S.eggs[S.eggs.length - 1].g).id, 'trex');
 });
+
+test('map markers find each kind of place; sea ones only once the sea is open; saves keep them', () => {
+  const S = ST.create(151, { sandbox: true }), w = RB.world.generate(S.seed), G = RB.guide;
+  const ids = G.categories().map((c) => c.id);
+  for (const id of ['arena', 'shop', 'vet', 'village', 'exotic', 'mark', 'fossil:trex', 'fossil:haast', 'bird:puffin', 'lost']) assert.ok(ids.includes(id), id);
+  const home = w.site.home;
+  // on the mainland alone
+  const arenas = G.find(w, S, 'arena', home.x, home.y, 20000, false);
+  assert.strictEqual(arenas.length, 5);
+  assert.ok(G.find(w, S, 'fossil:trex', home.x, home.y, 20000, false).some((p) => p.name === 'Bone Quarry'));
+  assert.strictEqual(G.find(w, S, 'fossil:haast', home.x, home.y, 20000, false).length, 0, 'sea fossils need the sea');
+  assert.strictEqual(G.find(w, S, 'bird:puffin', home.x, home.y, 20000, false).length, 0);
+  // with the open sea: tyrannosaur islands are volcanic, puffin islands have puffins
+  const rex = G.find(w, S, 'fossil:trex', home.x, home.y, 50000, true);
+  assert.ok(rex.length > 2);
+  for (const p of rex) if (p.name !== 'Bone Quarry') { const is = RB.sea.islandAt(w, p.x, p.y); assert.ok(is && is.main === 'volcanic', p.name); }
+  for (const p of G.find(w, S, 'bird:puffin', home.x, home.y, 50000, true)) assert.ok(RB.sea.islandAt(w, p.x, p.y).fauna.day.some((e) => e[0] === 'puffin'));
+  // treasure marks dug up drop off the list
+  const marks = G.find(w, S, 'mark', home.x, home.y, 20000, false), m = w.marks[0];
+  S.marksDug[m.cx + ',' + m.cy] = true;
+  assert.strictEqual(G.find(w, S, 'mark', home.x, home.y, 20000, false).length, marks.length - 1);
+  // the nearest of several kinds
+  const n = G.nearest(w, S, ['arena', 'fossil:trex'], home.x, home.y, 50000, true);
+  assert.ok(n && n.d >= 0 && ['arena', 'fossil:trex'].includes(n.cat));
+  // switched-on kinds and islands landed on are saved
+  S.markers['fossil:trex'] = true; S.visited.i3_4_0 = 1;
+  const back = ST.deserialize(JSON.parse(JSON.stringify(ST.serialize(S))));
+  assert.deepStrictEqual(G.on(back), ['fossil:trex']);
+  assert.ok(back.visited.i3_4_0);
+  const old = ST.serialize(S); delete old.markers; delete old.visited;
+  const o2 = ST.deserialize(JSON.parse(JSON.stringify(old)));
+  assert.deepStrictEqual(o2.markers, {}); assert.deepStrictEqual(o2.visited, {});
+});
+
+test('a night out costs nothing: the next day starts wherever you are', () => {
+  const S = ST.create(153);
+  S.time = 29.9; S.money = 150; S.pos = { x: 7000, y: 3000 };
+  // the map hands over to the same night as sleeping at home; nothing is taken and you are not moved
+  ST.sleep(S);
+  assert.strictEqual(S.day, 2); assert.strictEqual(S.time, 6); assert.strictEqual(S.money, 150);
+  assert.deepStrictEqual(S.pos, { x: 7000, y: 3000 });
+});

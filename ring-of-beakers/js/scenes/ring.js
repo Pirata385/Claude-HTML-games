@@ -20,7 +20,7 @@
   // Apply the result to the save. Returns lines for the result panel.
   function settle() {
     const S = RB.game.S, r = fight.result, out = [], card = A.card || {};
-    S.time = Math.min(25.9, S.time + 1);
+    S.time = Math.min(29.9, S.time + 1);
     if (mine) {
       const c = A.a.c, won = r.winner === 0;
       // every bout tires a bird out for the day (a tonic perks it up); only a loss leaves wounds,

@@ -24,7 +24,7 @@
   function finish() {
     done = true;
     S.money += PAY; S.stats.earned += PAY; S.stats.chores = (S.stats.chores || 0) + 1;
-    S.time = Math.min(25.5, S.time + 1.5);
+    S.time = Math.min(29.5, S.time + 1.5);
     common.award(S, 'chores');
     RB.game.save();
     RB.audio.play('win');

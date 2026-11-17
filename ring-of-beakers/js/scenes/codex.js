@@ -17,6 +17,7 @@
     ['BFC', 'Brazil\'s Fried Chicken pays by the kilo for any bird you are done with, at the counter or through the pick-up box in your yard.'],
     ['Night', 'After dark the day birds roost and the night birds take their place: owls, kiwis, nightjars, potoos, kakapos, thick-knees and more.'],
     ['The open sea', 'Win the Grand Ring and pay off the bank, and Biu fits a speedboat kit: drive into water and sail off. The sea never ends, and every island has its own land, its own race of birds, and maybe a village or an arena. Albatrosses, frigatebirds and puffins live only out there. A sandbox game starts with all of it.'],
+    ['The map', 'Zoom with the buttons, the wheel or a pinch, and drag to look around. Markers puts pins on the kinds of place you want (arenas, fossils of each kind, sea birds...) and an arrow on the road points to the nearest. Islands you have landed on can be sailed to straight from the map. Staying out all night costs nothing: the new day starts where you are.'],
     ['Old age', 'A bird that reaches the end of its lifespan retires instead of dying: no more fights, nests, training or shows. Take it to Sunset Roost, just north-west of home, where Dona Nina looks after retired birds in her garden for free. You can visit them, or take one home again.'],
   ];
 

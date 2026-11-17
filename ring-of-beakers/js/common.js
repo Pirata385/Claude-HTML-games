@@ -10,7 +10,8 @@
 
   common.fmtTime = (h) => { const hh = Math.floor(h) % 24, mm = Math.floor((h % 1) * 60); return hh + ':' + (mm < 10 ? '0' : '') + mm; };
   common.fmtKg = (kg) => (kg < 1 ? Math.round(kg * 1000) + ' g' : kg < 10 ? kg.toFixed(1) + ' kg' : Math.round(kg) + ' kg');
-  common.night = (time) => smooth((time - 18.3) / 2.4);
+  // dark from nightfall, and light again towards dawn for anyone still out after midnight
+  common.night = (time) => smooth((time - 18.3) / 2.4) * (1 - smooth((time - 28.2) / 1.8));
   const rgbOf = (c) => (c[0] === '#' ? [1, 3, 5].map((i) => parseInt(c.slice(i, i + 2), 16)) : c.slice(4, -1).split(',').map(Number));
   // Blend two colours given as #rrggbb or rgb(r,g,b).
   function mix(a, b, t) {
@@ -58,9 +59,9 @@
       const box = ui.window('Pass time', 320, 236, {});
       if (!box) return;
       ui.para('It is ' + common.fmtTime(S.time) + '. The Cellar and the Night Market open at 19:00. On the map, the clock button speeds time up.', box.x, box.y, box.w, { size: 12 });
-      const wait = (to) => { S.time = Math.min(25, to); RB.audio.play('tick'); ui.close(); ui.toast('It is ' + common.fmtTime(S.time) + '.', pal.plum); };
+      const wait = (to) => { S.time = Math.min(29.5, to); RB.audio.play('tick'); ui.close(); ui.toast('It is ' + common.fmtTime(S.time) + '.', pal.plum); };
       const y = box.y + box.h - 94;
-      if (ui.btn(box.x, y, box.w, 42, 'Wait one hour', { icon: 'clock', disabled: S.time >= 24.9 })) wait(S.time + 1);
+      if (ui.btn(box.x, y, box.w, 42, 'Wait one hour', { icon: 'clock', disabled: S.time >= 28.9 })) wait(S.time + 1);
       if (ui.btn(box.x, y + 50, box.w, 42, S.time < 19 ? 'Wait until nightfall (19:00)' : 'It is already night', { icon: 'moon', fill: pal.plum, disabled: S.time >= 19 })) wait(19);
     } });
   };
@@ -89,6 +90,7 @@
     return S.goal < GOALS.length ? GOALS[S.goal][0] : null;
   };
   common.drawGoal = function (S, y) {
+    if (RB.game && RB.game.settings && RB.game.settings.goals === false) return; // switched off in Settings
     const g = common.goal(S);
     if (!g) return;
     const v = ui.view, w = Math.min(v.w - 16, ui.width(g, 12) + 44), x = (v.w - w) / 2;
@@ -221,7 +223,7 @@
   RB.common.settings = function (inGame) {
     const game = RB.game;
     ui.open({ draw() {
-      const box = ui.window('Settings', 340, inGame ? 378 : 318, {});
+      const box = ui.window('Settings', 340, inGame ? 424 : 364, {});
       if (!box) return;
       const st = game.settings;
       let y = box.y + 4;
@@ -233,10 +235,14 @@
         y += 46;
       };
       vol('Sound', 'sfx', 'sound'); vol('Music', 'music', 'music');
-      // the CRISPR cutting mini-game can be switched off: then gene edits apply at once
-      ui.icon('dna', box.x + 12, y + 18, 18, pal.ink); ui.text('Gene-edit mini-game', box.x + 30, y + 23, { size: 14, maxW: box.w - 130 });
-      if (ui.btn(box.x + box.w - 90, y, 90, 36, st.crispr === false ? 'Off' : 'On', { fill: st.crispr === false ? pal.grey : pal.teal, size: 13 })) { st.crispr = st.crispr === false; game.applySettings(); RB.audio.play('click'); }
-      y += 46;
+      // on/off switches (on unless switched off)
+      const toggle = (label, key, icon) => {
+        ui.icon(icon, box.x + 12, y + 18, 18, pal.ink); ui.text(label, box.x + 30, y + 23, { size: 14, maxW: box.w - 130 });
+        if (ui.btn(box.x + box.w - 90, y, 90, 36, st[key] === false ? 'Off' : 'On', { fill: st[key] === false ? pal.grey : pal.teal, size: 13 })) { st[key] = st[key] === false; game.applySettings(); RB.audio.play('click'); }
+        y += 46;
+      };
+      toggle('Gene-edit mini-game', 'crispr', 'dna'); // off: gene edits apply at once
+      toggle('Goal hints', 'goals', 'target');         // off: no goal line at the top of the screen
       if (ui.btn(box.x, y, box.w, 38, 'Full screen', { icon: 'full', fill: pal.plum })) game.fullscreen();
       y += 48;
       ui.para('Mouse or touch for everything. On the map: WASD or arrows drive, hold the mouse to aim a net, E enters, Q digs, 1-3 pick a tool.', box.x, y, box.w, { size: 11, color: pal.grey });

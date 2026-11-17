@@ -894,12 +894,12 @@ test('an empty island can be claimed, an island can be raised from the sea, and 
   SEA.restoreIsles(w2, back);
   assert.strictEqual(RB.world.biomeAt(w2, spot.x, spot.y), 'jungle');
   assert.strictEqual(SEA.islandAt(w2, spot.x, spot.y).name, U.name);
-  // leaving birds and taking them back; people stay in the truck
+  // leaving birds and taking them back; people can live out there too
   const [a, b] = S.birds;
   assert.strictEqual(ST.toIsle(S, I, a), ''); assert.strictEqual(ST.toIsle(S, I, b), '');
   assert.strictEqual(S.birds.length, 0); assert.strictEqual(I.birds.length, 2); assert.strictEqual(a.at, 'isle');
   const guy = ST.addBird(S, RB.species.make('human', new Rng(4), { sex: 'M' }), { at: 'cage', person: 'npc1' });
-  assert.ok(ST.toIsle(S, I, guy)); assert.ok(S.birds.includes(guy));
+  assert.strictEqual(ST.toIsle(S, I, guy), ''); assert.ok(I.birds.includes(guy) && !S.birds.includes(guy));
   assert.strictEqual(ST.fromIsle(S, I, a), '');
   assert.strictEqual(a.at, 'cage'); assert.ok(S.birds.includes(a) && !I.birds.includes(a));
 });
@@ -929,7 +929,7 @@ test('island colonies breed on their own, generation after generation, and radia
     assert.ok(k.lines > 0, 'no morning report');
     assert.ok(k.I.birds.every((c) => c.at === 'isle' && c.isle === 'x'));
   }
-  assert.ok(ST.isleCap({ R: 2400 }) === 40 && ST.isleCap({ R: 600 }) === 8);
+  assert.ok(ST.isleCap({ R: 2400 }) === 46 && ST.isleCap({ R: 600 }) === 14, 'six more than before at both ends');
   assert.ok(hot.odd > clean.odd + 3 && hot.odd / hot.born > 0.3, 'hot ' + hot.odd + '/' + hot.born + ' vs clean ' + clean.odd + '/' + clean.born);
   // the old pass away out there
   const S = ST.create(173), I = { id: 'y', name: 'Old Isle', R: 1000, birds: [], rad: 0, gen: 0 };
@@ -967,4 +967,107 @@ test('mushrooms and isotopes make an island radioactive; it fades, can be cleane
   // old saves have no islands
   const old = ST.serialize(S); delete old.isles;
   assert.deepStrictEqual(ST.deserialize(JSON.parse(JSON.stringify(old))).isles, []);
+});
+
+test('a stay at your island runs many nights at once; the birds at home eat from your bag', () => {
+  const S = ST.create(181), I = { id: 'st', name: 'Stay Isle', R: 2400, birds: [], rad: 0, gen: 0, born: 0, died: 0, odd: 0 };
+  S.isles.push(I);
+  for (let i = 0; i < 5; i++) for (const sex of ['M', 'F']) ST.toIsle(S, I, ST.addBird(S, RB.species.make('quail', new Rng(1810 + i), { sex, sport: 0 }), { age: 10, at: 'cage' }));
+  // two at home, a person living on the island alongside the birds
+  const guy = ST.addBird(S, RB.npc.personGenome(new Rng(5), 'M'), { at: 'cage', person: 'h_0', name: 'Ze' });
+  assert.strictEqual(ST.toIsle(S, I, guy), '');
+  S.inv.grain = 100; S.feeder = 0;
+  const day0 = S.day, res = ST.stay(S, 15);
+  assert.strictEqual(S.day, day0 + 15); assert.strictEqual(S.time, 6);
+  assert.strictEqual(res.fromBag, 30, 'two birds at home, fifteen nights');
+  assert.strictEqual(ST.count(S, 'grain'), 70); assert.strictEqual(res.short, 0);
+  assert.strictEqual(S.birds.length, 2); assert.ok(S.birds.every((c) => c.hungry === 0));
+  assert.ok(I.gen >= 2 && I.born > 5, 'gen ' + I.gen + ', born ' + I.born);
+  assert.ok(res.lines[0].startsWith('Stay Isle: ') && /generation \d/.test(res.lines[0]), res.lines[0]);
+  assert.ok(!res.lines.some((l) => /^Day \d+: Stay Isle/.test(l)), 'colony lines are summed up, not repeated');
+  // no grain left: the nights it runs out are counted, and hungry birds run off on the third
+  S.inv.grain = 0; S.feeder = 0;
+  const r2 = ST.stay(S, 4);
+  assert.strictEqual(r2.short, 3, 'after the third hungry night there is nobody left to feed'); assert.strictEqual(S.birds.length, 0);
+  assert.strictEqual(ST.stay(S, 999).lines.length >= 1, true); assert.strictEqual(S.day, day0 + 15 + 4 + ST.STAY_MAX);
+});
+
+test('people live on your islands like the birds: they breed with them and, in time, pass away', () => {
+  const S = ST.create(183), w = RB.world.generate(S.seed), I = { id: 'pp', name: 'People Isle', R: 1300, birds: [], rad: 0, gen: 0 };
+  S.isles.push(I);
+  const base = w.npcs.find((n) => n.id === 'h_1'), c = ST.netKeeper(S, base);
+  assert.ok(c.person === 'h_1' && RB.npc.vacancy(S, base) === 'away');
+  ST.toIsle(S, I, c);
+  ST.toIsle(S, I, S.birds.find((b) => b.g.sex !== c.g.sex));
+  for (let n = 0; n < 30 && I.birds.length < 3; n++) ST.sleep(S);
+  const kid = I.birds.find((b) => b.gen === 1);
+  assert.ok(kid, 'no young after 30 nights');
+  assert.strictEqual(kid.person, null, 'the young are creatures of their own, not the neighbour');
+  // old age takes the neighbour; their house goes to a newcomer three nights later
+  c.age = ST.pheno(c).lifespan + 1; ST.sleep(S);
+  assert.ok(!I.birds.includes(c));
+  assert.strictEqual(RB.npc.vacancy(S, base), 'sold');
+  ST.sleep(S); ST.sleep(S); ST.sleep(S);
+  assert.strictEqual(RB.npc.vacancy(S, base), '');
+  assert.notStrictEqual(RB.npc.current(S, base).name + RB.genome.hash(RB.npc.current(S, base).g), base.name + RB.genome.hash(base.g));
+});
+
+test('anyone minding a place can be netted indoors, and anyone (or any bird) can be put in charge', () => {
+  const S = ST.create(185), w = RB.world.generate(S.seed), N = RB.npc;
+  const cida = w.npcs.find((n) => n.id === 'k_feed');
+  assert.strictEqual(N.vacancy(S, cida), '');
+  const her = ST.netKeeper(S, cida);
+  assert.ok(her.person === 'k_feed' && her.name === cida.name && her.at === 'cage');
+  assert.strictEqual(N.vacancy(S, cida), 'away'); assert.ok(S.netted.k_feed); assert.strictEqual(S.stats.kidnapped, 1);
+  // a bird put in charge wakes up sentient and keeps the shop
+  const pip = S.birds.find((c) => !c.person);
+  assert.strictEqual(ST.installKeeper(S, cida, pip), '');
+  assert.ok(!S.birds.includes(pip)); assert.strictEqual(N.vacancy(S, cida), '');
+  const k = N.current(S, cida);
+  assert.ok(k.bird && k.sub && k.name === pip.name && k.role === 'keeper' && k.site === 'feed' && k.was === cida.name);
+  assert.ok(N.chirp(k).length > 0 && N.chirp(cida) === '', 'a bird in charge still squawks now and then');
+  assert.ok(ST.installKeeper(S, cida, S.birds[0]), 'the place is taken');
+  // it keeps the job through a save
+  const back = ST.deserialize(JSON.parse(JSON.stringify(ST.serialize(S))));
+  assert.strictEqual(N.current(back, cida).name, pip.name); assert.strictEqual(N.vacancy(back, cida), '');
+  // netting the stand-in gives the bird back as it was, and nobody new counts as kidnapped
+  const again = ST.netKeeper(S, cida);
+  assert.ok(!again.person && again.name === pip.name && RB.genome.hash(again.g) === RB.genome.hash(pip.g) && again.at === 'cage');
+  assert.strictEqual(S.stats.kidnapped, 1); assert.strictEqual(N.vacancy(S, cida), 'away');
+  // a neighbour you netted can run the shop instead; letting Dona Cida go gives you them back
+  const ze = ST.netKeeper(S, w.npcs.find((n) => n.id === 'h_2'));
+  assert.strictEqual(ST.installKeeper(S, cida, ze), '');
+  assert.ok(!N.current(S, cida).bird && N.current(S, cida).name === ze.name);
+  const rel = ST.releasePerson(S, her, 40); ST.removeBird(S, her);
+  assert.ok(rel && rel.name === ze.name && S.birds.includes(rel));
+  assert.strictEqual(N.current(S, cida).name, cida.name); assert.strictEqual(N.vacancy(S, cida), '');
+  // put back in her own shop, she simply goes home
+  const her2 = ST.netKeeper(S, cida);
+  assert.strictEqual(ST.installKeeper(S, cida, her2), '');
+  assert.strictEqual(N.current(S, cida).name, cida.name); assert.ok(!N.current(S, cida).sub); assert.ok(!S.birds.includes(her2));
+  // a house sold off to BFC stays with whoever you put there: no newcomer moves in over them
+  const h3 = w.npcs.find((n) => n.id === 'h_3'), p3 = ST.netKeeper(S, h3);
+  ST.soldPerson(S, p3); ST.removeBird(S, p3);
+  assert.strictEqual(N.vacancy(S, h3), 'sold');
+  assert.strictEqual(ST.installKeeper(S, h3, S.birds.find((c) => !c.person)), '');
+  for (let i = 0; i < 5; i++) ST.sleep(S);
+  assert.ok(N.current(S, h3).bird, 'the bird still runs the house');
+  assert.ok(N.stockOf(S, w, N.current(S, h3)).length >= 0);
+});
+
+test('netting every person on the mainland is a feat; sea islanders do not count', () => {
+  const S = ST.create(187), w = RB.world.generate(S.seed);
+  RB.sea.chunk(w, -4, 2); RB.sea.chunk(w, 5, -3); // islands with people of their own
+  const main = ST.mainlanders(w);
+  assert.strictEqual(main.length, 30, 'fourteen keepers, three later places, twelve neighbours and the sheriff');
+  assert.ok(main.every((n) => !w.site[n.site].island));
+  assert.ok(w.npcs.length > main.length, 'the sea islands have people too');
+  for (const n of main.slice(0, -1)) ST.netKeeper(S, n);
+  assert.strictEqual(ST.nettedCount(S, w), 29); assert.ok(!ST.nettedAll(S, w));
+  ST.netKeeper(S, main[main.length - 1]);
+  assert.ok(ST.nettedAll(S, w));
+  // a save from before rebuilds the list from who is missing
+  const old = ST.serialize(S); delete old.netted;
+  const back = ST.deserialize(JSON.parse(JSON.stringify(old)));
+  assert.ok(ST.nettedAll(back, w));
 });

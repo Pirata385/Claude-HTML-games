@@ -106,6 +106,7 @@
     },
     close() {
       if (!this.el) return;
+      if (this.contest && !this.submitted) this.contest = null;
       window.removeEventListener('keydown', this.key, true);
       window.removeEventListener('resize', this.onResize);
       this.el.remove(); this.el = null;
@@ -154,6 +155,11 @@
       this.el.querySelector('.sk-ink').innerHTML = `lead ${lead}  |  ink ${ink}<br><span class="muted">${this.medium === 'pen' ? 'pen: permanent' : 'pencil: fades after 3 days, can be erased'}</span>`;
       const wl = this.el.querySelector('.sk-words');
       if (!PA.Ink.valid(this.strokes)) { wl.innerHTML = '<p class="muted">Draw something on the page.</p>'; return; }
+      if (this.contest) {
+        wl.innerHTML = '<button class="word best" data-submit>submit to the judges</button>';
+        wl.querySelector('[data-submit]').onclick = () => { const f = this.contest, st = this.strokes; this.contest = null; this.close(); f(st); };
+        return;
+      }
       const ranked = PA.Shapes.rank(PA.Shapes.features(this.strokes), s.words);
       const have = this.medium === 'pen' ? ink : lead;
       wl.innerHTML = '<p class="muted">What is it?</p>' + ranked.map((r, i) => {

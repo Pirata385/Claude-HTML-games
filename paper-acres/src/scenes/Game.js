@@ -167,6 +167,8 @@
       if ((pl.state === 'walk' || pl.state === 'run') && ph !== this.lastPhase) PA.Audio.sfx('step');
       this.lastPhase = ph;
       if ((this.moodT = (this.moodT || 0) + dt) > 1000) { this.moodT = 0; PA.Audio.pickTheme(this); }
+      PA.Hints.step(this, dt);
+      PA.Quality.frame(delta);
       this.render(nowMs, dt);
     }
     handleActions(inp, now) {

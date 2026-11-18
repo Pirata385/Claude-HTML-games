@@ -84,6 +84,7 @@
       const actor = NPCs.near(game, 40);
       if (!actor) return false;
       actor.talkT = 2500;
+      if (PA.Contest.offer(game, actor)) return true;
       PA.UI.Talk.open(game, actor);
       return true;
     },

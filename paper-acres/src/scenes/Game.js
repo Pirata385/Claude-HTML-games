@@ -128,7 +128,7 @@
       this.lastNow = nowMs;
       const dt = Math.min(delta, 50);
       this.frameDt = dt;
-      if (this.mode === 'title') { this.titleCam(dt); this.render(nowMs, dt); return; }
+      if (this.mode === 'title') { this.titleCam(dt); this.render(nowMs, dt); if ((this.moodT = (this.moodT || 0) + dt) > 1000) { this.moodT = 0; PA.Audio.pickTheme(this); } return; }
       const inp = PA.Input.poll();
       if (inp.pauseP && !PA.Input.blocked) this.togglePause();
       const running = !this.paused && !PA.Input.blocked && !this.transition;
@@ -162,6 +162,11 @@
       this.terrain.sync(this.player.x, this.player.z);
       this.followCamera(dt);
       PA.UI.HUD.update(this.state);
+      // footsteps on paper and the music's mood
+      const pl = this.player, ph = pl.anim < 0.5 ? 0 : 1;
+      if ((pl.state === 'walk' || pl.state === 'run') && ph !== this.lastPhase) PA.Audio.sfx('step');
+      this.lastPhase = ph;
+      if ((this.moodT = (this.moodT || 0) + dt) > 1000) { this.moodT = 0; PA.Audio.pickTheme(this); }
       this.render(nowMs, dt);
     }
     handleActions(inp, now) {

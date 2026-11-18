@@ -131,6 +131,30 @@
       st.wx0 = wx0; st.wx1 = wx1;
       return st;
     }
+    /** Crops, placed objects and forage of slice z (state-driven, drawn every frame). */
+    drawDynamic(R, z, p, st, state) {
+      if (!state || p.level < 0) return;
+      const ctx = R.ctx, mid = this.map.id, g = this.grid;
+      R.use(p);
+      for (const c of state.crops) {
+        if (c.map !== mid || c.z !== z) continue;
+        const bx = (c.x + 0.5) * CW;
+        if (bx < st.wx0 || bx > st.wx1) continue;
+        PA.Crops.draw(ctx, c, bx, g.surfaceY(c.x, z) * CH - OFF, st);
+      }
+      for (const o of state.objects) {
+        if (o.map !== mid || o.z !== z) continue;
+        const bx = o.x * CW;
+        if (bx < st.wx0 - 40 || bx > st.wx1) continue;
+        PA.Craft.draw(ctx, o, st, state);
+      }
+      if (p.level <= 2) for (const f of state.forage || []) {
+        if (f.map !== mid || f.z !== z) continue;
+        const bx = (f.x + 0.5) * CW;
+        if (bx < st.wx0 || bx > st.wx1) continue;
+        PA.Craft.drawForage(ctx, f, st, g);
+      }
+    }
     /** Props that stand in front of the actors of their slice (shop counters). */
     drawFront(R, z, p, st, season) {
       const props = this.propsBy[z];

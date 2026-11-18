@@ -50,20 +50,44 @@
       this.mode = 'title';
       PA.UI.Title.show(true);
       PA.UI.HUD.show(false);
+      PA.UI.Hotbar.show(false);
       if (PA.Touch.el) PA.Touch.setVisible(false);
     }
+    quitToTitle() {
+      this.state = null;
+      this.maps = {};
+      this.maps.overworld = PA.Gen.overworld(12345);
+      this.loadMap('overworld', 60, 1, 1);
+      this.showTitle();
+    }
+    selectHot(i) { this.hot = (i + 9) % 9; PA.UI.Hotbar.render(); }
     startGame(state, slot, isNew) {
       this.state = state; this.slot = slot;
       this.maps = {};
       this.maps.overworld = PA.Gen.overworld(state.seed);
       for (const id in state.maps) this.getMap(id).grid.importEdits(state.maps[id].edits || []);
       this.setSeason(PA.SEASONS[state.season]);
+      state.forage = state.forage || []; state.ship = state.ship || []; state.objects = state.objects || [];
+      if (state.inv) this.inv = PA.Inventory.from(state.inv);
+      else {
+        this.inv = new PA.Inventory(36);
+        for (const t of ['hoe', 'can', 'axe', 'pickaxe', 'scythe']) this.inv.add(t, 1, t === 'can' ? { lvl: 0, water: 40 } : { lvl: 0 });
+        this.inv.add('parsnip_seeds', 15); this.inv.add('bread', 2);
+      }
+      this.hot = 0;
+      // chopped trees and stumps
+      if (state.props && state.props.overworld) {
+        const ow = this.maps.overworld;
+        ow.props = ow.props.filter((p) => p.type !== 'tree' && p.type !== 'stump');
+        for (const [type, x, z, seed, kind] of state.props.overworld) ow.props.push({ type, x, z, seed, kind, gy: ow.grid.surfaceY(x, z) });
+      }
       if (isNew) state.pos = { x: PA.Gen.ROOMS.house.furn[0][1] + 6, z: 0, facing: 1 };
       this.loadMap(state.map, state.pos.x, state.pos.z, state.pos.facing);
       this.mode = 'play';
       this.paused = false;
       PA.UI.Title.show(false);
       PA.UI.HUD.show(true);
+      PA.UI.Hotbar.show(true); PA.UI.Hotbar.render();
       if (PA.Touch.el) PA.Touch.setVisible(true);
       PA.Bus.emit('start', { state, isNew });
       if (isNew) { PA.Save.write(slot, this.snapshot()); PA.UI.toast('Welcome to ' + state.farm + '!', 3000); }
@@ -81,6 +105,7 @@
         if (e.length) s.maps[id] = { edits: e };
       }
       s.map = this.map.id;
+      if (this.inv) s.inv = this.inv.toJSON();
       s.pos = { x: Math.floor(this.player.x / C.CELL_W), z: this.player.z, facing: this.player.facing };
       return s;
     }
@@ -101,7 +126,7 @@
         const ev = PA.Time.tick(this.state, delta, PA.settings.dayLength);
         if (ev.passOut) this.sleep(true);
       }
-      if (!this.transition && !this.paused) this.checkDoors(inp);
+      if (!this.transition && !this.paused) { this.checkDoors(inp); this.handleActions(inp, nowMs); }
       // fixed 60 Hz physics so speed doesn't depend on frame rate
       const STEP = 1000 / 60;
       this.acc = this.paused ? 0 : Math.min((this.acc || 0) + Math.min(delta, 100), STEP * 5);
@@ -109,6 +134,7 @@
       while (this.acc >= STEP) {
         const stepInp = first ? inp : Object.assign({}, inp, PA.Input.NO_EDGES);
         this.simTime = (this.simTime || 0) + STEP;
+        PA.Farm.tickAction(this, STEP);
         this.player.update(STEP, stepInp, this.simTime);
         this.matter.world.step(STEP);
         this.acc -= STEP; first = false;
@@ -117,6 +143,16 @@
       this.followCamera(dt);
       PA.UI.HUD.update(this.state);
       this.render(nowMs, dt);
+    }
+    handleActions(inp, now) {
+      if (inp.menuP && !PA.UI.Notebook.open) { PA.UI.Notebook.show(); return; }
+      if (inp.mapP) { PA.UI.Notebook.show('map'); return; }
+      if (PA.Input.blocked) return;
+      if (inp.hotbar >= 0) this.selectHot(inp.hotbar);
+      if (inp.wheel) this.selectHot(this.hot + Math.sign(inp.wheel));
+      if (inp.useP || (inp.use && now - (this.lastUse || 0) > 420)) { this.lastUse = now; PA.Farm.useSelected(this); }
+      if (inp.interactP) PA.Farm.interact(this, false);
+      if (inp.drawP && PA.Sketch) PA.Sketch.open(this);
     }
     togglePause() {
       this.paused = !this.paused;
@@ -208,6 +244,7 @@
         } else s.energy = s.maxEnergy;
         s.hp = s.maxHp;
         const r = PA.Time.newDay(s);
+        PA.Farm.newDay(this);
         PA.Bus.emit('newday', { state: s, rolled: r });
         this.setSeason(PA.SEASONS[s.season]);
         const bed = PA.Gen.ROOMS.house.furn[0];
@@ -257,6 +294,7 @@
         p.level = level;
         this.proj[z] = p;
         const st = this.world.drawSlice(R, z, p, level, this.season);
+        if (this.mode === 'play') this.world.drawDynamic(R, z, p, st, this.state);
         if (this.mode === 'play' && this.player.z === z) this.player.draw(R, p, dt);
         this.world.drawFront(R, z, p, st, this.season);
         if (level >= 0 && level <= 2) this.collectLights(z, p, lights);

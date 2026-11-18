@@ -70,6 +70,45 @@ input, select { font: 700 15px var(--mono); background: var(--paper); color: var
 .slot { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; margin: 6px 0; font: 700 13px var(--mono); }
 .slot span { flex: 1 1 220px; }
 .slot button { padding: 4px 8px; font-size: 13px; }
+/* hotbar */
+#hotbar { position: fixed; left: 50%; bottom: calc(env(safe-area-inset-bottom) + 8px); transform: translateX(-50%); text-align: center; pointer-events: none; }
+#hotbar .hb-name { font: 700 calc(13px * var(--ui)) var(--mono); background: var(--paper); display: inline-block; padding: 0 6px; margin-bottom: 3px; min-height: 1.2em; }
+#hotbar .hb-name:empty { visibility: hidden; }
+#hotbar .hb-slots { display: flex; gap: 3px; pointer-events: auto; }
+.hb, .cell { position: relative; width: calc(44px * var(--ui)); height: calc(40px * var(--ui)); padding: 0; display: flex; align-items: center; justify-content: center; font: 700 calc(14px * var(--ui)) var(--mono); }
+.hb .k { position: absolute; left: 3px; top: 1px; font-size: 9px; }
+.hb .n, .cell .n { position: absolute; right: 3px; bottom: 1px; font-size: 10px; }
+.hb.sel, .cell.sel { background: var(--ink); color: var(--paper); }
+body.touchmode #hotbar { bottom: calc(env(safe-area-inset-bottom) + 4px); }
+body.touchmode .hb { width: calc(36px * var(--ui)); height: calc(34px * var(--ui)); font-size: calc(12px * var(--ui)); }
+/* notebook */
+#notebook { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; pointer-events: auto; padding: 10px; }
+#notebook .nb { background: var(--paper); border: 2px solid var(--ink); box-shadow: 6px 6px 0 var(--ink); width: min(96vw, 860px); height: min(92vh, 620px); display: flex; flex-direction: column; }
+#notebook .nb-tabs { display: flex; flex-wrap: wrap; border-bottom: 2px solid var(--ink); }
+#notebook .nb-tabs button { border: 0; border-right: 2px solid var(--ink); padding: 6px 10px; font-size: calc(13px * var(--ui)); }
+#notebook .nb-tabs button.on { background: var(--ink); color: var(--paper); }
+#notebook .nb-tabs .nb-x { margin-left: auto; border-left: 2px solid var(--ink); border-right: 0; }
+#notebook .nb-body { flex: 1; overflow: auto; padding: 12px 14px; font: 700 calc(14px * var(--ui)) var(--mono); }
+.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(calc(44px * var(--ui)), 1fr)); gap: 4px; }
+.cell.hot { border-style: double; border-width: 4px; }
+.info { margin: 10px 0; min-height: 2.4em; font-weight: 400; }
+.row { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
+.muted { font-weight: 400; margin: 0 0 8px; }
+.recipe { display: flex; gap: 10px; align-items: center; border-bottom: 1px dashed var(--ink); padding: 5px 0; flex-wrap: wrap; }
+.recipe .ic { width: 3em; text-align: center; }
+.recipe .req { flex: 1; font-weight: 400; }
+pre.map { font: 700 calc(11px * var(--ui)) var(--mono); line-height: 1.15; overflow: auto; margin: 0; }
+.cal { display: grid; grid-template-columns: repeat(7, 1fr); gap: 3px; }
+.cal .day { border: 1px solid var(--ink); min-height: 3.2em; padding: 2px 4px; font-weight: 400; font-size: 11px; }
+.cal .day b { font-size: 13px; }
+.cal .day i { display: block; font-style: normal; }
+.cal .today { background: var(--ink); color: var(--paper); }
+.settings { display: grid; gap: 8px; }
+.settings label { display: grid; grid-template-columns: 14em 1fr; align-items: center; gap: 10px; }
+input[type=range] { accent-color: #000000; }
+input[type=checkbox] { width: 20px; height: 20px; accent-color: #000000; justify-self: start; }
+.modal .card.wide { max-width: min(96vw, 760px); width: 100%; max-height: 90vh; overflow: auto; }
+hr { border: 0; border-top: 2px dashed var(--ink); }
 #loading { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; font-family: var(--hand); font-size: 28px; background: var(--paper); }
 </style>
 </head>
@@ -93,6 +132,11 @@ input, select { font: 700 15px var(--mono); background: var(--paper); color: var
 <script src="src/render/worldDraw.js"></script>
 <script src="src/render/ascii.js"></script>
 <script src="src/render/paper.js"></script>
+<script src="src/farm/items.js"></script>
+<script src="src/farm/inventory.js"></script>
+<script src="src/farm/crops.js"></script>
+<script src="src/farm/crafting.js"></script>
+<script src="src/farm/farm.js"></script>
 <script src="src/physics/terrain.js"></script>
 <script src="src/physics/stickman.js"></script>
 <script src="src/physics/player.js"></script>
@@ -107,6 +151,7 @@ input, select { font: 700 15px var(--mono); background: var(--paper); color: var
 <script src="src/ui/dialog.js"></script>
 <script src="src/ui/hud.js"></script>
 <script src="src/ui/title.js"></script>
+<script src="src/ui/notebook.js"></script>
 <script src="src/scenes/Game.js"></script>
 <script src="src/scenes/Boot.js"></script>
 <script>
@@ -114,6 +159,8 @@ input, select { font: 700 15px var(--mono); background: var(--paper); color: var
   PA.Touch.init();
   PA.UI.HUD.init();
   PA.UI.Title.init();
+  PA.UI.Hotbar.init();
+  PA.UI.Notebook.init();
   PA.Settings.apply();
   PA.start();
   PA.Bus.on('ready', () => { document.getElementById('loading').remove(); PA.scene.showTitle(); });

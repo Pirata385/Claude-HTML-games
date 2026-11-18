@@ -117,8 +117,8 @@
       }
 
       const run = inp.run;
-      const target = inp.moveX * (run ? TUNE.run : TUNE.walk) * (this.inWater ? 0.55 : 1);
-      if (inp.moveX) this.facing = inp.moveX > 0 ? 1 : -1;
+      const target = inp.moveX * (run ? TUNE.run : TUNE.walk) * (this.inWater ? 0.55 : 1) * (this.action ? 0.25 : 1);
+      if (inp.moveX && !this.action) this.facing = inp.moveX > 0 ? 1 : -1;
       let vx = PA.U.approach(b.velocity.x, target, grounded ? TUNE.accel : TUNE.airAccel);
       let vy = b.velocity.y;
       b.ignoreGravity = false;

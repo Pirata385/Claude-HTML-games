@@ -124,6 +124,15 @@
     ctx.restore();
   }
 
+  function drawStump(ctx, prop, season, st) {
+    const bx = (prop.x + 0.5) * C.CELL_W, by = prop.gy * C.CELL_H - 1.5;
+    ctx.save(); ctx.translate(bx, by);
+    ctx.beginPath(); ctx.moveTo(-10, 0); ctx.quadraticCurveTo(-6, -3, -6, -10); ctx.lineTo(6, -10); ctx.quadraticCurveTo(6, -3, 10, 0);
+    ctx.fillStyle = st.paper; ctx.fill(); ctx.stroke();
+    ctx.beginPath(); ctx.ellipse(0, -10, 6, 2, 0, 0, Math.PI * 2); ctx.stroke();
+    ctx.restore();
+  }
+
   /* ---------- built things (all hollow outlines) ---------- */
   const GROUND = (o) => ((o && o.gy != null) ? o.gy : (PA.Gen ? PA.Gen.GY : 34)) * C.CELL_H - 1.6;
   function outline(ctx, st, build) { ctx.beginPath(); build(); ctx.fillStyle = st.paper; ctx.fill(); ctx.strokeStyle = st.ink; ctx.stroke(); }
@@ -244,7 +253,11 @@
   PA.Props = { SPECIES, treeGeom, drawTree, drawBush, extent,
     draw(ctx, prop, season, st, R, p) {
       ctx.lineWidth = st.lw; ctx.strokeStyle = st.ink; ctx.fillStyle = st.paper; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
-      if (prop.type === 'tree') drawTree(ctx, prop, season, st);
+      if (prop.type === 'tree') {
+        if (prop.shake > 0.02) { ctx.save(); ctx.translate(Math.sin(prop.shake * 30) * prop.shake * 3, 0); drawTree(ctx, prop, season, st); ctx.restore(); prop.shake *= 0.86; }
+        else drawTree(ctx, prop, season, st);
+      }
+      else if (prop.type === 'stump') drawStump(ctx, prop, season, st);
       else if (prop.type === 'bush') drawBush(ctx, prop, season, st);
       else if (prop.type === 'building') drawBuilding(ctx, prop, season, st, R, p);
       else if (prop.type === 'mine') drawMine(ctx, prop, season, st);

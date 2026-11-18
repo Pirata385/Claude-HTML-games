@@ -170,7 +170,7 @@
     const st = info(S, npc.id);
     if (st.fought === S.day) return null;
     // rivals match how far you have come: one tier up for each arena boss beaten
-    const tier = Math.min(RB.economy.ARENAS.length - 1, RB.economy.ARENAS.filter((a) => RB.economy.leagueOf(S, a.id).boss).length);
+    const tier = Math.min(RB.economy.ARENAS.length - 1, RB.economy.ARENAS.filter((a) => RB.economy.everWon(S, a.id)).length);
     const arena = RB.economy.ARENAS[tier], r = new Rng((npc.seed ^ Math.imul(S.day, 6151)) >>> 0);
     const wc = r.pick(arena.classes), stake = Math.round(30 * (1 + tier) * (1 + tier) * npc.wealth / 5) * 5;
     const opp = RB.economy.makeOpponent((npc.seed + S.day * 31) >>> 0, wc, tier, arena.id === 'cellar');

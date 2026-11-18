@@ -75,9 +75,20 @@
     return classCache;
   }
   const leagueOf = (S, id) => (S.league[id] = S.league[id] || { wins: 0, boss: false });
-  // Every arena is open from the start, except the last: the Grand Ring only takes the champion of
-  // every other arena.
-  function arenaOpen(S, arena) { return !arena.boss.final || !!S.sandbox || ARENAS.every((a) => a === arena || leagueOf(S, a.id).boss); }
+  // Ever champion here (the title may since have passed to someone new).
+  const everWon = (S, id) => { const lg = leagueOf(S, id); return !!(lg.boss || lg.ever); };
+  // Every arena is open from the start, except the last: the Grand Ring only takes a bird whose
+  // trainer has been champion of every other arena.
+  function arenaOpen(S, arena) { return !arena.boss.final || !!S.sandbox || ARENAS.every((a) => a === arena || everWon(S, a.id)); }
+  // Who holds the title you would fight for: the arena's own boss, or, once your champion has
+  // retired or left you, whoever claimed it after (one new champion each time: gen 1, 2, ...).
+  const EPITHETS = ['the Younger', 'Sharp-Spur', 'the Comet', 'Iron-Beak', 'from Down the River', 'the Challenger', 'Two-Bets', 'the Quiet', 'Long-Shadow', 'the Upstart'];
+  function bossOf(S, arena) {
+    const gen = leagueOf(S, arena.id).gen || 0;
+    if (!gen) return arena.boss;
+    const r = new Rng((S.seed ^ hashStr(arena.id + ':champion:' + gen)) >>> 0), sex = r.chance(0.5) ? 'M' : 'F';
+    return Object.assign({}, arena.boss, { trainer: RB.npc.randomName(r, sex) + ' ' + r.pick(EPITHETS), bird: r.pick(ST().BIRD_NAMES), purse: Math.round(arena.boss.purse * (1 + 0.1 * Math.min(gen, 5))), gen });
+  }
 
   // A rough fighting score, used to pick the better of a few random opponents.
   function fightScore(P) { const r = P.rate; return r.power * 1.4 + r.tough + r.speed * 0.5 + r.stamina * 0.6 + r.guts * 0.8 + r.fury * 0.5; }
@@ -120,8 +131,8 @@
     return { P: best || fallback, name: r.pick(ST().BIRD_NAMES), trainer: r.pick(TRAINERS) };
   }
   function makeBoss(S, arena) {
-    const b = arena.boss, r = new Rng((S.seed ^ hashStr(arena.id)) >>> 0);
-    const train = { muscle: 0.12, reflex: 0.12, lungs: 0.12, courage: 0.15 };
+    const b = bossOf(S, arena), r = new Rng((S.seed ^ hashStr(arena.id) ^ Math.imul(b.gen || 0, 2654435761)) >>> 0);
+    const train = b.gen ? { muscle: 0.15, reflex: 0.15, lungs: 0.15, courage: 0.15 } : { muscle: 0.12, reflex: 0.12, lungs: 0.12, courage: 0.15 }; // a new champion comes in hungry
     const P = bestOf(10, () => {
       let g;
       if (b.mix[0] === b.mix[1]) g = RB.species.make(b.mix[0], r, { sex: 'M', sport: 0 });
@@ -143,7 +154,8 @@
     }
     const lg = leagueOf(S, arena.id);
     if (lg.wins >= arena.need && !lg.boss) {
-      list.push({ key: arena.id + ':boss', i: list.length, wc: arena.boss.wc, mode: arena.boss.mode || arena.modes[0], open: arena.boss.wc >= 6, fee: arena.fee * 2, purse: arena.boss.purse, boss: true, tier: arena.tier });
+      const b = bossOf(S, arena);
+      list.push({ key: arena.id + ':boss' + (b.gen ? ':' + b.gen : ''), i: list.length, wc: b.wc, mode: b.mode || arena.modes[0], open: b.wc >= 6, fee: arena.fee * 2, purse: b.purse, boss: true, tier: arena.tier });
     }
     return list;
   }
@@ -206,6 +218,6 @@
     return { taste: r.pick(['big', 'tiny', 'bright', 'odd']), seed: r.int(1, 1e9) };
   }
 
-  RB.economy = { addArena, value, bfcSpecial, bfcIsSpecial, bfcPrice, ARENAS, ARENA, TRAINERS, speciesByClass, leagueOf, arenaOpen, makeOpponent, makeBoss, cards, opponentFor, exhibition, exhibitionDone,
+  RB.economy = { everWon, bossOf, addArena, value, bfcSpecial, bfcIsSpecial, bfcPrice, ARENAS, ARENA, TRAINERS, speciesByClass, leagueOf, arenaOpen, makeOpponent, makeBoss, cards, opponentFor, exhibition, exhibitionDone,
     canEnter, BET_RETURN, fightScore, SHOWS, dashTime, hopHeight, pageantScore, showOfDay };
 })();

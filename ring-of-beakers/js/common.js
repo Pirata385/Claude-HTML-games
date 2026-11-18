@@ -289,7 +289,7 @@
   RB.common.settings = function (inGame) {
     const game = RB.game;
     ui.open({ draw() {
-      const box = ui.window('Settings', 340, inGame ? 424 : 364, {});
+      const box = ui.window('Settings', 340, inGame ? 520 : 460, {});
       if (!box) return;
       const st = game.settings;
       let y = box.y + 4;
@@ -301,6 +301,11 @@
         y += 46;
       };
       vol('Sound', 'sfx', 'sound'); vol('Music', 'music', 'music');
+      // the open-air music: one track after another, or now and then with quiet in between
+      ui.icon('music', box.x + 12, y + 18, 18, pal.ink); ui.text('Music plays', box.x + 30, y + 23, { size: 14, maxW: box.w - 160 });
+      const some = st.musicMode === 'sometimes';
+      if (ui.btn(box.x + box.w - 120, y, 120, 36, some ? 'Now and then' : 'Always', { fill: some ? pal.plum : pal.teal, size: 13 })) { st.musicMode = some ? 'always' : 'sometimes'; game.applySettings(); RB.audio.play('click'); if (some) RB.audio.musicSkipQuiet(); }
+      y += 46;
       // on/off switches (on unless switched off)
       const toggle = (label, key, icon) => {
         ui.icon(icon, box.x + 12, y + 18, 18, pal.ink); ui.text(label, box.x + 30, y + 23, { size: 14, maxW: box.w - 130 });
@@ -311,7 +316,7 @@
       toggle('Goal hints', 'goals', 'target');         // off: no goal line at the top of the screen
       if (ui.btn(box.x, y, box.w, 38, 'Full screen', { icon: 'full', fill: pal.plum })) game.fullscreen();
       y += 48;
-      ui.para('Mouse or touch for everything. On the map: WASD or arrows drive, hold the mouse to aim a net, E enters, Q digs, 1-3 pick a tool.', box.x, y, box.w, { size: 11, color: pal.grey });
+      if (y + 44 < box.y + box.h - (inGame ? 46 : 0)) ui.para('Mouse or touch for everything. On the map: WASD or arrows drive, hold the mouse to aim a net, E enters, Q digs, 1-3 pick a tool.', box.x, y, box.w, { size: 11, color: pal.grey }); // when there is room
       if (inGame && ui.btn(box.x, box.y + box.h - 40, box.w, 40, 'Save and quit to title', { fill: pal.coral, icon: 'home' })) { game.save(); ui.close(); game.go('title'); }
     } });
   };

@@ -520,7 +520,7 @@
       cam = { x: (lay.truck + lay.box) / 2 };
       rebuild();
       ST.fameCheck(S);
-      RB.audio.setTune('farm');
+      RB.audio.setTune(S.time >= 19 ? 'night' : 'day');
       S.pos = null;
       if (args.intro) {
         ui.message('A coop of your own', 'Aunt Dalva left you her coop, two chickens, and a debt of $15,000 to Big Wattle.\n\nThe only trade that pays around here is the ring. Catch birds out on the map, breed the good ones, splice the strange ones at the lab, and fight your way from the Backyard Pit to the Grand Ring.\n\nNobody gets hurt for good. Mostly.', null, { ok: 'Let\'s go' });
@@ -532,6 +532,7 @@
     update(dt) {
       if (common.checkBroke(S, 'coop')) return;
       t += dt; hit = Math.max(0, hit - dt * 3);
+      RB.audio.setTune(S.time >= 19 ? 'night' : 'day'); // night music after dark, day music again in the morning
       const v = ui.view, z = zoom();
       // pointers: grab a bird, or pan the yard
       for (const p of input.ptrs) {

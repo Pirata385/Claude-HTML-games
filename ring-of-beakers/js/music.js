@@ -1,0 +1,100 @@
+// music.js — the game's recorded music (the mp3s in music/). Each place asks for a mood with
+// RB.audio.setTune(mood). The open-air moods (day, night, the open sea by day and by night) play
+// their tracks one after another, or, if the player prefers ("now and then" in Settings), with long
+// stretches of quiet in between, the way music drifts in and out on a long walk. Places with their
+// own music (the arenas' lobby, the lab, the night shops), the menu and the fights play without a
+// break. Volume follows the music setting. Plain <audio> elements, so it works from file:// too.
+(function () {
+  'use strict';
+  const RB = globalThis.RB;
+  const audio = RB.audio;
+
+  const TRACKS = {
+    menu: ['main_menu'], day: ['day_1', 'day_2'], night: ['night_1', 'night_2'], sea: ['ocean_1', 'ocean_2'], seanight: ['ocean_night_1'],
+    arena: ['arena_menu'], fight: ['fight_1', 'fight_2', 'fight_3'], lab: ['laboratory'], nightshop: ['night_shop'],
+  };
+  // moods that may rest between tracks; the rest always play
+  const AMBIENT = { day: true, night: true, sea: true, seanight: true };
+  // older names some places still ask for
+  const ALIAS = { title: 'menu', farm: 'day', map: 'day', town: 'day', roost: 'day', carnival: 'day', boss: 'fight', cellar: 'nightshop' };
+  const GAP = [45, 150]; // seconds of quiet between ambient tracks, "now and then"
+  const FADE_IN = 1.5, FADE_OUT = 0.9;
+
+  const m = { mood: null, cur: null, last: {}, waitUntil: 0, fading: [], blocked: false, hidden: false };
+  const now = () => performance.now() / 1000;
+  const level = () => Math.max(0, Math.min(1, audio.music)) * 0.6;
+  const sometimes = () => !!(RB.game && RB.game.settings && RB.game.settings.musicMode === 'sometimes');
+
+  // a track not just heard, if the mood has more than one
+  function pick(mood) {
+    const list = TRACKS[mood];
+    if (list.length === 1) return list[0];
+    const options = list.filter((t) => t !== m.last[mood]);
+    return options[Math.floor(Math.random() * options.length)];
+  }
+  function play(el) {
+    if (m.hidden || level() <= 0) return;
+    const p = el.play();
+    if (p && p.catch) p.catch(() => { m.blocked = true; }); // the browser waits for a tap first
+  }
+  function start(mood) {
+    const name = pick(mood);
+    m.last[mood] = name;
+    const el = new Audio('music/' + name + '.mp3');
+    el.preload = 'auto';
+    el.loop = !AMBIENT[mood] && TRACKS[mood].length === 1; // one track of its own: round and round
+    el.volume = 0;
+    const cur = { el, mood, name, t0: now(), gain: 0 };
+    el.addEventListener('ended', () => ended(cur));
+    m.cur = cur; m.waitUntil = 0;
+    play(el);
+  }
+  function ended(cur) {
+    if (m.cur !== cur) return;
+    m.cur = null;
+    if (AMBIENT[cur.mood] && sometimes()) m.waitUntil = now() + GAP[0] + Math.random() * (GAP[1] - GAP[0]); // a while of quiet
+    else start(cur.mood);
+  }
+  function fadeOut(cur) { if (cur) { cur.out = now(); cur.from = cur.gain; m.fading.push(cur); } }
+
+  // A place asks for its music. The same mood carries on where it is; a new one fades in.
+  audio.setTune = function (name) {
+    const mood = TRACKS[name] ? name : ALIAS[name] || null;
+    if (!mood || mood === m.mood) return;
+    m.mood = mood;
+    fadeOut(m.cur); m.cur = null;
+    start(mood);
+  };
+  audio.musicNow = () => ({ mood: m.mood, track: m.cur ? m.cur.name : null, at: m.cur ? +m.cur.el.currentTime.toFixed(1) : 0, playing: !!(m.cur && !m.cur.el.paused), volume: m.cur ? +m.cur.el.volume.toFixed(2) : 0,
+    waiting: m.waitUntil ? Math.round(Math.max(0, m.waitUntil - now())) : 0, blocked: m.blocked });
+  // (for checks) jump to the last moment of the current track
+  audio.musicToEnd = () => { const el = m.cur && m.cur.el; if (el && el.duration) el.currentTime = Math.max(0, el.duration - 0.4); };
+  // the next ambient track, now (used when a quiet stretch should end early)
+  audio.musicSkipQuiet = () => { if (m.mood && !m.cur) start(m.mood); };
+
+  // fades, quiet stretches and the volume setting
+  setInterval(() => {
+    const t = now(), lv = level();
+    if (m.cur) {
+      const el = m.cur.el;
+      m.cur.gain = Math.min(1, (t - m.cur.t0) / FADE_IN);
+      el.volume = Math.max(0, Math.min(1, lv * m.cur.gain));
+      if (lv <= 0 && !el.paused) el.pause();
+      else if (lv > 0 && el.paused && !m.hidden && !m.blocked && !el.ended) play(el);
+    } else if (m.mood && m.waitUntil && t >= m.waitUntil) start(m.mood);
+    for (const f of m.fading.slice()) {
+      const g = f.from * (1 - (t - f.out) / FADE_OUT);
+      if (g <= 0) { f.el.pause(); f.el.src = ''; m.fading.splice(m.fading.indexOf(f), 1); } else f.el.volume = Math.max(0, Math.min(1, lv * g));
+    }
+  }, 100);
+
+  // browsers only let music start after the player has touched something
+  const retry = () => { if (!m.blocked) return; m.blocked = false; if (m.cur) play(m.cur.el); };
+  for (const ev of ['pointerdown', 'keydown', 'touchstart']) window.addEventListener(ev, retry, { passive: true });
+  // quiet while the game is hidden
+  document.addEventListener('visibilitychange', () => {
+    m.hidden = document.hidden;
+    if (!m.cur) return;
+    if (m.hidden) m.cur.el.pause(); else play(m.cur.el);
+  });
+})();

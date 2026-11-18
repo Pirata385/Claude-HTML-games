@@ -19,9 +19,10 @@ done
 rm -rf "$OUT"
 mkdir -p "$OUT/classes" "$OUT/assets/game" "$OUT/dex"
 
-# The game itself: only what the page loads (no tests, no docs, not this folder).
+# The game itself: only what the page loads (no tests, no docs, not this folder): the page, its scripts and its music.
 cp "$GAME/index.html" "$OUT/assets/game/"
 cp -r "$GAME/js" "$OUT/assets/game/"
+cp -r "$GAME/music" "$OUT/assets/game/"   # the recorded music (aapt stores .mp3 uncompressed)
 
 # The Java wrapper (Java 8 bytecode, for the dx dexer).
 javac -nowarn --release 8 -classpath "$JAR" -d "$OUT/classes" "$HERE"/src/net/ringofbeakers/game/*.java

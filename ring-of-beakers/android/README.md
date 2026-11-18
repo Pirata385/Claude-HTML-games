@@ -1,6 +1,6 @@
 # Ring of Beakers for Android
 
-A small Android app that runs the game full screen and offline. It is a single WebView activity; the game files (`../index.html` and `../js/`) are copied into the APK when it is built, so this folder holds no copy of the game.
+A small Android app that runs the game full screen and offline. It is a single WebView activity; the game files (`../index.html`, `../js/` and the soundtrack in `../music/`, about 44 MB) are copied into the APK when it is built, so this folder holds no copy of the game.
 
 ## Build
 

@@ -199,6 +199,66 @@
     } });
   };
 
+  // ---- the wardrobe: one thing per place (head, face, neck, back, feet, tail) and one piece of
+  // fighting kit. What comes off goes back in the bag. Works wherever the bird is: the yard or the truck.
+  common.wardrobe = function (c) {
+    const S = RB.game.S, IT = RB.items, SL = IT.SLOTS;
+    ui.open({ draw() {
+      if (!S.birds.includes(c)) { ui.close(); return; }
+      const v = ui.view, items = ST.owned(S).filter((id) => SL.includes(IT.ITEMS[id].kind)).sort((a, b) => SL.indexOf(IT.ITEMS[a].kind) - SL.indexOf(IT.ITEMS[b].kind) || IT.ITEMS[a].name.localeCompare(IT.ITEMS[b].name));
+      const box = ui.window('What ' + c.name + ' wears', 440, Math.min(v.h - 16, 560), {});
+      if (!box) return;
+      common.portrait(c, box.x, box.y, 96, 96, { fill: pal.soft });
+      const worn = SL.filter((sl) => ST.wornIn(c, sl)), tx = box.x + 106, tw = box.w - 106;
+      if (!worn.length) ui.text('Wearing nothing yet.', tx, box.y + 16, { size: 13, bold: false, color: pal.grey });
+      const per = Math.max(2, Math.floor((tw + 6) / 150));
+      worn.forEach((sl, i) => {
+        const id = ST.wornIn(c, sl), x = tx + (i % per) * ((tw + 6) / per), y = box.y + Math.floor(i / per) * 24, w = (tw + 6) / per - 6;
+        ui.rect(x, y, w, 21, pal.soft, 8); ui.itemIcon(id, x + 11, y + 10.5, 15);
+        ui.text(IT.ITEMS[id].name, x + 22, y + 15, { size: 10, maxW: w - 44 });
+        if (ui.btn(x + w - 20, y + 2, 18, 17, '', { icon: 'close', fill: pal.grey, flat: true, r: 6 })) { ST.unwear(S, c, sl); RB.audio.play('click'); RB.game.save(); }
+      });
+      if (worn.length && ui.btn(tx, box.y + 74, 110, 26, 'Take all off', { fill: pal.grey, size: 11, flat: true })) { for (const sl of SL) ST.unwear(S, c, sl); RB.audio.play('click'); RB.game.save(); }
+      if (!items.length) { ui.para('Nothing to wear in the bag. Madame Odete sells hats, glasses, ties, capes and shoes in town; some pieces are won through feats.', box.x, box.y + 112, box.w, { size: 12, color: pal.grey }); return; }
+      ui.list('wear', box.x, box.y + 106, box.w, box.h - 106, items.length, 50, (i, x, y, w) => {
+        const it = IT.ITEMS[items[i]], on = ST.wornIn(c, it.kind);
+        ui.rect(x, y + 2, w - 6, 44, pal.soft, 10); ui.itemIcon(it.id, x + 24, y + 24, 26);
+        ui.text(it.name + '  ·  ' + IT.SLOT_NAMES[it.kind] + (ST.endless(S, it.id) ? '' : ' (' + ST.count(S, it.id) + ')'), x + 46, y + 20, { size: 13, maxW: w - 130 });
+        ui.text(it.desc, x + 46, y + 36, { size: 10, bold: false, maxW: w - 130, color: it.kind === 'gear' ? pal.teal : pal.grey });
+        if (ui.btn(x + w - 78, y + 7, 66, 34, on ? 'Swap' : 'Wear', { size: 12, fill: it.kind === 'gear' ? pal.teal : pal.plum })) {
+          const why = ST.wear(S, c, it.id);
+          if (why) ui.toast(why, pal.coral); else { RB.audio.play('click'); RB.game.save(); }
+        }
+      });
+    } });
+  };
+  // ---- hand a creature something from the bag: grain, a treat, a tonic, a mushroom... Wherever it is,
+  // the yard or the truck out on the road. onFed(c, item) runs after it eats.
+  common.feedPick = function (c, onFed) {
+    const S = RB.game.S, IT = RB.items;
+    ui.open({ draw() {
+      if (!S.birds.includes(c)) { ui.close(); return; }
+      const v = ui.view, items = ST.owned(S).filter((id) => IT.ITEMS[id].kind === 'feed');
+      const box = ui.window('Give ' + c.name + ' something', 440, Math.min(v.h - 16, 150 + Math.max(1, items.length) * 50), {});
+      if (!box) return;
+      common.portrait(c, box.x, box.y, 64, 64, { fill: pal.soft });
+      ui.text(c.fed ? 'Fed today.' : 'Hungry: anything from here is a full meal.', box.x + 76, box.y + 22, { size: 13, color: c.fed ? pal.teal : pal.coral, maxW: box.w - 80 });
+      ui.text('Trust', box.x + 76, box.y + 46, { size: 11, bold: false }); ui.bar(box.x + 110, box.y + 39, Math.min(160, box.w - 120), 7, c.bond, pal.coral);
+      if (!items.length) { ui.para('Nothing to give in the bag. Feed & Seed sells grain, worms, chili and tonics.', box.x, box.y + 80, box.w, { size: 12, color: pal.grey }); return; }
+      ui.list('give' + c.id, box.x, box.y + 74, box.w, box.h - 74, items.length, 50, (i, x, y, w) => {
+        const it = IT.ITEMS[items[i]];
+        ui.rect(x, y + 2, w - 6, 44, pal.soft, 10); ui.itemIcon(it.id, x + 24, y + 24, 26);
+        ui.text(it.name + ' (' + ST.fmtCount(ST.count(S, it.id)) + ')', x + 46, y + 20, { size: 13, maxW: w - 130 });
+        ui.text(it.desc, x + 46, y + 36, { size: 10, bold: false, maxW: w - 130, color: pal.grey });
+        if (ui.btn(x + w - 78, y + 7, 66, 34, 'Give', { size: 12, fill: pal.teal })) {
+          const full = it.id === 'grain' && c.fed, msg = ST.feed(S, c, it.id);
+          if (!msg) { ui.toast('None left.', pal.coral); RB.audio.play('error'); return; }
+          ui.toast(msg, full ? pal.coral : pal.teal); RB.audio.play(full ? 'error' : 'good');
+          if (!full) { RB.game.save(); if (onFed) onFed(c, it.id); }
+        }
+      });
+    } });
+  };
   // ---- pick one creature from a list. note(c) -> { text, ok } shown on each row.
   common.pick = function (title, list, onPick, note) {
     ui.open({ draw() {

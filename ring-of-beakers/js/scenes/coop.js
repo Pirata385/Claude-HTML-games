@@ -297,38 +297,8 @@
       ui.closeAll();
     });
   }
-  // The wardrobe: one thing per place (head, face, neck, back, feet, tail) and one piece of
-  // fighting kit. What comes off goes back in the bag.
-  function wear(c) {
-    const IT = RB.items, SL = IT.SLOTS;
-    ui.open({ draw() {
-      const v = ui.view, items = ST.owned(S).filter((id) => SL.includes(IT.ITEMS[id].kind)).sort((a, b) => SL.indexOf(IT.ITEMS[a].kind) - SL.indexOf(IT.ITEMS[b].kind) || IT.ITEMS[a].name.localeCompare(IT.ITEMS[b].name));
-      const box = ui.window('What ' + c.name + ' wears', 440, Math.min(v.h - 16, 560), {});
-      if (!box) return;
-      common.portrait(c, box.x, box.y, 96, 96, { fill: pal.soft });
-      const worn = SL.filter((sl) => ST.wornIn(c, sl)), tx = box.x + 106, tw = box.w - 106;
-      if (!worn.length) ui.text('Wearing nothing yet.', tx, box.y + 16, { size: 13, bold: false, color: pal.grey });
-      const per = Math.max(2, Math.floor((tw + 6) / 150));
-      worn.forEach((sl, i) => {
-        const id = ST.wornIn(c, sl), x = tx + (i % per) * ((tw + 6) / per), y = box.y + Math.floor(i / per) * 24, w = (tw + 6) / per - 6;
-        ui.rect(x, y, w, 21, pal.soft, 8); ui.itemIcon(id, x + 11, y + 10.5, 15);
-        ui.text(IT.ITEMS[id].name, x + 22, y + 15, { size: 10, maxW: w - 44 });
-        if (ui.btn(x + w - 20, y + 2, 18, 17, '', { icon: 'close', fill: pal.grey, flat: true, r: 6 })) { ST.unwear(S, c, sl); RB.audio.play('click'); RB.game.save(); }
-      });
-      if (worn.length && ui.btn(tx, box.y + 74, 110, 26, 'Take all off', { fill: pal.grey, size: 11, flat: true })) { for (const sl of SL) ST.unwear(S, c, sl); RB.audio.play('click'); RB.game.save(); }
-      if (!items.length) { ui.para('Nothing to wear in the bag. Madame Odete sells hats, glasses, ties, capes and shoes in town; some pieces are won through feats.', box.x, box.y + 112, box.w, { size: 12, color: pal.grey }); return; }
-      ui.list('wear', box.x, box.y + 106, box.w, box.h - 106, items.length, 50, (i, x, y, w) => {
-        const it = IT.ITEMS[items[i]], on = ST.wornIn(c, it.kind);
-        ui.rect(x, y + 2, w - 6, 44, pal.soft, 10); ui.itemIcon(it.id, x + 24, y + 24, 26);
-        ui.text(it.name + '  ·  ' + IT.SLOT_NAMES[it.kind] + (ST.endless(S, it.id) ? '' : ' (' + ST.count(S, it.id) + ')'), x + 46, y + 20, { size: 13, maxW: w - 130 });
-        ui.text(it.desc, x + 46, y + 36, { size: 10, bold: false, maxW: w - 130, color: it.kind === 'gear' ? pal.teal : pal.grey });
-        if (ui.btn(x + w - 78, y + 7, 66, 34, on ? 'Swap' : 'Wear', { size: 12, fill: it.kind === 'gear' ? pal.teal : pal.plum })) {
-          const why = ST.wear(S, c, it.id);
-          if (why) ui.toast(why, pal.coral); else { RB.audio.play('click'); RB.game.save(); }
-        }
-      });
-    } });
-  }
+  // The wardrobe (shared with the truck on the road).
+  const wear = (c) => common.wardrobe(c);
   // Each session says what it trains, how much it adds, and which of the bird's numbers go up.
   const RATE_NAMES = { power: 'Power', speed: 'Speed', tough: 'Toughness', stamina: 'Stamina', guts: 'Guts', wits: 'Wits', fury: 'Fury' };
   function trainPick(c) {

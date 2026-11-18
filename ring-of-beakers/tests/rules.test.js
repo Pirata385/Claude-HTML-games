@@ -1510,3 +1510,20 @@ test('the Hall only takes birds you used (or caught outstanding), island-born on
   assert.ok(!ST.fameOf(S, 99999) && !ST.fameOf(S, 99998));
   assert.deepStrictEqual(ST.fameOf(S, 99997).titles.filter((t) => !t.startsWith('Record')), ['Veteran (10+ wins)']);
 });
+
+test('a bird riding in the truck can be fed and dressed from the bag, away from the yard', () => {
+  const S = ST.create(229), c = S.birds[0];
+  assert.strictEqual(ST.move(S, c, 'cage'), '');
+  c.fed = false; ST.give(S, 'worm', 2); ST.give(S, 'tophat', 1); ST.give(S, 'mushroom', 1);
+  const bond = c.bond;
+  assert.ok(ST.feed(S, c, 'worm').includes('loves worms'));
+  assert.ok(c.fed && c.bond > bond && ST.count(S, 'worm') === 1 && c.at === 'cage');
+  const P0 = ST.pheno(c);
+  assert.ok(ST.feed(S, c, 'mushroom'));
+  assert.notStrictEqual(ST.pheno(c), P0, 'its body is worked out again (the truck pen redraws it)');
+  assert.strictEqual(ST.wear(S, c, 'tophat'), '');
+  assert.strictEqual(ST.wornIn(c, RB.items.ITEMS.tophat.kind), 'tophat');
+  const L = ST.deserialize(JSON.parse(JSON.stringify(ST.serialize(S))));
+  const back = L.birds.find((b) => b.id === c.id);
+  assert.ok(back.at === 'cage' && back.fed && ST.wornIn(back, RB.items.ITEMS.tophat.kind) === 'tophat');
+});

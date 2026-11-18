@@ -124,8 +124,135 @@
     ctx.restore();
   }
 
-  PA.Props = { SPECIES, treeGeom, drawTree, drawBush,
-    draw(ctx, prop, season, st) { if (prop.type === 'tree') drawTree(ctx, prop, season, st); else if (prop.type === 'bush') drawBush(ctx, prop, season, st); },
+  /* ---------- built things (all hollow outlines) ---------- */
+  const GROUND = (o) => ((o && o.gy != null) ? o.gy : (PA.Gen ? PA.Gen.GY : 34)) * C.CELL_H - 1.6;
+  function outline(ctx, st, build) { ctx.beginPath(); build(); ctx.fillStyle = st.paper; ctx.fill(); ctx.strokeStyle = st.ink; ctx.stroke(); }
+
+  function drawBuilding(ctx, b, season, st, R, p) {
+    const x0 = b.x0 * C.CELL_W, x1 = (b.x0 + b.w) * C.CELL_W, base = GROUND(b), top = (PA.Gen.GY - b.h) * C.CELL_H, mid = (x0 + x1) / 2;
+    ctx.lineWidth = st.lw; ctx.lineJoin = 'round'; ctx.lineCap = 'round';
+    const roofH = Math.min(64, (x1 - x0) * 0.32);
+    // roof first (behind the wall's top edge), then the wall
+    if (b.roof === 'gable') outline(ctx, st, () => { ctx.moveTo(x0 - 8, top + 1.5); ctx.lineTo(mid, top - roofH); ctx.lineTo(x1 + 8, top + 1.5); ctx.closePath(); });
+    else if (b.roof === 'shed') outline(ctx, st, () => { ctx.moveTo(x0 - 6, top + 1.5); ctx.lineTo(x0 - 6, top - 26); ctx.lineTo(x1 + 6, top - 8); ctx.lineTo(x1 + 6, top + 1.5); ctx.closePath(); });
+    else if (b.roof === 'barn') outline(ctx, st, () => { const w = x1 - x0; ctx.moveTo(x0 - 6, top + 1.5); ctx.lineTo(x0 + w * 0.12, top - 30); ctx.lineTo(mid, top - 46); ctx.lineTo(x1 - w * 0.12, top - 30); ctx.lineTo(x1 + 6, top + 1.5); ctx.closePath(); });
+    else outline(ctx, st, () => { ctx.rect(x0 - 3, top - 10, x1 - x0 + 6, 11.5); });
+    if (b.chimney) outline(ctx, st, () => { ctx.rect(x1 - 34, top - roofH * 0.75 - 16, 12, roofH * 0.6 + 12); });
+    outline(ctx, st, () => { ctx.rect(x0 + 1.5, top + 1.5, x1 - x0 - 3, base - top - 1.5); });
+    // door (two cells) with a knob
+    const dx = b.door * C.CELL_W;
+    ctx.beginPath(); ctx.rect(dx + 2, base - 46, 2 * C.CELL_W - 4, 46); ctx.stroke();
+    ctx.beginPath(); ctx.arc(dx + 2 * C.CELL_W - 8, base - 22, 1.6, 0, Math.PI * 2); ctx.fillStyle = st.ink; ctx.fill();
+    // windows with a cross, spread on both sides of the door
+    const n = b.windows, wy = top + (base - top) * 0.32, ws = 18;
+    const slots = [];
+    for (let i = 0; i < n; i++) { slots.push(x0 + (dx - x0) * (i + 1) / (n + 1)); slots.push(dx + 2 * C.CELL_W + (x1 - dx - 2 * C.CELL_W) * (i + 1) / (n + 1)); }
+    ctx.beginPath();
+    for (const wx of slots) {
+      if (wx - ws / 2 < x0 + 4 || wx + ws / 2 > x1 - 4) continue;
+      ctx.rect(wx - ws / 2, wy, ws, ws * 0.95);
+      ctx.moveTo(wx, wy); ctx.lineTo(wx, wy + ws * 0.95);
+      ctx.moveTo(wx - ws / 2, wy + ws * 0.47); ctx.lineTo(wx + ws / 2, wy + ws * 0.47);
+    }
+    ctx.strokeStyle = st.ink; ctx.stroke();
+    // shop sign: real characters on the facade (only legible on near slices)
+    if (b.sign && R && p && p.level <= 1) {
+      const sy = p.oy + (top + 6) * p.scale, sx = p.ox + mid * p.scale - (b.sign.length * R.cellW) / 2;
+      R.stampText(sx, sy, b.sign, { style: p.level === 0 ? 1 : 0 });
+    }
+  }
+
+  function drawMine(ctx, m, season, st) {
+    const x0 = m.x * C.CELL_W, x1 = (m.x + m.w) * C.CELL_W, base = GROUND(m), mid = (x0 + x1) / 2;
+    ctx.lineWidth = st.lw;
+    outline(ctx, st, () => { ctx.moveTo(x0, base); ctx.lineTo(x0, base - 44); ctx.quadraticCurveTo(mid, base - 80, x1, base - 44); ctx.lineTo(x1, base); ctx.closePath(); });
+    ctx.beginPath();
+    ctx.moveTo(x0 + 10, base); ctx.lineTo(x0 + 10, base - 50); ctx.moveTo(x1 - 10, base); ctx.lineTo(x1 - 10, base - 50);
+    ctx.moveTo(x0 + 4, base - 50); ctx.lineTo(x1 - 4, base - 50);
+    ctx.moveTo(mid - 14, base - 6); ctx.lineTo(mid + 14, base - 6); // rail
+    ctx.stroke();
+  }
+
+  const SMALL = {
+    bin(ctx, o, st) { const x = o.x * C.CELL_W - 8, b = GROUND(o); outline(ctx, st, () => ctx.rect(x, b - 18, 28, 18)); ctx.beginPath(); ctx.moveTo(x - 3, b - 22); ctx.lineTo(x + 31, b - 22); ctx.moveTo(x + 6, b - 9); ctx.lineTo(x + 22, b - 9); ctx.stroke(); },
+    mailbox(ctx, o, st) { const x = (o.x + 0.5) * C.CELL_W, b = GROUND(o); ctx.beginPath(); ctx.moveTo(x, b); ctx.lineTo(x, b - 22); ctx.stroke(); outline(ctx, st, () => { ctx.rect(x - 9, b - 34, 18, 12); }); ctx.beginPath(); ctx.moveTo(x + 9, b - 30); ctx.lineTo(x + 13, b - 30); ctx.lineTo(x + 13, b - 40); ctx.stroke(); },
+    well(ctx, o, st) { const x = (o.x + 0.5) * C.CELL_W, b = GROUND(o); outline(ctx, st, () => ctx.rect(x - 16, b - 16, 32, 16)); ctx.beginPath(); ctx.moveTo(x - 14, b - 16); ctx.lineTo(x - 14, b - 46); ctx.moveTo(x + 14, b - 16); ctx.lineTo(x + 14, b - 46); ctx.stroke(); outline(ctx, st, () => { ctx.moveTo(x - 22, b - 44); ctx.lineTo(x, b - 60); ctx.lineTo(x + 22, b - 44); ctx.closePath(); }); },
+    fence(ctx, o, st) { const b = GROUND(o); ctx.beginPath(); for (let x = o.x0; x <= o.x1; x += 2) { ctx.moveTo((x + 0.5) * C.CELL_W, b); ctx.lineTo((x + 0.5) * C.CELL_W, b - 18); } ctx.moveTo((o.x0 + 0.5) * C.CELL_W, b - 12); ctx.lineTo((o.x1 + 0.5) * C.CELL_W, b - 12); ctx.stroke(); },
+    board(ctx, o, st) { const x = (o.x + 0.5) * C.CELL_W, b = GROUND(o); ctx.beginPath(); ctx.moveTo(x - 16, b); ctx.lineTo(x - 16, b - 24); ctx.moveTo(x + 16, b); ctx.lineTo(x + 16, b - 24); ctx.stroke(); outline(ctx, st, () => ctx.rect(x - 22, b - 50, 44, 26)); ctx.beginPath(); ctx.moveTo(x - 14, b - 42); ctx.lineTo(x - 2, b - 42); ctx.moveTo(x + 4, b - 38); ctx.lineTo(x + 15, b - 38); ctx.moveTo(x - 14, b - 32); ctx.lineTo(x + 2, b - 32); ctx.stroke(); },
+    fountain(ctx, o, st) { const x = (o.x + 0.5) * C.CELL_W, b = GROUND(o); outline(ctx, st, () => { ctx.moveTo(x - 30, b - 14); ctx.lineTo(x + 30, b - 14); ctx.lineTo(x + 24, b); ctx.lineTo(x - 24, b); ctx.closePath(); }); ctx.beginPath(); ctx.moveTo(x, b - 14); ctx.lineTo(x, b - 38); ctx.moveTo(x, b - 38); ctx.quadraticCurveTo(x - 14, b - 44, x - 20, b - 18); ctx.moveTo(x, b - 38); ctx.quadraticCurveTo(x + 14, b - 44, x + 20, b - 18); ctx.stroke(); },
+    sign(ctx, o, st, R, p) { const x = (o.x + 0.5) * C.CELL_W, b = GROUND(o); ctx.beginPath(); ctx.moveTo(x, b); ctx.lineTo(x, b - 22); ctx.stroke(); const w = Math.max(30, o.text.length * C.CELL_W + 8); outline(ctx, st, () => ctx.rect(x - w / 2, b - 42, w, 20)); if (R && p && p.level <= 1) R.stampText(p.ox + (x - (o.text.length * C.CELL_W) / 2) * p.scale, p.oy + (b - 36) * p.scale, o.text, { style: 0 }); },
+    lamp(ctx, o, st) { const x = (o.x + 0.5) * C.CELL_W, b = GROUND(o); ctx.beginPath(); ctx.moveTo(x, b); ctx.lineTo(x, b - 52); ctx.moveTo(x - 6, b); ctx.lineTo(x + 6, b); ctx.stroke(); outline(ctx, st, () => { ctx.moveTo(x - 6, b - 52); ctx.lineTo(x + 6, b - 52); ctx.lineTo(x + 4, b - 62); ctx.lineTo(x - 4, b - 62); ctx.closePath(); }); },
+    bench(ctx, o, st) { const x = (o.x + 0.5) * C.CELL_W, b = GROUND(o); ctx.beginPath(); ctx.moveTo(x - 18, b - 10); ctx.lineTo(x + 18, b - 10); ctx.moveTo(x - 14, b - 10); ctx.lineTo(x - 14, b); ctx.moveTo(x + 14, b - 10); ctx.lineTo(x + 14, b); ctx.moveTo(x - 18, b - 22); ctx.lineTo(x + 18, b - 22); ctx.moveTo(x - 16, b - 22); ctx.lineTo(x - 16, b - 10); ctx.stroke(); },
+  };
+
+  /* ---------- interiors: back wall, side walls, furniture (outline only) ---------- */
+  function drawRoom(ctx, r, st) {
+    const x0 = r.x0 * C.CELL_W + 1.5, x1 = (r.x0 + r.w) * C.CELL_W - 1.5, base = GROUND(r), top = (r.gy - r.h) * C.CELL_H;
+    outline(ctx, st, () => ctx.rect(x0, top, x1 - x0, base - top));
+    ctx.beginPath(); ctx.moveTo(x0, base - 8); ctx.lineTo(x1, base - 8); ctx.stroke(); // skirting board
+    ctx.beginPath();
+    for (const wx of r.win) { const x = wx * C.CELL_W, y = top + 26; ctx.rect(x, y, 40, 34); ctx.moveTo(x + 20, y); ctx.lineTo(x + 20, y + 34); ctx.moveTo(x, y + 17); ctx.lineTo(x + 40, y + 17); }
+    for (const px of r.pic) { const x = px * C.CELL_W, y = top + 32; ctx.rect(x, y, 30, 22); ctx.moveTo(x + 4, y + 18); ctx.lineTo(x + 12, y + 9); ctx.lineTo(x + 18, y + 15); ctx.lineTo(x + 26, y + 6); }
+    if (r.clock != null) { const x = (r.clock + 0.5) * C.CELL_W, y = top + 40; ctx.moveTo(x + 9, y); ctx.arc(x, y, 9, 0, Math.PI * 2); ctx.moveTo(x, y); ctx.lineTo(x, y - 6); ctx.moveTo(x, y); ctx.lineTo(x + 4, y + 2); }
+    ctx.stroke();
+  }
+  function drawWalls(ctx, r, st) {
+    const x0 = r.x0 * C.CELL_W + 1.5, x1 = (r.x0 + r.w) * C.CELL_W - 1.5, base = GROUND(r), top = (r.gy - r.h - 1) * C.CELL_H;
+    ctx.beginPath(); ctx.moveTo(x0, base); ctx.lineTo(x0, top); ctx.moveTo(x1, base); ctx.lineTo(x1, top); ctx.moveTo(x0, top); ctx.lineTo(x1, top); ctx.stroke();
+  }
+  const FURN = {
+    bed(ctx, x, b, st) { outline(ctx, st, () => ctx.rect(x, b - 16, 60, 16)); outline(ctx, st, () => ctx.rect(x, b - 34, 8, 34)); outline(ctx, st, () => ctx.rect(x + 10, b - 24, 16, 8)); ctx.beginPath(); ctx.moveTo(x + 28, b - 16); ctx.lineTo(x + 58, b - 16); ctx.stroke(); },
+    table(ctx, x, b, st) { ctx.beginPath(); ctx.moveTo(x, b - 22); ctx.lineTo(x + 46, b - 22); ctx.moveTo(x + 5, b - 22); ctx.lineTo(x + 5, b); ctx.moveTo(x + 41, b - 22); ctx.lineTo(x + 41, b); ctx.stroke(); },
+    desk(ctx, x, b, st) { outline(ctx, st, () => ctx.rect(x, b - 24, 46, 24)); ctx.beginPath(); ctx.rect(x + 28, b - 18, 14, 8); ctx.stroke(); },
+    chair(ctx, x, b, st) { ctx.beginPath(); ctx.moveTo(x + 1, b - 12); ctx.lineTo(x + 11, b - 12); ctx.moveTo(x + 2, b - 12); ctx.lineTo(x + 2, b); ctx.moveTo(x + 10, b - 12); ctx.lineTo(x + 10, b); ctx.moveTo(x + 2, b - 12); ctx.lineTo(x + 2, b - 30); ctx.stroke(); },
+    stove(ctx, x, b, st) { outline(ctx, st, () => ctx.rect(x, b - 30, 34, 30)); ctx.beginPath(); ctx.rect(x + 6, b - 20, 22, 14); ctx.moveTo(x + 14, b - 30); ctx.lineTo(x + 14, b - 60); ctx.stroke(); },
+    workbench(ctx, x, b, st) { ctx.beginPath(); ctx.moveTo(x, b - 24); ctx.lineTo(x + 46, b - 24); ctx.moveTo(x + 4, b - 24); ctx.lineTo(x + 4, b); ctx.moveTo(x + 42, b - 24); ctx.lineTo(x + 42, b); ctx.moveTo(x + 4, b - 8); ctx.lineTo(x + 42, b - 8); ctx.moveTo(x + 12, b - 24); ctx.lineTo(x + 18, b - 34); ctx.moveTo(x + 15, b - 36); ctx.lineTo(x + 22, b - 32); ctx.stroke(); },
+    counter(ctx, x, b, st, f) { const w = (f.w || 6) * C.CELL_W; outline(ctx, st, () => ctx.rect(x, b - 28, w, 28)); ctx.beginPath(); ctx.moveTo(x - 4, b - 28); ctx.lineTo(x + w + 4, b - 28); ctx.stroke(); },
+    shelf(ctx, x, b, st) { ctx.beginPath(); for (const y of [b - 20, b - 42, b - 64]) { ctx.moveTo(x, y); ctx.lineTo(x + 46, y); } ctx.moveTo(x, b); ctx.lineTo(x, b - 70); ctx.moveTo(x + 46, b); ctx.lineTo(x + 46, b - 70); ctx.rect(x + 6, b - 32, 8, 12); ctx.rect(x + 26, b - 54, 10, 12); ctx.stroke(); },
+    bookshelf(ctx, x, b, st) { outline(ctx, st, () => ctx.rect(x, b - 74, 48, 74)); ctx.beginPath(); for (const y of [b - 25, b - 50]) { ctx.moveTo(x, y); ctx.lineTo(x + 48, y); } for (let i = 0; i < 3; i++) for (let k = 0; k < 4; k++) { const bx = x + 6 + k * 10; ctx.moveTo(bx, b - 4 - i * 25); ctx.lineTo(bx, b - 20 - i * 25); } ctx.stroke(); },
+    anvil(ctx, x, b, st) { outline(ctx, st, () => { ctx.moveTo(x, b - 22); ctx.lineTo(x + 34, b - 22); ctx.lineTo(x + 26, b - 14); ctx.lineTo(x + 24, b); ctx.lineTo(x + 10, b); ctx.lineTo(x + 8, b - 14); ctx.closePath(); }); },
+    forge(ctx, x, b, st) { outline(ctx, st, () => ctx.rect(x, b - 30, 46, 30)); outline(ctx, st, () => { ctx.moveTo(x + 4, b - 30); ctx.lineTo(x + 14, b - 64); ctx.lineTo(x + 32, b - 64); ctx.lineTo(x + 42, b - 30); ctx.closePath(); }); ctx.beginPath(); ctx.moveTo(x + 12, b - 30); ctx.lineTo(x + 17, b - 40); ctx.lineTo(x + 22, b - 32); ctx.lineTo(x + 28, b - 42); ctx.lineTo(x + 34, b - 30); ctx.stroke(); },
+    fireplace(ctx, x, b, st) { outline(ctx, st, () => ctx.rect(x, b - 44, 50, 44)); ctx.beginPath(); ctx.moveTo(x + 10, b); ctx.lineTo(x + 10, b - 24); ctx.quadraticCurveTo(x + 25, b - 36, x + 40, b - 24); ctx.lineTo(x + 40, b); ctx.moveTo(x + 16, b - 4); ctx.lineTo(x + 34, b - 8); ctx.moveTo(x - 4, b - 44); ctx.lineTo(x + 54, b - 44); ctx.stroke(); },
+    plant(ctx, x, b, st) { outline(ctx, st, () => { ctx.moveTo(x, b - 12); ctx.lineTo(x + 12, b - 12); ctx.lineTo(x + 10, b); ctx.lineTo(x + 2, b); ctx.closePath(); }); ctx.beginPath(); ctx.moveTo(x + 6, b - 12); ctx.lineTo(x + 1, b - 28); ctx.moveTo(x + 6, b - 12); ctx.lineTo(x + 6, b - 32); ctx.moveTo(x + 6, b - 12); ctx.lineTo(x + 12, b - 27); ctx.stroke(); },
+    crate(ctx, x, b, st) { outline(ctx, st, () => ctx.rect(x, b - 22, 22, 22)); ctx.beginPath(); ctx.moveTo(x, b - 22); ctx.lineTo(x + 22, b); ctx.moveTo(x + 22, b - 22); ctx.lineTo(x, b); ctx.stroke(); },
+    barrel(ctx, x, b, st) { outline(ctx, st, () => { ctx.moveTo(x + 2, b); ctx.quadraticCurveTo(x - 3, b - 13, x + 2, b - 26); ctx.lineTo(x + 20, b - 26); ctx.quadraticCurveTo(x + 25, b - 13, x + 20, b); ctx.closePath(); }); ctx.beginPath(); ctx.moveTo(x, b - 8); ctx.lineTo(x + 22, b - 8); ctx.moveTo(x, b - 18); ctx.lineTo(x + 22, b - 18); ctx.stroke(); },
+    board(ctx, x, b, st, f) { const w = (f.w || 8) * C.CELL_W; outline(ctx, st, () => ctx.rect(x, b - 80, w, 54)); ctx.beginPath(); for (let i = 0; i < 6; i++) { const px = x + 8 + i * (w - 16) / 6; ctx.rect(px, b - 72 + (i % 2) * 18, 14, 14); } ctx.stroke(); },
+    stairs(ctx, x, b, st) { ctx.beginPath(); ctx.moveTo(x, b); for (let i = 0; i < 5; i++) { ctx.lineTo(x + i * 10, b - (i + 1) * 12); ctx.lineTo(x + (i + 1) * 10, b - (i + 1) * 12); } ctx.lineTo(x + 50, b); ctx.stroke(); },
+    hay(ctx, x, b, st) { outline(ctx, st, () => { ctx.moveTo(x, b); ctx.quadraticCurveTo(x + 18, b - 38, x + 36, b); ctx.closePath(); }); ctx.beginPath(); ctx.moveTo(x + 10, b - 8); ctx.lineTo(x + 14, b - 16); ctx.moveTo(x + 22, b - 6); ctx.lineTo(x + 24, b - 18); ctx.stroke(); },
+    mat(ctx, x, b) { ctx.beginPath(); ctx.moveTo(x + 2, b - 2); ctx.lineTo(x + 34, b - 2); ctx.stroke(); },
+  };
+  // furniture is drawn 1.5x larger than life so it survives the conversion to characters
+  function drawFurniture(ctx, f, st) {
+    const fn = FURN[f.kind]; if (!fn) return;
+    const x = f.x * C.CELL_W, b = GROUND(f), k = f.kind === 'counter' || f.kind === 'board' || f.kind === 'mat' ? 1 : 1.5;
+    ctx.save(); ctx.translate(x, b); ctx.scale(k, k); ctx.lineWidth = st.lw / k;
+    fn(ctx, 0, 0, Object.assign({}, st, { lw: st.lw / k }), f);
+    ctx.restore();
+  }
+
+  /** Horizontal extent of a prop in world px (for culling). */
+  function extent(pr) {
+    if (pr.type === 'building') return [pr.x0 * C.CELL_W - 20, (pr.x0 + pr.w) * C.CELL_W + 20];
+    if (pr.type === 'fence') return [pr.x0 * C.CELL_W, (pr.x1 + 1) * C.CELL_W];
+    if (pr.type === 'mine') return [pr.x * C.CELL_W, (pr.x + pr.w) * C.CELL_W];
+    if (pr.type === 'room' || pr.type === 'walls') return [pr.x0 * C.CELL_W, (pr.x0 + pr.w) * C.CELL_W];
+    if (pr.type === 'furniture') return [pr.x * C.CELL_W - 10, (pr.x + (pr.w || 6)) * C.CELL_W + 10];
+    const r = pr.type === 'tree' ? 140 : 60;
+    return [pr.x * C.CELL_W - r, pr.x * C.CELL_W + r];
+  }
+
+  PA.Props = { SPECIES, treeGeom, drawTree, drawBush, extent,
+    draw(ctx, prop, season, st, R, p) {
+      ctx.lineWidth = st.lw; ctx.strokeStyle = st.ink; ctx.fillStyle = st.paper; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+      if (prop.type === 'tree') drawTree(ctx, prop, season, st);
+      else if (prop.type === 'bush') drawBush(ctx, prop, season, st);
+      else if (prop.type === 'building') drawBuilding(ctx, prop, season, st, R, p);
+      else if (prop.type === 'mine') drawMine(ctx, prop, season, st);
+      else if (prop.type === 'room') drawRoom(ctx, prop, st);
+      else if (prop.type === 'walls') drawWalls(ctx, prop, st);
+      else if (prop.type === 'furniture') drawFurniture(ctx, prop, st);
+      else if (SMALL[prop.type]) SMALL[prop.type](ctx, prop, st, R, p);
+    },
   };
   if (typeof module !== 'undefined' && module.exports) module.exports = PA.Props;
 })(typeof window !== 'undefined' ? window : globalThis);

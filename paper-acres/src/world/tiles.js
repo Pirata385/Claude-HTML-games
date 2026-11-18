@@ -5,7 +5,7 @@
   const names = ['AIR', 'DIRT', 'GRASS', 'STONE', 'BEDROCK', 'WATER', 'SAND', 'PLANK', 'TRUNK', 'LEAVES',
     'DECO', 'ART', 'DOOR', 'LADDER', 'FENCE', 'SOIL', 'SOIL_WET', 'WEED', 'ROCK', 'BRANCH',
     'FLOWER', 'BUSH', 'ORE_COPPER', 'ORE_IRON', 'ORE_GOLD', 'ORE_GRAPHITE', 'INKSTONE', 'SPIKES', 'CROP', 'FORAGE',
-    'OBJ', 'BRICK', 'ROOF', 'STUMP', 'CRYSTAL', 'FRAGILE', 'GLASS'];
+    'OBJ', 'BRICK', 'ROOF', 'STUMP', 'CRYSTAL', 'FRAGILE', 'GLASS', 'WALL'];
   const T = {};
   names.forEach((n, i) => { T[n] = i; });
   const H = (x, y, z, s) => PA.RNG.hash3(x, y, z, s || 7);
@@ -72,6 +72,8 @@
   def(T.CRYSTAL, { name: 'crystal', solid: true, style: 2, breakable: { tool: 'pickaxe', hp: 9, drop: 'quartz' }, glyph: () => '*' });
   def(T.FRAGILE, { name: 'cracked rock', solid: true, breakable: { tool: 'bomb', hp: 1, drop: null }, glyph: (g, x, y, z) => pick(['%', 'x', '%'], x, y, z) });
   def(T.GLASS, { name: 'glass', solid: true, glyph: () => ' ' });
+  // building walls: solid, drawn by the building prop instead of the terrain outliner
+  def(T.WALL, { name: 'wall', solid: true, noDraw: true, glyph: () => ' ' });
 
   /** Glyph for an AIR cell: the outline of the ground right below it (or nothing). */
   function airGlyph(g, x, y, z) {

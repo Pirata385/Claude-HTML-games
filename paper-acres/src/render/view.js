@@ -4,10 +4,10 @@
   const PA = root.PA = root.PA || {};
   const C = PA.C;
   const View = {
-    persp(k) { return 1 / (1 + C.SLICE_K * Math.max(k, -1.6)); },
+    persp(k, K) { return 1 / (1 + (K != null ? K : C.SLICE_K) * Math.max(k, -1.6)); },
     /** Projection of slice at depth offset k (= z - cam.z): screen = (ox + wx*scale, oy + wy*scale). */
     slice(k, cam, W, H) {
-      const s = View.persp(k);
+      const s = View.persp(k, cam.persp);
       const vpx = W / 2, vpy = H * C.HORIZON, ax = W / 2, ay = H * C.ANCHOR_Y;
       const scale = cam.zoom * s;
       return { scale, ox: vpx + (ax - cam.x * cam.zoom - vpx) * s, oy: vpy + (ay - cam.y * cam.zoom - vpy) * s, s, k };

@@ -10,7 +10,8 @@
       PA.scene = this;
       this.paper = new PA.Paper(this);
       this.ascii = new PA.Ascii(this);
-      this.map = PA.Gen.testWorld(7);
+      this.maps = {};
+      this.map = this.maps.overworld = PA.Gen.overworld(12345);
       this.world = new PA.WorldDraw(this.map);
       const sp = this.map.spots.spawn;
       const feet = this.map.grid.surfaceY(sp.x, sp.z) * C.CELL_H;
@@ -46,6 +47,7 @@
       // fixed 60 Hz physics so speed doesn't depend on frame rate
       const STEP = 1000 / 60;
       this.acc = Math.min((this.acc || 0) + Math.min(delta, 100), STEP * 5);
+      if (!this.transition) this.checkDoors(inp);
       let first = true;
       while (this.acc >= STEP) {
         const stepInp = first ? inp : Object.assign({}, inp, PA.Input.NO_EDGES);
@@ -58,6 +60,59 @@
       this.followCamera(dt);
       this.render(nowMs);
     }
+    /* ---------- maps and doors ---------- */
+    getMap(id) {
+      if (!this.maps[id]) this.maps[id] = id === 'overworld' ? PA.Gen.overworld(12345) : PA.Gen.interior(id);
+      return this.maps[id];
+    }
+    loadMap(id, x, z, facing) {
+      const map = this.getMap(id);
+      this.map = map;
+      this.terrain.destroy();
+      this.world.setMap(map);
+      this.terrain = new PA.Terrain(this, map);
+      const feet = map.grid.surfaceY(x, z) * C.CELL_H - 1;
+      const p = this.player;
+      p.map = map; p.z = z; p.body.collisionFilter = PA.filters.player(z);
+      p.setPos(x * C.CELL_W + C.CELL_W / 2, feet);
+      if (facing) p.facing = facing;
+      this.terrain.sync(p.x, z);
+      this.cam.x = p.x; this.cam.y = feet - 3 * C.CELL_H; this.cam.z = z;
+      PA.Bus.emit('map', { id, kind: map.kind });
+    }
+    /** Dithered page-turn: fade to ink, swap the map, fade back. */
+    goTo(id, x, z, facing) {
+      if (this.transition) return;
+      const t0 = performance.now(), D = 260;
+      this.transition = true;
+      this.ascii.wipe = (now) => {
+        const t = (now - t0) / D;
+        if (t >= 1 && !this.swapped) { this.swapped = true; this.loadMap(id, x, z, facing); }
+        if (t >= 2) { this.ascii.wipe = null; this.transition = false; this.swapped = false; return 0; }
+        return t < 1 ? t : 2 - t;
+      };
+      PA.Bus.emit('door');
+    }
+    checkDoors(inp) {
+      const p = this.player, map = this.map, cx = Math.floor(p.x / C.CELL_W);
+      if (map.kind === 'interior') {
+        if (inp.downP && p.z === 0 && Math.abs(cx - map.exit.x) <= 3) {
+          const d = this.maps.overworld.doors.find((dd) => dd.to === map.id);
+          inp.downP = false;
+          if (d) this.goTo('overworld', d.x, d.z - 1, 1);
+        }
+        return;
+      }
+      if (!(inp.upP || inp.interactP)) return;
+      for (const d of map.doors) {
+        if (d.z !== p.z + 1 || cx < d.x - 1 || cx > d.x + d.w) continue;
+        inp.upP = false; inp.interactP = false;
+        if (d.to === 'mine') { PA.UI.toast('The mine is boarded up for now.'); return; }
+        const m = this.getMap(d.to);
+        this.goTo(d.to, m.spots.entry.x, 0, 1);
+        return;
+      }
+    }
     followCamera(dt) {
       const p = this.player, cam = this.cam;
       const a = 1 - Math.pow(0.001, dt / 1000);
@@ -65,6 +120,10 @@
       const ty = p.feet - 3 * C.CELL_H;
       if (Math.abs(ty - cam.y) > C.CELL_H * 1.5 || p.lastGround > this.simTime - 60) cam.y += (ty - cam.y) * a * 1.6;
       cam.z = PA.U.approach(cam.z, p.z, dt / C.STEP_MS);
+      // keep the page inside the map; small rooms stay centred
+      const W = this.scale.width / cam.zoom, mapW = this.map.grid.w * C.CELL_W;
+      if (mapW <= W * 0.95) cam.x = mapW / 2;
+      else cam.x = PA.U.clamp(cam.x, W / 2 - C.CELL_W * 2, mapW - W / 2 + C.CELL_W * 2);
     }
     /** Camera snapped so the current slice's cells sit exactly on the character grid (no glyph shimmer). */
     drawCam() {
@@ -72,7 +131,7 @@
       const ax = W / 2, ay = H * C.ANCHOR_Y;
       const ox = Math.round((ax - cam.x * cam.zoom) / R.cellW) * R.cellW;
       const oy = Math.round((ay - cam.y * cam.zoom) / R.cellH) * R.cellH;
-      return { x: (ax - ox) / cam.zoom, y: (ay - oy) / cam.zoom, z: cam.z, zoom: cam.zoom };
+      return { x: (ax - ox) / cam.zoom, y: (ay - oy) / cam.zoom, z: cam.z, zoom: cam.zoom, persp: this.map.kind === 'interior' ? 0.12 : null };
     }
     render(now) {
       const W = this.scale.width, H = this.scale.height, R = this.ascii, g = this.map.grid;
@@ -90,6 +149,7 @@
         this.proj[z] = p;
         const st = this.world.drawSlice(R, z, p, level, this.season);
         if (this.player.z === z) this.player.draw(R, p);
+        this.world.drawFront(R, z, p, st, this.season);
       }
       R.end(now);
     }

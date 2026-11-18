@@ -38,6 +38,9 @@ body { touch-action: none; -webkit-user-select: none; user-select: none; -webkit
 #touch.lefty .stick { left: auto; right: calc(env(safe-area-inset-right) + 26px); }
 #touch.lefty .tbtns { right: auto; left: calc(env(safe-area-inset-left) + 18px); }
 body.night #touch .tb, body.night #touch .stick, body.night #touch .knob { border-color: var(--paper); color: var(--paper); }
+#toasts { position: fixed; left: 50%; bottom: calc(env(safe-area-inset-bottom) + 110px); transform: translateX(-50%); display: flex; flex-direction: column; align-items: center; gap: 6px; pointer-events: none; }
+.toast { background: var(--paper); color: var(--ink); border: 2px solid var(--ink); padding: 6px 14px; font: 700 calc(15px * var(--ui)) var(--mono); transition: opacity .3s; max-width: 80vw; text-align: center; }
+.toast.out { opacity: 0; }
 #loading { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; font-family: var(--hand); font-size: 28px; background: var(--paper); }
 </style>
 </head>
@@ -66,6 +69,7 @@ body.night #touch .tb, body.night #touch .stick, body.night #touch .knob { borde
 <script src="src/physics/player.js"></script>
 <script src="src/systems/input.js"></script>
 <script src="src/ui/touch.js"></script>
+<script src="src/ui/toast.js"></script>
 <script src="src/scenes/Game.js"></script>
 <script src="src/scenes/Boot.js"></script>
 <script>

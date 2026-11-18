@@ -25,7 +25,7 @@
       for (const p of this.map.props || []) (this.propsBy[p.z] = this.propsBy[p.z] || []).push(p);
     }
     invalidateAll() { this.cache.clear(); }
-    solidOpaque(x, y, z) { const d = PA.TILES[this.grid.get(x, y, z)]; return !!(d && d.solid && d.opaque); }
+    solidOpaque(x, y, z) { const d = PA.TILES[this.grid.get(x, y, z)]; return !!(d && d.solid && d.opaque && !d.noDraw); }
     build(z, cx) {
       const g = this.grid, T = PA.T, x0 = cx * C.CHUNK_W, x1 = Math.min(x0 + C.CHUNK_W, g.w);
       const fill = new Path2D(), edge = new Path2D(), dots = new Path2D(), water = new Path2D(), waterLine = new Path2D(), thin = new Path2D();
@@ -68,7 +68,7 @@
           if (t === T.FLOWER) { thin.moveTo(x * CW + 6, y * CH + CH - OFF); thin.lineTo(x * CW + 6, y * CH + 9); dots.moveTo(x * CW + 8.5, y * CH + 7); dots.arc(x * CW + 6, y * CH + 7, 2.5, 0, Math.PI * 2); continue; }
           if (t === T.ROCK) { edge.moveTo(x * CW + 1, y * CH + CH - OFF); edge.quadraticCurveTo(x * CW + 6, y * CH + 4, x * CW + 11, y * CH + CH - OFF); continue; }
           if (t === T.BRANCH) { thin.moveTo(x * CW + 1, y * CH + CH - 3); thin.lineTo(x * CW + 11, y * CH + CH - 7); continue; }
-          if (!d.solid || !d.opaque) continue;
+          if (!d.solid || !d.opaque || d.noDraw) continue;
           fill.rect(x * CW - 0.5, y * CH - 0.5, CW + 1, CH + 1);
           const L = !so(x - 1, y), R = !so(x + 1, y), B = y + 1 < g.h && !so(x, y + 1);
           if (L) { edge.moveTo(x * CW + OFF, y * CH - OFF); edge.lineTo(x * CW + OFF, y * CH + CH - OFF); }
@@ -125,12 +125,26 @@
       const props = this.propsBy[z];
       if (props && !ghost) {
         for (const pr of props) {
-          const px = (pr.x + 0.5) * CW;
-          if (px < wx0 - 140 || px > wx1 + 140) continue;
-          PA.Props.draw(ctx, pr, season, st);
+          if (pr.front) continue;
+          const e = PA.Props.extent(pr);
+          if (e[1] < wx0 || e[0] > wx1) continue;
+          PA.Props.draw(ctx, pr, season, st, R, p);
         }
       }
+      st.wx0 = wx0; st.wx1 = wx1;
       return st;
+    }
+    /** Props that stand in front of the actors of their slice (shop counters). */
+    drawFront(R, z, p, st, season) {
+      const props = this.propsBy[z];
+      if (!props || p.level < 0) return;
+      R.use(p);
+      for (const pr of props) {
+        if (!pr.front) continue;
+        const e = PA.Props.extent(pr);
+        if (e[1] < st.wx0 || e[0] > st.wx1) continue;
+        PA.Props.draw(R.ctx, pr, season, st, R, p);
+      }
     }
   }
   PA.WorldDraw = WorldDraw;

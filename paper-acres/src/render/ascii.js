@@ -108,6 +108,7 @@
       }
       const phase = this.boil ? Math.floor((now || 0) / 170) : 0;
       const night = this.night;
+      const wipe = this.wipe ? this.wipe(now) : 0; // 0..1 page-turn dither (1 = all ink)
       const lights = night ? night.lights || [] : null;
       let n = 0;
       const GW = C.GW, GH = C.GH, G = PA.Glyphs, ink = G.box('ink');
@@ -129,6 +130,7 @@
           let inv = false;
           const st = stampMap.get(idx);
           if (st) { ch = st.ch; if (st.style != null) style = st.style; inv = !!st.invert; }
+          if (wipe > 0 && PA.U.bayer4(c, r) < wipe) { this.put(n++, c * GW, r * GH, ink); continue; }
           if (lights) {
             // night: the page is inverted except inside lamp circles (dithered rim)
             const px = (c + 0.5) * this.cellW, py = (r + 0.5) * this.cellH;

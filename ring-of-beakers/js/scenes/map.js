@@ -774,7 +774,7 @@
       else if (input.touch && t < 12) ui.text('Left thumb drives. Drag from the net to aim, tap it to throw.', v.w / 2, v.h - 76, { size: 12, align: 'center', color: n > 0.5 ? pal.white : pal.ink, maxW: v.w - 16 });
       if (stick) { ctx.fillStyle = 'rgba(35,49,74,0.25)'; ctx.beginPath(); ctx.arc(stick.sx, stick.sy, 46, 0, TAU); ctx.fill(); const dx = stick.x - stick.sx, dy = stick.y - stick.sy, d = Math.hypot(dx, dy) || 1, k = Math.min(46, d) / d; ctx.fillStyle = 'rgba(255,250,240,0.85)'; ctx.beginPath(); ctx.arc(stick.sx + dx * k, stick.sy + dy * k, 20, 0, TAU); ctx.fill(); }
     },
-    debug() { return { car, wild, folk, nets, near, world, throwNet, dig, bigMap, seaFlock: (mode, R) => seaFlock(R || 900, mode), tool: () => tool, guide: () => guide }; },
+    debug() { return { car, wild, folk, nets, near, world, throwNet, dig, bigMap, riderCard: (c) => common.card(c, riderActions), seaFlock: (mode, R) => seaFlock(R || 900, mode), tool: () => tool, guide: () => guide }; },
   };
 
   // Who walks out of each house now: its own person, a newcomer, or whoever you put in charge.
@@ -824,7 +824,12 @@
     ui.toast(c.name + (c.person ? ' scrambles off home.' : ' is free again.') + (back ? ' ' + back.name + ', who was minding the place, hops back into the truck.' : ''), pal.ink);
     RB.audio.play('poof');
   }
-  const riderActions = (cc) => [{ label: cc.person ? 'Let go' : 'Set free', icon: 'feather', fill: pal.grey, fn: () => { releaseAt(cc, car.x - car.f * 90, car.y + 30); ui.closeAll(); } }];
+  // What you can do with a rider, wherever the truck (or the boat) is: feed it, dress it, let it go.
+  const riderActions = (cc) => [
+    { label: 'Give', icon: 'seed', fill: pal.teal, fn: () => common.feedPick(cc) },
+    { label: 'Wear', icon: 'hat', fill: pal.plum, fn: () => common.wardrobe(cc) },
+    { label: cc.person ? 'Let go' : 'Set free', icon: 'feather', fill: pal.grey, fn: () => { releaseAt(cc, car.x - car.f * 90, car.y + 30); ui.closeAll(); } },
+  ];
   function cageWindow() {
     const list = ST.at(S, 'cage');
     common.pick('In the truck', list, (c) => common.card(c, riderActions), () => ({ text: '', ok: true, label: 'Look' }));
@@ -961,12 +966,16 @@
       }
       ctx.restore();
       ui.icon(car.boat ? 'truck' : 'truck', sx(car.x), sy(car.y), 18, pal.coral);
-      // ---- the controls: zoom, back to the truck, markers
-      const bw = 40, by = box.y;
-      if (ui.btn(box.x, by, bw, 30, '', { icon: 'plus', fill: pal.ink, flat: true })) zoomAt(1.6, cx, cy);
-      if (ui.btn(box.x + bw + 6, by, bw, 30, '', { icon: 'minus', fill: pal.ink, flat: true })) zoomAt(1 / 1.6, cx, cy);
-      if (ui.btn(box.x + 2 * (bw + 6), by, 84, 30, 'Truck', { icon: 'truck', fill: pal.coral, size: 12, flat: true })) { MV.x = car.x; MV.y = car.y; if (MV.k < 0.01) MV.k = Math.min(kMax, Math.max(MV.k, Math.min(A.w, A.h) / 20000)); }
-      if (ui.btn(box.x + 2 * (bw + 6) + 90, by, 104, 30, 'Markers' + (GD.on(S).length ? ' (' + GD.on(S).length + ')' : ''), { icon: 'eye', fill: panel ? pal.mustard : pal.plum, color: panel ? pal.ink : pal.white, size: 12, flat: true })) panel = !panel;
+      // ---- the controls: zoom, back to the truck, back to the mainland, markers
+      const bw = 40, by = box.y, roomy = box.w >= 400, nw = roomy ? 84 : 44;
+      let bx = box.x;
+      const ctl = (w, label, o) => { const hit = ui.btn(bx, by, w, 30, label, Object.assign({ size: 12, flat: true }, o)); bx += w + 6; return hit; };
+      if (ctl(bw, '', { icon: 'plus', fill: pal.ink })) zoomAt(1.6, cx, cy);
+      if (ctl(bw, '', { icon: 'minus', fill: pal.ink })) zoomAt(1 / 1.6, cx, cy);
+      if (ctl(nw, roomy ? 'Truck' : '', { icon: 'truck', fill: pal.coral })) { MV.x = car.x; MV.y = car.y; if (MV.k < 0.01) MV.k = Math.min(kMax, Math.max(MV.k, Math.min(A.w, A.h) / 20000)); }
+      // the mainland, all of it, picked: from far out at sea, one tap and "Sail there"
+      if (ctl(nw, roomy ? 'Home' : '', { icon: 'home', fill: pal.teal })) { MV.x = WD.W / 2; MV.y = WD.H / 2; MV.k = clamp(fit, kMin, kMax); sel = { main: true }; RB.audio.play('click'); }
+      if (ctl(104, 'Markers' + (GD.on(S).length ? ' (' + GD.on(S).length + ')' : ''), { icon: 'eye', fill: panel ? pal.mustard : pal.plum, color: panel ? pal.ink : pal.white })) panel = !panel;
       // ---- the bottom line: what is picked, and fast travel
       const fy = box.y + box.h - 34;
       if (sel) {

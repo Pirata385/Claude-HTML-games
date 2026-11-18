@@ -51,7 +51,7 @@
     /** Called every frame while a swing runs. */
     tickAction(game, dt) {
       const a = game.player.action;
-      if (!a) return;
+      if (!a || a.kind === 'weapon' || a.kind === 'rod') return; // weapons and rods run their own clocks
       a.t += dt; a.progress = Math.min(1, a.t / a.dur);
       if (!a.applied && a.progress >= 0.55) { a.applied = true; Farm.apply(game, a); }
       if (a.progress >= 1) game.player.action = null;

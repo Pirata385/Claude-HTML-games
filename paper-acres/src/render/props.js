@@ -239,6 +239,15 @@
     ctx.restore();
   }
 
+  function drawMineLadder(ctx, o, st) {
+    const x = o.x * C.CELL_W, b = GROUND(o);
+    ctx.beginPath();
+    if (o.up) { for (const xx of [x, x + 12]) { ctx.moveTo(xx, b); ctx.lineTo(xx, b - 120); } for (let y = b - 10; y > b - 120; y -= 14) { ctx.moveTo(x, y); ctx.lineTo(x + 12, y); } }
+    else { ctx.moveTo(x - 10, b); ctx.quadraticCurveTo(x + 6, b + 8, x + 22, b); for (const xx of [x, x + 12]) { ctx.moveTo(xx, b - 2); ctx.lineTo(xx, b - 34); } for (let y = b - 10; y > b - 34; y -= 12) { ctx.moveTo(x, y); ctx.lineTo(x + 12, y); } }
+    ctx.stroke();
+  }
+  function drawCart(ctx, o, st) { const x = o.x * C.CELL_W, b = GROUND(o); outline(ctx, st, () => { ctx.moveTo(x - 14, b - 24); ctx.lineTo(x + 26, b - 24); ctx.lineTo(x + 20, b - 6); ctx.lineTo(x - 8, b - 6); ctx.closePath(); }); ctx.beginPath(); ctx.moveTo(x + 2, b - 3); ctx.arc(x - 1, b - 3, 3, 0, Math.PI * 2); ctx.moveTo(x + 20, b - 3); ctx.arc(x + 17, b - 3, 3, 0, Math.PI * 2); ctx.moveTo(x - 30, b); ctx.lineTo(x + 46, b); ctx.stroke(); }
+
   /** Horizontal extent of a prop in world px (for culling). */
   function extent(pr) {
     if (pr.type === 'building') return [pr.x0 * C.CELL_W - 20, (pr.x0 + pr.w) * C.CELL_W + 20];
@@ -264,6 +273,8 @@
       else if (prop.type === 'room') drawRoom(ctx, prop, st);
       else if (prop.type === 'walls') drawWalls(ctx, prop, st);
       else if (prop.type === 'furniture') drawFurniture(ctx, prop, st);
+      else if (prop.type === 'mineLadder') drawMineLadder(ctx, prop, st);
+      else if (prop.type === 'cart') drawCart(ctx, prop, st);
       else if (SMALL[prop.type]) SMALL[prop.type](ctx, prop, st, R, p);
     },
   };

@@ -19,6 +19,9 @@
       const sp = this.map.spots.spawn;
       const feet = this.map.grid.surfaceY(sp.x, sp.z) * C.CELL_H;
       this.matter.world.autoUpdate = false;
+      this.matter.world.on('collisionstart', (ev) => { if (this.state) PA.Combat.onPairs(this, ev.pairs); });
+      this.matter.world.on('collisionactive', (ev) => { if (this.state && PA.Enemies.list.length) PA.Combat.onPairs(this, ev.pairs); });
+      PA.Bus.on('explode', (e) => { if (this.state) PA.Enemies.explode(this, e.x, e.y, e.z); });
       this.terrain = new PA.Terrain(this, this.map);
       this.terrain.sync(sp.x * C.CELL_W, sp.z);
       this.player = new PA.Player(this, this.map, sp.x * C.CELL_W + C.CELL_W / 2, feet - 1, sp.z);
@@ -72,7 +75,7 @@
       if (state.inv) this.inv = PA.Inventory.from(state.inv);
       else {
         this.inv = new PA.Inventory(36);
-        for (const t of ['hoe', 'can', 'axe', 'pickaxe', 'scythe', 'eraser']) this.inv.add(t, 1, t === 'can' ? { lvl: 0, water: 40 } : { lvl: 0 });
+        for (const t of ['hoe', 'can', 'axe', 'pickaxe', 'scythe', 'eraser', 'sword']) this.inv.add(t, 1, t === 'can' ? { lvl: 0, water: 40 } : { lvl: 0 });
         this.inv.add('parsnip_seeds', 15); this.inv.add('bread', 2);
       }
       this.hot = 0;
@@ -147,6 +150,10 @@
         PA.Drawn.step(this, STEP);
         PA.NPCs.step(this, STEP);
         PA.Animals.step(this, STEP);
+        PA.Combat.step(this, STEP);
+        PA.Enemies.step(this, STEP);
+        if (this.player.iframes > 0) this.player.iframes -= STEP;
+        if (this.player.hurtT > 0) this.player.hurtT -= STEP;
         PA.Wildlife.step(this, STEP);
         this.player.update(STEP, stepInp, this.simTime);
         this.matter.world.step(STEP);
@@ -198,6 +205,7 @@
       if (facing) p.facing = facing;
       p.lastJ = null;
       this.terrain.sync(p.x, z);
+      if (map.kind === 'mine') PA.Enemies.load(this, map); else PA.Enemies.clear(this);
       if (this.state) { PA.Drawn.loadMap(this); this.animalActors = null; PA.Animals.actors(this); PA.Wildlife.list = []; PA.Fishing.active = null; }
       this.cam.x = p.x; this.cam.y = feet - 3 * C.CELL_H; this.cam.z = z;
       PA.Bus.emit('map', { id, kind: map.kind });
@@ -234,11 +242,13 @@
         }
         return;
       }
+      if (PA.Mine.checkLadders(this, inp)) return;
+      if (map.kind === 'mine') return;
       if (!(inp.upP || inp.interactP)) return;
       for (const d of map.doors) {
         if (d.z !== p.z + 1 || cx < d.x - 1 || cx > d.x + d.w) continue;
         inp.upP = false; inp.interactP = false;
-        if (d.to === 'mine') { PA.UI.toast('The mine is boarded up for now.'); return; }
+        if (d.to === 'mine') { PA.Mine.enter(this); return; }
         const m = this.getMap(d.to);
         this.goTo(d.to, m.spots.entry.x, 0, 1);
         return;
@@ -316,7 +326,9 @@
       const ax = W / 2, ay = H * C.ANCHOR_Y;
       const ox = Math.round((ax - cam.x * cam.zoom) / R.cellW) * R.cellW;
       const oy = Math.round((ay - cam.y * cam.zoom) / R.cellH) * R.cellH;
-      return { x: (ax - ox) / cam.zoom, y: (ay - oy) / cam.zoom, z: cam.z, zoom: cam.zoom, persp: this.map.kind === 'interior' ? 0.12 : null };
+      let sx = 0;
+      if (this.shake > 0.02 && PA.settings.shake && !PA.settings.reducedMotion) { sx = Math.round((Math.random() - 0.5) * this.shake * 3) * R.cellW; this.shake *= 0.85; }
+      return { x: (ax - ox - sx) / cam.zoom, y: (ay - oy) / cam.zoom, z: cam.z, zoom: cam.zoom, persp: this.map.kind === 'interior' ? 0.12 : null };
     }
 
     /* ---------------- drawing ---------------- */
@@ -338,7 +350,7 @@
         const st = this.world.drawSlice(R, z, p, level, this.season);
         if (this.mode === 'play') {
           this.world.drawDynamic(R, z, p, st, this.state); PA.Drawn.draw(R, z, p, st, this); PA.NPCs.draw(R, z, p, st, this);
-          PA.Animals.draw(R, z, p, st, this); PA.Wildlife.draw(R, z, p, st); PA.Fishing.draw(R, z, p, st, this);
+          PA.Animals.draw(R, z, p, st, this); PA.Wildlife.draw(R, z, p, st); PA.Fishing.draw(R, z, p, st, this); PA.Enemies.draw(R, z, p, st);
         }
         if (this.mode === 'play' && this.player.z === z) this.player.draw(R, p, dt);
         this.world.drawFront(R, z, p, st, this.season);
@@ -346,11 +358,12 @@
       }
       if (this.map.kind !== 'interior' && this.state) PA.Weather.draw(R, this.state.weather, this.season, dt || 16, W, H, R.cellH);
       // night: the page inverts outside the circles of light
-      const dark = this.map.kind === 'interior' || !this.state ? 0 : PA.Time.darkness(this.state.time);
+      const dark = this.map.kind === 'mine' ? 0.92 : this.map.kind === 'interior' || !this.state ? 0 : PA.Time.darkness(this.state.time);
       if (dark > 0) {
         const p0 = this.proj[this.player.z];
         const lantern = this.inv && this.inv.slots.some((q) => q && q.id === 'drawn' && q.extra.word === 'lantern');
-        if (p0) lights.push({ x: p0.ox + this.player.x * p0.scale, y: p0.oy + (this.player.feet - 30) * p0.scale, r: R.cellH * (lantern ? 16 : 7) });
+        if (p0) lights.push({ x: p0.ox + this.player.x * p0.scale, y: p0.oy + (this.player.feet - 30) * p0.scale, r: R.cellH * (lantern ? 18 : this.map.kind === 'mine' ? 10 : 7) });
+        if (this.map.kind === 'mine') for (const pr of this.map.props) if (pr.type === 'mineLadder' && this.proj[pr.z]) { const q = this.proj[pr.z]; lights.push({ x: q.ox + (pr.x + 0.5) * C.CELL_W * q.scale, y: q.oy + (pr.gy - 2) * C.CELL_H * q.scale, r: R.cellH * 6 }); }
         for (const e of PA.Drawn.live) if ((e.rec.word === 'lamp' || e.rec.word === 'lantern') && this.proj[e.rec.z]) { const q = this.proj[e.rec.z]; lights.push({ x: q.ox + e.rec.x * q.scale, y: q.oy + e.rec.y * q.scale, r: R.cellH * 10 * q.scale / this.cam.zoom }); }
         R.night = { t: dark, lights };
         document.body.classList.toggle('night', dark > 0.5);

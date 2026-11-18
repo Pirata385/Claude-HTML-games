@@ -254,5 +254,66 @@
     return map;
   };
 
+  /* ======================= The Inkwell (mine floors) ======================= */
+  Gen.mineFloor = function (seed, n) {
+    const W = 64, H = 30, D = 5, T = PA.T;
+    const g = new PA.Grid(W, H, D);
+    const s0 = (seed ^ (n * 0x9E3779B1)) >>> 0;
+    const rnd = PA.RNG.mulberry32(s0);
+    const boss = n % 10 === 0;
+    const map = { id: 'mine', kind: 'mine', floor: n, grid: g, doors: [], props: [], zones: [], spots: {}, enemies: [], boss: boss ? ['coffee', 'scissors', 'eraser'][n / 10 - 1] : null };
+    for (let z = 0; z < D; z++) for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) g.put(x, y, z, y >= H - 2 ? T.BEDROCK : T.STONE, 0, false);
+    // one shared floor line with gentle variation; each slice gets its own ceiling
+    const floor = [];
+    let f = 21;
+    for (let x = 0; x < W; x++) {
+      if (!boss && x > 6 && x < W - 8 && rnd() < 0.35) f += rnd() < 0.5 ? -1 : 1;
+      f = PA.U.clamp(f, 16, 24);
+      floor.push(f);
+    }
+    for (let z = 0; z < D; z++) {
+      for (let x = 0; x < W; x++) {
+        const lift = z === 0 || z === D - 1 ? 1 : 0;
+        const fy = floor[x] - lift;
+        const ceil = boss ? 6 : fy - 7 - Math.round(PA.RNG.noise1(x * 0.18 + z * 5.3, s0 + z) * 5);
+        for (let y = Math.max(1, ceil); y < fy; y++) g.put(x, y, z, T.AIR, 0, false);
+      }
+      // ledges to climb on
+      if (!boss) for (let i = 0; i < 4; i++) {
+        const x0 = 8 + Math.floor(rnd() * (W - 20)), w = 3 + Math.floor(rnd() * 4), y = floor[x0] - 4 - Math.floor(rnd() * 2);
+        for (let x = x0; x < x0 + w; x++) if (g.get(x, y, z) === T.AIR) g.put(x, y, z, T.STONE, 0, false);
+      }
+    }
+    // ores and crystals in rock touching air
+    const oreP = 0.05 + Math.min(0.08, n * 0.003);
+    for (let z = 0; z < D; z++) for (let y = 1; y < H - 2; y++) for (let x = 1; x < W - 1; x++) {
+      if (g.get(x, y, z) !== T.STONE) continue;
+      const open = g.get(x, y - 1, z) === T.AIR || g.get(x, y + 1, z) === T.AIR || g.get(x - 1, y, z) === T.AIR || g.get(x + 1, y, z) === T.AIR;
+      if (!open || rnd() > oreP) continue;
+      const r = rnd();
+      let t = T.ORE_COPPER;
+      if (n > 20 && r < 0.45) t = T.ORE_GOLD; else if (n > 10 && r < 0.5) t = T.ORE_IRON; else if (n > 6 && r < 0.12) t = T.ORE_GOLD;
+      if (r > 0.82) t = T.ORE_GRAPHITE; if (r > 0.93) t = n > 12 ? T.INKSTONE : T.CRYSTAL; if (r > 0.97) t = T.CRYSTAL;
+      g.put(x, y, z, t, 0, false);
+    }
+    // an ink pool on some floors (fishing for inkfish)
+    if (!boss && n % 3 === 0) { const x0 = 24 + Math.floor(rnd() * 12); for (let x = x0; x < x0 + 6; x++) { for (let y = floor[x] - 1; y < floor[x] + 2; y++) g.put(x, y, 2, T.WATER, 0, false); g.put(x, floor[x] + 2, 2, T.STONE, 0, false); } }
+    // inkcaps on the floor
+    map.forage = [];
+    for (let i = 0; i < 3; i++) { const x = 8 + Math.floor(rnd() * (W - 16)), z = Math.floor(rnd() * D); if (g.get(x, g.surfaceY(x, z) - 1, z) === T.AIR && g.surfaceY(x, z) > 10) map.forage.push({ map: 'mine', x, z, id: 'inkcap' }); }
+    // ways in and out
+    map.spots.entry = { x: 3, z: 2 }; map.spots.up = { x: 3, z: 2 };
+    map.spots.down = { x: W - 5, z: 2 };
+    for (const sp of [map.spots.entry, map.spots.down]) for (let y = 1; y < floor[sp.x]; y++) { if (y < floor[sp.x] - 6) continue; for (let dz = -1; dz <= 1; dz++) g.put(sp.x, y, sp.z + dz, T.AIR, 0, false); }
+    map.props.push({ type: 'mineLadder', x: map.spots.entry.x, z: 2, gy: floor[3], up: true });
+    if (n < 30 && !boss) map.props.push({ type: 'mineLadder', x: map.spots.down.x, z: 2, gy: floor[W - 5], up: false });
+    // enemies by depth
+    const kinds = n < 5 ? ['smudge', 'bat'] : n < 12 ? ['smudge', 'bat', 'spider', 'crumple'] : n < 20 ? ['bat', 'spider', 'crumple', 'mite', 'golem'] : ['spider', 'crumple', 'mite', 'golem', 'bat'];
+    const count = boss ? 0 : 3 + Math.floor(n * 0.35) + Math.floor(rnd() * 3);
+    for (let i = 0; i < count; i++) map.enemies.push({ kind: kinds[Math.floor(rnd() * kinds.length)], x: 14 + Math.floor(rnd() * (W - 22)), z: Math.floor(rnd() * D) });
+    if (boss) { map.spots.down = { x: W - 5, z: 2 }; map.enemies.push({ kind: map.boss, x: W - 16, z: 2, boss: true }); }
+    return map;
+  };
+
   if (typeof module !== 'undefined' && module.exports) module.exports = Gen;
 })(typeof window !== 'undefined' ? window : globalThis);

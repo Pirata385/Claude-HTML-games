@@ -447,8 +447,8 @@
       const v = ui.view, all = S.fame.slice().sort((a, b) => ST.fameRank(b) - ST.fameRank(a));
       const box = ui.window('Hall of Fame', 520, Math.min(v.h - 16, 620), {});
       if (!box) return;
-      // the tabs, in as many rows as the width needs
-      const tabs = ST.FAME_TABS, per = Math.max(3, Math.min(tabs.length, Math.floor((box.w + 6) / 96))), tw = (box.w - (per - 1) * 6) / per;
+      // the tabs, in as many rows as the width needs, the rows evenly filled
+      const tabs = ST.FAME_TABS, fit = Math.max(3, Math.min(tabs.length, Math.floor((box.w + 6) / 88))), per = Math.ceil(tabs.length / Math.ceil(tabs.length / fit)), tw = (box.w - (per - 1) * 6) / per;
       tabs.forEach(([id, label], i) => {
         const x = box.x + (i % per) * (tw + 6), y = box.y + Math.floor(i / per) * 36, n = all.filter((e) => ST.fameIn(e, id)).length;
         if (ui.btn(x, y, tw, 30, label + (id !== 'all' && n ? ' ' + n : ''), { fill: tab === id ? pal.ink : pal.soft, color: tab === id ? pal.white : pal.ink, size: 12, flat: true })) { tab = id; RB.audio.play('click'); }
@@ -461,9 +461,10 @@
         y0 += 18;
       }
       if (!list.length) {
-        const why = { all: 'Nobody here yet. Birds you fight with, enter in the sideshow, or catch with outstanding numbers can earn a place: as champions, record holders, veterans, sideshow stars, wild talents or birds with a story. Birds born on your islands do not.',
-          champions: 'No arena champions yet.', fighters: 'No veterans yet: ten wins in the ring, or a fighter that retired with three.', records: 'No records yet.', sideshow: 'No sideshow stars yet: three wins at the sideshow.',
-          wild: 'No wild talents yet: a bird caught with numbers few of its kind ever have.', stories: 'No curious stories yet.' }[tab];
+        const why = { all: 'Nobody here yet. Birds you fight with, enter in the sideshow, or catch with outstanding numbers can earn a place: as champions, record holders, veterans, sideshow stars, talents or birds with a story. Birds born on your islands only count once you take them home.',
+          champions: 'No arena champions yet.', fighters: 'No veterans yet: ten wins in the ring.', records: 'No records yet.', sideshow: 'No sideshow stars yet: three wins at the sideshow.',
+          talents: 'No talents yet: a bird caught in the wild, or taken off one of your islands, with numbers few of its kind ever have.',
+          retired: 'No retired standouts yet: a bird that made a name (a title, a record, or three wins or more) and then grew old in your care.', stories: 'No curious stories yet.' }[tab];
         ui.para(why, box.x, y0 + 8, box.w, { size: 13 }); return;
       }
       ui.list('hall' + tab, box.x, y0, box.w, box.y + box.h - y0, list.length, 66, (i, x, y, w) => {
@@ -474,7 +475,7 @@
         const shown = tab === 'all' ? e.titles : e.titles.filter((q) => ST.fameTabOf(q) === tab).concat(e.titles.filter((q) => ST.fameTabOf(q) !== tab));
         ui.text(e.name + '  ·  ' + e.kind, x + 64, y + 21, { size: 14, maxW: w - 150 });
         ui.text(shown.slice(0, 2).join(' · ') + (shown.length > 2 ? ' · +' + (shown.length - 2) : ''), x + 64, y + 38, { size: 11, color: pal.plum, maxW: w - 150 });
-        ui.text(e.wins + '–' + e.losses + (e.shows ? '  ·  sideshow ' + (e.showWins || 0) + '/' + e.shows : '') + '  ·  ' + e.status, x + 64, y + 54, { size: 10, bold: false, color: pal.grey, maxW: w - 150 });
+        ui.text(e.wins + '–' + e.losses + (e.shows ? '  ·  sideshow ' + (e.showWins || 0) + '/' + e.shows : '') + (e.retired && !/^Retired/.test(e.status) ? '  ·  retired' : '') + '  ·  ' + e.status, x + 64, y + 54, { size: 10, bold: false, color: pal.grey, maxW: w - 150 });
         if (ui.btn(x + w - 78, y + 15, 66, 34, 'Story', { size: 12, fill: pal.plum })) { RB.audio.play('click'); fameStory(e); }
       });
     } });
@@ -491,7 +492,7 @@
       ui.text(e.kind, tx + 20, ty, { size: 14, maxW: tw - 22 }); ty += 18;
       for (const ln of ['Record ' + e.wins + '–' + e.losses + (e.shows ? '  ·  sideshow ' + (e.showWins || 0) + ' of ' + e.shows : '') + '  ·  ' + common.fmtKg(e.kg), 'Age ' + e.age + ' days  ·  in the Hall since day ' + e.since, 'Speed ' + e.speed + ' · Power ' + e.power + ' · Toughness ' + e.tough]) { ui.text(ln, tx, ty, { size: 11, bold: false, maxW: tw }); ty += 15; }
       let cx = tx;
-      for (const t of e.titles) { const w = Math.min(tw, ui.width(t, 10) + 12); if (cx + w > tx + tw) { cx = tx; ty += 18; } ui.rect(cx, ty, w, 15, t.startsWith('Champion') ? pal.mustard : t.startsWith('Record') ? pal.teal : pal.plum, 7); ui.text(t, cx + 6, ty + 11, { size: 10, color: pal.white, maxW: w - 10 }); cx += w + 4; }
+      for (const t of e.titles) { const w = Math.min(tw, ui.width(t, 10) + 12); if (cx + w > tx + tw) { cx = tx; ty += 18; } ui.rect(cx, ty, w, 15, t.startsWith('Champion') ? pal.mustard : t.startsWith('Record') ? pal.teal : t.startsWith('Retired') ? pal.grey : pal.plum, 7); ui.text(t, cx + 6, ty + 11, { size: 10, color: pal.white, maxW: w - 10 }); cx += w + 4; }
       const by = Math.max(box.y + pw + 10, ty + 24), lines = ui.wrap(ST.fameBio(e), box.w - 8, 12, false);
       ui.list('story' + e.id, box.x, by, box.w, box.y + box.h - by, lines.length, 17, (i, x, y) => ui.text(lines[i], x + 2, y + 13, { size: 12, bold: false }));
     } });

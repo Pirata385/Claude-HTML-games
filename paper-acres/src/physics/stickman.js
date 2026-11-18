@@ -8,6 +8,30 @@
   const BONES = { thigh: 14, shin: 14, upper: 10, fore: 10, spine: 17, neck: 3 };
   // body thickness in figure units (the figure is drawn 1.5x; 4 units = 6 px = one character)
   const SHAPE = { limb: 4, torso: 8, head: 8 };
+  // 20 models: same rule (hollow head, solid body: torso 2 characters, limbs 1), each with its own
+  // body character and head shape. rx/ry are the head radii in figure units.
+  const MODELS = [
+    { name: 'Classic', body: '#', head: 'round', rx: 8, ry: 8 },
+    { name: 'Bubble', body: '@', head: 'round', rx: 10, ry: 10 },
+    { name: 'Peanut', body: '%', head: 'oval', rx: 10, ry: 7 },
+    { name: 'Egg', body: '&', head: 'oval', rx: 7, ry: 10 },
+    { name: 'Boxy', body: '8', head: 'square', rx: 8, ry: 8 },
+    { name: 'Pin', body: 'M', head: 'round', rx: 6, ry: 6 },
+    { name: 'Moon', body: 'W', head: 'round', rx: 9, ry: 9 },
+    { name: 'Kite', body: 'X', head: 'diamond', rx: 9, ry: 10 },
+    { name: 'Brick', body: 'H', head: 'square', rx: 9, ry: 7 },
+    { name: 'Coin', body: '$', head: 'oval', rx: 8.5, ry: 9 },
+    { name: 'Balloon', body: 'O', head: 'round', rx: 11, ry: 11 },
+    { name: 'Bean', body: '0', head: 'oval', rx: 6.5, ry: 10 },
+    { name: 'Loaf', body: '=', head: 'oval', rx: 11, ry: 7 },
+    { name: 'Star', body: '*', head: 'diamond', rx: 8, ry: 8 },
+    { name: 'Cross', body: '+', head: 'square', rx: 7, ry: 7 },
+    { name: 'Block', body: 'B', head: 'square', rx: 10, ry: 10 },
+    { name: 'Knot', body: 'N', head: 'round', rx: 7, ry: 7 },
+    { name: 'Pea', body: 'Q', head: 'round', rx: 5.5, ry: 5.5 },
+    { name: 'Melon', body: 'E', head: 'oval', rx: 10, ry: 8 },
+    { name: 'Onion', body: 'Z', head: 'onion', rx: 9, ry: 9 },
+  ];
   const HEAD_R = SHAPE.head;
   const HIP_Y = -27.5;
 
@@ -150,19 +174,33 @@
     limb(j.chest, j[backArm[0]], j[backArm[1]]);
     limb(j.hip, j[backLeg[0]], j[backLeg[1]], true);
     const mx = (j.hip.x + j.chest.x) / 2 - (j.bend || 0) * 0.6, my = (j.hip.y + j.chest.y) / 2;
-    // the neck stops at the rim of the head so the ring stays round
-    const hd = Math.hypot(j.head.x - j.chest.x, j.head.y - j.chest.y) || 1;
-    const nk = Math.max(0, hd - HEAD_R - SHAPE.limb * 0.6) / hd;
-    const nx = j.chest.x + (j.head.x - j.chest.x) * nk, ny = j.chest.y + (j.head.y - j.chest.y) * nk;
+    // the head of this model: centre moved along the neck so its rim sits where the default head's did
+    const mdl = MODELS[st.model | 0] || MODELS[0];
+    const hd0 = Math.hypot(j.head.x - j.chest.x, j.head.y - j.chest.y) || 1, ux = (j.head.x - j.chest.x) / hd0, uy = (j.head.y - j.chest.y) / hd0;
+    const head = { x: j.head.x + ux * (mdl.ry - HEAD_R), y: j.head.y + uy * (mdl.ry - HEAD_R) };
+    // the neck stops at the rim of the head so the ring stays clean
+    const hd = Math.hypot(head.x - j.chest.x, head.y - j.chest.y) || 1;
+    const nk = Math.max(0, hd - mdl.ry - SHAPE.limb * 0.6) / hd;
+    const nx = j.chest.x + (head.x - j.chest.x) * nk, ny = j.chest.y + (head.y - j.chest.y) * nk;
     stroke(SHAPE.torso, () => { ctx.moveTo(X(j.hip), j.hip.y); ctx.quadraticCurveTo(mx * f, my, X(j.chest), j.chest.y); });
     if (st.wide) stroke(SHAPE.torso + st.wide, () => { ctx.moveTo(X(j.chest), j.chest.y + 2); ctx.lineTo(X(j.hip), j.hip.y + 8); });
     if (st.skirt) { ctx.fillStyle = st.solid; ctx.beginPath(); ctx.moveTo(X(j.hip) - 4, j.hip.y - 4); ctx.lineTo(X(j.hip) - 11, j.hip.y + 12); ctx.lineTo(X(j.hip) + 11, j.hip.y + 12); ctx.lineTo(X(j.hip) + 4, j.hip.y - 4); ctx.closePath(); ctx.fill(); }
     stroke(SHAPE.limb, () => { ctx.moveTo(X(j.chest), j.chest.y); ctx.lineTo(nx * f, ny); });
     limb(j.hip, j[frontLeg[0]], j[frontLeg[1]], true);
     limb(j.chest, j[frontArm[0]], j[frontArm[1]]);
-    // hollow round head: blank paper inside a thin ink ring
-    ctx.fillStyle = st.paper; ctx.beginPath(); ctx.arc(j.head.x * f, j.head.y, HEAD_R, 0, TAU); ctx.fill();
-    ctx.strokeStyle = st.ink; ctx.lineWidth = st.lw; ctx.beginPath(); ctx.arc(j.head.x * f, j.head.y, HEAD_R, 0, TAU); ctx.stroke();
+    // hollow head: blank paper inside a thin ink outline
+    ctx.fillStyle = st.paper; ctx.beginPath(); headPath(ctx, mdl, head.x * f, head.y); ctx.fill();
+    ctx.strokeStyle = st.ink; ctx.lineWidth = st.lw; ctx.beginPath(); headPath(ctx, mdl, head.x * f, head.y); ctx.stroke();
+  }
+  function headPath(ctx, m, x, y) {
+    const rx = m.rx, ry = m.ry;
+    switch (m.head) {
+      case 'oval': ctx.ellipse(x, y, rx, ry, 0, 0, TAU); break;
+      case 'square': { const c = Math.min(rx, ry) * 0.35; ctx.moveTo(x - rx + c, y - ry); ctx.lineTo(x + rx - c, y - ry); ctx.quadraticCurveTo(x + rx, y - ry, x + rx, y - ry + c); ctx.lineTo(x + rx, y + ry - c); ctx.quadraticCurveTo(x + rx, y + ry, x + rx - c, y + ry); ctx.lineTo(x - rx + c, y + ry); ctx.quadraticCurveTo(x - rx, y + ry, x - rx, y + ry - c); ctx.lineTo(x - rx, y - ry + c); ctx.quadraticCurveTo(x - rx, y - ry, x - rx + c, y - ry); ctx.closePath(); break; }
+      case 'diamond': ctx.moveTo(x, y - ry); ctx.lineTo(x + rx, y); ctx.lineTo(x, y + ry); ctx.lineTo(x - rx, y); ctx.closePath(); break;
+      case 'onion': ctx.moveTo(x, y - ry - 5); ctx.quadraticCurveTo(x + rx * 0.4, y - ry * 0.9, x + rx, y); ctx.quadraticCurveTo(x + rx * 0.9, y + ry, x, y + ry); ctx.quadraticCurveTo(x - rx * 0.9, y + ry, x - rx, y); ctx.quadraticCurveTo(x - rx * 0.4, y - ry * 0.9, x, y - ry - 5); ctx.closePath(); break;
+      default: ctx.arc(x, y, rx, 0, TAU);
+    }
   }
 
   /** Draw the figure: paper halo first (so scenery never cuts through it), then the body. */
@@ -173,7 +211,7 @@
       // a blank-paper aura around the whole figure: nothing behind it may cut through the drawing
       let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity;
       for (const k in j) { const q = j[k]; if (typeof q !== 'object') continue; x0 = Math.min(x0, q.x * f); x1 = Math.max(x1, q.x * f); y0 = Math.min(y0, q.y); y1 = Math.max(y1, q.y); }
-      y0 = Math.min(y0, j.head.y - HEAD_R);
+      y0 = Math.min(y0, j.head.y - HEAD_R - 8);
       const cx = (x0 + x1) / 2, cy = (y0 + y1) / 2, rx = (x1 - x0) / 2 + st.halo, ry = (y1 - y0) / 2 + st.halo;
       ctx.fillStyle = st.paper; ctx.beginPath(); ctx.ellipse(cx, cy, rx * 1.15, ry * 1.08, 0, 0, TAU); ctx.fill();
     }
@@ -184,6 +222,6 @@
     ctx.stroke();
   }
 
-  PA.Stick = { rig, blend, draw, ik, BONES, HEAD_R, SHAPE, RIGS, SCALE: 1.5 }; // drawn 1.5x: ~9 character rows tall
+  PA.Stick = { rig, blend, draw, ik, BONES, HEAD_R, SHAPE, MODELS, headPath, RIGS, SCALE: 1.5 }; // drawn 1.5x: ~9 character rows tall
   if (typeof module !== 'undefined' && module.exports) module.exports = PA.Stick;
 })(typeof window !== 'undefined' ? window : globalThis);

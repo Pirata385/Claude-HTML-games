@@ -14,6 +14,7 @@
         <div class="tmenu">
           <button data-a="new">new notebook</button>
           <button data-a="continue">continue</button>
+          <button data-a="stickman">stickman</button>
           <button data-a="settings">settings</button>
           <button data-a="about">about</button>
         </div>
@@ -34,15 +35,18 @@
         <label>your name <input name="name" maxlength="14" value="Doodle" autocomplete="off"></label>
         <label>farm name <input name="farm" maxlength="18" value="Paper Acres" autocomplete="off"></label>
         <label>season length <select name="days"><option value="28">28 days</option><option value="14">14 days (shorter)</option></select></label>
+        <label>stickman <button type="button" data-g>${PA.U.esc(PA.Stick.MODELS[PA.settings.model | 0].name)} (${PA.U.esc(PA.Stick.MODELS[PA.settings.model | 0].body)}) - change</button></label>
         <label>save slot <select name="slot">${[1, 2, 3].map((i) => `<option value="${i}" ${i === slot ? 'selected' : ''}>slot ${i}${used.has(i) ? ' (overwrite)' : ''}</option>`).join('')}</select></label>
         <button type="submit">start drawing</button>
       </form>`;
       const f = this.panel.querySelector('form');
+      f.querySelector('[data-g]').onclick = () => PA.scene.openGallery();
       f.querySelectorAll('input').forEach((i) => { i.onfocus = () => { PA.Input.uiTyping = true; }; i.onblur = () => { PA.Input.uiTyping = false; }; });
       f.onsubmit = (e) => {
         e.preventDefault();
         const seed = (Math.random() * 4294967295) >>> 0;
         const st = PA.newState(seed, { name: f.name.value.trim() || 'Doodle', farm: f.farm.value.trim() || 'Paper Acres', seasonDays: +f.days.value });
+        st.model = PA.settings.model | 0;
         PA.Input.uiTyping = false;
         PA.startGame(st, +f.slot.value, true);
       };
@@ -60,6 +64,7 @@
         inp.click();
       };
     },
+    stickman() { PA.scene.openGallery(); },
     settings() { if (PA.UI.Settings) PA.UI.Settings.render(this.panel); },
     about() {
       this.panel.innerHTML = `<p class="about">Everything here is drawn as lines and turned into letters by an ASCII renderer.<br>Grow crops, befriend Marginton, draw what you need (only things, never creatures), and mend the town's torn notebook.<br><br>Made with Phaser 3. Fonts: Courier Prime, Patrick Hand (OFL).</p>`;

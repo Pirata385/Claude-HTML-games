@@ -11,7 +11,8 @@ This is the approved design (originally written in Portuguese), followed by the 
 5. **Render pipeline:** *"draw everything with Phaser / Canvas2D and then convert it to ASCII"*. The game draws vector strokes into an offscreen buffer, and a post-process matches each character cell (4x6 samples, ridge-thinned) to the nearest glyph template. Two characters per world cell.
 6. **Drawing names:** chosen from a word list, inanimate things only. The player can never create life.
 7. **Solid body, hollow head:** the stickman (and every townsfolk) keeps a hollow round head, while the torso and limbs are solid: torso 2 characters wide, limbs 1. Solid ink carries a buffer-only marker, so the converter never thins it and prints it as `#`; the thin edges of solid shapes stay blank. On far slices, figures fall back to thin grey lines.
-8. **Economy and danger:** an ink economy (pencil lead fades; pen ink is permanent) and real-time combat with physics.
+8. **20 stickman models:** same rule for all of them (hollow head, solid body: torso 2 characters, limbs 1), each with its own body character (`# @ % & 8 M W X H $ O 0 = * + B N Q E Z`) and head shape (round, oval, square, diamond, onion). You pick one in a gallery drawn by the ASCII renderer (title, new game, settings). The model index travels through the buffer in the marker's green channel. The townsfolk each wear a different model.
+9. **Economy and danger:** an ink economy (pencil lead fades; pen ink is permanent) and real-time combat with physics.
 
 ## Original design (approved plan, in Portuguese)
 

@@ -47,3 +47,17 @@ test('solid body: limbs one character wide, torso two, a round head bigger than 
   assert.ok(S.SHAPE.head > S.SHAPE.torso / 2);
   assert.strictEqual(S.HEAD_R, S.SHAPE.head);
 });
+
+test('20 stickman models: every one has its own body character and a hollow head shape', () => {
+  const M = S.MODELS;
+  assert.strictEqual(M.length, 20);
+  const chars = new Set(M.map((m) => m.body));
+  assert.strictEqual(chars.size, 20, 'all body characters differ');
+  for (const m of M) {
+    assert.ok(/^[\x21-\x7e]$/.test(m.body), m.name + ' body is one printable ASCII character');
+    assert.ok(!'|-/\\_.\',`:;~^'.includes(m.body), m.name + ' body is not a stroke character');
+    assert.ok(['round', 'oval', 'square', 'diamond', 'onion'].includes(m.head), m.name);
+    assert.ok(m.rx >= 5 && m.ry >= 5 && m.rx <= 12 && m.ry <= 12, m.name + ' head size');
+    assert.ok(m.name && m.name.length <= 10);
+  }
+});

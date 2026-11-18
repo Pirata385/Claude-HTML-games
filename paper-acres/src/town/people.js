@@ -103,8 +103,9 @@
         const feet = g.surfaceY(Math.floor(a.x / C.CELL_W), z) * C.CELL_H - 1;
         const gx = p.level === 0 ? Math.round(a.x / (C.CELL_W / 2)) * (C.CELL_W / 2) : a.x;
         ctx.save(); ctx.translate(gx, feet); ctx.scale(k, k);
-        const lw = R.lw(p, 1.0) / k, solid = p.level === 0 ? PA.Ascii.SOLID : null;
-        PA.Stick.draw(ctx, a.lastJ, a.facing, { ink: st.ink, paper: st.paper, lw, halo: p.level === 0 ? R.lw(p, 3.5) / k : 0, solid, skirt: solid && look.skirt, wide: solid && (look.coat || look.build) ? 4 : 0 });
+        const mi = (PA.NPC_DATA.indexOf(a.n) + 1) % PA.Stick.MODELS.length; // every townsfolk wears a different model
+        const lw = R.lw(p, 1.0) / k, solid = p.level === 0 ? PA.Ascii.solidFor(mi) : null;
+        PA.Stick.draw(ctx, a.lastJ, a.facing, { ink: st.ink, paper: st.paper, lw, halo: p.level === 0 ? R.lw(p, 3.5) / k : 0, solid, model: mi, skirt: solid && look.skirt, wide: solid && (look.coat || look.build) ? 4 : 0 });
         ctx.strokeStyle = st.ink;
         accessories(ctx, a.lastJ, look, a.facing < 0 ? -1 : 1, lw, !!solid);
         ctx.restore();

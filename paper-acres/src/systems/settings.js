@@ -5,7 +5,7 @@
   const KEY = 'paperacres.settings';
   const DEFAULTS = {
     master: 0.8, music: 0.55, sfx: 0.8, dayLength: 700, uiScale: 1, boil: false, shake: true, slices: 4,
-    autoQuality: true, dprCap: 2, touch: 'auto', leftHanded: false, touchSize: 1, hints: true, reducedMotion: false, pauseOnBlur: true,
+    autoQuality: true, dprCap: 2, model: 0, touch: 'auto', leftHanded: false, touchSize: 1, hints: true, reducedMotion: false, pauseOnBlur: true,
   };
   PA.Settings = {
     DEFAULTS,

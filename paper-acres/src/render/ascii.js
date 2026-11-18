@@ -88,7 +88,11 @@
     cellAt(sx, sy) { return { c: Math.floor(sx / this.cellW), r: Math.floor(sy / this.cellH) }; }
     /** Suppress low-priority stamps inside a screen rectangle (e.g. where an actor stands). */
     mask(x0, y0, x1, y1) { this.masks.push([Math.floor(x0 / this.cellW), Math.floor(y0 / this.cellH), Math.floor(x1 / this.cellW), Math.floor(y1 / this.cellH)]); }
-    stampText(sx, sy, text, opts) { for (let i = 0; i < text.length; i++) if (text[i] !== ' ') this.stamp(sx + i * this.cellW, sy, text[i], opts); }
+    /** Text on the character grid: one cell per letter from the first cell (no float drift between letters). */
+    stampText(sx, sy, text, opts) {
+      const c0 = Math.floor(sx / this.cellW + 1e-6), r = Math.floor(sy / this.cellH + 1e-6);
+      for (let i = 0; i < text.length; i++) if (text[i] !== ' ') this.stamp((c0 + i + 0.5) * this.cellW, (r + 0.5) * this.cellH, text[i], opts);
+    }
     put(i, x, y, frame) {
       let b = this.pool[i];
       if (b) { b.reset(x, y, frame); b.visible = true; } else { b = this.bl.create(x, y, frame); this.pool.push(b); }
@@ -102,10 +106,11 @@
       // darkness map + ridge thinning: a sample is ink only if it is the darkest across the stroke
       // (strict on one side so a line split evenly over two samples keeps exactly one of them)
       const N = bw * bh;
-      if (!this.dk || this.dk.length !== N) { this.dk = new Uint8Array(N); this.on = new Uint8Array(N); this.sol = new Uint8Array(N); }
-      const dk = this.dk, onm = this.on, sol = this.sol;
-      // solid body ink (Ascii.SOLID: dark red channel, bright blue channel) is never thinned
-      for (let i = 0, o = 0; i < N; i++, o += 4) { dk[i] = 255 - data[o]; sol[i] = dk[i] > thr && data[o + 2] > 160 ? 1 : 0; }
+      if (!this.dk || this.dk.length !== N) { this.dk = new Uint8Array(N); this.on = new Uint8Array(N); this.sol = new Uint8Array(N); this.gm = new Uint8Array(N); }
+      const dk = this.dk, onm = this.on, sol = this.sol, gm = this.gm;
+      // solid body ink (dark red channel, bright blue channel) is never thinned; green tells the model
+      for (let i = 0, o = 0; i < N; i++, o += 4) { dk[i] = 255 - data[o]; sol[i] = dk[i] > thr && data[o + 2] > 160 ? 1 : 0; gm[i] = data[o + 1]; }
+      const models = PA.Stick && PA.Stick.MODELS, votes = new Uint8Array(20);
       for (let y = 0; y < bh; y++) {
         const row = y * bw;
         for (let x = 0; x < bw; x++) {
@@ -141,9 +146,14 @@
               if (onm[i]) { const bit = 1 << (yy * SX + xx); key |= bit; sum += dk[i]; on++; if (sol[i]) { ns++; sbits |= bit; } }
             }
           }
-          // a body cell is either '#' or nothing: the thin edges of a solid shape never become stroke glyphs
+          // a body cell is either the model's character or nothing: thin edges of a solid shape never become strokes
           if (ns && ns < M.SOLID_MIN) key = (key & ~sbits) >>> 0;
           let ch = key ? M.pick(key, ns) : ' ';
+          if (ns >= M.SOLID_MIN && models) {
+            votes.fill(0); let best = 0;
+            for (let yy = 0; yy < SY; yy++) { let i = base + yy * bw; for (let xx = 0; xx < SX; xx++, i++) if (sol[i]) { const m = Ascii.modelOf(gm[i]); votes[m]++; if (votes[m] > votes[best]) best = m; } }
+            ch = models[best] ? models[best].body : '#';
+          }
           this.glyph[idx] = ch;
           let style = (on && sum / on >= boldAt) || ns >= M.SOLID_MIN ? 1 : 0;
           let inv = false;
@@ -176,7 +186,11 @@
       return out;
     }
   }
-  // Buffer-only marker colour for solid body ink (never reaches the screen; see the palette test).
-  Ascii.SOLID = '#0000ff';
+  // Buffer-only marker colours for solid body ink (never reach the screen; see the palette test):
+  // red 0 = dark ink, blue 255 = "solid", green = which stickman model (selects the body character).
+  Ascii.solidFor = (i) => '#00' + ((i | 0) * 12).toString(16).padStart(2, '0') + 'ff';
+  Ascii.modelOf = (g) => Math.max(0, Math.min(19, Math.round(g / 12)));
+  Ascii.SOLID = Ascii.solidFor(0);
+  Ascii.BUFFER_PAPER = '#ffffff'; // paper inside the buffer
   PA.Ascii = Ascii;
 })(typeof window !== 'undefined' ? window : globalThis);

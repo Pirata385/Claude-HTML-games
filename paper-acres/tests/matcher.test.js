@@ -44,3 +44,12 @@ test('pick: solid cells become #, partly solid cells fall back to the stroke mat
   assert.strictEqual(M.pick(k, 0), '-');
   assert.strictEqual(M.pick(0, 0), ' ');
 });
+
+test('solid marker colours carry the model index through the buffer', () => {
+  const A = load('src/render/ascii.js').Ascii;
+  for (let i = 0; i < 20; i++) {
+    const hex = A.solidFor(i);
+    assert.ok(/^#00[0-9a-f]{2}ff$/.test(hex), hex);
+    assert.strictEqual(A.modelOf(parseInt(hex.slice(3, 5), 16)), i);
+  }
+});

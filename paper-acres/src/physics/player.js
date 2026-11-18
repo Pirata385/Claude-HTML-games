@@ -157,6 +157,7 @@
       if (this.landT > 0) { this.landT -= dt; if (this.state === 'idle' || this.state === 'walk') this.state = 'land'; }
       this.fallSpeed = vy; this.wasGrounded = grounded;
     }
+    model() { const s = PA.scene && PA.scene.state; return s && s.model != null ? s.model : (PA.settings.model | 0); }
     /** Current skeleton, eased toward the target pose so state changes flow. */
     joints(dt) {
       const act = this.action;
@@ -176,7 +177,7 @@
       const k = PA.Stick.SCALE, gx = Math.round(this.x / (C.CELL_W / 2)) * (C.CELL_W / 2); // whole characters: the torso fills exactly two
       ctx.translate(gx, this.feet + this.drawOffset - 1);
       ctx.scale(k, k);
-      PA.Stick.draw(ctx, j, this.facing, { ink: '#000', paper: '#fff', solid: p.level === 0 ? PA.Ascii.SOLID : null, lw: R.lw(p, 1.0) / k, halo: R.lw(p, 4.5) / k });
+      PA.Stick.draw(ctx, j, this.facing, { ink: '#000', paper: '#fff', solid: p.level === 0 ? PA.Ascii.solidFor(this.model()) : null, model: this.model(), lw: R.lw(p, 1.0) / k, halo: R.lw(p, 4.5) / k });
       ctx.restore();
       const sx = p.ox + this.x * p.scale, sy = p.oy + this.feet * p.scale;
       R.mask(sx - 36 * p.scale, sy - 96 * p.scale, sx + 36 * p.scale, sy);

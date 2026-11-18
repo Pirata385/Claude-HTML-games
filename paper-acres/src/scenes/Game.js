@@ -129,6 +129,7 @@
       this.lastNow = nowMs;
       const dt = Math.min(delta, 50);
       this.frameDt = dt;
+      if (this.mode === 'gallery') { this.galleryInput(); this.renderGallery(nowMs); return; }
       if (this.mode === 'title') { this.titleCam(dt); this.render(nowMs, dt); if ((this.moodT = (this.moodT || 0) + dt) > 1000) { this.moodT = 0; PA.Audio.pickTheme(this); } return; }
       const inp = PA.Input.poll();
       if (inp.pauseP && !PA.Input.blocked) this.togglePause();
@@ -193,6 +194,92 @@
       const cam = this.cam;
       cam.x = (60 + (Math.sin(this.titleT * 0.05) * 0.5 + 0.5) * 220) * C.CELL_W;
       cam.y = (PA.Gen.GY - 5) * C.CELL_H; cam.z = 1;
+    }
+
+    /* ---------------- stickman gallery (20 models, drawn by the ASCII renderer) ---------------- */
+    openGallery() {
+      this.galleryFrom = this.mode;
+      this.mode = 'gallery';
+      this.gallery = { sel: this.state && this.state.model != null ? this.state.model : (PA.settings.model | 0), t0: performance.now(), pose: (new URLSearchParams(location.search)).get('pose') };
+      PA.UI.Title.show(false); PA.UI.HUD.show(false); PA.UI.Hotbar.show(false);
+      if (PA.Touch.el) PA.Touch.setVisible(false);
+      PA.Input.clearAll();
+      this.galleryClick = (e) => { const i = this.gallerySlotAt(e.clientX * PA.dpr(), e.clientY * PA.dpr()); if (i == null) return; if (i === this.gallery.sel) this.closeGallery(true); else this.gallery.sel = i; };
+      document.querySelector('#game canvas').addEventListener('pointerdown', this.galleryClick);
+      this.galleryKey = (e) => {
+        const g = this.gallery, L = this.galleryLayout();
+        const k = e.code;
+        if (k === 'ArrowRight' || k === 'KeyD') g.sel = (g.sel + 1) % 20;
+        else if (k === 'ArrowLeft' || k === 'KeyA') g.sel = (g.sel + 19) % 20;
+        else if (k === 'ArrowDown' || k === 'KeyS') g.sel = (g.sel + L.cols) % 20;
+        else if (k === 'ArrowUp' || k === 'KeyW') g.sel = (g.sel + 20 - L.cols) % 20;
+        else if (k === 'Enter' || k === 'Space' || k === 'KeyE') this.closeGallery(true);
+        else if (k === 'Escape') this.closeGallery(false);
+        else return;
+        e.preventDefault(); e.stopPropagation();
+      };
+      window.addEventListener('keydown', this.galleryKey, true);
+    }
+    closeGallery(pick) {
+      if (pick) {
+        const i = this.gallery.sel, m = PA.Stick.MODELS[i];
+        PA.Settings.set('model', i);
+        if (this.state) this.state.model = i;
+        PA.UI.toast('Your stickman: ' + m.name + ' (' + m.body + ')', 2500);
+      }
+      document.querySelector('#game canvas').removeEventListener('pointerdown', this.galleryClick);
+      window.removeEventListener('keydown', this.galleryKey, true);
+      this.mode = this.galleryFrom || 'title';
+      PA.Input.clearAll();
+      if (this.mode === 'title') this.showTitle();
+      else { PA.UI.HUD.show(true); PA.UI.Hotbar.show(true); if (PA.Touch.el) PA.Touch.setVisible(true); }
+    }
+    galleryInput() { PA.Input.poll(); }
+    galleryLayout() {
+      const R = this.ascii, cols = Math.max(2, Math.min(10, Math.floor((R.cols - 2) / 15))), rowsFit = Math.max(1, Math.floor((R.rows - 5) / 14));
+      const per = cols * rowsFit, page = Math.floor(this.gallery.sel / per);
+      return { cols, per, page, rowsFit, pages: Math.ceil(20 / per) };
+    }
+    /** Screen-space slot of model i (feet point, in device px) for the current page, or null. */
+    gallerySlot(i, L) {
+      const R = this.ascii, k = i - L.page * L.per;
+      if (k < 0 || k >= L.per) return null;
+      const c = k % L.cols, r = Math.floor(k / L.cols);
+      const x0 = Math.floor((R.cols - L.cols * 15) / 2);
+      return { c, r, x: (x0 + c * 15 + 7) * R.cellW, y: (4 + (r + 1) * 14 - 3) * R.cellH };
+    }
+    gallerySlotAt(sx, sy) {
+      const L = this.galleryLayout(), R = this.ascii;
+      for (let i = 0; i < 20; i++) { const q = this.gallerySlot(i, L); if (q && Math.abs(sx - q.x) < 7 * R.cellW && sy > q.y - 11 * R.cellH && sy < q.y + 3 * R.cellH) return i; }
+      return null;
+    }
+    renderGallery(now) {
+      const R = this.ascii, ctx = R.ctx, g = this.gallery, L = this.galleryLayout(), zoom = this.cam.zoom, k = PA.Stick.SCALE;
+      R.begin();
+      R.stampText(R.cellW * 3, R.cellH * 1, 'Choose your stickman' + (L.pages > 1 ? '  (page ' + (L.page + 1) + '/' + L.pages + ')' : ''), { style: 1, pri: 6 });
+      R.stampText(R.cellW * 3, R.cellH * 2, 'arrows or tap to look, Enter or tap again to pick, Esc to go back', { style: 0, pri: 6 });
+      const t = (now - g.t0) / 1000;
+      for (let i = 0; i < 20; i++) {
+        const q = this.gallerySlot(i, L); if (!q) continue;
+        const m = PA.Stick.MODELS[i], sel = i === g.sel;
+        const pose = g.pose || (sel ? 'walk' : 'idle');
+        const j = PA.Stick.rig(pose, sel ? (t * 1.4) % 1 : 0, {});
+        const p = { ox: 0, oy: 0, scale: zoom, level: 0 };
+        R.use(p);
+        ctx.save();
+        const wx = q.x / zoom, wy = q.y / zoom;
+        // a little ground line under each model, and a box around the one you are looking at
+        ctx.strokeStyle = '#000'; ctx.lineWidth = R.lw(p, 1);
+        ctx.beginPath(); ctx.moveTo(wx - 36, wy - 1.6); ctx.lineTo(wx + 36, wy - 1.6); ctx.stroke();
+        if (sel) { ctx.beginPath(); ctx.rect(wx - 42, wy - 118, 84, 140); ctx.stroke(); }
+        ctx.translate(Math.round(wx / (PA.C.CELL_W / 2)) * (PA.C.CELL_W / 2), wy - 1); ctx.scale(k, k);
+        PA.Stick.draw(ctx, j, 1, { ink: '#000', paper: PA.Ascii.BUFFER_PAPER, lw: R.lw(p, 1) / k, halo: R.lw(p, 3) / k, solid: PA.Ascii.solidFor(i), model: i });
+        ctx.restore();
+        const label = (i + 1) + '. ' + m.name + ' ' + m.body;
+        R.stampText(q.x - (label.length * R.cellW) / 2, q.y + R.cellH * 0.6, label, { style: sel ? 1 : 0, pri: 6 });
+      }
+      R.night = null;
+      R.end(now);
     }
 
     /* ---------------- maps and doors ---------------- */

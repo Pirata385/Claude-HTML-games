@@ -174,13 +174,13 @@
       R.use(p);
       const ctx = R.ctx;
       ctx.save();
-      const k = PA.Stick.SCALE, gx = Math.round(this.x / (C.CELL_W / 2)) * (C.CELL_W / 2); // whole characters: the torso fills exactly two
+      const k = PA.Stick.SCALE, gx = PA.Stick.snapX(this.x); // the torso stands in the middle of one character column
       ctx.translate(gx, this.feet + this.drawOffset - 1);
       ctx.scale(k, k);
       PA.Stick.draw(ctx, j, this.facing, { ink: '#000', paper: '#fff', solid: p.level === 0 ? PA.Ascii.solidFor(this.model()) : null, model: this.model(), lw: R.lw(p, 1.0) / k, halo: R.lw(p, 4.5) / k });
       ctx.restore();
       const sx = p.ox + this.x * p.scale, sy = p.oy + this.feet * p.scale;
-      R.mask(sx - 36 * p.scale, sy - 96 * p.scale, sx + 36 * p.scale, sy);
+      R.mask(sx - 36 * p.scale, sy - 102 * p.scale, sx + 36 * p.scale, sy);
       this.screenCell = R.cellAt(sx, sy - 1);
     }
   }

@@ -272,7 +272,7 @@
         ctx.strokeStyle = '#000'; ctx.lineWidth = R.lw(p, 1);
         ctx.beginPath(); ctx.moveTo(wx - 36, wy - 1.6); ctx.lineTo(wx + 36, wy - 1.6); ctx.stroke();
         if (sel) { ctx.beginPath(); ctx.rect(wx - 42, wy - 118, 84, 140); ctx.stroke(); }
-        ctx.translate(Math.round(wx / (PA.C.CELL_W / 2)) * (PA.C.CELL_W / 2), wy - 1); ctx.scale(k, k);
+        ctx.translate(PA.Stick.snapX(wx), wy - 1); ctx.scale(k, k);
         PA.Stick.draw(ctx, j, 1, { ink: '#000', paper: PA.Ascii.BUFFER_PAPER, lw: R.lw(p, 1) / k, halo: R.lw(p, 3) / k, solid: PA.Ascii.solidFor(i), model: i });
         ctx.restore();
         const label = (i + 1) + '. ' + m.name + ' ' + m.body;

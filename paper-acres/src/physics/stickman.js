@@ -1,39 +1,68 @@
-/* Stickman rig: a hand-drawn stick figure with real joints (IK knees and elbows), animated procedurally.
+/* Stickman rig: a thin stick figure with real joints (IK knees and elbows), animated procedurally.
  * Coordinates are world px relative to the point between the feet (y up is negative), facing right.
  * The ASCII renderer converts the drawing; nothing here knows about characters. */
 (function (root) {
   'use strict';
   const PA = root.PA = root.PA || {};
   const TAU = Math.PI * 2;
-  const BONES = { thigh: 14, shin: 14, upper: 10, fore: 10, spine: 17, neck: 3 };
-  // body thickness in figure units (the figure is drawn 1.5x; 4 units = 6 px = one character)
-  const SHAPE = { limb: 4, torso: 8, head: 8 };
-  // 20 models: same rule (hollow head, solid body: torso 2 characters, limbs 1), each with its own
-  // body character and head shape. rx/ry are the head radii in figure units.
+  // Proportions come from the player's reference drawing: a big round hollow head (about 30% of the height),
+  // a long thin torso, straight arms leaving it a little below the neck, straight legs in an upside-down V.
+  // At 1.5x every part lands on whole character rows (10 px): head 3 rows, neck 1, torso 3, legs 3.
+  const BONES = { thigh: 12, shin: 12, upper: 9, fore: 9, spine: 14.67, neck: 10 };
+  const HEAD = { rx: 14, ry: 10 }; // 7 characters wide, 3 rows tall
+  // thin rule: every body line is exactly one character thick (rasterised cell by cell, see cellLine)
+  const SHAPE = { line: 1, head: HEAD };
+  /* The hollow head as the renderer sees it: a pencil outline fitted to the character grid, drawn crisp on the
+   * buffer's samples (4x6 per character) around the middle of its centre cell, so it converts to a clean
+   * " .---. " / "(     )" / " '---' " instead of anti-aliased crumbs. Left half; the right half is its mirror. */
+  const HEAD_OUTLINE = (() => {
+    const half = [
+      [[-6, -6], [-1, -6]],                                                // top
+      [[-6, 5], [-1, 5]],                                                  // bottom
+      [[-8, -5], [-8, -5]],                                                // upper corner
+      [[-8, 4], [-8, 4]],                                                  // lower corner
+      [[-11, -3], [-12, -3], [-13, -2], [-13, 1], [-12, 2], [-11, 2]],     // side
+    ];
+    return half.concat(half.map((pl) => pl.map(([x, y]) => [-1 - x, y])));
+  })();
+  /** Every sample the head outline covers, relative to the centre of the head's middle cell (in samples). */
+  function headSamples() {
+    const seen = new Set(), out = [];
+    for (const pl of HEAD_OUTLINE) for (let i = 0; i < pl.length; i++) {
+      const a = pl[Math.max(0, i - 1)], b = pl[i], n = Math.max(Math.abs(b[0] - a[0]), Math.abs(b[1] - a[1]), 1);
+      for (let k = 0; k <= n; k++) {
+        const x = Math.round(a[0] + (b[0] - a[0]) * k / n), y = Math.round(a[1] + (b[1] - a[1]) * k / n), key = x + ',' + y;
+        if (!seen.has(key)) { seen.add(key); out.push([x, y]); }
+      }
+    }
+    return out;
+  }
+  // 20 models: the same figure, each one filled with its own unusual character (never a letter or a digit).
+  // Latin-1 symbols come from Courier Prime; the others are drawn by hand in the glyph atlas (PA.Glyphs.CUSTOM).
   const MODELS = [
-    { name: 'Classic', body: '#', head: 'round', rx: 8, ry: 8 },
-    { name: 'Bubble', body: '@', head: 'round', rx: 10, ry: 10 },
-    { name: 'Peanut', body: '%', head: 'oval', rx: 10, ry: 7 },
-    { name: 'Egg', body: '&', head: 'oval', rx: 7, ry: 10 },
-    { name: 'Boxy', body: '8', head: 'square', rx: 8, ry: 8 },
-    { name: 'Pin', body: 'M', head: 'round', rx: 6, ry: 6 },
-    { name: 'Moon', body: 'W', head: 'round', rx: 9, ry: 9 },
-    { name: 'Kite', body: 'X', head: 'diamond', rx: 9, ry: 10 },
-    { name: 'Brick', body: 'H', head: 'square', rx: 9, ry: 7 },
-    { name: 'Coin', body: '$', head: 'oval', rx: 8.5, ry: 9 },
-    { name: 'Balloon', body: 'O', head: 'round', rx: 11, ry: 11 },
-    { name: 'Bean', body: '0', head: 'oval', rx: 6.5, ry: 10 },
-    { name: 'Loaf', body: '=', head: 'oval', rx: 11, ry: 7 },
-    { name: 'Star', body: '*', head: 'diamond', rx: 8, ry: 8 },
-    { name: 'Cross', body: '+', head: 'square', rx: 7, ry: 7 },
-    { name: 'Block', body: 'B', head: 'square', rx: 10, ry: 10 },
-    { name: 'Knot', body: 'N', head: 'round', rx: 7, ry: 7 },
-    { name: 'Pea', body: 'Q', head: 'round', rx: 5.5, ry: 5.5 },
-    { name: 'Melon', body: 'E', head: 'oval', rx: 10, ry: 8 },
-    { name: 'Onion', body: 'Z', head: 'onion', rx: 9, ry: 9 },
+    { name: 'Section', body: '\u00A7' },  // §
+    { name: 'Pilcrow', body: '\u00B6' },  // ¶
+    { name: 'Charm', body: '\u00A4' },    // ¤
+    { name: 'Either', body: '\u00B1' },   // ±
+    { name: 'Divide', body: '\u00F7' },   // ÷
+    { name: 'Dagger', body: '\u2021' },   // ‡
+    { name: 'Mille', body: '\u2030' },    // ‰
+    { name: 'Rhomb', body: '\u2666' },    // ♦
+    { name: 'Spade', body: '\u2660' },    // ♠
+    { name: 'Club', body: '\u2663' },     // ♣
+    { name: 'Heart', body: '\u2665' },    // ♥
+    { name: 'Lozenge', body: '\u25CA' },  // ◊
+    { name: 'Loop', body: '\u221E' },     // ∞
+    { name: 'Ripple', body: '\u2248' },   // ≈
+    { name: 'Rungs', body: '\u2261' },    // ≡
+    { name: 'Orbit', body: '\u2295' },    // ⊕
+    { name: 'Knot', body: '\u2297' },     // ⊗
+    { name: 'Sun', body: '\u263C' },      // ☼
+    { name: 'Mark', body: '\u203B' },     // ※
+    { name: 'Clover', body: '\u2318' },   // ⌘
   ];
-  const HEAD_R = SHAPE.head;
-  const HIP_Y = -27.5;
+  const HEAD_R = HEAD.ry;
+  const HIP_Y = -21.33;
 
   const v = (x, y) => ({ x, y });
   /** Two-bone IK: the middle joint between a and b, bending toward `side` (+1 = the figure's front). */
@@ -51,11 +80,13 @@
   /** Clamp an end effector so the limb can reach it. */
   function reach(a, b, l) { const d = Math.hypot(b.x - a.x, b.y - a.y); return d <= l ? b : v(a.x + (b.x - a.x) / d * l, a.y + (b.y - a.y) / d * l); }
 
-  /** Assemble a full pose from the hip, a lean, foot targets and hand targets. */
+  /** Assemble a full pose from the hip, a lean, foot targets and hand targets (relative to the chest). */
   function pose(hip, lean, footL, footR, handL, handR, o) {
     const opt = o || {};
     const chest = v(hip.x + lean, hip.y - Math.sqrt(Math.max(1, BONES.spine * BONES.spine - lean * lean)));
     const legL = BONES.thigh + BONES.shin, armL = BONES.upper + BONES.fore;
+    // hand targets are given relative to the chest (the shoulders)
+    handL = v(chest.x + handL.x, chest.y + handL.y); handR = v(chest.x + handR.x, chest.y + handR.y);
     footL = reach(hip, footL, legL); footR = reach(hip, footR, legL);
     handL = reach(chest, handL, armL); handR = reach(chest, handR, armL);
     const kneeL = ik(hip, footL, BONES.thigh, BONES.shin, -1);
@@ -69,68 +100,65 @@
   }
 
   const RIGS = {
-    idle(t) {
+    // standing like the drawing: straight legs apart, straight arms down and out
+    idle(t, p) {
       const b = Math.sin(t * TAU);
-      const hip = v(0, HIP_Y + b * 0.4);
-      return pose(hip, 0.6, v(-7, 0), v(7, 0), v(-11, -24 + b * 0.8), v(11.5, -24 + b * 0.8), { bend: 1.5 });
+      const hip = v(0, HIP_Y + b * 0.3);
+      const ax = p.armX != null ? p.armX : 15.5, ay = p.armY != null ? p.armY : 8.5;
+      return pose(hip, 0, v(-11, 0), v(11, 0), v(-ax, ay + b * 0.4), v(ax, ay + b * 0.4));
     },
     walk(t, p) {
-      const S = p.stride || 10, L = p.lift || 6, ph = t * TAU;
+      const S = p.stride || 9, L = p.lift || 5, ph = t * TAU;
       const c = Math.cos(ph), s = Math.sin(ph);
       const footL = v(S * c, -L * Math.max(0, -s)), footR = v(-S * c, -L * Math.max(0, s));
-      const hip = v(0, HIP_Y + 1.6 * Math.abs(c) - 0.6);
-      const lean = p.lean != null ? p.lean : 2.5;
-      const A = p.arm || 11;
-      const handL = v(lean - A * c - 3, -24 + Math.abs(c) * 3), handR = v(lean + A * c + 3, -24 + Math.abs(c) * 3);
-      return pose(hip, lean, footL, footR, handL, handR, { bend: 2 });
+      const hip = v(0, HIP_Y + 1.2 * Math.abs(c) - 0.4);
+      const lean = p.lean != null ? p.lean : 1;
+      // arms stay out to the sides like the drawing (never alongside the thin torso) and swing a little
+      const A = BONES.upper + BONES.fore - 0.2, a0 = Math.atan2(p.armY != null ? p.armY : 8.5, p.armX != null ? p.armX : 15.5), sw = 0.3 * c;
+      return pose(hip, lean, footL, footR, v(-A * Math.cos(a0 + sw), A * Math.sin(a0 + sw)), v(A * Math.cos(a0 - sw), A * Math.sin(a0 - sw)));
     },
     run(t) {
       const ph = t * TAU, c = Math.cos(ph), s = Math.sin(ph);
-      const footL = v(13 * c, -9 * Math.max(0, -s) - 1), footR = v(-13 * c, -9 * Math.max(0, s) - 1);
-      const hip = v(2, HIP_Y + 2.4 * Math.abs(c) - 0.5);
-      const lean = 7;
-      // pumping arms, elbows bent at ~90 degrees
-      const handL = v(2 + lean - 9 * c, -33 - 3 * s), handR = v(2 + lean + 9 * c, -33 + 3 * s);
-      return pose(hip, lean, footL, footR, handL, handR, { elbows: -1, bend: 3 });
+      const footL = v(11 * c, -8 * Math.max(0, -s) - 1), footR = v(-11 * c, -8 * Math.max(0, s) - 1);
+      const hip = v(2, HIP_Y + 2 * Math.abs(c) - 0.3);
+      // arms flung out and pumping, well away from the torso
+      const A = BONES.upper + BONES.fore - 0.2, sw = 0.45 * c;
+      return pose(hip, 4, footL, footR, v(-A * Math.cos(0.3 + sw), A * Math.sin(0.3 + sw)), v(A * Math.cos(0.3 - sw), A * Math.sin(0.3 - sw)));
     },
-    crouch() { return pose(v(0, HIP_Y + 7), 4, v(-6, 0), v(6, 0), v(-4, -18), v(10, -20), { bend: 4 }); },
+    crouch() { return pose(v(0, HIP_Y + 6), 3, v(-6, 0), v(6, 0), v(-7, 13), v(8, 12)); },
     jump(t) {
       const s = Math.sin(t * TAU) * 1.5;
-      return pose(v(0, HIP_Y), 0.5, v(-7, -8 + s), v(9, -4), v(-11, -61), v(12, -60 + s), { headTilt: -0.15 });
+      return pose(v(0, HIP_Y), 0.5, v(-6, -7 + s), v(8, -4), v(-11, -13), v(11, -12 + s), { headTilt: -0.15 });
     },
     fall(t) {
       const s = Math.sin(t * TAU * 2) * 3;
-      return pose(v(0, HIP_Y), -0.5, v(-7, 0), v(8, -3), v(-15, -50 + s), v(15, -52 - s));
+      return pose(v(0, HIP_Y), -0.5, v(-7, 0), v(8, -3), v(-15, -4 + s), v(15, -5 - s));
     },
-    land() { return pose(v(0, HIP_Y + 8), 5, v(-7, 0), v(7, 0), v(-12, -14), v(14, -16), { bend: 5 }); },
+    land() { return pose(v(0, HIP_Y + 6), 3, v(-8, 0), v(8, 0), v(-13, 10), v(12, 11)); },
     climb(t) {
       const s = Math.sin(t * TAU);
-      return pose(v(0, HIP_Y), 0, v(-4, -3 - s * 4), v(4, -3 + s * 4), v(-4, -60 + s * 5), v(4, -60 - s * 5), { elbows: -1 });
+      return pose(v(0, HIP_Y), 0, v(-4, -3 - s * 4), v(4, -3 + s * 4), v(-4, -14 + s * 3), v(4, -14 - s * 3), { elbows: -1 });
     },
     swim(t) {
       const s = Math.sin(t * TAU), c = Math.cos(t * TAU);
-      const hip = v(-6, -22);
-      const j = pose(hip, 13, v(-26, -18 + s * 4), v(-25, -24 - s * 4), v(20 + c * 6, -38 + s * 5), v(18 - c * 6, -30 - s * 5));
-      return j;
+      return pose(v(-6, -16), 13, v(-27, -14 + s * 4), v(-26, -19 - s * 4), v(12 + c * 5, -3 + s * 4), v(10 - c * 5, 3 - s * 4));
     },
     /** Tool/weapon swing: p.progress 0..1, p.aim (rad, 0 = straight ahead). */
     swing(t, p) {
       const pr = PA.U.clamp(p.progress || 0, 0, 1), base = p.aim != null ? p.aim : 0.35;
       const a = base - 2.2 + PA.U.smooth(pr) * 3.0;
-      const lean = -2 + pr * 7;
+      const lean = -2 + pr * 5;
       const hip = v(0, HIP_Y + pr * 2);
-      const chest = v(lean, hip.y - BONES.spine);
-      const handR = v(chest.x + Math.cos(a) * 19, chest.y + Math.sin(a) * 19);
-      const j = pose(hip, lean, v(-9, 0), v(10, 0), v(-12, -30), handR, { elbows: 1 });
-      return j;
+      const R = BONES.upper + BONES.fore - 1;
+      return pose(hip, lean, v(-9, 0), v(9, 0), v(-10, 11), v(Math.cos(a) * R, Math.sin(a) * R), { elbows: 1 });
     },
     hurt(t) {
       const s = Math.sin(t * TAU * 3) * 2;
-      return pose(v(-1, HIP_Y), -6, v(-7, 0), v(7, -2), v(-16, -46 + s), v(10, -48 - s), { headTilt: 0.35 });
+      return pose(v(-1, HIP_Y), -4, v(-8, 0), v(8, -2), v(-10, -4 + s), v(15, -5 - s), { headTilt: 0.35 });
     },
-    wave(t) { const s = Math.sin(t * TAU * 2); return pose(v(0, HIP_Y), 0.5, v(-7, 0), v(7, 0), v(-11, -24), v(12 + s * 4, -58), { elbows: -1 }); },
-    talk(t) { const s = Math.sin(t * TAU * 2); return pose(v(0, HIP_Y), 1, v(-7, 0), v(7, 0), v(-11, -24), v(13, -34 + s * 3), { elbows: -1 }); },
-    sit() { return pose(v(-2, -14), 1.5, v(14, 0), v(16, 0), v(8, -16), v(10, -16)); },
+    wave(t) { const s = Math.sin(t * TAU * 2); return pose(v(0, HIP_Y), 0.2, v(-11, 0), v(11, 0), v(-15.5, 8.5), v(9 + s * 4, -13), { elbows: -1 }); },
+    talk(t) { const s = Math.sin(t * TAU * 2); return pose(v(0, HIP_Y), 0.5, v(-11, 0), v(11, 0), v(-15.5, 8.5), v(12, 5 + s * 3), { elbows: -1 }); },
+    sit() { return pose(v(-2, -12), 1.5, v(14, 0), v(16, 0), v(8, 12), v(10, 12)); },
   };
 
   function rig(kind, t, p) { return (RIGS[kind] || RIGS.idle)(t || 0, p || {}); }
@@ -146,64 +174,84 @@
     return out;
   }
 
-  /** Build the figure's path (limbs, curved spine, little feet) into ctx, mirrored by facing. */
-  function tracePath(ctx, j, f) {
-    const X = (q) => q.x * f;
-    const limb = (a, b, c) => { ctx.moveTo(X(a), a.y); ctx.lineTo(X(b), b.y); ctx.lineTo(X(c), c.y); };
-    // spine: a gentle curve that bows backward when leaning
-    const mx = (j.hip.x + j.chest.x) / 2 - (j.bend || 0) * 0.6, my = (j.hip.y + j.chest.y) / 2;
-    ctx.moveTo(X(j.hip), j.hip.y); ctx.quadraticCurveTo(mx * f, my, X(j.chest), j.chest.y);
-    limb(j.hip, j.kneeL, j.footL); limb(j.hip, j.kneeR, j.footR);
-    limb(j.chest, j.elbowL, j.handL); limb(j.chest, j.elbowR, j.handR);
-    // feet: short strokes pointing forward
-    ctx.moveTo(X(j.footL), j.footL.y); ctx.lineTo((j.footL.x + 3.5) * f, j.footL.y);
-    ctx.moveTo(X(j.footR), j.footR.y); ctx.lineTo((j.footR.x + 3.5) * f, j.footR.y);
-    // neck
-    const nx = j.chest.x + (j.head.x - j.chest.x) * 0.35, ny = j.chest.y + (j.head.y - j.chest.y) * 0.35;
-    ctx.moveTo(X(j.chest), j.chest.y); ctx.lineTo(nx * f, ny);
+  /** Where the neck meets the bottom of the head (the neck never enters the hollow head). */
+  function neckEnd(j) {
+    const dx = j.head.x - j.chest.x, dy = j.head.y - j.chest.y, d = Math.hypot(dx, dy) || 1;
+    const k = Math.max(0, d - HEAD.ry) / d;
+    return v(j.chest.x + dx * k, j.chest.y + dy * k);
   }
-
-  /** Solid body: back limbs, torso + neck, front limbs as thick round strokes in st.solid; the head is a hollow ring. */
-  function drawSolid(ctx, j, f, st) {
-    const X = (q) => q.x * f;
-    const stroke = (w, build) => { ctx.lineWidth = w; ctx.strokeStyle = st.solid; ctx.beginPath(); build(); ctx.stroke(); };
-    const limb = (a, b, c, foot) => stroke(SHAPE.limb, () => { ctx.moveTo(X(a), a.y); ctx.lineTo(X(b), b.y); ctx.lineTo(X(c), c.y); if (foot) ctx.lineTo((c.x + 3) * f, c.y); });
-    // the left limbs are the far side when facing right (and the near side when facing left)
-    const backArm = f > 0 ? ['elbowL', 'handL'] : ['elbowR', 'handR'], frontArm = f > 0 ? ['elbowR', 'handR'] : ['elbowL', 'handL'];
-    const backLeg = f > 0 ? ['kneeL', 'footL'] : ['kneeR', 'footR'], frontLeg = f > 0 ? ['kneeR', 'footR'] : ['kneeL', 'footL'];
-    limb(j.chest, j[backArm[0]], j[backArm[1]]);
-    limb(j.hip, j[backLeg[0]], j[backLeg[1]], true);
-    const mx = (j.hip.x + j.chest.x) / 2 - (j.bend || 0) * 0.6, my = (j.hip.y + j.chest.y) / 2;
-    // the head of this model: centre moved along the neck so its rim sits where the default head's did
-    const mdl = MODELS[st.model | 0] || MODELS[0];
-    const hd0 = Math.hypot(j.head.x - j.chest.x, j.head.y - j.chest.y) || 1, ux = (j.head.x - j.chest.x) / hd0, uy = (j.head.y - j.chest.y) / hd0;
-    const head = { x: j.head.x + ux * (mdl.ry - HEAD_R), y: j.head.y + uy * (mdl.ry - HEAD_R) };
-    // the neck stops at the rim of the head so the ring stays clean
-    const hd = Math.hypot(head.x - j.chest.x, head.y - j.chest.y) || 1;
-    const nk = Math.max(0, hd - mdl.ry - SHAPE.limb * 0.6) / hd;
-    const nx = j.chest.x + (head.x - j.chest.x) * nk, ny = j.chest.y + (head.y - j.chest.y) * nk;
-    stroke(SHAPE.torso, () => { ctx.moveTo(X(j.hip), j.hip.y); ctx.quadraticCurveTo(mx * f, my, X(j.chest), j.chest.y); });
-    if (st.wide) stroke(SHAPE.torso + st.wide, () => { ctx.moveTo(X(j.chest), j.chest.y + 2); ctx.lineTo(X(j.hip), j.hip.y + 8); });
-    if (st.skirt) { ctx.fillStyle = st.solid; ctx.beginPath(); ctx.moveTo(X(j.hip) - 4, j.hip.y - 4); ctx.lineTo(X(j.hip) - 11, j.hip.y + 12); ctx.lineTo(X(j.hip) + 11, j.hip.y + 12); ctx.lineTo(X(j.hip) + 4, j.hip.y - 4); ctx.closePath(); ctx.fill(); }
-    stroke(SHAPE.limb, () => { ctx.moveTo(X(j.chest), j.chest.y); ctx.lineTo(nx * f, ny); });
-    limb(j.hip, j[frontLeg[0]], j[frontLeg[1]], true);
-    limb(j.chest, j[frontArm[0]], j[frontArm[1]]);
-    // hollow head: blank paper inside a thin ink outline
-    ctx.fillStyle = st.paper; ctx.beginPath(); headPath(ctx, mdl, head.x * f, head.y); ctx.fill();
-    ctx.strokeStyle = st.ink; ctx.lineWidth = st.lw; ctx.beginPath(); headPath(ctx, mdl, head.x * f, head.y); ctx.stroke();
+  /** The body as polylines: torso and neck, both legs, both arms (straight segments, no feet, no hands). */
+  function bodyLines(j) {
+    return [[j.hip, j.chest, neckEnd(j)], [j.hip, j.kneeL, j.footL], [j.hip, j.kneeR, j.footR], [j.chest, j.elbowL, j.handL], [j.chest, j.elbowR, j.handR]];
   }
-  function headPath(ctx, m, x, y) {
-    const rx = m.rx, ry = m.ry;
-    switch (m.head) {
-      case 'oval': ctx.ellipse(x, y, rx, ry, 0, 0, TAU); break;
-      case 'square': { const c = Math.min(rx, ry) * 0.35; ctx.moveTo(x - rx + c, y - ry); ctx.lineTo(x + rx - c, y - ry); ctx.quadraticCurveTo(x + rx, y - ry, x + rx, y - ry + c); ctx.lineTo(x + rx, y + ry - c); ctx.quadraticCurveTo(x + rx, y + ry, x + rx - c, y + ry); ctx.lineTo(x - rx + c, y + ry); ctx.quadraticCurveTo(x - rx, y + ry, x - rx, y + ry - c); ctx.lineTo(x - rx, y - ry + c); ctx.quadraticCurveTo(x - rx, y - ry, x - rx + c, y - ry); ctx.closePath(); break; }
-      case 'diamond': ctx.moveTo(x, y - ry); ctx.lineTo(x + rx, y); ctx.lineTo(x, y + ry); ctx.lineTo(x - rx, y); ctx.closePath(); break;
-      case 'onion': ctx.moveTo(x, y - ry - 5); ctx.quadraticCurveTo(x + rx * 0.4, y - ry * 0.9, x + rx, y); ctx.quadraticCurveTo(x + rx * 0.9, y + ry, x, y + ry); ctx.quadraticCurveTo(x - rx * 0.9, y + ry, x - rx, y); ctx.quadraticCurveTo(x - rx * 0.4, y - ry * 0.9, x, y - ry - 5); ctx.closePath(); break;
-      default: ctx.arc(x, y, rx, 0, TAU);
+  /** The character cells a line crosses, one per row when steep or one per column when shallow (cell units in, [c, r]
+   * out). The ends sit in their own cells and the middle follows the line without gaps. Columns are rounded toward
+   * axisX (the figure's middle) so mirrored limbs give mirrored cells. */
+  function cellLine(x0, y0, x1, y1, out, axisX) {
+    const res = out || [];
+    const fx = (x) => Math.floor(axisX == null ? x : x + (axisX > x ? 1e-6 : -1e-6));
+    const steep = Math.abs(y1 - y0) >= Math.abs(x1 - x0);
+    const a0 = steep ? y0 : x0, a1 = steep ? y1 : x1, b0 = steep ? x0 : y0, b1 = steep ? x1 : y1;
+    const fa = steep ? Math.floor : fx, fb = steep ? fx : Math.floor;
+    const i0 = fa(a0), i1 = fa(a1), dir = i1 >= i0 ? 1 : -1;
+    let prev = null;
+    for (let i = i0; ; i += dir) {
+      // ends: the end points themselves; in between: where the line crosses the middle of the row (or column)
+      const t = i === i0 ? 0 : i === i1 ? 1 : (i + 0.5 - a0) / (a1 - a0);
+      let m = fb(b0 + (b1 - b0) * t);
+      if (prev != null && Math.abs(m - prev) > 1) m = prev + Math.sign(m - prev);
+      res.push(steep ? [m, i] : [i, m]);
+      prev = m;
+      if (i === i1) break;
     }
+    return res;
+  }
+  /** Thin solid body: every line becomes whole character cells in st.solid, so the renderer fills each with the model's
+   * character (exactly one character thick). The hollow head is HEAD_OUTLINE drawn crisp in ink on the cells around
+   * the head joint; the renderer converts it like any other line. Returns the head centre used (figure units). */
+  function drawSolid(ctx, j, f, st) {
+    const T = ctx.getTransform(), M = PA.Matcher, SX = M ? M.SX : 4, SY = M ? M.SY : 6;
+    const cell = (q) => [(T.a * q.x * f + T.c * q.y + T.e) / SX, (T.b * q.x * f + T.d * q.y + T.f) / SY];
+    const hc = cell(j.head), HC = Math.floor(hc[0]), HR = Math.floor(hc[1]);
+    const seen = new Set(), cells = [], axis = cell(j.hip)[0];
+    for (const full of bodyLines(j)) {
+      // a limb that is almost straight is drawn as one straight line (like the drawing): an even staircase
+      let line = full;
+      if (full.length === 3) {
+        const a = cell(full[0]), m = cell(full[1]), b = cell(full[2]);
+        const dx = b[0] - a[0], dy = b[1] - a[1], L = Math.hypot(dx, dy) || 1;
+        if (Math.abs((m[0] - a[0]) * dy - (m[1] - a[1]) * dx) / L < 0.45) line = [full[0], full[2]];
+      }
+      const rows = new Map(), cols = new Map(); // cells of this limb so far, by row and by column
+      for (let i = 1; i < line.length; i++) {
+        const a = cell(line[i - 1]), b = cell(line[i]), steep = Math.abs(b[1] - a[1]) >= Math.abs(b[0] - a[0]);
+        for (const q of cellLine(a[0], a[1], b[0], b[1], null, axis)) {
+          // across a knee or an elbow the limb stays one character thick: one cell per row (or column)
+          const twin = steep ? rows.get(q[1]) : cols.get(q[0]);
+          if (twin != null && Math.abs(twin - (steep ? q[0] : q[1])) <= 1) continue;
+          rows.set(q[1], q[0]); cols.set(q[0], q[1]);
+          const key = q[0] * 4096 + q[1];
+          if (seen.has(key)) continue;
+          seen.add(key);
+          if (Math.abs(q[0] - HC) <= 3 && Math.abs(q[1] - HR) <= 1) continue; // the head's 7x3 cells stay hollow
+          cells.push(q);
+        }
+      }
+    }
+    ctx.save(); ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.fillStyle = st.solid;
+    for (const q of cells) ctx.fillRect(q[0] * SX, q[1] * SY, SX, SY);
+    // hollow head: blank paper over its cells, then the outline
+    const ox = HC * SX + SX / 2, oy = HR * SY + SY / 2;
+    ctx.fillStyle = st.paper; ctx.fillRect((HC - 3) * SX, (HR - 1) * SY, 7 * SX, 3 * SY);
+    ctx.fillStyle = st.ink;
+    for (const q of headSamples()) ctx.fillRect(ox + q[0], oy + q[1], 1, 1);
+    ctx.restore();
+    const I = T.inverse(), hx = I.a * ox + I.c * oy + I.e, hy = I.b * ox + I.d * oy + I.f;
+    return v(hx * f, hy);
   }
 
-  /** Draw the figure: paper halo first (so scenery never cuts through it), then the body. */
+  /** Draw the figure: paper halo first (so scenery never cuts through it), then the body. Returns the head centre drawn. */
   function draw(ctx, j, facing, st) {
     const f = facing < 0 ? -1 : 1;
     ctx.lineCap = 'round'; ctx.lineJoin = 'round';
@@ -211,17 +259,23 @@
       // a blank-paper aura around the whole figure: nothing behind it may cut through the drawing
       let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity;
       for (const k in j) { const q = j[k]; if (typeof q !== 'object') continue; x0 = Math.min(x0, q.x * f); x1 = Math.max(x1, q.x * f); y0 = Math.min(y0, q.y); y1 = Math.max(y1, q.y); }
-      y0 = Math.min(y0, j.head.y - HEAD_R - 8);
+      y0 = Math.min(y0, j.head.y - HEAD.ry - 8);
       const cx = (x0 + x1) / 2, cy = (y0 + y1) / 2, rx = (x1 - x0) / 2 + st.halo, ry = (y1 - y0) / 2 + st.halo;
       ctx.fillStyle = st.paper; ctx.beginPath(); ctx.ellipse(cx, cy, rx * 1.15, ry * 1.08, 0, 0, TAU); ctx.fill();
     }
-    if (st.solid) { drawSolid(ctx, j, f, st); return; }
+    if (st.solid) return drawSolid(ctx, j, f, st);
+    // far slices: the same figure as thin pencil lines
     ctx.strokeStyle = st.ink; ctx.lineWidth = st.lw;
-    ctx.beginPath(); tracePath(ctx, j, f);
-    ctx.moveTo(j.head.x * f + HEAD_R, j.head.y); ctx.arc(j.head.x * f, j.head.y, HEAD_R, 0, TAU);
+    ctx.beginPath();
+    for (const line of bodyLines(j)) { ctx.moveTo(line[0].x * f, line[0].y); for (let i = 1; i < line.length; i++) ctx.lineTo(line[i].x * f, line[i].y); }
+    ctx.moveTo(j.head.x * f + HEAD.rx, j.head.y); ctx.ellipse(j.head.x * f, j.head.y, HEAD.rx, HEAD.ry, 0, 0, TAU);
     ctx.stroke();
+    return j.head;
   }
 
-  PA.Stick = { rig, blend, draw, ik, BONES, HEAD_R, SHAPE, MODELS, headPath, RIGS, SCALE: 1.5 }; // drawn 1.5x: ~9 character rows tall
+  /** World x of the middle of the character column holding x (characters are half a world cell wide). */
+  function snapX(x) { const w = (PA.C ? PA.C.CELL_W : 12) / 2; return Math.floor(x / w) * w + w / 2; }
+
+  PA.Stick = { rig, blend, draw, ik, cellLine, bodyLines, snapX, headSamples, BONES, HEAD, HEAD_R, SHAPE, MODELS, RIGS, SCALE: 1.5 }; // drawn 1.5x: ~10 character rows tall
   if (typeof module !== 'undefined' && module.exports) module.exports = PA.Stick;
 })(typeof window !== 'undefined' ? window : globalThis);

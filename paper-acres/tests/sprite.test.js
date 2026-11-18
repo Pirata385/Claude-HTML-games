@@ -2,7 +2,7 @@
 const test = require('node:test');
 const assert = require('node:assert');
 const { load } = require('./load');
-const PA = load('src/core/config.js', 'src/core/util.js', 'src/physics/stickman.js');
+const PA = load('src/core/config.js', 'src/core/util.js', 'src/ascii/glyphs.js', 'src/ascii/matcher.js', 'src/physics/stickman.js');
 const S = PA.Stick;
 const len = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
 const KINDS = ['idle', 'walk', 'run', 'jump', 'fall', 'land', 'crouch', 'climb', 'swim', 'swing', 'hurt', 'wave', 'talk'];
@@ -28,10 +28,11 @@ test('walking: feet touch the ground at the contact phases and the body bobs', (
   assert.ok(Math.abs(a.handL.x - b.handL.x) > 2, 'arms swing');
 });
 
-test('the head sits above the chest and the figure is about three cells tall', () => {
+test('the head sits above the chest and the figure is about ten character rows tall', () => {
   const j = S.rig('idle', 0, {});
   assert.ok(j.head.y < j.chest.y - 4);
-  assert.ok(j.head.y - S.HEAD_R > -66 && j.head.y - S.HEAD_R < -56);
+  const top = (j.head.y - S.HEAD.ry) * S.SCALE;
+  assert.ok(top < -95 && top > -106, 'top of the head ' + top + ' px');
 });
 
 test('blend moves joints toward the target pose', () => {
@@ -40,24 +41,77 @@ test('blend moves joints toward the target pose', () => {
   assert.ok(Math.abs(m.handL.y - (a.handL.y + b.handL.y) / 2) < 1e-6);
 });
 
-test('solid body: limbs one character wide, torso two, a round head bigger than half the torso', () => {
-  const half = PA.C.CELL_W / 2; // one character at two characters per world cell
-  assert.ok(Math.abs(S.SHAPE.limb * S.SCALE - half) < 0.01);
-  assert.ok(Math.abs(S.SHAPE.torso * S.SCALE - 2 * half) < 0.01);
-  assert.ok(S.SHAPE.head > S.SHAPE.torso / 2);
-  assert.strictEqual(S.HEAD_R, S.SHAPE.head);
+test('proportions follow the reference drawing: big round head, long torso, straight limbs in a V', () => {
+  const j = S.rig('idle', 0, {});
+  const top = j.head.y - S.HEAD.ry, H = -top;
+  const headBottom = j.head.y + S.HEAD.ry;
+  const near = (a, b, tol, what) => assert.ok(Math.abs(a - b) <= tol, `${what}: ${a.toFixed(3)} vs ${b}`);
+  near((2 * S.HEAD.ry) / H, 0.29, 0.04, 'head height share');
+  assert.ok(S.HEAD.rx / S.HEAD.ry > 1 && S.HEAD.rx / S.HEAD.ry <= 1.45, 'head a little wider than tall');
+  near((j.hip.y - headBottom) / H, 0.41, 0.05, 'torso share');
+  assert.ok(j.chest.y > headBottom + 3, 'arms leave the torso below the neck');
+  // idle limbs are straight lines, like the drawing
+  near(len(j.hip, j.footL), S.BONES.thigh + S.BONES.shin, 0.5, 'left leg straight');
+  near(len(j.hip, j.footR), S.BONES.thigh + S.BONES.shin, 0.5, 'right leg straight');
+  near(len(j.chest, j.handL), S.BONES.upper + S.BONES.fore, 0.6, 'left arm straight');
+  near(len(j.chest, j.handR), S.BONES.upper + S.BONES.fore, 0.6, 'right arm straight');
+  // legs: an upside-down V; arms: down and out, more out than down
+  assert.ok(j.footL.x < -8 && j.footR.x > 8);
+  for (const h of [j.handL, j.handR]) {
+    assert.ok(h.y > j.chest.y, 'hands below the shoulders');
+    assert.ok(Math.abs(h.x - j.chest.x) > Math.abs(h.y - j.chest.y), 'arms spread outward');
+  }
 });
 
-test('20 stickman models: every one has its own body character and a hollow head shape', () => {
-  const M = S.MODELS;
+test('thin rule: body lines are one character thick, without gaps', () => {
+  const check = (x0, y0, x1, y1) => {
+    const cells = S.cellLine(x0, y0, x1, y1);
+    const steep = Math.abs(y1 - y0) >= Math.abs(x1 - x0);
+    const major = cells.map((q) => (steep ? q[1] : q[0]));
+    assert.strictEqual(new Set(major).size, cells.length, 'one cell per row (steep) or per column (shallow)');
+    // ends in the rows (or columns) of its end points, at most one cell to the side
+    const ends = [[cells[0], x0, y0], [cells[cells.length - 1], x1, y1]];
+    for (const [q, x, y] of ends) {
+      assert.strictEqual(steep ? q[1] : q[0], Math.floor(steep ? y : x), 'end row');
+      assert.ok(Math.abs((steep ? q[0] : q[1]) - Math.floor(steep ? x : y)) <= 1, 'end column');
+    }
+    for (let i = 1; i < cells.length; i++) {
+      assert.ok(Math.abs(cells[i][0] - cells[i - 1][0]) <= 1 && Math.abs(cells[i][1] - cells[i - 1][1]) <= 1, 'no gaps');
+    }
+  };
+  check(5.5, 2.2, 5.5, 9.8);   // torso: a straight column
+  check(5.5, 9.8, 2.7, 12.9);  // a leg
+  check(5.5, 4.5, 9.6, 5.9);   // an arm
+  check(5.5, 4.5, 1.4, 5.9);
+  check(0.1, 0.9, 3.95, 3.05); // almost diagonal
+  check(3.3, 3.3, 3.6, 3.4);   // a single cell
+});
+
+test('20 stickman models: same figure, each with its own unusual body character (no letters or digits)', () => {
+  const M = S.MODELS, G = PA.Glyphs;
   assert.strictEqual(M.length, 20);
   const chars = new Set(M.map((m) => m.body));
   assert.strictEqual(chars.size, 20, 'all body characters differ');
   for (const m of M) {
-    assert.ok(/^[\x21-\x7e]$/.test(m.body), m.name + ' body is one printable ASCII character');
-    assert.ok(!'|-/\\_.\',`:;~^'.includes(m.body), m.name + ' body is not a stroke character');
-    assert.ok(['round', 'oval', 'square', 'diamond', 'onion'].includes(m.head), m.name);
-    assert.ok(m.rx >= 5 && m.ry >= 5 && m.rx <= 12 && m.ry <= 12, m.name + ' head size');
+    assert.strictEqual([...m.body].length, 1, m.name + ' body is one character');
+    assert.ok(!/[\p{L}\p{N}]/u.test(m.body), m.name + ' body is not a letter or a digit');
+    assert.ok(m.body.charCodeAt(0) > 126, m.name + ' body is not plain ASCII');
+    assert.notStrictEqual(G.code(m.body), G.code('?'), m.name + ' body is in the glyph atlas');
+    const fromFont = m.body.charCodeAt(0) <= 0xff; // Courier Prime has Latin-1; everything else is drawn by hand
+    assert.ok(fromFont || typeof G.CUSTOM[m.body] === 'function', m.name + ' body can be drawn on every platform');
     assert.ok(m.name && m.name.length <= 10);
   }
+});
+
+test('the hollow head converts to a clean round outline on the character grid', () => {
+  const M = PA.Matcher, keys = new Map();
+  // samples are relative to the centre of the head's middle cell, which is sample (2, 3) of that cell
+  for (const [x, y] of S.headSamples()) {
+    const sx = x + 2 + 3 * M.SX, sy = y + 3 + M.SY, c = Math.floor(sx / M.SX), r = Math.floor(sy / M.SY);
+    assert.ok(c >= 0 && c < 7 && r >= 0 && r < 3, 'the outline stays inside 7x3 cells');
+    const k = r * 7 + c, bit = 1 << ((sy - r * M.SY) * M.SX + (sx - c * M.SX));
+    keys.set(k, ((keys.get(k) || 0) | bit) >>> 0);
+  }
+  const rows = [0, 1, 2].map((r) => [0, 1, 2, 3, 4, 5, 6].map((c) => (keys.has(r * 7 + c) ? M.classify(keys.get(r * 7 + c)) : ' ')).join(''));
+  assert.deepStrictEqual(rows, [' .---. ', '(     )', " '---' "]);
 });

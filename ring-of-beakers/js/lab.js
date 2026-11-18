@@ -48,6 +48,21 @@
     c.tired = true;
     return vial;
   }
+  // Turn a male into a female, or a female into a male: bird or person. Sex lives in the Z
+  // chromosomes (a male has two, a female one Z and a W): a new female keeps her first Z, and a
+  // new male gets a second copy of it. Like any lab work it leaves the creature worn out for the day.
+  function changeSex(S, c) {
+    const g = c.g, o = GN.Z_CHR * GN.CHR_LEN;
+    if (g.sex === 'M') g.sex = 'F';
+    else { for (let i = 0; i < GN.CHR_LEN; i++) g.b[o + i] = g.a[o + i]; g.sex = 'M'; }
+    RB.state.dirty(c); c.tired = true; c.love = false;
+    return g.sex;
+  }
+  // The other genes of the same trait (Muscle I, II and III work together).
+  function related(gi) {
+    const tr = GN.GENES[gi] && GN.GENES[gi].trait;
+    return tr ? GN.TRAITS[tr].genes.filter((x) => x !== gi) : [];
+  }
   // The genome in a whole-genome beaker (decoded once and kept until the beaker is edited).
   const decoded = new WeakMap();
   function vialGenome(v) {
@@ -146,5 +161,5 @@
     return true;
   }
 
-  RB.lab = { FRAGMENTS, REBUILD_COST, SEQ_FEE, known, knownCount, codingCount, geneLabel, reveal, sequence, extract, vialSum, copyGenome, vialGenome, genomeGene, removeVial, inject, preview, edit, offTarget, guide, describe, fragments, addFragment, rebuild, powerOn };
+  RB.lab = { changeSex, related, FRAGMENTS, REBUILD_COST, SEQ_FEE, known, knownCount, codingCount, geneLabel, reveal, sequence, extract, vialSum, copyGenome, vialGenome, genomeGene, removeVial, inject, preview, edit, offTarget, guide, describe, fragments, addFragment, rebuild, powerOn };
 })();

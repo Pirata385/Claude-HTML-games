@@ -26,6 +26,28 @@
   const TIER = [{ fee: 15, purse: 70, bet: 300 }, { fee: 50, purse: 220, bet: 1000 }, { fee: 150, purse: 650, bet: 3000 }, { fee: 400, purse: 1700, bet: 8000 }, { fee: 1000, purse: 4500, bet: 20000 }];
 
   const chunkOf = (x, y) => ({ cx: Math.floor(x / CHUNK), cy: Math.floor(y / CHUNK) });
+  // Islands of your own (see state.js) hold their ground: world.reserved lists them, and nothing the
+  // sea makes may land on top of one. (restoreIsles fills it in before the sea is charted.)
+  const clashes = (world, x, y, R, id, gap) => (world.reserved || []).some((q) => q.id !== id && Math.hypot(q.x - x, q.y - y) < q.R + R + (gap || 500));
+
+  // One big island of each land in a ring just past the mainland's own waters, so every kind of
+  // country is a short trip away.
+  function homeIsles(world) {
+    if (world.homeIsles) return world.homeIsles;
+    const r = new Rng((world.seed ^ 0x40e15) >>> 0), lands = r.shuffle(LANDS.slice()), a0 = r.range(0, TAU), out = [];
+    const mx = WD.W / 2, my = WD.H / 2;
+    lands.forEach((land, k) => {
+      const a = a0 + k * TAU / lands.length + r.range(-0.15, 0.15), R = r.range(2300, 2700), extra = r.range(600, 2000), seed = r.int(1, 2e9);
+      const c = Math.cos(a), s = Math.sin(a), pad = CLEAR + R + 300, id = 'big_' + land;
+      // where the line out from the middle leaves the mainland's waters, and a little further
+      let t = Math.min(Math.abs(c) > 1e-6 ? (mx + pad) / Math.abs(c) : Infinity, Math.abs(s) > 1e-6 ? (my + pad) / Math.abs(s) : Infinity) + extra;
+      const blocked = () => clashes(world, mx + c * t, my + s * t, R, id, 900) || out.some((o) => Math.hypot(o.x - (mx + c * t), o.y - (my + s * t)) < o.R + R + 1200);
+      for (let i = 0; i < 16 && blocked(); i++) t += 1200;
+      out.push({ id, land, x: mx + c * t, y: my + s * t, R, seed });
+    });
+    return (world.homeIsles = out);
+  }
+
   function chunk(world, cx, cy) {
     if (!world.chunks) world.chunks = new Map();
     const key = cx + ',' + cy;
@@ -34,24 +56,35 @@
     ch = { cx, cy, islands: [] };
     world.chunks.set(key, ch);
     const x0 = cx * CHUNK, y0 = cy * CHUNK;
+    // the big islands round the mainland whose middle falls in this chunk
+    const homes = homeIsles(world);
+    for (const h of homes) if (Math.floor(h.x / CHUNK) === cx && Math.floor(h.y / CHUNK) === cy) ch.islands.push(island(world, new Rng(h.seed), h.id, h.x, h.y, h.R, h.land));
     if (x0 + CHUNK > -CLEAR && x0 < WD.W + CLEAR && y0 + CHUNK > -CLEAR && y0 < WD.H + CLEAR) return ch; // the mainland's own waters
-    const r = new Rng((world.seed ^ Math.imul(cx, 73856093) ^ Math.imul(cy, 19349663) ^ 0x15a) >>> 0);
-    const n = r.chance(0.72) ? (r.chance(0.3) ? 2 : 1) : 0;
+    // Out here the sea is mostly open: about one chunk in three has an island, and now and then a
+    // second, smaller one. Where they go comes from the chunk's numbers, what they are from each
+    // island's own, so one left out (it would land on yours) changes nothing else.
+    const r = new Rng((world.seed ^ Math.imul(cx, 73856093) ^ Math.imul(cy, 19349663) ^ 0x5ea2) >>> 0);
+    const n = r.chance(0.38) ? (r.chance(0.14) ? 2 : 1) : 0, placed = [];
     for (let k = 0; k < n; k++) {
-      const R = k === 0 ? r.range(1100, 2700) : r.range(700, 1300);
+      const R = k === 0 ? r.range(1100, 2600) : r.range(700, 1200);
       let x = 0, y = 0, ok = false;
       for (let t = 0; t < 20 && !ok; t++) {
-        x = r.range(x0 + R + 350, x0 + CHUNK - R - 350); y = r.range(y0 + R + 350, y0 + CHUNK - R - 350);
-        ok = ch.islands.every((o) => Math.hypot(o.x - x, o.y - y) > o.R + R + 450);
+        x = r.range(x0 + R + 600, x0 + CHUNK - R - 600); y = r.range(y0 + R + 600, y0 + CHUNK - R - 600);
+        ok = placed.every((o) => Math.hypot(o.x - x, o.y - y) > o.R + R + 900);
       }
-      if (ok) ch.islands.push(island(world, r, cx, cy, k, x, y, R));
+      if (!ok) continue;
+      const id = 'j' + cx + '_' + cy + '_' + k;
+      placed.push({ x, y, R });
+      if (homes.some((h) => Math.hypot(h.x - x, h.y - y) < h.R + R + 1200) || clashes(world, x, y, R, id)) continue;
+      ch.islands.push(island(world, new Rng((world.seed ^ hashStr(id) ^ 0x1517) >>> 0), id, x, y, R));
     }
     return ch;
   }
 
-  function island(world, r, cx, cy, k, x, y, R) {
-    const id = 'i' + cx + '_' + cy + '_' + k, shape = WD.blob(r, x, y, R), inner = { x, y, R: R * 0.84, harm: shape.harm };
-    const main = r.pick(LANDS), patches = [];
+  function island(world, r, id, x, y, R, land) {
+    const shape = WD.blob(r, x, y, R), inner = { x, y, R: R * 0.84, harm: shape.harm };
+    let main = r.pick(LANDS); const patches = [];
+    if (land) main = land; // the big islands round the mainland are one of each
     for (let i = r.int(0, 2); i > 0; i--) { const a = r.range(0, TAU), d = r.range(0, R * 0.45); patches.push([r.pick(LANDS), WD.blob(r, x + Math.cos(a) * d, y + Math.sin(a) * d, r.range(R * 0.25, R * 0.45))]); }
     // further out is wilder
     const far = clamp((Math.hypot(x - WD.W / 2, y - WD.H / 2) - 9000) / 45000, 0, 1);
@@ -205,13 +238,19 @@
       fauna: { day: [], night: [] }, strangers: [], lost: null, race: { size: 1, hue: 0, lit: 0, crest: null, tail: 1 }, far: 0, name: isle.name, tier: 1, sites: [], roads: [], made: true };
   }
   // Put a save's islands into a world (the world is rebuilt from the seed, so this runs on every
-  // load): raised ones rise again, and each gets its field station. Safe to call again.
+  // load): raised ones rise again, and each gets its field station. An island claimed in an older
+  // version of the sea (whose islands lay elsewhere) is rebuilt where it was, the same size and land.
+  // Nothing the sea makes may sit on one of yours. Safe to call again.
   function restoreIsles(world, S) {
+    world.reserved = (S.isles || []).map((i) => ({ id: i.id, x: i.x, y: i.y, R: i.R }));
     for (const isle of S.isles || []) {
       const c = chunkOf(isle.x, isle.y), ch = chunk(world, c.cx, c.cy);
       let is = ch.islands.find((q) => q.id === isle.id);
-      if (!is && isle.made) { is = raised(isle); ch.islands.push(is); }
-      if (!is) continue;
+      if (!is) {
+        if (!isle.made && !isle.seed) isle.seed = (S.seed ^ hashStr(isle.id)) >>> 0;
+        is = raised(isle); is.made = !!isle.made; ch.islands.push(is);
+      }
+      clearAround(world, is);
       is.owned = true; is.isle = isle;
       const id = 'hut_' + isle.id;
       if (!world.site[id]) {
@@ -220,6 +259,20 @@
       }
     }
   }
+  // Take away any island already charted that overlaps one of yours, with its places and people.
+  function clearAround(world, mine) {
+    for (const [, ch] of world.chunks) {
+      if (Math.abs((ch.cx + 0.5) * CHUNK - mine.x) > CHUNK + mine.R + 3000 || Math.abs((ch.cy + 0.5) * CHUNK - mine.y) > CHUNK + mine.R + 3000) continue;
+      for (const q of ch.islands.slice()) {
+        if (q === mine || q.owned || Math.hypot(q.x - mine.x, q.y - mine.y) >= q.R + mine.R + 300) continue;
+        ch.islands.splice(ch.islands.indexOf(q), 1);
+        const gone = new Set(q.sites.map((st) => st.id));
+        for (const id of gone) delete world.site[id];
+        for (let i = world.sites.length - 1; i >= 0; i--) if (gone.has(world.sites[i].id)) world.sites.splice(i, 1);
+        for (let i = world.npcs.length - 1; i >= 0; i--) if (gone.has(world.npcs[i].site)) world.npcs.splice(i, 1);
+      }
+    }
+  }
 
-  RB.sea = { LATE, word, raiseSpot, NEAR_MAIN, restoreIsles, SEA_BIRDS, SEA_FOSSILS, CHUNK, CLEAR, LANDS, chunk, chunkOf, islandAt, biomeAt, onRoad, islandsNear, raceTargets, population, describe };
+  RB.sea = { homeIsles, LATE, word, raiseSpot, NEAR_MAIN, restoreIsles, SEA_BIRDS, SEA_FOSSILS, CHUNK, CLEAR, LANDS, chunk, chunkOf, islandAt, biomeAt, onRoad, islandsNear, raceTargets, population, describe };
 })();

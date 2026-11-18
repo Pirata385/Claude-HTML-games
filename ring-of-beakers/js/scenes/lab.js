@@ -15,14 +15,20 @@
   }
 
   // The fourteen chromosome pairs as a grid of genes, each tile showing its two copies. Coding genes
-  // are pale, junk DNA darker, the selected gene dark. Tapping a tile picks that gene.
+  // are pale, junk DNA darker, the selected gene dark, and the other genes of its trait glow green.
+  // Tapping a tile picks that gene.
   function genomeGrid(g, x0, y0, w, h, sel, onPick) {
     const cw = w / GN.N_CHR, chH = Math.min(cw * 0.62 + 4, 34, (h - 14) / GN.GENES_PER_CHR), ts = Math.min((cw - 5) / 4 - 1, (chH - 5) / 2);
+    const rel = sel >= 0 ? new Set(L.related(sel)) : null, ctx = ui.ctx, pulse = 0.75 + 0.25 * Math.sin(t * 3);
     for (let c = 0; c < GN.N_CHR; c++) {
       ui.text(c === GN.Z_CHR ? 'Z' : String(c + 1), x0 + c * cw + cw / 2, y0 + 10, { size: 10, align: 'center', color: pal.grey });
       for (let sl = 0; sl < GN.GENES_PER_CHR; sl++) {
         const gi = c * GN.GENES_PER_CHR + sl, x = x0 + c * cw + 1, y = y0 + 14 + sl * chH, junk = !GN.GENES[gi].trait;
-        ui.rect(x, y, cw - 2, chH - 2, gi === sel ? pal.ink : junk ? '#ddd6c6' : pal.paper, 4);
+        if (rel && rel.has(gi)) { // a soft green glow round its partners
+          ctx.save(); ctx.shadowColor = 'rgba(72, 196, 96, ' + (0.9 * pulse).toFixed(2) + ')'; ctx.shadowBlur = 12; ctx.strokeStyle = 'rgba(88, 200, 108, ' + pulse.toFixed(2) + ')'; ctx.lineWidth = 2.5;
+          ui.rr(ctx, x - 1, y - 1, cw, chH, 5); ctx.stroke(); ctx.restore();
+        }
+        ui.rect(x, y, cw - 2, chH - 2, gi === sel ? pal.ink : rel && rel.has(gi) ? '#e6f5e2' : junk ? '#ddd6c6' : pal.paper, 4);
         tiles(GN.getGeneBases(g, gi, 'a'), x + 2.5, y + 2, ts, 1);
         if (!GN.isHemi(g, gi)) tiles(GN.getGeneBases(g, gi, 'b'), x + 2.5, y + 3 + ts, ts, 1);
         if (ui.tapIn(x, y, cw - 2, chH - 2)) { onPick(gi); RB.audio.play('tick'); }
@@ -33,11 +39,11 @@
     const list = caged();
     if (!list.length) { ui.para('Bring creatures in the truck to study them.', b.x + 4, b.y + 6, b.w, { size: 13 }); return; }
     if (!subject || !list.includes(subject)) { subject = list[0]; gene = -1; }
-    // who is on the table, and a whole-genome copy of them
-    const cbw = b.w > 520 ? 170 : 116;
+    // who is on the table, a whole-genome copy of them, and a change of sex
+    const cbw = b.w > 520 ? 170 : 116, sbw = b.w > 520 ? 132 : 96;
     list.forEach((c, i) => {
       const x = b.x + i * 52;
-      if (x + 48 > b.x + b.w - cbw - 8) return;
+      if (x + 48 > b.x + b.w - cbw - sbw - 14) return;
       ui.rect(x, b.y, 48, 48, c === subject ? pal.mustard : pal.soft, 10);
       common.portrait(c, x + 3, b.y + 3, 42, 42, { fill: pal.paper });
       if (ui.tapIn(x, b.y, 48, 48)) { subject = c; gene = -1; RB.audio.play('click'); }
@@ -46,6 +52,14 @@
       L.copyGenome(S, subject); RB.audio.play('zap');
       ui.toast('All of ' + subject.name + '\'s genes are in one beaker. ' + subject.name + ' is worn out for today, not hurt.', pal.plum);
     }
+    const male = subject.g.sex === 'M';
+    if (ui.btn(b.x + b.w - cbw - sbw - 6, b.y + 2, sbw, 44, b.w > 520 ? (male ? 'Make female' : 'Make male') : (male ? 'To female' : 'To male'), { icon: 'heart', fill: male ? '#d98cab' : '#3d6fa5', size: 12 })) {
+      const c = subject;
+      ui.confirm('Change ' + c.name + '\'s sex?', c.name + ' is ' + (male ? 'male' : 'female') + '. The lab can make ' + (c.person ? (male ? 'him a woman' : 'her a man') : (male ? 'it a female' : 'it a male')) + ' for good: ' + (male ? 'one Z chromosome becomes a W' : 'the Z chromosome is doubled') + '. It is free, and leaves ' + c.name + ' worn out for today.', 'Change', () => {
+        const sex = L.changeSex(S, c); RB.audio.play('zap'); gene = -1; RB.game.save();
+        ui.toast(c.name + ' is now ' + (sex === 'F' ? 'female' : 'male') + ': a ' + ST.kind(c).toLowerCase() + '.', pal.plum);
+      }, { fill: pal.plum });
+    }
     const y0 = b.y + 56, g = subject.g, wide = b.w > 520, detailH = 94;
     genomeGrid(g, b.x, y0, b.w, b.h - 56 - detailH - 6, gene, (gi) => { gene = gi; });
     // the chosen gene
@@ -53,7 +67,8 @@
     ui.rect(b.x, dy, b.w, detailH, pal.paper, 10);
     if (gene < 0) { ui.para('Every gene is mapped. Tap one: each has two copies, one from each parent (females have a single copy of Z genes). Darker tiles are junk DNA.', b.x + 8, dy + 6, b.w - 16, { size: 12 }); return; }
     const hemi = GN.isHemi(g, gene);
-    ui.text(L.geneLabel(S, gene) + '  ·  ' + GN.GENES[gene].mode + (hemi ? ' · one copy' : ''), b.x + 8, dy + 18, { size: 14, maxW: b.w - 16 });
+    const partners = L.related(gene);
+    ui.text(L.geneLabel(S, gene) + '  ·  ' + GN.GENES[gene].mode + (hemi ? ' · one copy' : '') + (partners.length ? '  ·  works with ' + partners.map((x) => L.geneLabel(S, x)).join(', ') + ' (green)' : ''), b.x + 8, dy + 18, { size: 14, maxW: b.w - 16 });
     ui.text('A: ' + L.describe(S, gene, GN.getGeneBases(g, gene, 'a')), b.x + 8, dy + 36, { size: 11, bold: false, maxW: (wide ? b.w - 260 : b.w - 16) });
     if (!hemi) ui.text('B: ' + L.describe(S, gene, GN.getGeneBases(g, gene, 'b')), b.x + 8, dy + 51, { size: 11, bold: false, maxW: (wide ? b.w - 260 : b.w - 16) });
     const bx = wide ? b.x + b.w - 244 : b.x + 8, by = wide ? dy + 26 : dy + 58, bw = wide ? 118 : (b.w - 22) / 2;

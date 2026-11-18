@@ -132,12 +132,12 @@
     return true;
   }
   function release(c) {
-    ui.confirm(c.person ? 'Let ' + c.name + ' go?' : 'Set ' + c.name + ' free?', c.person ? c.name + ' walks home, and will not forget this.' : c.name + ' goes back to the wild for good.', c.person ? 'Let go' : 'Set free', () => {
+    ui.confirm(c.person ? 'Let ' + c.name + ' go?' : 'Set ' + c.name + ' free?', c.person ? c.name + ' walks home, and will not forget this.' : c.name + ' goes back to the wild near the farm, still answering to that name. Net it again one day if you miss it.', c.person ? 'Let go' : 'Set free', () => {
       const e = birds.find((b) => b.c === c);
       if (e) dropRag(e);
-      if (c.person) { const st = RB.npc.info(S, c.person); st.gone = false; st.rel = Math.max(-100, st.rel - 40); }
+      if (c.person) { const back = ST.releasePerson(S, c, 40); if (back) ui.toast(back.name + ', who was minding ' + c.name + '\'s place, is back in the truck.', pal.plum); }
       const home = RB.game.world.site.home;
-      ST.setFree(S, c, home.x, home.y + 150); // its genes join the wild around the farm
+      ST.setFree(S, c, home.x, home.y + 150); // it lives on round the farm under its own name, and its genes join the wild there
       ui.closeAll();
     });
   }

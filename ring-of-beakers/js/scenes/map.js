@@ -7,7 +7,7 @@
   const { Rng, clamp, lerp, TAU, hash2, hashStr } = RB.core;
   const ui = RB.ui, pal = RB.pal, input = RB.input, ST = RB.state, common = RB.common, props = RB.props, WD = RB.world;
 
-  let seaWarned = false, guide = null, guideAt = 0, isleHint = null, hintAt = 0, raiseAt = null;
+  let seaWarned = false, guide = null, guideAt = 0, isleHint = null, hintAt = 0, raiseAt = null, seaT = 6;
   let S, world, car, cam, wild, folk, sheriff, nets, flying, seeds, parts, t, rng, tool, aim, stick, digT, near, paths, decorCache, det, stun, warned, sirenT, pen;
 
   const zoom = () => clamp(Math.max(ui.view.w, ui.view.h) / 1500, 0.45, 0.8);
@@ -136,6 +136,88 @@
   // A hole: an ordinary one dug today (they fill back in overnight), or a treasure mark dug up.
   const holeAt = (cx, cy) => { const k = cx + ',' + cy; return S.dug[k] === S.day || !!S.marksDug[k]; };
 
+  // ---- birds of the open sea. Now and then, out on open water, a flock (or a lone bird) turns up:
+  // passing over on migration, wheeling over a shoal and dropping onto the water to feed, or riding
+  // the swell in a raft. Down on the water they can be netted; most take off when the boat gets close.
+  // [kind, weight, smallest flock, biggest flock]
+  const SEA_FLOCKS = [['albatross', 8, 1, 2], ['gull', 12, 3, 9], ['frigatebird', 6, 1, 4], ['booby', 8, 2, 8], ['tropicbird', 5, 1, 3], ['cormorant', 5, 2, 7], ['pelican', 4, 2, 6], ['puffin', 6, 3, 10], ['penguin', 3, 3, 8]];
+  function seaFlock(R, mode0) {
+    const e = rng.weighted(SEA_FLOCKS, (q) => q[1]), lone = rng.chance(0.25), n = lone ? 1 : rng.int(e[2], e[3]);
+    const flier = RB.pheno.express(RB.species.make(e[0], new Rng(1), { sport: 0 })).canFly;
+    const mode = mode0 || (!flier ? 'raft' : rng.weighted([['migrate', 5], ['feed', 4], ['raft', 2]], (q) => q[1])[0]);
+    const a = rng.range(0, TAU), d0 = mode === 'migrate' ? R + 250 : rng.range(R * 0.45, R * 0.85);
+    const cx = car.x + Math.cos(a) * d0, cy = car.y + Math.sin(a) * d0;
+    if (mode !== 'migrate' && WD.biomeAt(world, cx, cy) !== 'water') return [];
+    const dir = mode === 'migrate' ? Math.atan2(car.y - cy, car.x - cx) + rng.range(-0.6, 0.6) : rng.range(0, TAU), speed = rng.range(230, 330), out = [];
+    for (let i = 0; i < n; i++) {
+      const side = (i % 2 ? 1 : -1) * Math.ceil(i / 2) * 64, back = Math.ceil(i / 2) * 70; // a ragged V on the move, a loose crowd otherwise
+      const ox = mode === 'migrate' ? -Math.cos(dir) * back - Math.sin(dir) * side : rng.range(-170, 170), oy = mode === 'migrate' ? -Math.sin(dir) * back + Math.cos(dir) * side : rng.range(-120, 120);
+      const w = makeWild(RB.species.make(e[0], rng, { sport: 0.06 }), cx + ox, cy + oy, 'graze');
+      Object.assign(w, { seaBird: true, any: true, island: 'sea', mode, dir, speed, cx, cy, ang: rng.range(0, TAU), cr: rng.range(130, 260), spin: rng.range(0.5, 0.9) * (rng.chance(0.5) ? 1 : -1), life: rng.range(35, 70) });
+      w.state = mode === 'migrate' ? 'migrate' : mode === 'feed' ? 'circle' : 'swim';
+      w.alt = w.state === 'swim' ? 0 : rng.range(70, 100); w.t = w.state === 'circle' ? rng.range(3, 9) : rng.range(5, 12);
+      if (w.state === 'swim' && WD.biomeAt(world, w.x, w.y) !== 'water') continue;
+      wild.push(w); out.push(w);
+    }
+    return out;
+  }
+  function seaLife(dt, R) {
+    seaT -= dt;
+    if (seaT > 0) return;
+    seaT = rng.range(12, 26);
+    if (!car.boat || WD.inMain(car.x, car.y) || RB.sea.islandAt(world, car.x, car.y)) return;
+    if (wild.filter((w) => w.seaBird).length > 14 || !rng.chance(0.7)) return;
+    seaFlock(R);
+  }
+  // One sea bird's moment. Returns true once it has gone for good.
+  function seaBird(w, dt, dx, dy, d, R) {
+    const P = w.P;
+    let vx = 0, vy = 0;
+    w.t -= dt; w.life -= dt;
+    const water = (x, y) => WD.biomeAt(world, x, y) === 'water';
+    if (w.state === 'swim' && d < 170 + 220 * P.focus) { // the boat comes too close
+      if (P.canFly) { w.state = 'takeoff'; w.dir = Math.atan2(dy, dx) + rng.range(-0.6, 0.6); RB.audio.voice(P.voice, 'squawk'); }
+      else { w.state = 'paddle'; w.dir = Math.atan2(dy, dx); w.t = 3; }
+    }
+    if (w.state === 'flee' || w.state === 'graze') { w.dir = Math.atan2(dy, dx); w.state = P.canFly ? 'takeoff' : 'paddle'; w.t = 3; } // a torn net
+    if (w.state === 'migrate') {
+      w.alt += (95 - w.alt) * Math.min(1, dt * 2); vx = Math.cos(w.dir) * w.speed; vy = Math.sin(w.dir) * w.speed;
+      if (d > R + 700 && dx * vx + dy * vy > 0) return true; // flown on, out of sight
+    } else if (w.state === 'circle') {
+      w.ang += dt * w.spin;
+      const tx = w.cx + Math.cos(w.ang) * w.cr, ty = w.cy + Math.sin(w.ang) * w.cr * 0.55;
+      vx = (tx - w.x) * 2.2; vy = (ty - w.y) * 2.2; w.alt += (85 - w.alt) * Math.min(1, dt * 2);
+      if (w.t <= 0) {
+        if (w.life <= 0) { w.state = 'migrate'; w.dir = rng.range(0, TAU); }
+        else if (water(w.x, w.y)) w.state = 'dive';
+        else w.t = 2;
+      }
+    } else if (w.state === 'dive') {
+      w.alt -= 300 * dt; vx = Math.cos(w.ang) * 50; vy = Math.sin(w.ang) * 30;
+      if (w.alt <= 0) { w.alt = 0; w.state = 'swim'; w.t = rng.range(3, 7); puff(w.x, w.y - 6, 4, '#d7eef5'); }
+    } else if (w.state === 'swim') {
+      vx = Math.cos(w.dir) * 16; vy = Math.sin(w.dir) * 10;
+      if (w.t <= 0) {
+        if (P.canFly && (w.mode === 'feed' || w.life <= 0)) { w.state = 'takeoff'; w.dir = rng.range(0, TAU); }
+        else if (w.life <= 0) { w.state = 'paddle'; w.dir = Math.atan2(dy, dx); w.t = 8; }
+        else { w.t = rng.range(2, 5); w.dir = rng.range(0, TAU); }
+      }
+    } else if (w.state === 'paddle') {
+      const sp = mapSpeed(P) * 0.85; vx = Math.cos(w.dir) * sp; vy = Math.sin(w.dir) * sp;
+      if (w.life <= 0 && d > R + 500) return true;
+      if (w.t <= 0) { w.state = 'swim'; w.t = rng.range(3, 6); }
+    } else if (w.state === 'takeoff') {
+      w.alt += 150 * dt; vx = Math.cos(w.dir) * 280; vy = Math.sin(w.dir) * 280;
+      if (w.alt >= 70) { if (w.mode === 'feed' && w.life > 0) { w.state = 'circle'; w.t = rng.range(3, 8); w.cx = w.x; w.cy = w.y; } else { w.state = 'migrate'; w.speed = 300; } }
+    }
+    // down on the water they keep to it
+    if (w.alt <= 0 && !water(w.x + vx * dt, w.y + vy * dt)) { vx = -vx; vy = -vy; w.dir += Math.PI; }
+    w.x += vx * dt; w.y += vy * dt;
+    if (Math.abs(vx) > 5) w.f = vx > 0 ? 1 : -1;
+    const s = Math.hypot(vx, vy);
+    w.sp = w.alt > 0 ? 1 : clamp(s / mapSpeed(P), 0, 1); w.ph = (w.ph + dt * (0.6 + w.sp * 2.4)) % 1;
+    return w.life < -120 && d > R + 400; // long overstayed and out of sight
+  }
   function catchWild(w, big) {
     const strength = Math.sqrt(w.P.massRel) * w.P.muscle;
     const hold = clamp((big ? 1.7 : 1.25) - 0.26 * strength + (w.stam < 20 ? 0.3 : 0) + (w.state === 'trapped' ? 0.5 : 0), 0.08, 1);
@@ -364,8 +446,11 @@
       // ---- wildlife
       const R = Math.hypot(v.w, v.h) / 2 / z;
       const far = R + 450; // animals beyond this wait where they are
+      if (open) seaLife(dt, R);
+      const goneSea = [];
       for (const w of wild) {
         const dx = w.x - car.x, dy = w.y - car.y;
+        if (w.seaBird) { if (seaBird(w, dt, dx, dy, Math.hypot(dx, dy) || 1, R)) goneSea.push(w); continue; }
         if (dx > far || dx < -far || dy > far || dy < -far || !awake(w)) continue; // far away: it waits where it is
         const d = Math.hypot(dx, dy) || 1, P = w.P;
         const ms = mapSpeed(P);
@@ -412,6 +497,7 @@
         // a hole is a trap for anything small enough
         if (w.alt <= 0 && w.state !== 'trapped' && P.S < 1.7 && s > 10) { const c = WD.cellOf(w.x, w.y); if (holeAt(c.cx, c.cy) && Math.hypot((c.cx + 0.5) * WD.CELL - w.x, (c.cy + 0.5) * WD.CELL - w.y) < 34) { w.state = 'trapped'; w.t = 7; w.x = (c.cx + 0.5) * WD.CELL; w.y = (c.cy + 0.5) * WD.CELL; puff(w.x, w.y, 5, '#8a6a44', 'stuck!'); } }
       }
+      for (const w of goneSea) wild.splice(wild.indexOf(w), 1);
       // ---- people and the law
       for (const f of folk) {
         if (f.gone) continue;
@@ -525,12 +611,14 @@
           const name = s.kind === 'house' ? (world.npcs.find((q) => q.site === s.id) || {}).name || 'House' : s.name;
           props.label(ctx, name, s.x, s.y - (s.kind === 'arena' ? 118 : s.id === 'carnival' ? 150 : 130), 20, pal.ink);
         } else if (e.kind === 2) {
-          const w = e.it, pit = w.state === 'trapped' ? 18 : 0;
-          if (w.alt > 0) RB.art.drawShadow(ctx, w.x, w.y, w.P.TL * 0.4); else RB.art.drawShadow(ctx, w.x, w.y + 1, w.P.TL * 0.55);
+          const w = e.it, afloat = w.seaBird && w.alt <= 0, pit = w.state === 'trapped' ? 18 : afloat ? w.P.LLv * 0.9 + Math.sin(t * 2.4 + w.ph * 9) * 1.5 : 0;
+          if (afloat) { ctx.save(); ctx.beginPath(); ctx.rect(w.x - 400, w.y - 600, 800, 600 + 1); ctx.clip(); }
+          else if (w.alt > 0) RB.art.drawShadow(ctx, w.x, w.y, w.P.TL * 0.4); else RB.art.drawShadow(ctx, w.x, w.y + 1, w.P.TL * 0.55);
           const pose = RB.pose.animPose(w.P, { x: w.x, y: w.y + pit, f: w.f, phase: w.ph, speed: w.sp, time: t, fly: w.alt > 8 ? 1 : 0, alt: w.alt * 1.6 });
           if (w.state === 'trapped') pose.eye = 'scared'; else if (w.state === 'charge') pose.eye = 'angry';
           if (w.state === 'eat' || (w.state === 'graze' && Math.sin(t * 2 + w.ph * 20) > 0.6)) { const k = pose.neck.length; pose.neck[k - 1] += w.P.NL * 0.5; pose.neck[k - 2] += w.f * w.P.NL * 0.3; pose.headAng += w.f > 0 ? 0.9 : -0.9; }
           RB.art.drawCreature(ctx, w.P, pose, w.clothes ? { clothes: w.clothes } : {});
+          if (afloat) { ctx.restore(); ctx.strokeStyle = 'rgba(255,255,255,0.7)'; ctx.lineWidth = 2; ctx.beginPath(); ctx.ellipse(w.x, w.y + 1, w.P.TL * 0.65 + Math.sin(t * 2 + w.ph * 7) * 3, w.P.TL * 0.16, 0, 0, TAU); ctx.stroke(); }
           if (w.stam <= 0 && w.state === 'flee') props.label(ctx, 'puff...', w.x, w.y - w.P.rest - w.P.TD - 14, 14, pal.ink);
         } else if (e.kind === 3) {
           const f = e.it;
@@ -639,7 +727,7 @@
       else if (input.touch && t < 12) ui.text('Left thumb drives. Drag from the net to aim, tap it to throw.', v.w / 2, v.h - 76, { size: 12, align: 'center', color: n > 0.5 ? pal.white : pal.ink, maxW: v.w - 16 });
       if (stick) { ctx.fillStyle = 'rgba(35,49,74,0.25)'; ctx.beginPath(); ctx.arc(stick.sx, stick.sy, 46, 0, TAU); ctx.fill(); const dx = stick.x - stick.sx, dy = stick.y - stick.sy, d = Math.hypot(dx, dy) || 1, k = Math.min(46, d) / d; ctx.fillStyle = 'rgba(255,250,240,0.85)'; ctx.beginPath(); ctx.arc(stick.sx + dx * k, stick.sy + dy * k, 20, 0, TAU); ctx.fill(); }
     },
-    debug() { return { car, wild, folk, nets, near, world, throwNet, dig, bigMap, tool: () => tool, guide: () => guide }; },
+    debug() { return { car, wild, folk, nets, near, world, throwNet, dig, bigMap, seaFlock: (mode, R) => seaFlock(R || 900, mode), tool: () => tool, guide: () => guide }; },
   };
 
   // Who walks out of each house now: its own person, a newcomer, or whoever you put in charge.
@@ -730,14 +818,14 @@
   function bigMap() {
     const sea = ST.openSea(S), boat = sea && ST.hasBoat(S);
     const MV = { x: car.x, y: car.y, k: 0 };
-    let drag = null, pinch = null, sel = null, panel = false;
+    let drag = null, pinch = null, sel = null, panel = false, islCache = null;
     ui.open({ draw(u, dt) {
       const v = ui.view, ctx = ui.ctx, box = ui.window(sea ? 'Map and sea chart' : 'Map', v.w - 16, v.h - 16, {});
       if (!box) return;
       const wide = box.w >= 560, side = wide && panel ? 220 : 0;
       const A = { x: box.x, y: box.y + 36, w: box.w - side - (side ? 8 : 0), h: box.h - 36 - 40 };
       // how far it zooms: from the whole of the waters round you to a close look at a village
-      const fit = Math.min(A.w / WD.W, A.h / WD.H) * 0.95, kMin = sea ? Math.min(A.w, A.h) / 110000 : fit, kMax = Math.min(A.w, A.h) / 1200;
+      const fit = Math.min(A.w / WD.W, A.h / WD.H) * 0.95, kMin = sea ? Math.min(A.w, A.h) / 65000 : fit, kMax = Math.min(A.w, A.h) / 1200;
       if (!MV.k) { if (sea && !WD.inMain(car.x, car.y)) MV.k = Math.min(A.w, A.h) / 40000; else { MV.k = fit; MV.x = WD.W / 2; MV.y = WD.H / 2; } }
       const zoomAt = (f, px, py) => {
         const k2 = clamp(MV.k * f, kMin, kMax), wx = MV.x + (px - (A.x + A.w / 2)) / MV.k, wy = MV.y + (py - (A.y + A.h / 2)) / MV.k;
@@ -772,7 +860,11 @@
       ctx.save(); ctx.beginPath(); ctx.rect(A.x, A.y, A.w, A.h); ctx.clip();
       ctx.fillStyle = WD.BIOMES.water.ground; ctx.fillRect(A.x, A.y, A.w, A.h);
       ctx.save(); ctx.translate(sx(0), sy(0)); ctx.scale(k, k); drawMainland(ctx, k); ctx.restore();
-      const isl = sea ? RB.sea.islandsNear(world, MV.x, MV.y, reach) : [];
+      // the islands in view (looked up again only once the view has moved a fair way)
+      const ck = Math.round(MV.x / 1500) + ',' + Math.round(MV.y / 1500) + ',' + Math.round(reach / 1500);
+      if (!islCache || islCache.k !== ck) islCache = { k: ck, list: sea ? RB.sea.islandsNear(world, MV.x, MV.y, reach + 1500) : [] };
+      const onScreen = (is) => { const px = sx(is.x), py = sy(is.y), r = is.R * k + 12; return px > A.x - r && px < A.x + A.w + r && py > A.y - r && py < A.y + A.h + r; };
+      const isl = islCache.list.filter(onScreen);
       for (const is of isl) {
         if (is.R * k > 18) { // close enough to see its shape, lands and tracks
           const ip = islandPath(is);
@@ -804,7 +896,7 @@
       }
       if (sea) for (const is of isl.slice().sort((a, b) => b.R - a.R)) {
         const arena = is.sites.some((q) => q.kind === 'arena');
-        if (is.R * k > 7 || arena || is === (sel && sel.is)) label(is.name + (arena ? ' · arena' : ''), sx(is.x), sy(is.y) - Math.max(6, is.R * k) - 3, { size: 9, bold: arena });
+        if (is.R * k > 7 || (arena && is.R * k > 3.5) || is === (sel && sel.is)) label(is.name + (arena ? ' · arena' : ''), sx(is.x), sy(is.y) - Math.max(6, is.R * k) - 3, { size: 9, bold: arena });
       }
       // markers switched on
       for (const cat of GD.on(S)) {

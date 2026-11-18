@@ -687,8 +687,12 @@ test('a sandbox game starts with everything; a normal one earns the open sea', (
 
 test('the open sea is endless, with islands of their own lands, birds, villages, shops and arenas', () => {
   const w = RB.world.generate(121), SEA = RB.sea;
-  // the mainland keeps its waters clear, and the old map is untouched
-  for (let cx = -1; cx <= 2; cx++) for (let cy = -1; cy <= 1; cy++) assert.strictEqual(SEA.chunk(w, cx, cy).islands.length, 0);
+  // the mainland keeps its waters clear (only the big islands ringing it come near), and the old map is untouched
+  for (let cx = -1; cx <= 2; cx++) for (let cy = -1; cy <= 1; cy++) for (const is of SEA.chunk(w, cx, cy).islands) {
+    assert.ok(is.id.startsWith('big_'), is.id);
+    const ex = Math.max(0, -is.x, is.x - RB.world.W), ey = Math.max(0, -is.y, is.y - RB.world.H);
+    assert.ok(Math.hypot(ex, ey) > SEA.CLEAR + is.R, is.id + ' too close to the mainland');
+  }
   assert.strictEqual(RB.world.biomeAt(w, -20000, -20000) === 'water' || !!SEA.islandAt(w, -20000, -20000), true);
   let islands = [];
   for (let cx = -8; cx <= 9; cx++) for (let cy = -8; cy <= 8; cy++) islands = islands.concat(SEA.chunk(w, cx, cy).islands);
@@ -1140,7 +1144,93 @@ test('sandbox: endless items (not relics), endless free fossils, and every islan
   assert.strictEqual(S.money, money); assert.strictEqual(S.eggs.length, 3 * Object.keys(RB.items.FOSSILS).length);
   assert.strictEqual(RB.lab.fragments(N, 'dodo'), 0); assert.ok(RB.lab.rebuild(N, 'dodo'));
   // fast travel: any island in a sandbox game, only the ones landed on otherwise
-  const w = RB.world.generate(S.seed), is = RB.sea.chunk(w, -4, 2).islands[0] || RB.sea.chunk(w, 5, 3).islands[0];
+  const w = RB.world.generate(S.seed), is = RB.sea.islandsNear(w, -30000, 5000, 15000)[0];
   assert.ok(ST.canSail(S, is)); assert.ok(!ST.canSail(N, is));
   N.visited[is.id] = 1; assert.ok(ST.canSail(N, is));
+});
+
+test('the sea has fewer islands, a big island of each land rings the mainland, and older private islands stay', () => {
+  const SEA = RB.sea, W = RB.world.W, H = RB.world.H, w = RB.world.generate(201), homes = SEA.homeIsles(w);
+  // one big island of each land, close to the mainland but clear of its waters and of each other
+  assert.deepStrictEqual(homes.map((h) => h.land).sort(), SEA.LANDS.slice().sort());
+  for (const h of homes) {
+    const is = SEA.islandAt(w, h.x, h.y);
+    assert.ok(is && is.id === h.id && is.main === h.land && is.R >= 2300, h.id);
+    const ex = Math.max(0, -h.x, h.x - W), ey = Math.max(0, -h.y, h.y - H), d = Math.hypot(ex, ey);
+    assert.ok(d > SEA.CLEAR + h.R && d < 16000, h.id + ' at ' + Math.round(d));
+    for (const o of homes) if (o !== h) assert.ok(Math.hypot(o.x - h.x, o.y - h.y) > o.R + h.R + 1000);
+    assert.ok(is.fauna.day.some((e) => RB.world.FAUNA[h.land].day.some((f) => f[0] === e[0])), 'its birds are of its land');
+  }
+  // far fewer islands than before: about one chunk in three out at sea
+  let n = 0, chunks = 0;
+  for (let cx = -14; cx <= 15; cx++) for (let cy = -14; cy <= 14; cy++) { if (cx >= -1 && cx <= 2 && cy >= -1 && cy <= 1) continue; chunks++; n += SEA.chunk(w, cx, cy).islands.filter((q) => !q.id.startsWith('big_')).length; }
+  assert.ok(n / chunks > 0.3 && n / chunks < 0.55, (n / chunks).toFixed(2) + ' islands a chunk');
+  // An older save: an island claimed under the old chart (its id from the old numbering, sitting
+  // where today's chart has another island) and one raised right where a big island now goes.
+  const target = SEA.islandsNear(w, -30000, 9000, 9000).find((q) => !q.id.startsWith('big_'));
+  const S = ST.create(201);
+  const old = { id: 'i-4_1_0', name: 'Old Atoll', made: false, x: Math.round(target.x + 300), y: Math.round(target.y), R: 1800, land: 'jungle', birds: [], rad: 0, gen: 3, since: 1 };
+  const raised = { id: 'u9', name: 'Lovi Isle', made: true, seed: 4242, x: Math.round(homes[0].x), y: Math.round(homes[0].y), R: ST.RAISE_R, land: 'tundra', birds: [], rad: 0, gen: 0, since: 1 };
+  S.isles.push(old, raised);
+  old.birds.push(ST.makeBird(S, RB.species.make('chicken', new Rng(1), { sex: 'M' }), { at: 'isle' }));
+  const back = ST.deserialize(JSON.parse(JSON.stringify(ST.serialize(S))));
+  // loading: the islands are put in before the sea is charted, so nothing new lands on them
+  const w2 = RB.world.generate(back.seed);
+  SEA.restoreIsles(w2, back);
+  const a = SEA.islandAt(w2, old.x, old.y), b = SEA.islandAt(w2, raised.x, raised.y);
+  assert.ok(a && a.id === old.id && a.owned && a.main === 'jungle' && a.name === 'Old Atoll', 'old claimed island rebuilt');
+  assert.ok(b && b.id === raised.id && b.owned && b.main === 'tundra', 'raised island back');
+  assert.ok(!SEA.islandsNear(w2, old.x, old.y, 6000).some((q) => q.id === target.id), 'the new island that would sit on it is not made');
+  const h0 = SEA.homeIsles(w2).find((h) => h.id === homes[0].id);
+  assert.ok(Math.hypot(h0.x - raised.x, h0.y - raised.y) > h0.R + raised.R, 'the big island moves out of the way');
+  assert.ok(w2.site['hut_' + old.id] && w2.site['hut_' + raised.id]);
+  assert.strictEqual(back.isles[0].birds.length, 1);
+  assert.deepStrictEqual(SEA.population(w2, a, 2), []);
+  // charted first and restored later (as in a long session): the island in the way goes, with its places
+  const w3 = RB.world.generate(back.seed);
+  const t3 = SEA.islandsNear(w3, old.x, old.y, 6000).find((q) => q.id === target.id);
+  assert.ok(t3);
+  const placesOf = t3.sites.map((st) => st.id);
+  SEA.restoreIsles(w3, back);
+  assert.ok(!SEA.islandsNear(w3, old.x, old.y, 6000).some((q) => q.id === target.id));
+  for (const id of placesOf) { assert.ok(!w3.site[id], id); assert.ok(!w3.sites.some((st) => st.id === id)); assert.ok(!w3.npcs.some((p) => p.site === id)); }
+  assert.strictEqual(SEA.islandAt(w3, old.x, old.y).id, old.id);
+  // and an island claimed today keeps its own shape, being the same island the chart makes
+  const S4 = ST.create(203, { sandbox: true }), w4 = RB.world.generate(S4.seed);
+  const empty = SEA.islandsNear(w4, -40000, 4000, 40000).find((q) => !q.sites.length && !q.id.startsWith('big_'));
+  const I = ST.claimIsle(S4, empty); SEA.restoreIsles(w4, S4);
+  const w5 = RB.world.generate(S4.seed); SEA.restoreIsles(w5, ST.deserialize(JSON.parse(JSON.stringify(ST.serialize(S4)))));
+  const again = SEA.islandAt(w5, empty.x, empty.y);
+  assert.ok(again.id === I.id && again.shape.harm.join() === empty.shape.harm.join() && again.owned);
+});
+
+test('the lab changes a creature\'s sex, and knows which genes work together', () => {
+  const S = ST.create(205), GN = RB.genome, L = RB.lab;
+  const cock = S.birds.find((c) => c.g.sex === 'M'), hen = S.birds.find((c) => c.g.sex === 'F');
+  const before = ST.pheno(cock).rate.power;
+  assert.strictEqual(L.changeSex(S, cock), 'F');
+  assert.strictEqual(cock.g.sex, 'F'); assert.ok(cock.tired);
+  assert.strictEqual(ST.kind(cock), 'Hen');
+  assert.strictEqual(L.changeSex(S, hen), 'M');
+  assert.strictEqual(ST.kind(hen), 'Rooster');
+  // a new male carries two copies of his Z: the same genes as before, now doubled
+  const o = GN.Z_CHR * GN.CHR_LEN;
+  for (let i = 0; i < GN.CHR_LEN; i++) assert.strictEqual(hen.g.b[o + i], hen.g.a[o + i]);
+  // the pair, swapped, still breed; their young come in both sexes
+  const sexes = new Set();
+  for (let i = 0; i < 40; i++) sexes.add(GN.breed(cock.g, hen.g, S._rng).sex);
+  assert.deepStrictEqual([...sexes].sort(), ['F', 'M']);
+  // people too, and it survives a save
+  const guy = ST.addBird(S, RB.npc.personGenome(new Rng(3), 'M'), { at: 'cage', person: 'h_0', name: 'Ze' });
+  L.changeSex(S, guy);
+  const back = ST.deserialize(JSON.parse(JSON.stringify(ST.serialize(S))));
+  assert.strictEqual(back.birds.find((c) => c.name === 'Ze').g.sex, 'F');
+  assert.ok(Number.isFinite(before));
+  // related genes: all the genes of one trait, and none for junk DNA
+  const muscle = GN.TRAITS.muscle.genes;
+  assert.ok(muscle.length >= 2);
+  assert.deepStrictEqual(L.related(muscle[0]).sort((a, b) => a - b), muscle.slice(1).sort((a, b) => a - b));
+  const junk = GN.GENES.findIndex((x) => !x.trait);
+  assert.deepStrictEqual(L.related(junk), []);
+  assert.ok(GN.GENES[muscle[1]].name.startsWith(GN.GENES[muscle[0]].name.split(' ')[0]));
 });

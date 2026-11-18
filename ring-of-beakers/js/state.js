@@ -224,7 +224,8 @@
   function snapshot(S, c, where) {
     const P = pheno(c);
     return { id: c.id, name: c.name, kind: kind(c), sex: c.g.sex, g: GN.serialize(c.g), age: c.age, kg: +P.weightKg.toFixed(2), wins: c.wins, losses: c.losses,
-      speed: P.rate.speed, power: P.rate.power, tough: P.rate.tough, origin: c.origin, mom: c.mom, dad: c.dad, gen: c.gen || 0, quirk: quirkOf(S, c),
+      speed: P.rate.speed, power: P.rate.power, tough: P.rate.tough, score: Math.round(statScore(P)), great: outstanding(P), shows: c.shows || 0, showWins: c.showWins || 0,
+      origin: c.origin, mom: c.mom, dad: c.dad, gen: c.gen || 0, quirk: quirkOf(S, c),
       hat: c.hat || null, acc: c.acc ? Object.assign({}, c.acc) : null, odd: P.odd.slice(), log: (c.log || []).slice(), status: where, gone: false, day: S.day };
   }
   // Every bird you have now, and where it is.
@@ -235,23 +236,64 @@
     for (const isle of S.isles || []) for (const c of isle.birds) if (!c.person) out.push([c, 'Living on ' + isle.name]);
     return out;
   }
-  const RECORDS = [['wins', 'Record: most wins', 5], ['kg', 'Record: heaviest', 8], ['age', 'Record: oldest', 12], ['speed', 'Record: fastest', 60]];
+  const RECORDS = [['wins', 'Record: most wins', 5], ['showWins', 'Record: most sideshow wins', 3], ['kg', 'Record: heaviest', 8], ['age', 'Record: oldest', 12], ['speed', 'Record: fastest', 60]];
+  // A bird's all-round fighting numbers, 0..100.
+  const STAT_KEYS = ['power', 'speed', 'tough', 'stamina', 'guts', 'wits', 'fury'];
+  const statScore = (P) => STAT_KEYS.reduce((sum, k) => sum + P.rate[k], 0) / STAT_KEYS.length;
+  // What is ordinary for a kind: the spread of those numbers over forty of its wild members.
+  const NORMS = new Map();
+  function kindNorm(id) {
+    let n = NORMS.get(id);
+    if (!n) {
+      const r = new Rng(hashStr('norm:' + id)), v = [];
+      for (let i = 0; i < 40; i++) v.push(statScore(RB.pheno.express(RB.species.make(id, r, { sport: 0 }))));
+      const mean = v.reduce((a, b) => a + b, 0) / v.length, sd = Math.sqrt(v.reduce((a, b) => a + (b - mean) * (b - mean), 0) / v.length);
+      n = { mean, sd }; NORMS.set(id, n);
+    }
+    return n;
+  }
+  // Outstanding numbers: about one in twenty of its kind, and never a weakling.
+  function outstanding(P) {
+    const id = P.species && P.species.id;
+    if (!id || !RB.species.SPECIES[id] || P.person) return false;
+    const n = kindNorm(id);
+    return statScore(P) >= Math.max(45, n.mean + 1.7 * Math.max(2, n.sd));
+  }
+  // Only birds you put to use earn a place: fought in the ring, went to the sideshow, or were caught
+  // with outstanding numbers. Birds born on your islands live their lives out there, not here.
+  const fameEligible = (e) => !(e.gen > 0) && (e.wins + e.losses > 0 || (e.shows || 0) > 0 || (e.origin === 'wild' && !!e.great));
+  // The Hall's tabs, and which a title belongs to.
+  const FAME_TABS = [['all', 'All'], ['champions', 'Champions'], ['fighters', 'Fighters'], ['records', 'Records'], ['sideshow', 'Sideshow'], ['wild', 'Wild talents'], ['stories', 'Stories']];
+  const fameTabOf = (title) => (/^Champion of/.test(title) ? 'champions' : /^(Veteran|Ring legend|Retired fighter)/.test(title) ? 'fighters' : /^Record:/.test(title) ? 'records' :
+    /^Sideshow/.test(title) ? 'sideshow' : title === 'Wild talent' ? 'wild' : 'stories');
+  const fameIn = (e, tab) => tab === 'all' || e.titles.some((t) => fameTabOf(t) === tab);
+  const OLD_TITLES = /^(Island dynasty|Retired at Sunset Roost)/; // places no longer given
   function fameCheck(S) {
     S.fame = S.fame || [];
     const here = everyone(S), snaps = new Map();
     for (const [c, where] of here) {
-      const P = pheno(c), t = (c.titles || []).slice();
+      if (c.person) continue;
+      const snap = snapshot(S, c, where);
+      if (!fameEligible(snap)) { const old = fameOf(S, c.id); if (old) S.fame.splice(S.fame.indexOf(old), 1); continue; }
+      const P = pheno(c), t = (c.titles || []).filter((x) => !OLD_TITLES.test(x));
       if (c.wins >= 25) t.push('Ring legend (25+ wins)'); else if (c.wins >= 10) t.push('Veteran (10+ wins)');
+      if (isRetired(c) && c.wins >= 3) t.push('Retired fighter');
+      if ((c.showWins || 0) >= 10) t.push('Sideshow legend (10+ wins)'); else if ((c.showWins || 0) >= 3) t.push('Sideshow star (3+ wins)');
+      if (c.origin === 'wild' && snap.great) t.push('Wild talent');
       if (P.twoHeads) t.push('Two heads'); if (P.odd.length >= 3) t.push('A walking mutation');
-      if ((c.gen || 0) >= 5) t.push('Island dynasty, generation ' + c.gen);
       if (c.origin === 'born' && isCross(c)) t.push('Child of two very different kinds');
-      if (isRetired(c) && (c.wins >= 3 || c.at === 'roost')) t.push(c.wins >= 3 ? 'Retired fighter' : 'Retired at Sunset Roost');
-      const snap = snapshot(S, c, where); snap.titles = [...new Set(t)];
+      snap.titles = [...new Set(t)];
       snaps.set(c.id, snap);
       const e = fameOf(S, c.id);
       if (e) { const since = e.since; Object.assign(e, snap); e.since = since; } else if (snap.titles.length) { snap.since = S.day; S.fame.push(snap); }
     }
-    for (const e of S.fame) if (!snaps.has(e.id) && !e.gone) { e.gone = true; e.status = 'No longer with you (last seen on day ' + e.day + ')'; }
+    // entries kept from before: drop any that would not get in today, and titles no longer given
+    for (const e of S.fame.slice()) {
+      if (snaps.has(e.id)) continue;
+      if (!fameEligible(e)) { S.fame.splice(S.fame.indexOf(e), 1); continue; }
+      e.titles = e.titles.filter((x) => !OLD_TITLES.test(x));
+      if (!e.gone) { e.gone = true; e.status = 'No longer with you (last seen on day ' + e.day + ')'; }
+    }
     // records, among every bird the Hall has held and every bird you have now
     for (const e of S.fame) e.titles = e.titles.filter((x) => !x.startsWith('Record:'));
     const pool = S.fame.concat([...snaps.values()].filter((sn) => !fameOf(S, sn.id)));
@@ -281,6 +323,8 @@
       e.origin === 'wild' ? 'Caught out in the wild.' : e.origin === 'bought' ? 'Bought from a neighbour.' : 'Came to you by a road of its own.');
     if (e.wins || e.losses) bits.push(it + ' fought ' + (e.wins + e.losses) + ' bout' + (e.wins + e.losses === 1 ? '' : 's') + ': ' + e.wins + ' won, ' + e.losses + ' lost.');
     else bits.push(it + ' never fought in the ring.');
+    if (e.shows) bits.push(it + ' entered ' + e.shows + ' sideshow contest' + (e.shows === 1 ? '' : 's') + ' and won ' + (e.showWins || 0) + '.');
+    if (e.origin === 'wild' && e.great) bits.push('Caught with numbers few of its kind ever have: ' + e.score + ' all round.');
     for (const l of e.log || []) bits.push('Day ' + l.d + ': ' + l.t + '.');
     if (e.odd && e.odd.length) bits.push('Notable for: ' + e.odd.join(', ') + '.');
     if (e.quirk) bits.push(it + ' ' + QUIRKS[e.quirk] + '.');
@@ -774,7 +818,7 @@
 
   RB.state = { create, addBird, removeBird, pheno, dirty, kind, isAdult, isRetired, checkIn, checkOut, BOSS_PRIZES, bossPrizes, GOLD_DIGS, goldLeft, digsLeft, useDig, useNet,
     RELEASED_MAX, setFree, recapture, genePool, HEAT_DAYS, caughtPerson, trainPreview, openSea, hasBoat, makeBird,
-    note, title, fameOf, fameLeave, fameCheck, fameRank, fameBio, RECORDS, QUIRKS, quirkOf, grudgeTarget, slotOf, wornIn, wear, unwear, outfit, grantUnlocks, ENDLESS_KINDS, endless, owned, fmtCount, canSail, serBird, deBird, STAY_MAX, stay, netKeeper, installKeeper, releasePerson, mainlanders, nettedCount, nettedAll, ISLE_EXTRA,
+    note, title, fameOf, fameLeave, fameCheck, fameRank, fameBio, RECORDS, statScore, outstanding, fameEligible, FAME_TABS, fameTabOf, fameIn, QUIRKS, quirkOf, grudgeTarget, slotOf, wornIn, wear, unwear, outfit, grantUnlocks, ENDLESS_KINDS, endless, owned, fmtCount, canSail, serBird, deBird, STAY_MAX, stay, netKeeper, installKeeper, releasePerson, mainlanders, nettedCount, nettedAll, ISLE_EXTRA,
     CLAIM_COST, RAISE_COST, RAISE_R, CLEAN_COST, DOSE, isleOf, isleCap, claimIsle, raiseIsle, toIsle, fromIsle, dose, cleanIsle, colonyNight, byId, at, atHome, cageCap, coopCap, nestCount, count, give, take, move, feed, train, TRAIN,
     layChance, sleep, serialize, deserialize, freeName, BIRD_NAMES, eat, soldPerson, kindKey, isCross, label };
 })();

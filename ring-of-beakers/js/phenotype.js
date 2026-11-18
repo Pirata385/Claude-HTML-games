@@ -63,6 +63,7 @@
     P.chest = t.chest;
     P.NL = 13 * S * neckLen; P.NT = 6.5 * S * t.neckThick;
     P.HR = 5.2 * S * headRel;
+    if (P.person) P.NL = Math.max(P.NL, P.HR * 1.4); // a person's head sits on a neck, above the shoulders
     P.BL = 7 * S * beakLen * Math.sqrt(headRel); P.BD = 3.6 * S * t.beakDepth * Math.sqrt(headRel);
     P.hook = t.beakHook; P.flat = t.beakFlat; P.pouch = t.pouch; P.hasBeak = beakLen >= 0.15;
     // Legs run from the torso axis: LLv is the visible (genetic) leg below the belly, LL the whole strut.

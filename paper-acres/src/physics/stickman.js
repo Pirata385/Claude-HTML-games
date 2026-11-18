@@ -37,30 +37,16 @@
     }
     return out;
   }
-  // 20 models: the same figure, each one filled with its own unusual character (never a letter or a digit).
-  // Latin-1 symbols come from Courier Prime; the others are drawn by hand in the glyph atlas (PA.Glyphs.CUSTOM).
+  // Models: the same thin figure filled with different characters (never letters or digits). The player picked
+  // the rungs (the 15th of the first twenty symbol models; the rest were dropped) and asked for two more in the same
+  // pattern: solid squares and solid spheres. All three are drawn by hand in the glyph atlas (PA.Glyphs.CUSTOM).
   const MODELS = [
-    { name: 'Section', body: '\u00A7' },  // §
-    { name: 'Pilcrow', body: '\u00B6' },  // ¶
-    { name: 'Charm', body: '\u00A4' },    // ¤
-    { name: 'Either', body: '\u00B1' },   // ±
-    { name: 'Divide', body: '\u00F7' },   // ÷
-    { name: 'Dagger', body: '\u2021' },   // ‡
-    { name: 'Mille', body: '\u2030' },    // ‰
-    { name: 'Rhomb', body: '\u2666' },    // ♦
-    { name: 'Spade', body: '\u2660' },    // ♠
-    { name: 'Club', body: '\u2663' },     // ♣
-    { name: 'Heart', body: '\u2665' },    // ♥
-    { name: 'Lozenge', body: '\u25CA' },  // ◊
-    { name: 'Loop', body: '\u221E' },     // ∞
-    { name: 'Ripple', body: '\u2248' },   // ≈
-    { name: 'Rungs', body: '\u2261' },    // ≡
-    { name: 'Orbit', body: '\u2295' },    // ⊕
-    { name: 'Knot', body: '\u2297' },     // ⊗
-    { name: 'Sun', body: '\u263C' },      // ☼
-    { name: 'Mark', body: '\u203B' },     // ※
-    { name: 'Clover', body: '\u2318' },   // ⌘
+    { name: 'Rungs', body: '\u2261' },   // the player's pick
+    { name: 'Blocks', body: '\u25A0' },  // solid squares
+    { name: 'Beads', body: '\u25CF' },   // solid spheres
   ];
+  /** A valid model index (choices saved from older versions fall back to the first model). */
+  function model(i) { const k = i | 0; return k >= 0 && k < MODELS.length ? k : 0; }
   const HEAD_R = HEAD.ry;
   const HIP_Y = -21.33;
 
@@ -276,6 +262,6 @@
   /** World x of the middle of the character column holding x (characters are half a world cell wide). */
   function snapX(x) { const w = (PA.C ? PA.C.CELL_W : 12) / 2; return Math.floor(x / w) * w + w / 2; }
 
-  PA.Stick = { rig, blend, draw, ik, cellLine, bodyLines, snapX, headSamples, BONES, HEAD, HEAD_R, SHAPE, MODELS, RIGS, SCALE: 1.5 }; // drawn 1.5x: ~10 character rows tall
+  PA.Stick = { rig, blend, draw, ik, cellLine, bodyLines, snapX, headSamples, model, BONES, HEAD, HEAD_R, SHAPE, MODELS, RIGS, SCALE: 1.5 }; // drawn 1.5x: ~10 character rows tall
   if (typeof module !== 'undefined' && module.exports) module.exports = PA.Stick;
 })(typeof window !== 'undefined' ? window : globalThis);

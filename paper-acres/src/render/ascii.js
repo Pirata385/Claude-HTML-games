@@ -152,7 +152,7 @@
           if (ns >= M.SOLID_MIN && models) {
             votes.fill(0); let best = 0;
             for (let yy = 0; yy < SY; yy++) { let i = base + yy * bw; for (let xx = 0; xx < SX; xx++, i++) if (sol[i]) { const m = Ascii.modelOf(gm[i]); votes[m]++; if (votes[m] > votes[best]) best = m; } }
-            ch = models[best] ? models[best].body : '#';
+            ch = (models[best] || models[0]).body;
           }
           this.glyph[idx] = ch;
           let style = (on && sum / on >= boldAt) || ns >= M.SOLID_MIN ? 1 : 0;

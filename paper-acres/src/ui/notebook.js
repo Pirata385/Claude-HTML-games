@@ -150,7 +150,7 @@
       const rng = (k, label, min, max, step) => `<label>${label}<input type="range" data-k="${k}" min="${min}" max="${max}" step="${step}" value="${s[k]}"></label>`;
       const sel = (k, label, opts) => `<label>${label}<select data-k="${k}">${opts.map(([v, n]) => `<option value="${v}" ${String(s[k]) === String(v) ? 'selected' : ''}>${n}</option>`).join('')}</select></label>`;
       const chk = (k, label) => `<label>${label}<input type="checkbox" data-k="${k}" ${s[k] ? 'checked' : ''}></label>`;
-      const md = PA.Stick.MODELS[(PA.scene && PA.scene.state && PA.scene.state.model != null ? PA.scene.state.model : s.model) | 0];
+      const md = PA.Stick.MODELS[PA.Stick.model(PA.scene && PA.scene.state && PA.scene.state.model != null ? PA.scene.state.model : s.model)];
       el.innerHTML = `<div class="settings"><label>your stickman<button type="button" data-gal>${PA.U.esc(md.name)} (${PA.U.esc(md.body)}) - choose</button></label>
         ${rng('master', 'volume', 0, 1, 0.05)}${rng('music', 'music', 0, 1, 0.05)}${rng('sfx', 'sound effects', 0, 1, 0.05)}
         ${sel('dayLength', 'day length', [[450, 'short (9 min)'], [700, 'normal (14 min)'], [1000, 'long (20 min)'], [1500, 'relaxed (30 min)']])}

@@ -87,20 +87,23 @@ test('thin rule: body lines are one character thick, without gaps', () => {
   check(3.3, 3.3, 3.6, 3.4);   // a single cell
 });
 
-test('20 stickman models: same figure, each with its own unusual body character (no letters or digits)', () => {
+test('stickman models: the chosen rungs plus solid squares and solid spheres, all the same figure', () => {
   const M = S.MODELS, G = PA.Glyphs;
-  assert.strictEqual(M.length, 20);
-  const chars = new Set(M.map((m) => m.body));
-  assert.strictEqual(chars.size, 20, 'all body characters differ');
+  assert.deepStrictEqual(M.map((m) => m.body), ['\u2261', '\u25A0', '\u25CF']);
   for (const m of M) {
     assert.strictEqual([...m.body].length, 1, m.name + ' body is one character');
     assert.ok(!/[\p{L}\p{N}]/u.test(m.body), m.name + ' body is not a letter or a digit');
-    assert.ok(m.body.charCodeAt(0) > 126, m.name + ' body is not plain ASCII');
     assert.notStrictEqual(G.code(m.body), G.code('?'), m.name + ' body is in the glyph atlas');
-    const fromFont = m.body.charCodeAt(0) <= 0xff; // Courier Prime has Latin-1; everything else is drawn by hand
-    assert.ok(fromFont || typeof G.CUSTOM[m.body] === 'function', m.name + ' body can be drawn on every platform');
+    assert.strictEqual(typeof G.CUSTOM[m.body], 'function', m.name + ' body is drawn by hand (same on every platform)');
     assert.ok(m.name && m.name.length <= 10);
   }
+});
+
+test('a model chosen in an older version falls back to the first one', () => {
+  assert.strictEqual(S.model(2), 2);
+  assert.strictEqual(S.model(14), 0);
+  assert.strictEqual(S.model(-1), 0);
+  assert.strictEqual(S.model(undefined), 0);
 });
 
 test('the hollow head converts to a clean round outline on the character grid', () => {

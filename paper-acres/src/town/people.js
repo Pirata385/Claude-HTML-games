@@ -105,7 +105,7 @@
         const feet = g.surfaceY(Math.floor(a.x / C.CELL_W), z) * C.CELL_H - 1;
         const gx = p.level === 0 ? PA.Stick.snapX(a.x) : a.x;
         ctx.save(); ctx.translate(gx, feet); ctx.scale(k, k);
-        const mi = (PA.NPC_DATA.indexOf(a.n) + 1) % PA.Stick.MODELS.length; // every townsfolk wears a different model
+        const mi = (PA.NPC_DATA.indexOf(a.n) + 1) % PA.Stick.MODELS.length; // the townsfolk take turns wearing the models
         let head = null;
         const lw = R.lw(p, 1.0) / k, solid = p.level === 0 ? PA.Ascii.solidFor(mi) : null;
         head = PA.Stick.draw(ctx, a.lastJ, a.facing, { ink: st.ink, paper: st.paper, lw, halo: p.level === 0 ? R.lw(p, 3.5) / k : 0, solid, model: mi });

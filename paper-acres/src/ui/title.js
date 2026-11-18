@@ -35,7 +35,7 @@
         <label>your name <input name="name" maxlength="14" value="Doodle" autocomplete="off"></label>
         <label>farm name <input name="farm" maxlength="18" value="Paper Acres" autocomplete="off"></label>
         <label>season length <select name="days"><option value="28">28 days</option><option value="14">14 days (shorter)</option></select></label>
-        <label>stickman <button type="button" data-g>${PA.U.esc(PA.Stick.MODELS[PA.settings.model | 0].name)} (${PA.U.esc(PA.Stick.MODELS[PA.settings.model | 0].body)}) - change</button></label>
+        <label>stickman <button type="button" data-g>${PA.U.esc(PA.Stick.MODELS[PA.Stick.model(PA.settings.model)].name)} (${PA.U.esc(PA.Stick.MODELS[PA.Stick.model(PA.settings.model)].body)}) - change</button></label>
         <label>save slot <select name="slot">${[1, 2, 3].map((i) => `<option value="${i}" ${i === slot ? 'selected' : ''}>slot ${i}${used.has(i) ? ' (overwrite)' : ''}</option>`).join('')}</select></label>
         <button type="submit">start drawing</button>
       </form>`;
@@ -46,7 +46,7 @@
         e.preventDefault();
         const seed = (Math.random() * 4294967295) >>> 0;
         const st = PA.newState(seed, { name: f.name.value.trim() || 'Doodle', farm: f.farm.value.trim() || 'Paper Acres', seasonDays: +f.days.value });
-        st.model = PA.settings.model | 0;
+        st.model = PA.Stick.model(PA.settings.model);
         PA.Input.uiTyping = false;
         PA.startGame(st, +f.slot.value, true);
       };

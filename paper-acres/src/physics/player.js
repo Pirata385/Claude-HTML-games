@@ -157,7 +157,7 @@
       if (this.landT > 0) { this.landT -= dt; if (this.state === 'idle' || this.state === 'walk') this.state = 'land'; }
       this.fallSpeed = vy; this.wasGrounded = grounded;
     }
-    model() { const s = PA.scene && PA.scene.state; return s && s.model != null ? s.model : (PA.settings.model | 0); }
+    model() { const s = PA.scene && PA.scene.state; return PA.Stick.model(s && s.model != null ? s.model : PA.settings.model); }
     /** Current skeleton, eased toward the target pose so state changes flow. */
     joints(dt) {
       const act = this.action;

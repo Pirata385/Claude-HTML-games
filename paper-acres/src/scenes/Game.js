@@ -196,11 +196,11 @@
       cam.y = (PA.Gen.GY - 5) * C.CELL_H; cam.z = 1;
     }
 
-    /* ---------------- stickman gallery (20 models, drawn by the ASCII renderer) ---------------- */
+    /* ---------------- stickman gallery (every model, drawn by the ASCII renderer) ---------------- */
     openGallery() {
       this.galleryFrom = this.mode;
       this.mode = 'gallery';
-      this.gallery = { sel: this.state && this.state.model != null ? this.state.model : (PA.settings.model | 0), t0: performance.now(), pose: (new URLSearchParams(location.search)).get('pose') };
+      this.gallery = { sel: PA.Stick.model(this.state && this.state.model != null ? this.state.model : PA.settings.model), t0: performance.now(), pose: (new URLSearchParams(location.search)).get('pose') };
       PA.UI.Title.show(false); PA.UI.HUD.show(false); PA.UI.Hotbar.show(false);
       if (PA.Touch.el) PA.Touch.setVisible(false);
       PA.Input.clearAll();
@@ -209,10 +209,11 @@
       this.galleryKey = (e) => {
         const g = this.gallery, L = this.galleryLayout();
         const k = e.code;
-        if (k === 'ArrowRight' || k === 'KeyD') g.sel = (g.sel + 1) % 20;
-        else if (k === 'ArrowLeft' || k === 'KeyA') g.sel = (g.sel + 19) % 20;
-        else if (k === 'ArrowDown' || k === 'KeyS') g.sel = (g.sel + L.cols) % 20;
-        else if (k === 'ArrowUp' || k === 'KeyW') g.sel = (g.sel + 20 - L.cols) % 20;
+        const N = PA.Stick.MODELS.length;
+        if (k === 'ArrowRight' || k === 'KeyD') g.sel = (g.sel + 1) % N;
+        else if (k === 'ArrowLeft' || k === 'KeyA') g.sel = (g.sel + N - 1) % N;
+        else if (k === 'ArrowDown' || k === 'KeyS') g.sel = Math.min(N - 1, g.sel + L.cols);
+        else if (k === 'ArrowUp' || k === 'KeyW') g.sel = Math.max(0, g.sel - L.cols);
         else if (k === 'Enter' || k === 'Space' || k === 'KeyE') this.closeGallery(true);
         else if (k === 'Escape') this.closeGallery(false);
         else return;
@@ -236,9 +237,11 @@
     }
     galleryInput() { PA.Input.poll(); }
     galleryLayout() {
-      const R = this.ascii, cols = Math.max(2, Math.min(10, Math.floor((R.cols - 2) / 15))), rowsFit = Math.max(1, Math.floor((R.rows - 5) / 14));
+      const R = this.ascii, N = PA.Stick.MODELS.length, cols = Math.max(1, Math.min(N, 10, Math.floor((R.cols - 2) / 15))), rowsFit = Math.max(1, Math.floor((R.rows - 5) / 14));
       const per = cols * rowsFit, page = Math.floor(this.gallery.sel / per);
-      return { cols, per, page, rowsFit, pages: Math.ceil(20 / per) };
+      // the rows this page uses, centred on the page below the header
+      const rowsUsed = Math.ceil(Math.min(per, N - page * per) / cols), y0 = Math.max(4, Math.floor((R.rows + 4 - rowsUsed * 14) / 2));
+      return { cols, per, page, rowsFit, y0, pages: Math.ceil(N / per) };
     }
     /** Screen-space slot of model i (feet point, in device px) for the current page, or null. */
     gallerySlot(i, L) {
@@ -246,11 +249,11 @@
       if (k < 0 || k >= L.per) return null;
       const c = k % L.cols, r = Math.floor(k / L.cols);
       const x0 = Math.floor((R.cols - L.cols * 15) / 2);
-      return { c, r, x: (x0 + c * 15 + 7) * R.cellW, y: (4 + (r + 1) * 14 - 3) * R.cellH };
+      return { c, r, x: (x0 + c * 15 + 7) * R.cellW, y: (L.y0 + (r + 1) * 14 - 3) * R.cellH };
     }
     gallerySlotAt(sx, sy) {
       const L = this.galleryLayout(), R = this.ascii;
-      for (let i = 0; i < 20; i++) { const q = this.gallerySlot(i, L); if (q && Math.abs(sx - q.x) < 7 * R.cellW && sy > q.y - 11 * R.cellH && sy < q.y + 3 * R.cellH) return i; }
+      for (let i = 0; i < PA.Stick.MODELS.length; i++) { const q = this.gallerySlot(i, L); if (q && Math.abs(sx - q.x) < 7 * R.cellW && sy > q.y - 11 * R.cellH && sy < q.y + 3 * R.cellH) return i; }
       return null;
     }
     renderGallery(now) {
@@ -259,7 +262,7 @@
       R.stampText(R.cellW * 3, R.cellH * 1, 'Choose your stickman' + (L.pages > 1 ? '  (page ' + (L.page + 1) + '/' + L.pages + ')' : ''), { style: 1, pri: 6 });
       R.stampText(R.cellW * 3, R.cellH * 2, 'arrows or tap to look, Enter or tap again to pick, Esc to go back', { style: 0, pri: 6 });
       const t = (now - g.t0) / 1000;
-      for (let i = 0; i < 20; i++) {
+      for (let i = 0; i < PA.Stick.MODELS.length; i++) {
         const q = this.gallerySlot(i, L); if (!q) continue;
         const m = PA.Stick.MODELS[i], sel = i === g.sel;
         const pose = g.pose || (sel ? 'walk' : 'idle');

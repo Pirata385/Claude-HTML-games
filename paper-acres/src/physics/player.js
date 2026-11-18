@@ -157,15 +157,39 @@
       const p = this.action ? { progress: this.action.progress, aim: this.action.aim } : {};
       return PA.Stick.pose(this.state, this.anim, p);
     }
-    /** The stickman is a 3x3 ASCII sprite snapped to the character grid, standing on a cleared paper patch. */
+    /** Vector stickman: blank paper over his cells first (so scenery never crosses him), then thin ink lines.
+     * The draw position snaps to character cells so the converted glyphs are stable. */
     draw(R, p) {
       this.drawOffset = (this.drawOffset || 0) * 0.75;
       if (this.hurtT > 0 && Math.floor(this.hurtT / 80) % 2) return;
-      const rows = PA.Stick.sprite(this.state, this.anim, this.facing);
-      const fx = p.ox + this.x * p.scale, fy = p.oy + (this.feet + this.drawOffset) * p.scale;
-      const c = Math.floor(fx / R.cellW) - 1, r = Math.round(fy / R.cellH) - 3;
-      R.sprite(c, r, rows, { pad: 0 });
-      this.screenCell = { c: c + 1, r: r + 2 };
+      const act = this.action;
+      const f = PA.Stick.figure(this.state, this.anim, act ? { progress: act.progress, aim: act.aim } : {}, this.facing);
+      // whole-character steps (origin = centre of the character cell under the player)
+      const gx = Math.floor(this.x / C.CELL_W) * C.CELL_W + C.CELL_W / 2;
+      const gy = Math.round((this.feet + this.drawOffset) / C.CELL_H) * C.CELL_H;
+      const ctx = R.ctx;
+      // halo: blank paper over every character cell the figure covers, so it reads on top of anything
+      let x0 = Infinity, x1 = -Infinity, y0 = Infinity;
+      for (const q of f.segs) { x0 = Math.min(x0, q[0], q[2]); x1 = Math.max(x1, q[0], q[2]); y0 = Math.min(y0, q[1], q[3]); }
+      x0 = Math.min(x0, f.head.x - 5); x1 = Math.max(x1, f.head.x + 5); y0 = Math.min(y0, f.head.y - 5);
+      const c0 = Math.floor((p.ox + (gx + x0) * p.scale) / R.cellW), c1 = Math.floor((p.ox + (gx + x1 - 0.5) * p.scale) / R.cellW);
+      const r0 = Math.floor((p.oy + (gy + y0) * p.scale) / R.cellH), r1 = Math.floor((p.oy + (gy - 0.5) * p.scale) / R.cellH);
+      R.clearCells(c0, r0, c1 - c0 + 1, r1 - r0 + 1);
+      R.use(p);
+      ctx.save();
+      ctx.translate(gx, gy);
+      ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+      ctx.strokeStyle = '#000';
+      ctx.lineWidth = R.lw(p, 0.95);
+      ctx.beginPath();
+      for (const q of f.segs) { ctx.moveTo(q[0], q[1]); ctx.lineTo(q[2], q[3]); }
+      const h = f.head;
+      ctx.moveTo(h.x + h.rx, h.y); ctx.ellipse(h.x, h.y, h.rx, h.ry, 0, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.restore();
+      this.lastFigure = f;
+      R.mask(p.ox + (gx - 18) * p.scale, p.oy + (gy - 60) * p.scale, p.ox + (gx + 18) * p.scale, p.oy + gy * p.scale);
+      this.screenCell = { c: Math.floor((p.ox + gx * p.scale) / R.cellW), r: Math.floor((p.oy + (gy - 1) * p.scale) / R.cellH) };
     }
   }
   Player.TUNE = TUNE;

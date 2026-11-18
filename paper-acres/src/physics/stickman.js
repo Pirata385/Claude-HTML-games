@@ -94,6 +94,55 @@
     return facing < 0 ? mirror(f) : f.slice();
   }
 
+  /* ---- ASCII-friendly vector figure: 3x3 character cells (12x20 px each), feet on y=0, facing right.
+   * Limbs start near cell boundaries so the converted result reads like  o / /|\ / / \ . ---- */
+  const TAU2 = Math.PI * 2;
+  // Limbs begin at the edges of the centre column (x = +-7) so side cells get clean / and \ strokes.
+  const legs = (fl, fr, liftL, liftR) => {
+    const leg = (fx, lift) => (Math.abs(fx) < 5 ? [1.5 + fx * 0.3, -19, 1.5 + fx, -1 - lift] : [Math.sign(fx) * 6, -19, fx + Math.sign(fx) * 1.5, -1 - lift]);
+    return [leg(fl, liftL), leg(fr, liftR)];
+  };
+  const FIG = {
+    idle() { return { segs: [[1.5, -39, 1.5, -21], [-5, -38, -16, -23], [5, -38, 16, -23], ...legs(-15, 15, 0, 0)] }; },
+    walk(t) {
+      const c = Math.cos(t * TAU2), sn = Math.sin(t * TAU2);
+      return { segs: [[1.5, -39, 1.5, -21], [-5, -38, -16, -23], [5, -38, 16, -23], ...legs(-15 * c, 15 * c, 4 * Math.max(0, -sn), 4 * Math.max(0, sn))] };
+    },
+    run(t) {
+      const c = Math.cos(t * TAU2), sn = Math.sin(t * TAU2);
+      return { segs: [[3, -39, 1.5, -21], [5, -38, 16, -30 + 5 * c], [-5, -38, -15, -27 - 5 * c], ...legs(-16 * c, 16 * c, 7 * Math.max(0, -sn), 7 * Math.max(0, sn))] };
+    },
+    jump() { return { segs: [[1.5, -39, 1.5, -22], [-5, -40, -15, -57], [5, -40, 15, -57], ...legs(-12, 12, 6, 6)] }; },
+    fall() { return { segs: [[1.5, -39, 1.5, -21], [-5, -40, -16, -54], [5, -40, 16, -54], ...legs(-14, 15, 0, 2)] }; },
+    climb(t) {
+      const sn = Math.sin(t * TAU2);
+      return { segs: [[1.5, -39, 1.5, -21], [-5, -40, -9, -56 + sn * 3], [5, -40, 9, -56 - sn * 3], ...legs(-9, 9, 3 + sn * 3, 3 - sn * 3)] };
+    },
+    swim(t) {
+      const sn = Math.sin(t * TAU2);
+      return { segs: [[8, -34, -6, -26], [7, -33, 16, -38 + sn * 5], [7, -33, 15, -24 - sn * 4], [-6, -26, -16, -21 + sn * 4], [-6, -26, -16, -31 - sn * 4]], head: [13, -44] };
+    },
+    swing(t, p) {
+      const pr = PA.U.clamp(p.progress || 0, 0, 1), base = p.aim != null ? p.aim : 0.35;
+      const a = base - 2.0 + pr * 2.7;
+      const hand = [3 + Math.cos(a) * 15, -38 + Math.sin(a) * 15];
+      return { segs: [[1.5, -39, 1.5, -21], [4, -38, hand[0], hand[1]], [-5, -38, -16, -23], ...legs(-15, 14, 0, 0)], hand };
+    },
+    hurt() { return { segs: [[-1.5, -39, 1.5, -21], [-5, -40, -16, -52], [5, -38, 15, -30], ...legs(-15, 11, 0, 0)], head: [-4, -46.7] }; },
+    wave(t) { const sn = Math.sin(t * TAU2 * 2); return { segs: [[1.5, -39, 1.5, -21], [-5, -38, -16, -23], [5, -40, 13 + sn * 3, -57], ...legs(-15, 15, 0, 0)] }; },
+    sit() { return { segs: [[0, -30, 0, -12], [-5, -29, -14, -16], [5, -29, 14, -16], [2, -12, 15, -12], [15, -12, 16, -1]], head: [0, -37] }; },
+  };
+  function figure(kind, t, p, facing = 1) {
+    const f = (FIG[kind] || FIG.idle)(t || 0, p || {});
+    const m = facing < 0 ? -1 : 1;
+    const head = f.head || [0, -46.7]; // centred in the top cell; torso sits on a sample column (x = 1.5)
+    return {
+      segs: f.segs.map((q) => [q[0] * m, q[1], q[2] * m, q[3]]),
+      head: { x: head[0] * m, y: head[1], r: 5, rx: 4.6, ry: 5.2 },
+      hand: f.hand ? { x: f.hand[0] * m, y: f.hand[1] } : null,
+    };
+  }
+
   function pose(kind, t, p) { return (POSES[kind] || POSES.idle)(t, p || {}); }
 
   function toSegs(j, facing = 1) {
@@ -108,6 +157,6 @@
     ];
   }
 
-  PA.Stick = { pose, toSegs, ik, POSES, HEIGHT: 46, sprite, mirror, SPRITES, HEAD: H };
+  PA.Stick = { pose, toSegs, ik, POSES, HEIGHT: 46, sprite, mirror, SPRITES, HEAD: H, figure, FIG };
   if (typeof module !== 'undefined' && module.exports) module.exports = PA.Stick;
 })(typeof window !== 'undefined' ? window : globalThis);

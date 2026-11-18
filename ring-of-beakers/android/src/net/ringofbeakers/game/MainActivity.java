@@ -1,6 +1,7 @@
 package net.ringofbeakers.game;
 
 import android.app.Activity;
+import android.content.res.AssetFileDescriptor;
 import android.graphics.Color;
 import android.net.Uri;
 import android.os.Bundle;
@@ -17,9 +18,12 @@ import android.webkit.WebViewClient;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
+import java.io.FilterInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.Charset;
+import java.util.HashMap;
+import java.util.Map;
 
 /** Runs the bundled HTML game full screen in a WebView, served from the APK's assets. */
 public class MainActivity extends Activity {
@@ -28,19 +32,29 @@ public class MainActivity extends Activity {
     private static final String START = "https://" + HOST + "/game/index.html";
 
     // Injected at the top of the game's <head> (only inside the app, the game files are untouched).
-    // It keeps hold of every AudioContext the game makes, so the app can mute it while in the background.
+    // It keeps hold of every AudioContext (sound effects, bird calls) and every <audio> element (the
+    // recorded music) the game plays, so the app can silence them while in the background. While the
+    // app is paused, play() is held back and remembered; on return, whatever was playing plays on.
     private static final String PAUSE_HOOK = "<script>(function(){"
-            + "var list=[],paused=false,was=[];"
+            + "var ctxs=[],media=new Set(),paused=false,wasCtx=[],wasMedia=[];"
             + "function wrap(C){if(!C)return C;function W(a,b){var c=arguments.length>1?new C(a,b):arguments.length?new C(a):new C();"
-            + "list.push(c);if(paused&&c.suspend)c.suspend();return c;}W.prototype=C.prototype;return W;}"
+            + "ctxs.push(c);if(paused&&c.suspend)c.suspend();return c;}W.prototype=C.prototype;return W;}"
             + "if(window.AudioContext)window.AudioContext=wrap(window.AudioContext);"
             + "if(window.webkitAudioContext)window.webkitAudioContext=wrap(window.webkitAudioContext);"
+            + "var M=window.HTMLMediaElement&&HTMLMediaElement.prototype,play=M&&M.play;"
+            + "function live(el){return !!el.getAttribute('src')&&!el.error;}"
+            + "if(play)M.play=function(){media.add(this);"
+            + "if(paused){if(wasMedia.indexOf(this)<0)wasMedia.push(this);return Promise.resolve();}"
+            + "return play.apply(this,arguments);};"
             + "window.__rbAppPause=function(){if(paused)return;paused=true;"
             + "try{if(window.RB&&RB.game&&RB.game.save)RB.game.save();}catch(e){}"
-            + "was=list.filter(function(c){return c.state==='running';});"
-            + "list.forEach(function(c){try{c.suspend();}catch(e){}});};"
+            + "wasCtx=ctxs.filter(function(c){return c.state==='running';});"
+            + "ctxs.forEach(function(c){try{c.suspend();}catch(e){}});"
+            + "wasMedia=[];media.forEach(function(el){if(!live(el)){media.delete(el);return;}"
+            + "if(!el.paused){wasMedia.push(el);try{el.pause();}catch(e){}}});};"
             + "window.__rbAppResume=function(){if(!paused)return;paused=false;"
-            + "was.forEach(function(c){try{c.resume();}catch(e){}});was=[];};"
+            + "wasCtx.forEach(function(c){try{c.resume();}catch(e){}});wasCtx=[];"
+            + "wasMedia.forEach(function(el){if(live(el)&&el.paused){var p=play.call(el);if(p&&p.catch)p.catch(function(){});}});wasMedia=[];};"
             + "})();</script>";
 
     private WebView web;
@@ -73,7 +87,7 @@ public class MainActivity extends Activity {
         web.setWebViewClient(new WebViewClient() {
             @Override
             public WebResourceResponse shouldInterceptRequest(WebView view, WebResourceRequest req) {
-                return serve(req.getUrl());
+                return serve(req.getUrl(), req.getRequestHeaders());
             }
 
             @Override
@@ -94,18 +108,133 @@ public class MainActivity extends Activity {
         else web.loadUrl(START);
     }
 
-    private WebResourceResponse serve(Uri uri) {
+    private WebResourceResponse serve(Uri uri, Map<String, String> reqHeaders) {
         if (!HOST.equals(uri.getHost())) return null;
         String path = uri.getPath();
         if (path == null || !path.startsWith("/game/") || path.contains("..")) return notFound();
         String rel = path.substring(1); // "game/..."
         if (rel.endsWith("/")) rel += "index.html";
+        String type = mime(rel);
+        String enc = type.startsWith("text/") || rel.endsWith(".js") ? "utf-8" : null;
         try {
-            InputStream in = getAssets().open(rel);
-            if (rel.equals("game/index.html")) in = withPauseHook(in);
-            return new WebResourceResponse(mime(rel), mime(rel).startsWith("text/") || rel.endsWith(".js") ? "utf-8" : null, in);
+            if (rel.equals("game/index.html")) return new WebResourceResponse(type, enc, withPauseHook(getAssets().open(rel)));
+            // Files stored uncompressed in the APK (the music) can be read from any byte, so <audio> gets
+            // the byte ranges it asks for: it needs them to know a track's length, to seek and to loop.
+            AssetFileDescriptor fd;
+            try {
+                fd = getAssets().openFd(rel);
+            } catch (IOException compressed) {
+                return new WebResourceResponse(type, enc, getAssets().open(rel));
+            }
+            long len = fd.getLength();
+            Map<String, String> h = new HashMap<String, String>();
+            h.put("Accept-Ranges", "bytes");
+            long[] r = parseRange(header(reqHeaders, "Range"), len);
+            if (r == null) {
+                h.put("Content-Length", String.valueOf(len));
+                return new WebResourceResponse(type, enc, 200, "OK", h, fd.createInputStream());
+            }
+            if (r.length == 0) {
+                fd.close();
+                h.put("Content-Range", "bytes */" + len);
+                return new WebResourceResponse(type, enc, 416, "Range Not Satisfiable", h, new ByteArrayInputStream(new byte[0]));
+            }
+            InputStream in = fd.createInputStream();
+            for (long left = r[0]; left > 0; ) {
+                long n = in.skip(left);
+                if (n <= 0) throw new IOException("short asset");
+                left -= n;
+            }
+            long count = r[1] - r[0] + 1;
+            h.put("Content-Range", "bytes " + r[0] + "-" + r[1] + "/" + len);
+            h.put("Content-Length", String.valueOf(count));
+            return new WebResourceResponse(type, enc, 206, "Partial Content", h, new Limited(in, count));
         } catch (IOException e) {
             return notFound();
+        }
+    }
+
+    private static String header(Map<String, String> headers, String name) {
+        if (headers == null) return null;
+        for (Map.Entry<String, String> e : headers.entrySet()) {
+            if (e.getKey() != null && e.getKey().equalsIgnoreCase(name)) return e.getValue();
+        }
+        return null;
+    }
+
+    /**
+     * A single "bytes=a-b" / "bytes=a-" / "bytes=-n" range: {first, last} (inclusive), clamped to the file.
+     * null means "send the whole file" (no header, or one this does not handle); an empty array means
+     * the range lies outside the file (416).
+     */
+    static long[] parseRange(String value, long len) {
+        if (value == null) return null;
+        value = value.trim();
+        if (!value.startsWith("bytes=") || value.indexOf(',') >= 0) return null;
+        String spec = value.substring(6).trim();
+        int dash = spec.indexOf('-');
+        if (dash < 0) return null;
+        try {
+            String a = spec.substring(0, dash).trim(), b = spec.substring(dash + 1).trim();
+            long first, last;
+            if (a.isEmpty()) {
+                if (b.isEmpty()) return null;
+                long n = Long.parseLong(b);
+                if (n <= 0 || len == 0) return new long[0];
+                first = Math.max(0, len - n);
+                last = len - 1;
+            } else {
+                first = Long.parseLong(a);
+                last = b.isEmpty() ? len - 1 : Math.min(Long.parseLong(b), len - 1);
+                if (first < 0) return null;
+                if (first >= len || first > last) return new long[0];
+            }
+            return new long[] { first, last };
+        } catch (NumberFormatException e) {
+            return null;
+        }
+    }
+
+    /** Passes on at most {@code left} bytes of the stream underneath. */
+    static final class Limited extends FilterInputStream {
+        private long left;
+
+        Limited(InputStream in, long left) {
+            super(in);
+            this.left = left;
+        }
+
+        @Override
+        public int read() throws IOException {
+            if (left <= 0) return -1;
+            int c = super.read();
+            if (c >= 0) left--;
+            return c;
+        }
+
+        @Override
+        public int read(byte[] b, int off, int len) throws IOException {
+            if (left <= 0) return -1;
+            int n = super.read(b, off, (int) Math.min(len, left));
+            if (n > 0) left -= n;
+            return n;
+        }
+
+        @Override
+        public long skip(long n) throws IOException {
+            long s = super.skip(Math.min(n, left));
+            if (s > 0) left -= s;
+            return s;
+        }
+
+        @Override
+        public int available() throws IOException {
+            return (int) Math.min(super.available(), left);
+        }
+
+        @Override
+        public boolean markSupported() {
+            return false;
         }
     }
 

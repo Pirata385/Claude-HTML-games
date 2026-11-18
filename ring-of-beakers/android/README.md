@@ -41,7 +41,8 @@ build.sh                builds and signs the APK
 
 - The game is served from `https://appassets.androidplatform.net/game/` out of the APK's assets, so local storage (the save slots) works as on the web.
 - Always landscape (`sensorLandscape`: it still flips when the phone is turned round), full screen, screen kept on.
-- Leaving the app (home, app switcher, screen off, a call) pauses the game: it saves, its sound is suspended and every JavaScript timer and animation frame stops (`WebView.pauseTimers`). Coming back carries on from the same moment. To reach the sound, the app adds a small script to the top of `index.html` as it serves it (the game's files are not changed); it keeps track of the game's `AudioContext` so it can be suspended and resumed.
+- Leaving the app (home, app switcher, screen off, a call) pauses the game: it saves, its sound and music stop and every JavaScript timer and animation frame stops (`WebView.pauseTimers`). Coming back carries on from the same moment. To reach the sound, the app adds a small script to the top of `index.html` as it serves it (the game's files are not changed): it keeps track of the game's `AudioContext` (effects, bird calls) and `<audio>` elements (the recorded music), pauses whatever is playing, holds back any `play()` while the app is away, and plays it again on return.
+- Files stored uncompressed in the APK (the `.mp3`s) are served with byte ranges (`206 Partial Content`), so the music knows its length, can seek and can loop.
 - `window.prompt` and `confirm` show native dialogs (renaming birds, save export and import).
 - The back button acts as Escape in the game; on the title screen it closes the app. So does the title screen's "All games" button, since the collection's menu is not in the APK.
 

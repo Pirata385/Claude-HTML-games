@@ -1264,3 +1264,111 @@ test('a bird set free keeps its name out in the wild, and netted again it is the
   // and there are plenty of names to go round
   assert.ok(ST.BIRD_NAMES.length >= 200 && new Set(ST.BIRD_NAMES).size === ST.BIRD_NAMES.length);
 });
+
+test('accessories for every part of the body, prizes won through feats, and a little more fighting kit', () => {
+  const IT = RB.items, S = ST.create(211), c = S.birds[0];
+  const kinds = (k) => Object.keys(IT.ITEMS).filter((id) => IT.ITEMS[id].kind === k);
+  for (const k of ['hat', 'face', 'neck', 'back', 'feet', 'tail']) assert.ok(kinds(k).length >= 5, k + ' has only ' + kinds(k).length);
+  assert.ok(kinds('gear').length >= 10);
+  // the shops sell the ordinary pieces; the feat prizes are never on sale
+  const sold = new Set(Object.values(IT.STOCK).flat());
+  for (const id of Object.values(IT.UNLOCKS)) { assert.ok(!sold.has(id), id + ' is on sale'); assert.strictEqual(IT.ITEMS[id].price, 0); }
+  for (const id of ['sombrero', 'shades', 'bowtie', 'cape', 'sneakers', 'ribbon', 'beakcap', 'mail']) assert.ok(sold.has(id), id + ' is not sold anywhere');
+  assert.ok(Object.keys(IT.UNLOCKS).length >= 8);
+  // one thing per place, swapped back into the bag
+  ST.give(S, 'shades'); ST.give(S, 'specs'); ST.give(S, 'cape'); ST.give(S, 'beakcap'); ST.give(S, 'sombrero');
+  assert.strictEqual(ST.wear(S, c, 'shades'), ''); assert.strictEqual(ST.wornIn(c, 'face'), 'shades'); assert.strictEqual(ST.count(S, 'shades'), 0);
+  assert.strictEqual(ST.wear(S, c, 'specs'), ''); assert.strictEqual(ST.wornIn(c, 'face'), 'specs'); assert.strictEqual(ST.count(S, 'shades'), 1);
+  ST.wear(S, c, 'cape'); ST.wear(S, c, 'beakcap'); ST.wear(S, c, 'sombrero');
+  assert.deepStrictEqual(ST.outfit(c).sort(), ['beakcap', 'cape', 'sombrero', 'specs']);
+  assert.strictEqual(c.hat, 'sombrero'); assert.strictEqual(c.gear, 'beakcap');
+  assert.ok(ST.wear(S, c, 'monocle'), 'not in the bag');
+  assert.ok(ST.wear(S, c, 'grain'), 'not something to wear');
+  assert.strictEqual(ST.unwear(S, c, 'back'), 'cape'); assert.strictEqual(ST.count(S, 'cape'), 1); assert.strictEqual(ST.wornIn(c, 'back'), null);
+  const back = ST.deserialize(JSON.parse(JSON.stringify(ST.serialize(S))));
+  assert.strictEqual(ST.wornIn(back.birds[0], 'face'), 'specs');
+  // in a sandbox game every accessory is endless (relics still are not)
+  const X = ST.create(213, { sandbox: true });
+  for (const id of ['viking', 'monocle', 'pearls', 'jetpack', 'skates', 'sparkler', 'springs']) assert.strictEqual(ST.count(X, id), Infinity, id);
+  // feat prizes: handed over when earned, and to older saves on loading
+  S.codex.ach.champ = true; S.codex.ach.recipe = true;
+  assert.deepStrictEqual(ST.grantUnlocks(S).sort(), ['chef', 'medal']);
+  assert.deepStrictEqual(ST.grantUnlocks(S), [], 'only once');
+  assert.strictEqual(ST.count(S, 'medal'), 1);
+  const old = ST.serialize(ST.create(215)); old.codex.ach.roost = true; delete old.unlocked;
+  assert.strictEqual(ST.count(ST.deserialize(JSON.parse(JSON.stringify(old))), 'halo'), 1);
+  // the new fighting kit: small, exact edges
+  const rng = new Rng(3), A = RB.pheno.express(RB.species.make('gamecock', rng, { sex: 'M', sport: 0 })), B = RB.pheno.express(RB.species.make('gamecock', rng, { sex: 'M', sport: 0 }));
+  const hit = (ga, gb, w, part) => { const f = new RB.fight.Fight({ a: { P: A, gear: ga }, b: { P: B, gear: gb }, mode: 'pit', seed: 9 }), [a, b] = f.fighters, h = b.hp; a.rag.act = a.rag.act || { hit: false }; f.onHit(a, b, w, { part, p: b.rag.C }, 300, 0, 0, 1, 0); return h - b.hp; };
+  const near = (x, y) => Math.abs(x - y) < 1e-6 * Math.max(1, y);
+  assert.ok(near(hit({ beakcap: true }, {}, 'beak', 'body'), hit({}, {}, 'beak', 'body') * 1.15));
+  assert.ok(near(hit({ wingwax: true }, {}, 'wing', 'body'), hit({}, {}, 'wing', 'body') * 1.2));
+  assert.ok(near(hit({ horseshoe: true }, {}, 'beak', 'head'), hit({}, {}, 'beak', 'head') * 1.15));
+  assert.ok(near(hit({}, { mail: true }, 'foot', 'body'), hit({}, {}, 'foot', 'body') * 0.85));
+  assert.ok(near(hit({}, { mail: true }, 'beak', 'head'), hit({}, {}, 'beak', 'head')), 'mail does not cover the head');
+});
+
+test('some birds have habits of their own; chicks and people do not', () => {
+  const S = ST.create(217);
+  for (let i = 0; i < 200; i++) ST.addBird(S, RB.species.make('chicken', S._rng, { sport: 0 }), { at: 'home' });
+  const birds = S.birds.filter((c) => ST.isAdult(c)), quirks = birds.map((c) => ST.quirkOf(S, c));
+  const share = quirks.filter(Boolean).length / quirks.length;
+  assert.ok(share > 0.35 && share < 0.62, 'share with a habit: ' + share.toFixed(2));
+  for (const q of Object.keys(ST.QUIRKS)) assert.ok(quirks.includes(q), 'nobody ' + ST.QUIRKS[q]);
+  // the same bird always has the same habit, through saves too
+  const back = ST.deserialize(JSON.parse(JSON.stringify(ST.serialize(S))));
+  back.birds.forEach((c, i) => assert.strictEqual(ST.quirkOf(back, c), ST.quirkOf(S, S.birds[i])));
+  const chick = ST.addBird(S, RB.species.make('chicken', S._rng, {}), { age: 0 });
+  assert.strictEqual(ST.quirkOf(S, chick), null);
+  const guy = ST.addBird(S, RB.npc.personGenome(new Rng(1), 'M'), { person: 'h_0' });
+  assert.strictEqual(ST.quirkOf(S, guy), null);
+  // a grudge sticks to one bird, whoever else comes and goes
+  const [a, b, c2, d] = S.birds;
+  const t1 = ST.grudgeTarget(a, [a, b, c2, d]);
+  assert.ok(t1 && t1 !== a);
+  assert.strictEqual(ST.grudgeTarget(a, [d, c2, b, a]), t1);
+  const others = [a, b, c2, d].filter((o) => o !== t1);
+  assert.notStrictEqual(ST.grudgeTarget(a, others), t1);
+  assert.strictEqual(ST.grudgeTarget(a, [a]), null);
+});
+
+test('the Hall of Fame keeps champions, record holders and odd lives, even after they are gone', () => {
+  const S = ST.create(219), [cock, hen] = S.birds;
+  assert.deepStrictEqual(ST.fameCheck(S), [], 'nobody yet');
+  // a champion, with the day it took the arena
+  cock.wins = 12; cock.losses = 3;
+  ST.note(S, cock, 'beat Old Bira\'s Sete Facas to take Backyard Pit'); ST.title(cock, 'Champion of Backyard Pit');
+  ST.fameCheck(S);
+  const e = ST.fameOf(S, cock.id);
+  assert.ok(e && e.titles.includes('Champion of Backyard Pit') && e.titles.includes('Veteran (10+ wins)') && e.titles.includes('Record: most wins'));
+  assert.ok(ST.fameBio(e).includes('beat Old Bira') && ST.fameBio(e).includes('12 won'));
+  assert.strictEqual(e.status, 'In your yard');
+  // a curious story: a bird freed and netted again
+  const rec = ST.setFree(S, hen, 100, 100); S.day += 3; ST.recapture(S, rec);
+  ST.fameCheck(S);
+  const h = ST.fameOf(S, hen.id);
+  assert.ok(h && h.titles.includes('Came back from the wild') && ST.fameBio(h).includes('3 days in the wild'));
+  // gone to BFC: still in the Hall, with how it left
+  S.feeder = 9; ST.move(S, cock, 'crate'); ST.sleep(S);
+  assert.ok(!S.birds.includes(cock));
+  const e2 = ST.fameOf(S, cock.id);
+  assert.ok(e2.gone && /BFC/.test(e2.status) && e2.titles.includes('Champion of Backyard Pit'));
+  assert.ok(e2.titles.includes('Record: most wins'), 'a record stands after the bird is gone');
+  // a better bird takes the record
+  const star = ST.addBird(S, RB.species.make('gamecock', S._rng, { sport: 0 }), { name: 'Estrela' });
+  star.wins = 20; ST.fameCheck(S);
+  assert.ok(ST.fameOf(S, star.id).titles.includes('Record: most wins') && !ST.fameOf(S, cock.id).titles.includes('Record: most wins'));
+  // rebuilt from a fossil: its own line in the story
+  S.money = 1e5; for (let i = 0; i < RB.lab.FRAGMENTS; i++) RB.lab.addFragment(S, 'dodo');
+  RB.lab.rebuild(S, 'dodo'); S.feeder = 9; ST.sleep(S); ST.sleep(S); ST.sleep(S);
+  const dodo = S.birds.find((c) => c.log && c.log.some((l) => l.t.includes('fossil')));
+  assert.ok(dodo && ST.fameOf(S, dodo.id) && ST.fameOf(S, dodo.id).titles.includes('Back from extinction'));
+  // saves keep the Hall; older saves start with an empty one; a full Hall drops the least remembered of the gone
+  const back = ST.deserialize(JSON.parse(JSON.stringify(ST.serialize(S))));
+  assert.strictEqual(back.fame.length, S.fame.length);
+  const old = ST.serialize(S); delete old.fame;
+  assert.deepStrictEqual(ST.deserialize(JSON.parse(JSON.stringify(old))).fame, []);
+  for (let i = 0; i < 80; i++) S.fame.push(Object.assign({}, e2, { id: 9000 + i, titles: ['Two heads'], gone: true }));
+  ST.fameCheck(S);
+  assert.ok(S.fame.length <= 60 && ST.fameOf(S, cock.id), 'the champion stays');
+});

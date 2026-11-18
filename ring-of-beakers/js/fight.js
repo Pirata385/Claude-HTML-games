@@ -337,13 +337,18 @@
       if (A.twoHeads && w === 'beak') dmg *= 1.25;
       if (att.gear.spurs && w === 'foot') dmg *= 1.2;
       if (def.gear.helmet && crit) dmg *= 0.75;
+      // the newer fighting kit: small edges, one piece at a time
+      if (att.gear.beakcap && w === 'beak') dmg *= 1.15;
+      if (att.gear.wingwax && w === 'wing') dmg *= 1.2;
+      if (att.gear.horseshoe && crit) dmg *= 1.15;
+      if (def.gear.mail && !crit) dmg *= 0.85;
       def.hp -= dmg; att.dmg += dmg; att.hits++; def.lastHurt = this.t;
       if (this.roundDmg) this.roundDmg[att.side] += dmg / def.hpMax * 100;
       att.rag.act.hit = true;
       const dv = Math.min(340, Math.pow(A.massRel, 0.9) * rel * KNOCK[w] / D.massRel);
       def.rag.push(ux * dv, clamp(uy * dv * 0.5 - (w === 'foot' ? dv * 0.12 : 0), -170, 140), crit ? 'head' : 'body');
       if (w === 'beak') { att.rag.head.vx *= -0.2; att.rag.head.vy *= -0.2; }
-      def.stag += dv / (420 * D.balance) * (this.inMud(def.rag) ? 1.6 : 1); // the mud takes your feet
+      def.stag += dv / (420 * D.balance) * (this.inMud(def.rag) ? 1.6 : 1) * (def.gear.springs ? 0.8 : 1); // the mud takes your feet; spring boots keep them
       const big = dmg > 0.2 * def.hpMax, st = def.rag.state;
       if ((def.stag >= 1 || big) && st !== 'down' && st !== 'ko' && def.hp > 0) {
         def.stag = 0; def.downs++;
@@ -364,7 +369,7 @@
       me.stag = Math.max(0, me.stag - DT * 0.45);
       const sp = Math.abs(rag.vx()) / Math.max(1, P.speedMax);
       const regen = 5.5 * P.lungs * (me.backoff > 0 || me.resting ? 2.2 : 1) * (me.frenzy > 0 ? 0.5 : 1) - 2.5 * sp * sp - (this.inMud(rag) ? 1.5 : 0);
-      me.stam = clamp(me.stam + regen * DT, 0, me.stamMax);
+      me.stam = clamp(me.stam + regen * DT * (regen > 0 && me.gear.flask ? 1.2 : 1), 0, me.stamMax);
       if (this.t - me.lastHurt > 2) me.morale = Math.min(100, me.morale + 2 * DT);
       if (!this.over && !me.flee && me.morale <= 0 && P.courage < 0.85) { me.flee = true; this.events.push({ type: 'flee', side: me.side }); }
       if (me.flee) me.fleeT += DT;

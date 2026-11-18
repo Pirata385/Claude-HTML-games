@@ -28,7 +28,7 @@
   function create(seed, opts) {
     const S = {
       v: 1, seed: seed >>> 0, rs: (seed ^ 0x51ab) >>> 0, day: 1, time: 6, money: 150, debt: 15000, heat: 0, heatPeople: 0, heatDays: 0, nextId: 1,
-      birds: [], eggs: [], roost: [], released: [], markers: {}, visited: {}, isles: [], netted: {},
+      birds: [], eggs: [], roost: [], released: [], markers: {}, visited: {}, isles: [], netted: {}, unlocked: {}, fame: [],
       inv: { net: 3, shovel: 10, grain: 8 }, equip: {}, up: { cage: 0, engine: 0, tires: 0, coop: 0, nest: 0, incubator: 0, dummy: 0, boat: 0 },
       feeder: 0, pos: null, dug: {}, marksDug: {}, wildGone: null, npc: {}, league: {}, bets: {},
       lab: { power: false, fuses: 0, atlas: {}, vials: [], fossils: {}, seq: {} },
@@ -118,7 +118,7 @@
   const nestCount = (S) => 1 + S.up.nest;
   // In a sandbox game every useful item and every cosmetic is endless: tools, feed, gear, hats and
   // lab supplies (not relics, which are only worth selling, and not bundles like the grain sack).
-  const ENDLESS_KINDS = ['tool', 'feed', 'gear', 'hat', 'lab'];
+  const ENDLESS_KINDS = ['tool', 'feed', 'gear', 'hat', 'face', 'neck', 'back', 'feet', 'tail', 'lab'];
   const endless = (S, item) => { const it = RB.items.ITEMS[item]; return !!S.sandbox && !!it && ENDLESS_KINDS.includes(it.kind) && !it.gives; };
   const count = (S, item) => (endless(S, item) ? Infinity : S.inv[item] || 0);
   // the items you have, as ids: what is in the bag, and in a sandbox every endless one
@@ -130,6 +130,131 @@
   const fmtCount = (n) => (n === Infinity ? '∞' : String(n));
   function give(S, item, n) { if (endless(S, item)) return; S.inv[item] = (S.inv[item] || 0) + (n === undefined ? 1 : n); }
   function take(S, item, n) { n = n === undefined ? 1 : n; if (endless(S, item)) return true; if (count(S, item) < n) return false; S.inv[item] -= n; if (S.inv[item] <= 0) delete S.inv[item]; return true; }
+  // ---- what a creature wears: a hat, something on the face, the neck, the back, the feet and the
+  // tail (all for show), and one piece of fighting kit. c.hat and c.gear as before; the rest in c.acc.
+  const slotOf = (id) => (RB.items.ITEMS[id] || {}).kind;
+  function wornIn(c, slot) { return slot === 'hat' ? c.hat || null : slot === 'gear' ? c.gear || null : (c.acc && c.acc[slot]) || null; }
+  function setSlot(c, slot, id) {
+    if (slot === 'hat') c.hat = id || null; else if (slot === 'gear') c.gear = id || null;
+    else { c.acc = c.acc || {}; if (id) c.acc[slot] = id; else delete c.acc[slot]; }
+  }
+  // Put something on (whatever was in that place goes back in the bag). Returns '' or why not.
+  function wear(S, c, id) {
+    const slot = slotOf(id);
+    if (!RB.items.SLOTS.includes(slot)) return 'That is not something to wear.';
+    if (!take(S, id)) return 'You have none left.';
+    const old = wornIn(c, slot);
+    if (old) give(S, old);
+    setSlot(c, slot, id);
+    return '';
+  }
+  function unwear(S, c, slot) { const old = wornIn(c, slot); if (old) { give(S, old); setSlot(c, slot, null); } return old; }
+  const outfit = (c) => RB.items.SLOTS.map((sl) => wornIn(c, sl)).filter(Boolean);
+  // Pieces won through feats: hand over any earned and not yet given. Returns the item ids given.
+  function grantUnlocks(S) {
+    S.unlocked = S.unlocked || {};
+    const got = [];
+    for (const ach of Object.keys(RB.items.UNLOCKS)) {
+      if (!S.codex.ach[ach] || S.unlocked[ach]) continue;
+      S.unlocked[ach] = true; give(S, RB.items.UNLOCKS[ach]); got.push(RB.items.UNLOCKS[ach]);
+    }
+    return got;
+  }
+  // ---- habits: about half the birds settle into a quirk of their own once they are grown (the rest
+  // just get on with being birds). Fixed for each bird; purely how it behaves in the yard.
+  const QUIRKS = { circles: 'walks in circles', chaser: 'chases the others about', starer: 'stares at things for ages', singer: 'sings at odd hours', grudge: 'has it in for one bird' };
+  const QUIRK_IDS = Object.keys(QUIRKS);
+  function quirkOf(S, c) {
+    if (!c || c.person || c.visitor || !isAdult(c)) return null;
+    if (c.quirk !== undefined) return c.quirk;
+    const h = hashStr(S.seed + ':q:' + c.id);
+    return h % 100 < 48 ? QUIRK_IDS[Math.floor(h / 100) % QUIRK_IDS.length] : null;
+  }
+  // The one bird a grudge-bearer picks on, of those around it: always the same one while it is there.
+  function grudgeTarget(c, list) {
+    const others = list.filter((o) => o !== c && !o.person && !o.visitor);
+    if (!others.length) return null;
+    const k = (o) => hashStr(c.id + '>' + o.id);
+    return others.reduce((best, o) => (k(o) < k(best) ? o : best));
+  }
+
+  // ---- the Hall of Fame: the birds that mattered. Notes are kept on each bird as things happen
+  // (note, title); fameCheck looks over the flock and keeps a snapshot of every bird that has earned a
+  // place (champions, record holders, curious stories, retired fighters), so they stay in the Hall
+  // after they are gone: sold, set free, sent to BFC, or long retired.
+  const NOTE_MAX = 8, FAME_MAX = 60;
+  function note(S, c, text) { if (!c || c.person || c.visitor) return; c.log = (c.log || []).concat([{ d: S.day, t: text }]).slice(-NOTE_MAX); }
+  function title(c, t) { if (!c || c.person || c.visitor) return; c.titles = c.titles || []; if (!c.titles.includes(t)) c.titles.push(t); }
+  const fameOf = (S, id) => (S.fame || []).find((e) => e.id === id) || null;
+  // A bird of the Hall leaves you: say how, so the Hall remembers.
+  function fameLeave(S, c, why) { const e = fameOf(S, c.id); if (e) { e.status = why + ' on day ' + S.day; e.gone = true; } }
+  function snapshot(S, c, where) {
+    const P = pheno(c);
+    return { id: c.id, name: c.name, kind: kind(c), sex: c.g.sex, g: GN.serialize(c.g), age: c.age, kg: +P.weightKg.toFixed(2), wins: c.wins, losses: c.losses,
+      speed: P.rate.speed, power: P.rate.power, tough: P.rate.tough, origin: c.origin, mom: c.mom, dad: c.dad, gen: c.gen || 0, quirk: quirkOf(S, c),
+      hat: c.hat || null, acc: c.acc ? Object.assign({}, c.acc) : null, odd: P.odd.slice(), log: (c.log || []).slice(), status: where, gone: false, day: S.day };
+  }
+  // Every bird you have now, and where it is.
+  function everyone(S) {
+    const out = [];
+    for (const c of S.birds) if (!c.person) out.push([c, c.at === 'cage' ? 'In the truck' : c.at.startsWith('nest') ? 'Nesting at home' : c.at === 'crate' ? 'Waiting for the BFC van' : 'In your yard']);
+    for (const c of S.roost || []) out.push([c, 'Retired at Sunset Roost']);
+    for (const isle of S.isles || []) for (const c of isle.birds) if (!c.person) out.push([c, 'Living on ' + isle.name]);
+    return out;
+  }
+  const RECORDS = [['wins', 'Record: most wins', 5], ['kg', 'Record: heaviest', 8], ['age', 'Record: oldest', 12], ['speed', 'Record: fastest', 60]];
+  function fameCheck(S) {
+    S.fame = S.fame || [];
+    const here = everyone(S), snaps = new Map();
+    for (const [c, where] of here) {
+      const P = pheno(c), t = (c.titles || []).slice();
+      if (c.wins >= 25) t.push('Ring legend (25+ wins)'); else if (c.wins >= 10) t.push('Veteran (10+ wins)');
+      if (P.twoHeads) t.push('Two heads'); if (P.odd.length >= 3) t.push('A walking mutation');
+      if ((c.gen || 0) >= 5) t.push('Island dynasty, generation ' + c.gen);
+      if (c.origin === 'born' && isCross(c)) t.push('Child of two very different kinds');
+      if (isRetired(c) && (c.wins >= 3 || c.at === 'roost')) t.push(c.wins >= 3 ? 'Retired fighter' : 'Retired at Sunset Roost');
+      const snap = snapshot(S, c, where); snap.titles = [...new Set(t)];
+      snaps.set(c.id, snap);
+      const e = fameOf(S, c.id);
+      if (e) { const since = e.since; Object.assign(e, snap); e.since = since; } else if (snap.titles.length) { snap.since = S.day; S.fame.push(snap); }
+    }
+    for (const e of S.fame) if (!snaps.has(e.id) && !e.gone) { e.gone = true; e.status = 'No longer with you (last seen on day ' + e.day + ')'; }
+    // records, among every bird the Hall has held and every bird you have now
+    for (const e of S.fame) e.titles = e.titles.filter((x) => !x.startsWith('Record:'));
+    const pool = S.fame.concat([...snaps.values()].filter((sn) => !fameOf(S, sn.id)));
+    for (const [key, name, min] of RECORDS) {
+      let best = null;
+      for (const e of pool) if (e[key] >= min && (!best || e[key] > best[key])) best = e;
+      if (!best) continue;
+      let e = fameOf(S, best.id);
+      if (!e) { e = best; e.since = S.day; S.fame.push(e); }
+      e.titles.push(name);
+    }
+    // a full Hall lets the least remembered of those long gone fade out
+    while (S.fame.length > FAME_MAX) {
+      const gone = S.fame.filter((e) => e.gone).sort((a, b) => a.titles.length - b.titles.length || a.wins - b.wins)[0];
+      if (!gone) break;
+      S.fame.splice(S.fame.indexOf(gone), 1);
+    }
+    return S.fame;
+  }
+  // How a Hall entry ranks: champions first, then by titles and wins.
+  const fameRank = (e) => e.titles.filter((x) => x.startsWith('Champion')).length * 100 + e.titles.length * 10 + e.wins;
+  // A short life story, from what the Hall kept.
+  function fameBio(e) {
+    const it = e.sex === 'F' ? 'She' : 'He', bits = [];
+    const parents = e.mom && e.dad ? ' to a ' + e.dad.toLowerCase() + ' and a ' + e.mom.toLowerCase() : '';
+    bits.push(e.origin === 'start' ? 'One of the two chickens Aunt Dalva left you.' : e.origin === 'born' ? (e.gen ? 'Born on one of your islands, generation ' + e.gen + parents + '.' : 'Hatched in your coop' + parents + '.') :
+      e.origin === 'wild' ? 'Caught out in the wild.' : e.origin === 'bought' ? 'Bought from a neighbour.' : 'Came to you by a road of its own.');
+    if (e.wins || e.losses) bits.push(it + ' fought ' + (e.wins + e.losses) + ' bout' + (e.wins + e.losses === 1 ? '' : 's') + ': ' + e.wins + ' won, ' + e.losses + ' lost.');
+    else bits.push(it + ' never fought in the ring.');
+    for (const l of e.log || []) bits.push('Day ' + l.d + ': ' + l.t + '.');
+    if (e.odd && e.odd.length) bits.push('Notable for: ' + e.odd.join(', ') + '.');
+    if (e.quirk) bits.push(it + ' ' + QUIRKS[e.quirk] + '.');
+    bits.push(e.status + '.');
+    return bits.join(' ');
+  }
+
   // Fast travel to an island: once you have landed on it, or any island at all in a sandbox game.
   const canSail = (S, is) => !!S.sandbox || !!(S.visited && S.visited[is.id]);
   function removeBird(S, c) { const i = S.birds.indexOf(c); if (i >= 0) S.birds.splice(i, 1); }
@@ -199,7 +324,7 @@
     for (const c of at(S, 'crate')) {
       const price = RB.economy.bfcPrice(S, c, true);
       S.money += price; S.stats.earned += price; S.bfc.sold++; S.bfc.stamps++; S.stats.sold++;
-      if (c.person) soldPerson(S, c);
+      if (c.person) soldPerson(S, c); else fameLeave(S, c, 'Went off in the BFC van');
       removeBird(S, c);
       lines.push('The BFC van collected ' + c.name + '. $' + price + '.');
     }
@@ -237,6 +362,7 @@
       S.eggs.splice(S.eggs.indexOf(e), 1);
       const chick = addBird(S, e.g, { age: 0, bond: 0.35, origin: 'born', mom: e.mom, dad: e.dad, momKey: e.momKey, dadKey: e.dadKey });
       chick.hatched = S.day;
+      if (e.fossil) { note(S, chick, 'hatched from an egg rebuilt from fossil fragments'); title(chick, 'Back from extinction'); }
       S.stats.bred++;
       lines.push('An egg hatched: ' + chick.name + ', a ' + kind(chick).toLowerCase() + ' chick.');
     }
@@ -254,6 +380,7 @@
       if (c.age >= P.lifespan) {
         if (c.at.startsWith('nest')) c.at = 'home';
         lines.push(c.name + ' is too old for the ring now and has retired. Sunset Roost will take them in, or BFC will.');
+        note(S, c, 'retired after ' + c.age + ' days, with ' + c.wins + ' win' + (c.wins === 1 ? '' : 's'));
       }
       else if (was !== 'adult' && P.stage === 'adult') lines.push(c.name + ' is all grown up.');
       else if (was !== 'elder' && P.stage === 'elder') lines.push(c.name + ' is getting old.');
@@ -279,6 +406,7 @@
         lines.push(id === 'sheriff' ? 'A new sheriff has come to town.' : 'Someone new has moved into an empty house.');
       }
     }
+    fameCheck(S);
     S.rs = r.s;
     return { lines };
   }
@@ -355,6 +483,7 @@
     removeBird(S, c);
     if (c.person) return null;
     S.released = S.released || [];
+    fameLeave(S, c, 'Set free');
     const bird = serBird(c); delete bird.g; delete bird.at;
     const rec = { g: GN.serialize(c.g), x: Math.round(x), y: Math.round(y), day: S.day, name: c.name, key: kindKey(c), label: label(c), bird };
     S.released.push(rec);
@@ -370,6 +499,8 @@
     c.g = GN.deserialize(rec.g); c._P = null;
     if (c.age < pheno(c).lifespan) c.age = Math.min(pheno(c).lifespan, c.age + Math.max(0, S.day - rec.day));
     Object.assign(c, { at: 'cage', fed: false, hungry: 0, tired: false, rest: 0, bouts: 0, love: false, bond: Math.max(0, (c.bond || 0) - 0.15) });
+    note(S, c, 'came back to you after ' + Math.max(0, S.day - rec.day) + ' days in the wild'); title(c, 'Came back from the wild');
+    const fe = fameOf(S, c.id); if (fe) fe.gone = false;
     c._P = null;
     S.birds.push(c);
     return c;
@@ -458,7 +589,7 @@
     for (const c of isle.birds.slice()) {
       if (c.hatched === S.day) continue;
       c.age++; dirty(c);
-      if (c.age >= pheno(c).lifespan + 2) { isle.birds.splice(isle.birds.indexOf(c), 1); died++; if (c.person) soldPerson(S, c); } // out here the old pass away
+      if (c.age >= pheno(c).lifespan + 2) { isle.birds.splice(isle.birds.indexOf(c), 1); died++; if (c.person) soldPerson(S, c); else fameLeave(S, c, 'Passed away of old age on ' + isle.name); } // out here the old pass away
     }
     const adults = isle.birds.filter((c) => isAdult(c) && c.age < pheno(c).lifespan);
     const males = r.shuffle(adults.filter((c) => c.g.sex === 'M')), females = r.shuffle(adults.filter((c) => c.g.sex === 'F'));
@@ -529,6 +660,8 @@
     removeBird(S, c);
     if (c.person === base.id && !st.soldOff) { st.gone = false; return ''; }
     c.at = 'keeper'; c.keeps = base.id; c.fed = true; c.hungry = 0; c.love = false; c.tired = false;
+    if (!c.person) { note(S, c, 'took over ' + base.name + '\'s place, woke up sentient and started talking'); title(c, 'A bird that ran a business'); }
+    fameLeave(S, c, 'Running ' + base.name + '\'s old place');
     st.sub = serBird(c); st.subDay = S.day;
     st.rel = 10; st.n = 0; st.sold = {}; st.credit = 0;
     return '';
@@ -555,6 +688,7 @@
     if (!isRetired(c)) return c.name + ' is not retired yet.';
     removeBird(S, c);
     c.at = 'roost'; c.since = S.day; c.fed = true; c.hungry = 0; c.love = false; c.tired = false; c.rest = 0;
+    note(S, c, 'moved into Sunset Roost');
     S.roost.push(c);
     return '';
   }
@@ -597,6 +731,8 @@
     for (const isle of S.isles) for (const c of isle.birds) { c.g = GN.deserialize(c.g); c._P = null; }
     for (const c of S.birds.concat(...S.isles.map((i) => i.birds))) if (c.person) S.netted[c.person] = 1;
     bossPrizes(S); // saves from before the boss prizes
+    S.fame = S.fame || []; // the Hall of Fame
+    grantUnlocks(S); // feats won before their prizes existed
     for (const c of S.roost) { c.g = GN.deserialize(c.g); c._P = null; }
     for (const e of S.eggs) e.g = GN.deserialize(e.g);
     return S;
@@ -604,7 +740,7 @@
 
   RB.state = { create, addBird, removeBird, pheno, dirty, kind, isAdult, isRetired, checkIn, checkOut, BOSS_PRIZES, bossPrizes, GOLD_DIGS, goldLeft, digsLeft, useDig, useNet,
     RELEASED_MAX, setFree, recapture, genePool, HEAT_DAYS, caughtPerson, trainPreview, openSea, hasBoat, makeBird,
-    ENDLESS_KINDS, endless, owned, fmtCount, canSail, serBird, deBird, STAY_MAX, stay, netKeeper, installKeeper, releasePerson, mainlanders, nettedCount, nettedAll, ISLE_EXTRA,
+    note, title, fameOf, fameLeave, fameCheck, fameRank, fameBio, RECORDS, QUIRKS, quirkOf, grudgeTarget, slotOf, wornIn, wear, unwear, outfit, grantUnlocks, ENDLESS_KINDS, endless, owned, fmtCount, canSail, serBird, deBird, STAY_MAX, stay, netKeeper, installKeeper, releasePerson, mainlanders, nettedCount, nettedAll, ISLE_EXTRA,
     CLAIM_COST, RAISE_COST, RAISE_R, CLEAN_COST, DOSE, isleOf, isleCap, claimIsle, raiseIsle, toIsle, fromIsle, dose, cleanIsle, colonyNight, byId, at, atHome, cageCap, coopCap, nestCount, count, give, take, move, feed, train, TRAIN,
     layChance, sleep, serialize, deserialize, freeName, BIRD_NAMES, eat, soldPerson, kindKey, isCross, label };
 })();

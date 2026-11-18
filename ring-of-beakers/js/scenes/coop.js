@@ -9,7 +9,7 @@
   const ui = RB.ui, pal = RB.pal, input = RB.input, ST = RB.state, common = RB.common, props = RB.props;
   const DT = RB.fight.DT;
 
-  let S, pw, birds, cam, parts, acc, selected, grab, cand, rng, lay, pan, t, hit, bedBox;
+  let S, pw, birds, cam, parts, acc, selected, grab, cand, rng, lay, pan, t, hit, bedBox, ev, evT;
   const BED_Y = -46, BED_MAX = 380;
 
   function layout() {
@@ -19,7 +19,7 @@
     for (let i = 0; i < n; i++) lay.nests.push(80 + i * 150);
     let x = 80 + n * 150;
     if (S.up.dummy) { lay.dummy = x - 10; x += 120; }
-    lay.box = x + 20; lay.right = lay.box + 110; lay.walk0 = lay.truck + 90; lay.walk1 = lay.box - 80;
+    lay.box = x + 20; lay.fame = lay.box + 140; lay.right = lay.fame + 90; lay.walk0 = lay.truck + 90; lay.walk1 = lay.box - 80;
     lay.bedLen = 80;
   }
   // Landscape fits the whole yard when it can; portrait stays close and pans.
@@ -63,18 +63,154 @@
     for (let i = 0; i < (n || 1); i++) parts.push({ x: x + rng.range(-12, 12), y: y + rng.range(-8, 8), vx: rng.range(-40, 40), vy: rng.range(-90, -30), life: 1, kind, text, rot: rng.range(0, TAU) });
   }
 
+
+  // ---- habits and little happenings (all for show: nothing here touches the save)
+  const walkSp = (P, k) => Math.min(P.speedMax * k, 40 + P.speedMax * k * 0.3);
+  // Head for x; true once there.
+  function goTo(e, x, k) {
+    const rag = e.rag, dx = x - rag.midX();
+    if (Math.abs(dx) < 12) { rag.vxDes = 0; return true; }
+    const dir = Math.sign(dx); if (dir !== rag.f && !rag.act) rag.flip();
+    rag.vxDes = dir * walkSp(e.P, k);
+    return false;
+  }
+  function face(e, x) { const dir = Math.sign(x - e.rag.midX()) || 1; if (dir !== e.rag.f && !e.rag.act) e.rag.flip(); }
+  function sing(e) { if (!e.c.person) RB.audio.voice(e.P.voice, 'crow'); e.say = { text: '♪ ♫', t: 1.8 }; e.rag.wingV = 10; }
+  // Shoo a bird a little way off from x.
+  function startle(o, fromX) {
+    if (o.c.visitor) { o.mode = 'leave'; if ((o.rag.midX() < fromX ? -1 : 1) !== o.rag.f && !o.rag.act) o.rag.flip(); return; }
+    if (o.mode === 'dispute' || o.mode === 'curio') return;
+    o.mode = 'walk'; o.tx = clamp(o.rag.midX() + (o.rag.midX() < fromX ? -1 : 1) * rng.range(110, 220), lay.walk0, lay.walk1); o.t = 3;
+    if (!o.c.person && rng.chance(0.5)) RB.audio.voice(o.P.voice, 'squawk');
+    spark(o.rag.midX(), o.rag.midY() - o.P.TD * 0.5, 'feather', 2, o.P.css.body);
+  }
+  function startQuirk(e, q) {
+    const yard = birds.filter((o) => o !== e && !inBed(o.c) && o.rag.state === 'stand');
+    if (q === 'circles') { e.mode = 'circle'; e.t = rng.range(3, 6); e.qT = 0; e.qDir = e.rag.f; return true; }
+    if (q === 'chaser') { const tg = yard.filter((o) => !o.c.person); if (!tg.length) return false; e.mode = 'chase'; e.target = rng.pick(tg); e.t = rng.range(3, 5); return true; }
+    if (q === 'grudge') { const tc = ST.grudgeTarget(e.c, yard.map((o) => o.c)); if (!tc) return false; e.mode = 'pester'; e.target = yard.find((o) => o.c === tc); e.t = rng.range(4, 6); return true; }
+    if (q === 'starer') { const spots = [lay.feeder, lay.house + 90, lay.box, lay.truck + 60].concat(lay.nests, lay.dummy !== null ? [lay.dummy] : []); e.mode = 'stare'; e.sx = rng.pick(spots); e.sx2 = clamp(e.sx + (e.rag.midX() < e.sx ? -70 : 70), lay.walk0, lay.walk1); e.t = rng.range(6, 11); return true; }
+    if (q === 'singer') { sing(e); e.mode = 'idle'; e.t = rng.range(2, 4); return true; }
+    return false;
+  }
+  // Odd things a bird may come across in the yard.
+  const CURIOS = [['a bottle cap', '#c9c2b2', 'disc'], ['an odd sock', '#e76f51', 'sock'], ['a rubber duck', '#f2c14e', 'duck'], ['a glass marble', '#6fa8c9', 'ball'], ['a rusty key', '#a0522d', 'key'],
+    ['a toy soldier', '#3d6fa5', 'stick'], ['a shiny pebble', '#dfe7ee', 'ball'], ['a tiny trophy', '#f2c14e', 'cup'], ['a fortune cookie', '#e2b862', 'disc'], ['a lost earring', '#c9a227', 'ring'], ['a mysterious egg-shaped stone', '#8b97a8', 'egg']];
+  const CURIO_END = ['Hmph.', 'Mine!', '?!', '...', 'Boring.', 'Ooh.', 'Hm.'];
+  function startEvent(kind) {
+    const yard = birds.filter((e) => !inBed(e.c) && !e.c.person && !e.c.visitor && e.rag.state === 'stand' && e.mode !== 'dispute');
+    kind = kind || rng.weighted([['dispute', 3], ['invader', 3], ['curio', 4]], (q) => q[1])[0];
+    if (kind === 'dispute') {
+      if (yard.length < 2) return false;
+      const a = rng.pick(yard), b = rng.pick(yard.filter((o) => o !== a));
+      ev = { kind, a, b, t: 7, mid: clamp((a.rag.midX() + b.rag.midX()) / 2, lay.walk0 + 70, lay.walk1 - 70), gap: (a.P.TL + b.P.TL) * 0.45 + 18 };
+      a.mode = 'dispute'; b.mode = 'dispute';
+      ui.toast(a.c.name + ' and ' + b.c.name + ' square off over a patch of the yard.', pal.brick);
+      RB.audio.voice(a.P.voice, 'squawk');
+      return true;
+    }
+    if (kind === 'invader') {
+      const sp = rng.weighted(RB.world.FAUNA.farm.day.concat(RB.world.FAUNA.wetland.day), (q) => q[1])[0];
+      const g = RB.species.make(sp, rng, { sport: 0.05 }), nm = RB.species.nameOf(RB.species.SPECIES[sp], g.sex).toLowerCase();
+      const c = { id: -1 - rng.int(1, 1e6), name: 'A wild ' + nm, g, age: 60, train: { muscle: 0, lungs: 0, reflex: 0, courage: 0 }, cond: 1, hp: 1, fed: true, visitor: true, at: 'home', person: null, hat: null };
+      const v = mkRag(c, lay.walk1);
+      v.mode = 'walk'; v.tx = rng.range(lay.walk0 + 100, lay.walk1 - 60); v.t = 4; v.visits = rng.int(2, 3);
+      ev = { kind, v, t: 22 };
+      ui.toast((/^[aeiou]/.test(nm) ? 'An ' : 'A ') + nm + ' wanders into the yard.', pal.teal);
+      return true;
+    }
+    if (kind === 'curio') {
+      if (!yard.length) return false;
+      const o = rng.pick(CURIOS), finder = yard.find((e) => ST.quirkOf(S, e.c) === 'starer') || rng.pick(yard);
+      ev = { kind, o, x: rng.range(lay.walk0 + 40, lay.walk1 - 40), finder, t: 12, found: false };
+      finder.mode = 'curio';
+      ui.toast(finder.c.name + ' has found ' + o[0] + '.', pal.plum);
+      return true;
+    }
+    return false;
+  }
+  function endDispute() {
+    for (const e of [ev.a, ev.b]) if (birds.includes(e) && e.mode === 'dispute') { e.mode = 'walk'; e.tx = clamp(e.rag.midX() + (e === ev.a ? -1 : 1) * rng.range(100, 200), lay.walk0, lay.walk1); e.t = 3; }
+    ev = null;
+  }
+  function updateEvent(dt) {
+    ev.t -= dt;
+    if (ev.kind === 'dispute') {
+      if (!birds.includes(ev.a) || !birds.includes(ev.b) || inBed(ev.a.c) || inBed(ev.b.c) || ev.t <= 0) endDispute();
+    } else if (ev.kind === 'invader') {
+      const v = ev.v;
+      if (!birds.includes(v) || v.gone || ev.t < -12) {
+        if (birds.includes(v)) { spark(v.rag.midX(), v.rag.midY(), 'poof', 4); dropRag(v); }
+        for (const e of birds) if (e.target === v) { e.mode = 'idle'; e.target = null; e.t = 1; }
+        ev = null; return;
+      }
+      if (ev.t <= 0 && v.mode !== 'leave') { v.mode = 'leave'; if (v.rag.f < 0 && !v.rag.act) v.rag.flip(); }
+      // the flock takes notice; the bolder ones see it off
+      for (const e of birds) {
+        if (e === v || inBed(e.c) || e.mode !== 'idle' || e.rag.state !== 'stand' || e.c.person) continue;
+        const dx = v.rag.midX() - e.rag.midX();
+        if (Math.abs(dx) < 260 && rng.chance(dt * 2)) face(e, v.rag.midX());
+        if (Math.abs(dx) < 220 && e.P.aggression > 0.7 && rng.chance(dt * 0.3)) { e.mode = 'chase'; e.target = v; e.t = 3; }
+      }
+    } else if (ev.kind === 'curio') {
+      if (!birds.includes(ev.finder) || ev.t <= 0) {
+        spark(ev.x, -8, 'poof', 3);
+        if (birds.includes(ev.finder) && ev.finder.mode === 'curio') { ev.finder.mode = 'idle'; ev.finder.t = 1; ev.finder.say = { text: rng.pick(CURIO_END), t: 2.2 }; }
+        ev = null;
+      }
+    }
+  }
+  // A visiting wild bird: wanders to a spot or two, then leaves the way it came.
+  function visitorThink(e, dt) {
+    const rag = e.rag; e.t -= dt;
+    if (e.mode === 'leave') { rag.vxDes = rag.f * walkSp(e.P, 0.55); if (rag.midX() > lay.right - 30 || rag.midX() < lay.left + 40) e.gone = true; return; }
+    if (e.mode !== 'walk' || e.t <= 0) {
+      if (e.visits-- <= 0) { e.mode = 'leave'; if (rag.f < 0 && !rag.act) rag.flip(); return; }
+      e.mode = 'walk'; e.tx = rng.range(lay.walk0 + 60, lay.walk1 - 40); e.t = rng.range(3, 5);
+    }
+    if (goTo(e, e.tx, 0.35) && !rag.act && rng.chance(dt)) rag.startPeck(() => ({ x: rag.C.x + rag.f * (e.P.NL * 0.6 + 8), y: -2 }));
+  }
+  // A bird in one of the special moods above. Returns true if it took charge this frame.
+  function moodThink(e, dt) {
+    const rag = e.rag, P = e.P;
+    if (e.mode === 'dispute' && ev && ev.kind === 'dispute') {
+      const other = e === ev.a ? ev.b : ev.a, side = e === ev.a ? -1 : 1;
+      if (goTo(e, ev.mid + side * ev.gap, 0.45)) {
+        face(e, other.rag.midX()); rag.eye = 'angry';
+        if (!rag.act && rng.chance(dt * 1.6)) { rag.wingV = 14; if (rng.chance(0.5)) rag.startPeck(() => ({ x: other.rag.head.x, y: other.rag.head.y })); }
+        if (rng.chance(dt * 1.2)) spark((rag.midX() + other.rag.midX()) / 2, rag.midY() - P.TD * 0.4, 'feather', 1, rng.chance(0.5) ? P.css.body : other.P.css.body);
+        if (rng.chance(dt * 0.4) && !e.c.person) RB.audio.voice(P.voice, 'squawk');
+      }
+      return true;
+    }
+    if (e.mode === 'curio' && ev && ev.kind === 'curio' && ev.finder === e) {
+      const side = rag.midX() < ev.x ? -1 : 1;
+      if (goTo(e, ev.x + side * (P.TL * 0.5 + 14), 0.4)) {
+        face(e, ev.x);
+        if (!ev.found) { ev.found = true; e.say = { text: '?', t: 1.5 }; }
+        if (!rag.act && rng.chance(dt * 0.9)) rag.startPeck(() => ({ x: ev.x, y: -3 }));
+      }
+      return true;
+    }
+    return false;
+  }
+
   function think(e, dt) {
     const rag = e.rag, P = e.P;
     e.blink -= dt; if (e.blink < -0.12) e.blink = rng.range(1.5, 6);
     e.voice -= dt;
     if (e.voice < 0) { e.voice = rng.range(8, 30); if (birds.length && !e.c.person && rng.chance(0.5)) RB.audio.voice(P.voice, 'cluck'); }
+    if (e.say) { e.say.t -= dt; if (e.say.t <= 0) e.say = null; }
     if (rag.state !== 'stand') { rag.vxDes = 0; return; }
+    if (e.c.visitor) { rag.eye = e.blink < 0 ? 'blink' : ''; visitorThink(e, dt); return; }
     const asleep = S.time >= 20 && !e.c.person;
     rag.crouchT = asleep ? 0.55 : 1;
     rag.eye = asleep ? 'sleep' : e.blink < 0 ? 'blink' : '';
-    if (asleep) { rag.vxDes = 0; return; }
+    const habit = ST.quirkOf(S, e.c);
+    if (asleep) { if (habit === 'singer' && rng.chance(dt * 0.05)) sing(e); rag.vxDes = 0; return; } // the night singer
     const bed = inBed(e.c), m = Math.min(P.TL * 0.5 + 6, lay.bedLen / 2 - 1);
     const lo = bed ? bedL() + m : lay.walk0, hi = bed ? lay.bedR - m : lay.walk1, floorY = bed ? BED_Y : 0;
+    if (!bed && moodThink(e, dt)) return;
     // anyone in the yard who has not eaten today goes to the feeder; one grain fills any creature
     if (!bed && !e.c.fed && S.feeder > 0) {
       const fx = lay.feeder + (e.c.id % 2 ? 1 : -1) * (24 + e.P.TL * 0.3), dx = fx - rag.midX();
@@ -90,7 +226,9 @@
       return;
     }
     e.t -= dt;
-    if (e.t <= 0) {
+    if (e.t <= 0 && !bed && habit && rng.chance(0.32) && startQuirk(e, habit)) { /* its own little ways */ }
+    else if (e.t <= 0) {
+      e.target = null;
       const r = rng.next();
       if (r < 0.5) { e.mode = 'walk'; e.tx = rng.range(lo, Math.max(lo, hi)); e.t = rng.range(2, 6); }
       else if (r < 0.75 && !e.c.person) { e.mode = 'idle'; e.t = rng.range(1, 2); rag.startPeck(() => ({ x: rag.C.x + rag.f * (P.NL * 0.6 + 8), y: floorY - 2 })); }
@@ -101,6 +239,24 @@
       const dx = e.tx - rag.midX();
       if (Math.abs(dx) < 14) { e.mode = 'idle'; rag.vxDes = 0; }
       else { const dir = Math.sign(dx); if (dir !== rag.f && !rag.act) rag.flip(); rag.vxDes = dir * Math.min(P.speedMax * 0.4, 50 + P.speedMax * 0.12); }
+    } else if (e.mode === 'circle') { // round and round (side-on: about-turn after about-turn)
+      e.qT -= dt;
+      const x = rag.midX();
+      if (e.qT <= 0 || (x < lo + 20 && e.qDir < 0) || (x > hi - 20 && e.qDir > 0)) { e.qDir = -e.qDir; e.qT = rng.range(0.4, 0.8); }
+      if (e.qDir !== rag.f && !rag.act) rag.flip();
+      rag.vxDes = e.qDir * walkSp(P, 0.3);
+    } else if (e.mode === 'chase' || e.mode === 'pester') {
+      const o = e.target;
+      if (!o || !birds.includes(o) || inBed(o.c)) { e.mode = 'idle'; e.target = null; rag.vxDes = 0; return; }
+      const near = Math.abs(o.rag.midX() - rag.midX()) < P.TL * 0.6 + o.P.TL * 0.5 + 12;
+      if (!near) goTo(e, o.rag.midX(), e.mode === 'chase' ? 0.6 : 0.4);
+      else {
+        rag.vxDes = 0; face(e, o.rag.midX());
+        if (e.mode === 'pester') { rag.eye = 'angry'; if (!rag.act && rng.chance(dt * 1.5)) { rag.startPeck(() => ({ x: o.rag.C.x, y: o.rag.C.y })); if (rng.chance(0.4)) e.say = { text: '!', t: 1 }; if (rng.chance(0.5)) startle(o, rag.midX()); } }
+        else startle(o, rag.midX());
+      }
+    } else if (e.mode === 'stare') { // fixed on something, for ages
+      if (goTo(e, e.sx2, 0.35)) { face(e, e.sx); if (!e.say && rng.chance(dt * 0.25)) e.say = { text: rng.pick(['...', '?', '!?']), t: 1.4 }; }
     } else rag.vxDes = 0;
   }
 
@@ -141,23 +297,34 @@
       ui.closeAll();
     });
   }
+  // The wardrobe: one thing per place (head, face, neck, back, feet, tail) and one piece of
+  // fighting kit. What comes off goes back in the bag.
   function wear(c) {
+    const IT = RB.items, SL = IT.SLOTS;
     ui.open({ draw() {
-      const items = ST.owned(S).filter((id) => ['hat', 'gear'].includes(RB.items.ITEMS[id].kind));
-      const box = ui.window('What ' + c.name + ' wears', 360, Math.min(ui.view.h - 16, 170 + items.length * 50), {});
+      const v = ui.view, items = ST.owned(S).filter((id) => SL.includes(IT.ITEMS[id].kind)).sort((a, b) => SL.indexOf(IT.ITEMS[a].kind) - SL.indexOf(IT.ITEMS[b].kind) || IT.ITEMS[a].name.localeCompare(IT.ITEMS[b].name));
+      const box = ui.window('What ' + c.name + ' wears', 440, Math.min(v.h - 16, 560), {});
       if (!box) return;
-      const worn = [c.hat, c.gear].filter(Boolean);
-      ui.text(worn.length ? 'Wearing: ' + worn.map((id) => RB.items.ITEMS[id].name).join(', ') : 'Wearing nothing.', box.x, box.y + 14, { size: 13, maxW: box.w - 96 });
-      if (worn.length && ui.btn(box.x + box.w - 88, box.y - 4, 88, 32, 'Take off', { fill: pal.grey, size: 12 })) { for (const id of worn) ST.give(S, id); c.hat = null; c.gear = null; }
-      if (!items.length) ui.para('You own no hats or gear. Odete sells them in town.', box.x, box.y + 34, box.w, { size: 12, color: pal.grey });
-      ui.list('wear', box.x, box.y + 34, box.w, box.h - 34, items.length, 50, (i, x, y, w) => {
-        const it = RB.items.ITEMS[items[i]];
-        ui.rect(x, y + 2, w - 6, 44, pal.soft, 10); ui.itemIcon(it.id, x + 24, y + 24, 24);
-        ui.text(it.name, x + 46, y + 20, { size: 13 }); ui.text(it.desc, x + 46, y + 36, { size: 10, bold: false, maxW: w - 130 });
-        if (ui.btn(x + w - 76, y + 7, 64, 34, 'Wear', { size: 12 })) {
-          const slot = it.kind === 'hat' ? 'hat' : 'gear';
-          if (c[slot]) ST.give(S, c[slot]);
-          ST.take(S, it.id); c[slot] = it.id; RB.audio.play('click');
+      common.portrait(c, box.x, box.y, 96, 96, { fill: pal.soft });
+      const worn = SL.filter((sl) => ST.wornIn(c, sl)), tx = box.x + 106, tw = box.w - 106;
+      if (!worn.length) ui.text('Wearing nothing yet.', tx, box.y + 16, { size: 13, bold: false, color: pal.grey });
+      const per = Math.max(2, Math.floor((tw + 6) / 150));
+      worn.forEach((sl, i) => {
+        const id = ST.wornIn(c, sl), x = tx + (i % per) * ((tw + 6) / per), y = box.y + Math.floor(i / per) * 24, w = (tw + 6) / per - 6;
+        ui.rect(x, y, w, 21, pal.soft, 8); ui.itemIcon(id, x + 11, y + 10.5, 15);
+        ui.text(IT.ITEMS[id].name, x + 22, y + 15, { size: 10, maxW: w - 44 });
+        if (ui.btn(x + w - 20, y + 2, 18, 17, '', { icon: 'close', fill: pal.grey, flat: true, r: 6 })) { ST.unwear(S, c, sl); RB.audio.play('click'); RB.game.save(); }
+      });
+      if (worn.length && ui.btn(tx, box.y + 74, 110, 26, 'Take all off', { fill: pal.grey, size: 11, flat: true })) { for (const sl of SL) ST.unwear(S, c, sl); RB.audio.play('click'); RB.game.save(); }
+      if (!items.length) { ui.para('Nothing to wear in the bag. Madame Odete sells hats, glasses, ties, capes and shoes in town; some pieces are won through feats.', box.x, box.y + 112, box.w, { size: 12, color: pal.grey }); return; }
+      ui.list('wear', box.x, box.y + 106, box.w, box.h - 106, items.length, 50, (i, x, y, w) => {
+        const it = IT.ITEMS[items[i]], on = ST.wornIn(c, it.kind);
+        ui.rect(x, y + 2, w - 6, 44, pal.soft, 10); ui.itemIcon(it.id, x + 24, y + 24, 26);
+        ui.text(it.name + '  ·  ' + IT.SLOT_NAMES[it.kind] + (ST.endless(S, it.id) ? '' : ' (' + ST.count(S, it.id) + ')'), x + 46, y + 20, { size: 13, maxW: w - 130 });
+        ui.text(it.desc, x + 46, y + 36, { size: 10, bold: false, maxW: w - 130, color: it.kind === 'gear' ? pal.teal : pal.grey });
+        if (ui.btn(x + w - 78, y + 7, 66, 34, on ? 'Swap' : 'Wear', { size: 12, fill: it.kind === 'gear' ? pal.teal : pal.plum })) {
+          const why = ST.wear(S, c, it.id);
+          if (why) ui.toast(why, pal.coral); else { RB.audio.play('click'); RB.game.save(); }
         }
       });
     } });
@@ -264,16 +431,95 @@
     return true;
   }
 
+
+  // ---- the Hall of Fame: a board by the gate with the birds that made your story
+  const fameP = new Map();
+  function famePheno(e) {
+    const k = e.id + ':' + e.age + ':' + e.g.a.slice(0, 24);
+    let P = fameP.get(k);
+    if (!P) { P = RB.pheno.express(RB.genome.deserialize(e.g), { age: e.age }); fameP.set(k, P); }
+    return P;
+  }
+  function hallWindow() {
+    ST.fameCheck(S);
+    ui.open({ draw() {
+      const v = ui.view, list = S.fame.slice().sort((a, b) => ST.fameRank(b) - ST.fameRank(a));
+      const box = ui.window('Hall of Fame', 500, Math.min(v.h - 16, 600), {});
+      if (!box) return;
+      const recs = ST.RECORDS.map(([, name]) => { const e = list.find((q) => q.titles.includes(name)); return e ? name.slice(8) + ': ' + e.name : null; }).filter(Boolean);
+      ui.text(recs.length ? 'Records · ' + recs.join(' · ') : 'No records set yet.', box.x, box.y + 10, { size: 11, color: pal.plum, maxW: box.w });
+      if (!list.length) { ui.para('Nobody here yet. Arena champions, record holders, birds with a story to tell and fighters who retired well all earn a place on this board, and stay on it after they are gone.', box.x, box.y + 30, box.w, { size: 13 }); return; }
+      ui.list('hall', box.x, box.y + 22, box.w, box.h - 22, list.length, 66, (i, x, y, w) => {
+        const e = list[i];
+        ui.rect(x, y + 2, w - 6, 60, e.gone ? '#ece3cf' : pal.soft, 10);
+        common.portrait({ P: famePheno(e) }, x + 4, y + 6, 52, 52, { fill: pal.paper, draw: { hat: e.hat, acc: e.acc } });
+        if (e.titles.some((q) => q.startsWith('Champion'))) ui.icon('trophy', x + 50, y + 12, 13, pal.mustard);
+        ui.text(e.name + '  ·  ' + e.kind, x + 64, y + 21, { size: 14, maxW: w - 150 });
+        ui.text(e.titles.slice(0, 2).join(' · ') + (e.titles.length > 2 ? ' · +' + (e.titles.length - 2) : ''), x + 64, y + 38, { size: 11, color: pal.plum, maxW: w - 150 });
+        ui.text(e.wins + '–' + e.losses + '  ·  ' + e.status, x + 64, y + 54, { size: 10, bold: false, color: pal.grey, maxW: w - 150 });
+        if (ui.btn(x + w - 78, y + 15, 66, 34, 'Story', { size: 12, fill: pal.plum })) { RB.audio.play('click'); fameStory(e); }
+      });
+    } });
+  }
+  function fameStory(e) {
+    ui.open({ draw() {
+      const v = ui.view, box = ui.window(e.name, 480, Math.min(v.h - 16, 560), {});
+      if (!box) return;
+      const pw = Math.min(118, box.w * 0.34);
+      common.portrait({ P: famePheno(e) }, box.x, box.y, pw, pw, { fill: pal.soft, draw: { hat: e.hat, acc: e.acc } });
+      const tx = box.x + pw + 12, tw = box.w - pw - 12;
+      let ty = box.y + 12;
+      ui.icon(e.sex === 'M' ? 'male' : 'female', tx + 7, ty - 4, 14, e.sex === 'M' ? '#3d6fa5' : pal.coral);
+      ui.text(e.kind, tx + 20, ty, { size: 14, maxW: tw - 22 }); ty += 18;
+      for (const ln of ['Record ' + e.wins + '–' + e.losses + '  ·  ' + common.fmtKg(e.kg), 'Age ' + e.age + ' days  ·  in the Hall since day ' + e.since, 'Speed ' + e.speed + ' · Power ' + e.power + ' · Toughness ' + e.tough]) { ui.text(ln, tx, ty, { size: 11, bold: false, maxW: tw }); ty += 15; }
+      let cx = tx;
+      for (const t of e.titles) { const w = Math.min(tw, ui.width(t, 10) + 12); if (cx + w > tx + tw) { cx = tx; ty += 18; } ui.rect(cx, ty, w, 15, t.startsWith('Champion') ? pal.mustard : t.startsWith('Record') ? pal.teal : pal.plum, 7); ui.text(t, cx + 6, ty + 11, { size: 10, color: pal.white, maxW: w - 10 }); cx += w + 4; }
+      const by = Math.max(box.y + pw + 10, ty + 24), lines = ui.wrap(ST.fameBio(e), box.w - 8, 12, false);
+      ui.list('story' + e.id, box.x, by, box.w, box.y + box.h - by, lines.length, 17, (i, x, y) => ui.text(lines[i], x + 2, y + 13, { size: 12, bold: false }));
+    } });
+  }
+  // The board itself: two posts, a painted sign and a gold cup, and a brass plate per famous bird.
+  function drawHallBoard(ctx, x) {
+    ctx.fillStyle = '#7a5236'; ctx.fillRect(x - 52, -150, 8, 150); ctx.fillRect(x + 44, -150, 8, 150);
+    ctx.fillStyle = '#9a6a44'; ctx.beginPath(); ctx.roundRect ? ctx.roundRect(x - 62, -170, 124, 92, 8) : ctx.rect(x - 62, -170, 124, 92); ctx.fill();
+    ctx.fillStyle = '#b98656'; ctx.fillRect(x - 55, -163, 110, 78);
+    ctx.fillStyle = '#f2c14e'; ctx.beginPath(); ctx.moveTo(x - 12, -156); ctx.lineTo(x + 12, -156); ctx.lineTo(x + 8, -140); ctx.lineTo(x - 8, -140); ctx.closePath(); ctx.fill(); ctx.fillRect(x - 2, -140, 4, 6); ctx.fillRect(x - 8, -134, 16, 3);
+    props.label(ctx, 'HALL OF FAME', x, -116, 11, '#3a2a1a');
+    const n = Math.min(8, (S.fame || []).length);
+    for (let i = 0; i < n; i++) { ctx.fillStyle = '#d9b45a'; ctx.fillRect(x - 50 + (i % 4) * 26, -104 + Math.floor(i / 4) * 9, 22, 6); }
+  }
+
+  // The odd thing found in the yard, lying on the ground at x.
+  function drawCurio(ctx, o, x) {
+    const col = o[1], sh = o[2];
+    ctx.save(); ctx.translate(x, 0);
+    ctx.fillStyle = 'rgba(35,49,74,0.15)'; ctx.beginPath(); ctx.ellipse(0, 0, 12, 3, 0, 0, TAU); ctx.fill();
+    ctx.fillStyle = col;
+    if (sh === 'disc') { ctx.beginPath(); ctx.ellipse(0, -3, 9, 4, 0, 0, TAU); ctx.fill(); }
+    else if (sh === 'ball') { ctx.beginPath(); ctx.arc(0, -6, 6, 0, TAU); ctx.fill(); ctx.fillStyle = 'rgba(255,255,255,0.6)'; ctx.beginPath(); ctx.arc(-2, -8, 2, 0, TAU); ctx.fill(); }
+    else if (sh === 'sock') { ctx.fillRect(-3, -18, 7, 14); ctx.beginPath(); ctx.ellipse(4, -4, 8, 4, 0, 0, TAU); ctx.fill(); ctx.fillStyle = '#ffffff'; ctx.fillRect(-3, -18, 7, 3); }
+    else if (sh === 'duck') { ctx.beginPath(); ctx.ellipse(0, -6, 9, 6, 0, 0, TAU); ctx.arc(6, -13, 4.5, 0, TAU); ctx.fill(); ctx.fillStyle = '#e76f51'; ctx.beginPath(); ctx.moveTo(10, -13); ctx.lineTo(15, -12); ctx.lineTo(10, -11); ctx.fill(); }
+    else if (sh === 'key') { ctx.strokeStyle = col; ctx.lineWidth = 2.5; ctx.beginPath(); ctx.arc(-6, -4, 4, 0, TAU); ctx.moveTo(-2, -4); ctx.lineTo(10, -4); ctx.lineTo(10, -1); ctx.moveTo(7, -4); ctx.lineTo(7, -1); ctx.stroke(); }
+    else if (sh === 'stick') { ctx.fillRect(-2, -16, 4, 14); ctx.beginPath(); ctx.arc(0, -18, 3, 0, TAU); ctx.fill(); ctx.fillStyle = '#23314a'; ctx.fillRect(-3, -4, 6, 3); }
+    else if (sh === 'cup') { ctx.beginPath(); ctx.moveTo(-6, -16); ctx.lineTo(6, -16); ctx.lineTo(3, -8); ctx.lineTo(-3, -8); ctx.closePath(); ctx.fill(); ctx.fillRect(-1, -8, 2, 5); ctx.fillRect(-5, -3, 10, 3); }
+    else if (sh === 'ring') { ctx.strokeStyle = col; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(0, -5, 4, 0, TAU); ctx.stroke(); ctx.fillStyle = '#6fa8c9'; ctx.beginPath(); ctx.arc(0, -9.5, 2, 0, TAU); ctx.fill(); }
+    else if (sh === 'egg') { ctx.beginPath(); ctx.ellipse(0, -8, 6, 8, 0.2, 0, TAU); ctx.fill(); ctx.fillStyle = 'rgba(255,255,255,0.35)'; ctx.beginPath(); ctx.ellipse(-2, -11, 1.5, 3, 0.4, 0, TAU); ctx.fill(); }
+    // a little glint so it catches the eye
+    if (Math.sin(t * 4) > 0.6) { ctx.fillStyle = '#ffffff'; ctx.fillRect(6, -20, 2, 6); ctx.fillRect(4, -18, 6, 2); }
+    ctx.restore();
+  }
+
   RB.scenes.coop = {
     enter(args) {
       S = RB.game.S; rng = new Rng((S.seed ^ S.day * 977 ^ 0xc00b) >>> 0);
       pw = new RB.physics.World(); pw.box(-4000, 0, 4000, 600);
-      birds = []; parts = []; acc = 0; selected = null; grab = null; cand = null; pan = null; t = 0; hit = 0;
+      birds = []; parts = []; acc = 0; selected = null; grab = null; cand = null; pan = null; t = 0; hit = 0; ev = null; evT = rng.range(40, 110);
       layout();
       pw.box(-4000, -3000, lay.left - 20, 0); pw.box(lay.right + 20, -3000, 4000, 0);
       bedBox = pw.box(lay.bedR - 80, BED_Y, lay.bedR, -16);
       cam = { x: (lay.truck + lay.box) / 2 };
       rebuild();
+      ST.fameCheck(S);
       RB.audio.setTune('farm');
       S.pos = null;
       if (args.intro) {
@@ -281,7 +527,7 @@
       }
     },
     exit() { for (const e of birds.slice()) e.rag.remove(); birds = []; bedBox = null; },
-    debug() { return { birds, lay, cam, zoom: zoom(), groundY: groundY(), trainPick, feederWindow }; },
+    debug() { return { birds, lay, cam, zoom: zoom(), groundY: groundY(), trainPick, feederWindow, startEvent, ev: () => ev, hallWindow: () => hallWindow(), wear: (c) => wear(c) }; },
 
     update(dt) {
       if (common.checkBroke(S, 'coop')) return;
@@ -294,7 +540,7 @@
         if (p.fresh) {
           cand = null; pan = null;
           let best = null, bd = 1e9;
-          for (const e of birds) { const d = Math.hypot(e.rag.midX() - w.x, e.rag.midY() - w.y), r = e.P.TD * 0.8 + e.P.TL * 0.35 + 16 / z; if (d < r && d < bd) { bd = d; best = e; } }
+          for (const e of birds) { if (e.c.visitor) continue; const d = Math.hypot(e.rag.midX() - w.x, e.rag.midY() - w.y), r = e.P.TD * 0.8 + e.P.TL * 0.35 + 16 / z; if (d < r && d < bd) { bd = d; best = e; } }
           if (best) cand = { e: best, id: p.id }; else pan = { id: p.id, x0: cam.x, px: p.x };
         }
         if (cand && cand.id === p.id && !grab && p.moved > 10) {
@@ -335,11 +581,13 @@
         const w = toWorld(tap.x, tap.y);
         let best = null, bd = 1e9;
         for (const e of birds) { const d = Math.hypot(e.rag.midX() - w.x, e.rag.midY() - w.y), r = e.P.TD * 0.8 + e.P.TL * 0.35 + 16 / z; if (d < r && d < bd) { bd = d; best = e; } }
-        if (best) { if (selected) feedBird(best.c, best.rag.midX(), best.rag.midY() - best.P.TD); else { RB.audio.play('click'); common.card(best.c, actions); } }
+        if (best && best.c.visitor) ui.toast(best.c.name + ' is only passing through.', pal.teal);
+        else if (best) { if (selected) feedBird(best.c, best.rag.midX(), best.rag.midY() - best.P.TD); else { RB.audio.play('click'); common.card(best.c, actions); } }
         else if (w.x > bedL() - 10 && w.x < lay.truck + 70 && w.y > -110) truckWindow();
         else if (Math.abs(w.x - lay.feeder) < 55 && w.y > -60) { if (selected === 'grain' && ST.take(S, 'grain')) { S.feeder++; RB.audio.play('click'); } else feederWindow(); }
         else if (Math.abs(w.x - lay.box) < 60 && w.y > -90) { if (!inside('crate', 'Waiting for the BFC van')) ui.toast('The BFC pick-up box. Drop an unwanted bird in and the van takes it tonight.', pal.brick); }
         else if (lay.dummy !== null && Math.abs(w.x - lay.dummy) < 45 && w.y > -130) ui.toast('Drag a bird onto the dummy to train it.');
+        else if (Math.abs(w.x - lay.fame) < 66 && w.y > -175) { RB.audio.play('click'); hallWindow(); }
         else if (Math.abs(w.x - lay.house) < 100 && w.y > -200) ui.confirm('Sleep?', 'Sleeping ends the day. Everyone eats from the feeder, eggs are laid and hatch.', 'Sleep', doSleep, { fill: pal.plum });
         else lay.nests.forEach((nx, i) => {
           if (Math.abs(w.x - nx) > 72 || w.y < -160) return;
@@ -351,6 +599,10 @@
         if (!best && basket.length && Math.abs(w.x - (lay.house + 150)) < 40 && w.y > -50) eggWindow(basket[0]);
       }
 
+      // now and then something happens in the yard
+      evT -= dt;
+      if (ev) updateEvent(dt);
+      else if (evT <= 0) { evT = rng.range(75, 150); if (!ui.modals.length && !grab && S.time < 19.5 && rng.chance(0.55)) startEvent(); }
       // creatures think and the yard steps
       for (const e of birds) {
         if (e.P !== ST.pheno(e.c)) { const x = e.rag.midX(); dropRag(e); mkRag(e.c, x); continue; }
@@ -372,7 +624,7 @@
         }
         acc -= DT;
       }
-      for (const p of parts) { p.life -= dt * (p.kind === 'heart' ? 0.9 : 1.6); p.x += p.vx * dt; p.y += p.vy * dt; p.vy += (p.kind === 'heart' ? -20 : 120) * dt; }
+      for (const p of parts) { p.life -= dt * (p.kind === 'heart' ? 0.9 : p.kind === 'feather' ? 0.7 : 1.6); p.x += p.vx * dt; p.y += p.vy * dt; p.vy += (p.kind === 'heart' ? -20 : p.kind === 'feather' ? 30 : 120) * dt; if (p.kind === 'feather') { p.vx *= 0.97; p.rot += dt * 3; } }
       parts = parts.filter((p) => p.life > 0);
     },
 
@@ -418,14 +670,18 @@
       const crate = ST.at(S, 'crate');
       crate.forEach((c, i) => RB.art.drawFitted(ctx, ST.pheno(c), lay.box - 40 + i * 26, -112, 54, 56, Object.assign({ f: 1, eye: 'scared' }, common.drawOpts(c))));
       props.bfcBox(ctx, lay.box, 0);
+      drawHallBoard(ctx, lay.fame);
       // the flock
       const order = birds.slice().sort((a, b) => b.P.S - a.P.S);
       for (const e of order) if ((!grab || grab.e !== e) && !inBed(e.c)) { RB.art.drawShadow(ctx, e.rag.midX(), 1, e.P.TL * 0.55); RB.art.drawCreature(ctx, e.P, e.rag.getPose(), common.drawOpts(e.c)); }
       if (grab) { RB.art.drawShadow(ctx, grab.e.rag.midX(), 1, grab.e.P.TL * 0.4); RB.art.drawCreature(ctx, grab.e.P, grab.e.rag.getPose(), common.drawOpts(grab.e.c)); }
       for (const e of birds) if (e.c.person && e.rag.state === 'stand' && Math.sin(t * 0.7 + e.c.id) > 0.92) props.label(ctx, '...', e.rag.head.x, e.rag.head.y - e.P.HR * 2.2, 16, pal.ink);
+      for (const e of birds) if (e.say) props.label(ctx, e.say.text, e.rag.head.x, e.rag.head.y - e.P.HR * 2.4, 17, e.say.text[0] === '♪' ? pal.plum : pal.ink);
+      if (ev && ev.kind === 'curio') drawCurio(ctx, ev.o, ev.x);
       for (const p of parts) {
         ctx.globalAlpha = clamp(p.life, 0, 1);
         if (p.kind === 'heart') { ctx.fillStyle = pal.coral; ctx.beginPath(); ctx.arc(p.x - 3, p.y, 4, 0, TAU); ctx.arc(p.x + 3, p.y, 4, 0, TAU); ctx.fill(); ctx.beginPath(); ctx.moveTo(p.x - 7, p.y + 2); ctx.lineTo(p.x + 7, p.y + 2); ctx.lineTo(p.x, p.y + 10); ctx.closePath(); ctx.fill(); }
+        else if (p.kind === 'feather') { ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(p.rot); ctx.fillStyle = p.text || pal.paper; ctx.beginPath(); ctx.ellipse(0, 0, 7, 2.6, 0, 0, TAU); ctx.fill(); ctx.restore(); }
         else { ctx.fillStyle = pal.paper; ctx.beginPath(); ctx.arc(p.x, p.y, 9 * p.life + 3, 0, TAU); ctx.fill(); }
       }
       ctx.globalAlpha = 1;

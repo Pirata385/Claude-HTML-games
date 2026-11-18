@@ -223,8 +223,14 @@
     grain: ['grain', pal.mustard], grainsack: ['bag', pal.mustard], worm: ['worm', pal.coral], chili: ['chili', '#d7372f'], tonic: ['bottle', pal.teal], gromash: ['bag', pal.leaf], loveseed: ['heart', pal.coral], mushroom: ['mushroom', pal.plum], isotope: ['atom', '#58c468'],
     elixir: ['bottle', pal.plum], spurs: ['spur', pal.grey], helmet: ['shield', pal.grey], scarf: ['feather', pal.coral], anklets: ['weight', pal.ink], tophat: ['hat', pal.ink], cowboy: ['hat', pal.brick], party: ['hat', pal.mustard],
     bandana: ['hat', pal.coral], crown: ['trophy', pal.mustard], bucket: ['bucket', pal.white], beaker: ['beaker', pal.teal], enzyme: ['dna', pal.plum], fuse: ['fuse', pal.mustard], cap: ['coin', pal.grey], boot: ['boot', pal.brick],
-    shard: ['shard', pal.brick], oldspur: ['spur', pal.mustard], idol: ['trophy', pal.mustard] };
-  ui.itemIcon = function (id, x, y, s) { const ic = ITEM_ICON[id] || ['bag', pal.grey]; ui.icon(ic[0], x, y, s, ic[1]); };
+    shard: ['shard', pal.brick], oldspur: ['spur', pal.mustard], idol: ['trophy', pal.mustard],
+    beakcap: ['spur', '#8b97a8'], mail: ['shield', '#8b97a8'], wingwax: ['feather', pal.mustard], horseshoe: ['star', pal.mustard], springs: ['up', pal.teal], flask: ['bottle', pal.coral] };
+  const DRAWN = ['hat', 'face', 'neck', 'back', 'feet', 'tail'];
+  ui.itemIcon = function (id, x, y, s) {
+    const it = RB.items && RB.items.ITEMS[id];
+    if (!ITEM_ICON[id] && it && DRAWN.includes(it.kind) && RB.art && RB.art.accIcon) { RB.art.accIcon(ui.ctx, id, x, y, s); return; } // a little picture of the thing itself
+    const ic = ITEM_ICON[id] || ['bag', pal.grey]; ui.icon(ic[0], x, y, s, ic[1]);
+  };
   ui.money = function (amount, x, y, o) {
     o = o || {};
     const size = o.size || 14, str = '$' + amount, w = ui.width(str, size);

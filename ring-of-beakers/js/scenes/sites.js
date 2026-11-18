@@ -111,7 +111,7 @@
       const c = list[i], P = ST.pheno(c), price = EC.bfcPrice(S, c), special = !c.person && EC.bfcIsSpecial(S, c);
       if (row(x, y, w, { c, title: c.name, sub: ST.kind(c) + ' · ' + common.fmtKg(P.weightKg) + (special ? ' · special!' : ''), subCol: special ? '#d7372f' : undefined, price, btn: 'Sell', fill: '#d7372f' })) {
         ui.confirm('Sell ' + c.name + '?', c.name + ' goes through the kitchen door and does not come back. $' + price + '.', 'Sell', () => {
-          if (c.person) ST.soldPerson(S, c);
+          if (c.person) ST.soldPerson(S, c); else ST.fameLeave(S, c, 'Went through the BFC kitchen door');
           ST.removeBird(S, c); earn(price); S.bfc.sold++; S.bfc.stamps++; S.stats.sold++;
           for (const o of caged()) o.bond = Math.max(0, o.bond - 0.1);
           say = c.person ? 'The Coronel asks no questions. Secret recipe.' : caged().length ? 'A pleasure. The others saw nothing. Probably.' : 'A pleasure doing business.';
@@ -149,7 +149,7 @@
       const c = list[i], m = wish.score(ST.pheno(c), c), price = RB.npc.offer(S, keeper, c);
       if (row(x, yy, w, { c, title: c.name, sub: RB.npc.fitText(m), subCol: m > 0.45 ? pal.teal : pal.grey, price, priceCol: m > 0.45 ? pal.teal : pal.ink, btn: 'Sell', fill: pal.mustard, color: pal.ink })) {
         ui.confirm('Sell ' + c.name + '?', keeper.name + ' pays $' + price + '. (Worth about $' + EC.value(c) + ' on a plain day.)', 'Sell', () => {
-          ST.removeBird(S, c); earn(price); S.stats.sold++; st.n++; st.rel = Math.min(100, st.rel + (m > 0.45 ? 10 : 3));
+          ST.fameLeave(S, c, 'Sold to ' + keeper.name); ST.removeBird(S, c); earn(price); S.stats.sold++; st.n++; st.rel = Math.min(100, st.rel + (m > 0.45 ? 10 : 3));
           say = m > 0.45 ? 'Oh, look at it! Thank you!' : 'It will do.';
           common.checkAch(S);
         }, { fill: pal.teal });
@@ -183,7 +183,7 @@
     ui.list('trade' + keeper.id, x0, y0 + 20, w0, h0 - 20, list.length, 60, (i, x, y, w) => {
       const c = list[i], credit = Math.round(EC.value(c) * 0.9), old = ST.isRetired(c);
       if (row(x, y, w, { c, title: c.name, sub: old ? 'Retired: too old to breed.' : ST.kind(c), subCol: old ? pal.coral : undefined, price: old ? undefined : credit, btn: 'Trade', fill: pal.mustard, color: pal.ink, off: old })) {
-        st.credit += credit; ST.removeBird(S, c); RB.audio.play('coin'); say = 'A fair swap. That is credit with me.';
+        st.credit += credit; ST.fameLeave(S, c, 'Traded to ' + keeper.name); ST.removeBird(S, c); RB.audio.play('coin'); say = 'A fair swap. That is credit with me.';
       }
     });
   }

@@ -24,7 +24,7 @@
     const n = common.night(time), dusk = clamp(1 - Math.abs(time - 18.6) / 1.6, 0, 1);
     return { top: mix(mix('#9fd9ea', '#f2a57b', dusk), '#1f2b4d', n), low: mix(mix('#d8f0ee', '#f7d49b', dusk), '#3a4a78', n), night: n };
   };
-  common.drawOpts = (c) => ({ hat: c.hat || (c.clothes && c.clothes.hat) || null, clothes: c.clothes || null });
+  common.drawOpts = (c) => ({ hat: c.hat || (c.clothes && c.clothes.hat) || null, clothes: c.clothes || null, acc: c.acc || null });
 
   // A creature in a rounded tile.
   common.portrait = function (c, x, y, w, h, o) {
@@ -131,6 +131,7 @@
     if (S.codex.ach[id]) return;
     S.codex.ach[id] = true;
     ui.toast('Achievement: ' + ACH[id][0], pal.plum);
+    for (const it of ST.grantUnlocks(S)) ui.toast('Unlocked: ' + RB.items.ITEMS[it].name + ' (in your bag)', pal.teal);
     RB.audio.play('found');
   };
   common.checkAch = function (S) { for (const id of Object.keys(ACH)) if (ACH[id][2] && !S.codex.ach[id] && ACH[id][2](S)) common.award(S, id); };
@@ -176,7 +177,8 @@
       ui.text('Record ' + c.wins + '–' + c.losses + (c.person ? '' : ' · worth about $' + RB.economy.value(c)), tx, ty, { size: 12, bold: false, maxW: tw }); ty += 14;
       ui.text('Trust', tx, ty + 9, { size: 11, bold: false }); ui.bar(tx + 34, ty + 2, tw - 40, 7, c.bond, pal.coral); ty += 18;
       let cx = tx;
-      for (const s of common.statusOf(c).concat(P.odd.map((o) => [o, pal.plum])).concat(c.gear ? [[RB.items.ITEMS[c.gear].name, pal.grey]] : [])) {
+      const habit = ST.quirkOf(S, c);
+      for (const s of common.statusOf(c).concat(P.odd.map((o) => [o, pal.plum])).concat(c.gear ? [[RB.items.ITEMS[c.gear].name, pal.grey]] : []).concat(habit ? [['Habit: ' + ST.QUIRKS[habit], pal.teal]] : [])) {
         const w = ui.width(s[0], 10) + 12;
         if (cx + w > tx + tw) { cx = tx; ty += 18; }
         ui.rect(cx, ty, w, 15, s[1], 7); ui.text(s[0], cx + 6, ty + 11, { size: 10, color: pal.white }); cx += w + 4;

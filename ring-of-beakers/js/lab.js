@@ -56,6 +56,7 @@
     if (g.sex === 'M') g.sex = 'F';
     else { for (let i = 0; i < GN.CHR_LEN; i++) g.b[o + i] = g.a[o + i]; g.sex = 'M'; }
     RB.state.dirty(c); c.tired = true; c.love = false;
+    RB.state.note(S, c, 'became ' + (g.sex === 'F' ? 'female' : 'male') + ' at the lab'); RB.state.title(c, 'Changed sex at the lab');
     return g.sex;
   }
   // The other genes of the same trait (Muscle I, II and III work together).
@@ -89,6 +90,7 @@
         if (target.person) { RB.state.soldPerson(S, target); target.person = null; }
         const P = RB.pheno.express(target.g);
         target.clothes = P.person ? target.clothes || RB.npc.clothes(new RB.core.Rng(target.id * 7919), null) : null;
+        RB.state.note(S, target, 'became a clone of ' + vial.name + ' at the lab'); RB.state.title(target, 'A clone of ' + vial.name);
       }
     } else {
       GN.setGeneBases(target.g, vial.gi, vial.bases, 'both');
@@ -151,7 +153,7 @@
     }
     const g = RB.species.make(set, S._rng, { sport: 0.1 });
     const name = RB.species.nameOf(RB.species.SPECIES[set], g.sex);
-    S.eggs.push({ id: S.nextId++, g, nest: -1, hatch: S.day + 2, mom: RB.species.generic(set), dad: RB.species.generic(set), momKey: set, dadKey: set, col: '#e8dcc0', spot: '#8a7a5a' });
+    S.eggs.push({ id: S.nextId++, g, nest: -1, hatch: S.day + 2, mom: RB.species.generic(set), dad: RB.species.generic(set), momKey: set, dadKey: set, col: '#e8dcc0', spot: '#8a7a5a', fossil: true });
     return '';
   }
   function powerOn(S) {

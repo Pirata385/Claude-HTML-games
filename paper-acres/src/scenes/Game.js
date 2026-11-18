@@ -91,6 +91,9 @@
       PA.UI.HUD.show(true);
       PA.UI.Hotbar.show(true); PA.UI.Hotbar.render();
       if (PA.Touch.el) PA.Touch.setVisible(true);
+      PA.NPCs.init(this);
+      this.applyUnlocks();
+      if (isNew) state.mail.push(...PA.Quests.mailFor(state));
       PA.Bus.emit('start', { state, isNew });
       if (isNew) { PA.Save.write(slot, this.snapshot()); PA.UI.toast('Welcome to ' + state.farm + '!', 3000); }
     }
@@ -141,6 +144,7 @@
         this.simTime = (this.simTime || 0) + STEP;
         PA.Farm.tickAction(this, STEP);
         PA.Drawn.step(this, STEP);
+        PA.NPCs.step(this, STEP);
         this.player.update(STEP, stepInp, this.simTime);
         this.matter.world.step(STEP);
         this.acc -= STEP; first = false;
@@ -253,6 +257,15 @@
         const r = PA.Time.newDay(s);
         PA.Farm.newDay(this);
         PA.Drawn.newDay(this);
+        PA.Dialogue.newDay(s);
+        for (const m of PA.Quests.mailFor(s)) if (!s.mail.some((q) => q.id === m.id)) s.mail.push(m);
+        if (s.flags.upgrade && s.flags.upgradeReady <= s.stats.days) {
+          const u = s.flags.upgrade; this.inv.add(u.id, 1, Object.assign({}, u.extra || {}, { lvl: u.lvl }));
+          PA.UI.toast('Gus delivered your ' + ['', 'copper', 'iron', 'gold'][u.lvl] + ' ' + PA.Items.get(u.id).name.toLowerCase() + '!', 4000);
+          s.flags.upgrade = null; s.flags.upgradeReady = null;
+        }
+        this.applyUnlocks();
+        PA.NPCs.place(this, true);
         PA.Bus.emit('newday', { state: s, rolled: r });
         this.setSeason(PA.SEASONS[s.season]);
         const bed = PA.Gen.ROOMS.house.furn[0];
@@ -261,6 +274,22 @@
         this.sleeping = false;
         PA.UI.toast(PA.Time.weekday(s) + '. ' + PA.Time.dateText(s) + ' - ' + { sun: 'sunny', rain: 'rain', storm: 'a storm', snow: 'snow', wind: 'windy' }[s.weather], 3000);
       });
+    }
+
+    /** Rewards of mended pages and finished buildings, applied to the world. */
+    applyUnlocks() {
+      const s = this.state, ow = this.maps.overworld, g = ow.grid, GY = PA.Gen.GY;
+      if (s.flags.creekBridge && g.get(58, GY - 1, 8) !== PA.T.PLANK) for (let x = 55; x <= 62; x++) g.set(x, GY - 1, 8, PA.T.PLANK);
+      if (s.flags.allWords) for (const w of PA.Words.ALL) if (!s.words.includes(w.id)) s.words.push(w.id);
+      for (const [flag, id, x0, w] of [['coop', 'coop', 120, 10], ['barn', 'barn', 136, 14]]) {
+        if (s.flags[flag] !== true || ow.props.some((p) => p.id === id)) continue;
+        for (let z = 6; z < 8; z++) for (let x = x0; x < x0 + w; x++) for (let y = GY - 7; y < GY; y++) g.set(x, y, z, PA.T.WALL, false);
+        ow.props.push({ type: 'building', id, x0, w, z: 6, h: 7, roof: 'barn', door: x0 + Math.floor(w / 2) - 1, sign: id.toUpperCase(), windows: 1 });
+        ow.doors.push({ x: x0 + Math.floor(w / 2) - 1, z: 6, w: 2, to: id });
+        this.world.indexProps();
+      }
+      if (s.flags.minecart && !ow.props.some((p) => p.type === 'cart')) { ow.props.push({ type: 'cart', x: 152, z: 1 }); this.world.indexProps(); }
+      if (s.flags.mended && !s.flags.endingSeen) { s.flags.endingSeen = true; setTimeout(() => PA.UI.confirm('The notebook of Marginton is whole again. Every page, every margin, every line. The Eraser has nothing left to take... and you have a farm full of drawings. Thank you for playing! (The notebook goes on.)', ['Keep drawing']), 600); }
     }
 
     /* ---------------- camera ---------------- */
@@ -302,7 +331,7 @@
         p.level = level;
         this.proj[z] = p;
         const st = this.world.drawSlice(R, z, p, level, this.season);
-        if (this.mode === 'play') { this.world.drawDynamic(R, z, p, st, this.state); PA.Drawn.draw(R, z, p, st, this); }
+        if (this.mode === 'play') { this.world.drawDynamic(R, z, p, st, this.state); PA.Drawn.draw(R, z, p, st, this); PA.NPCs.draw(R, z, p, st, this); }
         if (this.mode === 'play' && this.player.z === z) this.player.draw(R, p, dt);
         this.world.drawFront(R, z, p, st, this.season);
         if (level >= 0 && level <= 2) this.collectLights(z, p, lights);

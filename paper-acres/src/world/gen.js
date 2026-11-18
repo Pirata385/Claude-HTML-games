@@ -221,6 +221,8 @@
     inn:       { w: 30, win: [5, 16], pic: [24], furn: [['counter', 2, 1, 7], ['stairs', 24, 1], ['table', 13, 0], ['chair', 11, 0], ['chair', 17, 0]], keeper: 5 },
     hut:       { w: 18, win: [12], furn: [['counter', 2, 1, 6], ['barrel', 11, 0], ['crate', 14, 1]], keeper: 5 },
     home:      { w: 22, win: [5, 16], pic: [11], furn: [['bed', 1, 1], ['table', 9, 0], ['chair', 7, 0], ['shelf', 16, 1], ['plant', 20, 0]] },
+    coop:      { w: 24, win: [6, 16], furn: [['hay', 1, 1], ['crate', 20, 1]] },
+    barn:      { w: 32, win: [8, 22], furn: [['hay', 1, 1], ['hay', 6, 1], ['barrel', 28, 0]] },
   };
   Gen.ROOMS = ROOMS;
   Gen.FY = 11; // interior floor row

@@ -127,6 +127,16 @@ hr { border: 0; border-top: 2px dashed var(--ink); }
 #sketch .word span { font-weight: 400; margin-left: 6px; }
 #sketch .word.best { border-width: 3px; }
 #place { position: fixed; left: 50%; bottom: calc(env(safe-area-inset-bottom) + 70px); transform: translateX(-50%); display: flex; gap: 6px; pointer-events: auto; }
+/* talking and town screens */
+.modal .card.talk { position: fixed; left: 50%; bottom: calc(env(safe-area-inset-bottom) + 64px); transform: translateX(-50%); width: min(94vw, 680px); }
+.talk .who { display: flex; justify-content: space-between; font: 400 22px var(--hand); }
+.talk .who span { font: 700 12px var(--mono); }
+.talk .say { font: 400 calc(16px * var(--ui)) var(--mono); min-height: 3em; }
+.shop .row button.on { background: var(--ink); color: var(--paper); }
+.shop .list { margin-top: 8px; }
+.letter { border: 1px dashed var(--ink); padding: 6px 10px; margin: 6px 0; font-weight: 400; }
+.page { border-top: 2px solid var(--ink); padding-top: 6px; margin-top: 8px; }
+.page.done { text-decoration: line-through; }
 #loading { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; font-family: var(--hand); font-size: 28px; background: var(--paper); }
 </style>
 </head>
@@ -160,6 +170,12 @@ hr { border: 0; border-top: 2px dashed var(--ink); }
 <script src="src/draw/ink.js"></script>
 <script src="src/draw/sketchpad.js"></script>
 <script src="src/draw/drawnObject.js"></script>
+<script src="src/town/npcs.js"></script>
+<script src="src/town/dialogue.js"></script>
+<script src="src/town/shops.js"></script>
+<script src="src/town/quests.js"></script>
+<script src="src/town/festivals.js"></script>
+<script src="src/town/people.js"></script>
 <script src="src/physics/terrain.js"></script>
 <script src="src/physics/stickman.js"></script>
 <script src="src/physics/player.js"></script>
@@ -176,6 +192,7 @@ hr { border: 0; border-top: 2px dashed var(--ink); }
 <script src="src/ui/title.js"></script>
 <script src="src/ui/notebook.js"></script>
 <script src="src/ui/words.js"></script>
+<script src="src/ui/townui.js"></script>
 <script src="src/scenes/Game.js"></script>
 <script src="src/scenes/Boot.js"></script>
 <script>

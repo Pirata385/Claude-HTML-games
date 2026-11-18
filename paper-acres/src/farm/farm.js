@@ -176,8 +176,13 @@
         if (o && PA.Craft) return PA.Craft.use(game, o);
       }
       if (game.map.kind === 'overworld') {
-        const bin = game.map.spots.bin;
-        if (bin && p.z === bin.z && Math.abs(Math.floor(p.x / C.CELL_W) - bin.x) <= 2) { PA.UI.Ship.open(game); return true; }
+        const near = (sp, r) => sp && p.z === sp.z && Math.abs(Math.floor(p.x / C.CELL_W) - sp.x) <= (r || 2);
+        const sp = game.map.spots;
+        if (near(sp.bin)) { PA.UI.Ship.open(game); return true; }
+        if (near(sp.mailbox)) { PA.UI.Mail.open(game); return true; }
+        if (near(sp.board, 3)) { PA.UI.Board.open(game); return true; }
+        const cart = game.map.props.find((q) => q.type === 'cart');
+        if (cart && p.z === cart.z && Math.abs(Math.floor(p.x / C.CELL_W) - cart.x) <= 2) { game.goTo('overworld', 440, 1, 1); return true; }
       }
       if (PA.NPCs && PA.NPCs.talkNear(game)) return true;
       return false;
@@ -192,7 +197,8 @@
       for (const o of s.objects) if (o.id === 'sprinkler' && o.map === 'overworld') for (const [dx, dz] of [[-1, 0], [2, 0], [0, -1], [1, -1], [0, 1], [1, 1]]) sprink.add((o.x + dx) + ',' + (o.z + dz));
       for (const c of s.crops) {
         if (sprink.has(c.x + ',' + c.z)) c.wet = true;
-        PA.Crops.grow(c, s.season, rained);
+        const greenhouse = s.flags.greenhouse && c.map === 'overworld' && c.z === 2;
+        PA.Crops.grow(c, greenhouse ? PA.Crops.DEFS[c.id].seasons[0] : s.season, rained);
       }
       // soil: dry overnight unless it rains; wet under sprinklers
       for (const i of [...g.edits]) {

@@ -370,7 +370,7 @@
       if (dark > 0) {
         const p0 = this.proj[this.player.z];
         const lantern = this.inv && this.inv.slots.some((q) => q && q.id === 'drawn' && q.extra.word === 'lantern');
-        if (p0) lights.push({ x: p0.ox + this.player.x * p0.scale, y: p0.oy + (this.player.feet - 30) * p0.scale, r: R.cellH * (lantern ? 18 : this.map.kind === 'mine' ? 10 : 7) });
+        if (p0) lights.push({ x: p0.ox + this.player.x * p0.scale, y: p0.oy + (this.player.feet - 50) * p0.scale, r: R.cellH * (lantern ? 18 : this.map.kind === 'mine' ? 10 : 7) });
         if (this.map.kind === 'mine') for (const pr of this.map.props) if (pr.type === 'mineLadder' && this.proj[pr.z]) { const q = this.proj[pr.z]; lights.push({ x: q.ox + (pr.x + 0.5) * C.CELL_W * q.scale, y: q.oy + (pr.gy - 2) * C.CELL_H * q.scale, r: R.cellH * 6 }); }
         for (const e of PA.Drawn.live) if ((e.rec.word === 'lamp' || e.rec.word === 'lantern') && this.proj[e.rec.z]) { const q = this.proj[e.rec.z]; lights.push({ x: q.ox + e.rec.x * q.scale, y: q.oy + e.rec.y * q.scale, r: R.cellH * 10 * q.scale / this.cam.zoom }); }
         R.night = { t: dark, lights };

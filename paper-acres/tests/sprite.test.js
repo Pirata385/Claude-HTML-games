@@ -31,11 +31,19 @@ test('walking: feet touch the ground at the contact phases and the body bobs', (
 test('the head sits above the chest and the figure is about three cells tall', () => {
   const j = S.rig('idle', 0, {});
   assert.ok(j.head.y < j.chest.y - 4);
-  assert.ok(j.head.y - S.HEAD_R > -62 && j.head.y - S.HEAD_R < -52);
+  assert.ok(j.head.y - S.HEAD_R > -66 && j.head.y - S.HEAD_R < -56);
 });
 
 test('blend moves joints toward the target pose', () => {
   const a = S.rig('idle', 0, {}), b = S.rig('jump', 0, {});
   const m = S.blend(a, b, 0.5);
   assert.ok(Math.abs(m.handL.y - (a.handL.y + b.handL.y) / 2) < 1e-6);
+});
+
+test('solid body: limbs one character wide, torso two, a round head bigger than half the torso', () => {
+  const half = PA.C.CELL_W / 2; // one character at two characters per world cell
+  assert.ok(Math.abs(S.SHAPE.limb * S.SCALE - half) < 0.01);
+  assert.ok(Math.abs(S.SHAPE.torso * S.SCALE - 2 * half) < 0.01);
+  assert.ok(S.SHAPE.head > S.SHAPE.torso / 2);
+  assert.strictEqual(S.HEAD_R, S.SHAPE.head);
 });

@@ -10,7 +10,8 @@ This is the approved design (originally written in Portuguese), followed by the 
 4. **Stickman:** first a classic 3x3 ASCII figure, then *"draw the stickman too and let the renderer turn him into ASCII"*. Finally *"more dynamic, closer to a real drawing"*: a rig with IK knees and elbows, walk, run, jump, land and swing cycles, and pose blending. He is drawn 1.5x larger on a paper aura so he stands out.
 5. **Render pipeline:** *"draw everything with Phaser / Canvas2D and then convert it to ASCII"*. The game draws vector strokes into an offscreen buffer, and a post-process matches each character cell (4x6 samples, ridge-thinned) to the nearest glyph template. Two characters per world cell.
 6. **Drawing names:** chosen from a word list, inanimate things only. The player can never create life.
-7. **Economy and danger:** an ink economy (pencil lead fades; pen ink is permanent) and real-time combat with physics.
+7. **Solid body, hollow head:** the stickman (and every townsfolk) keeps a hollow round head, while the torso and limbs are solid: torso 2 characters wide, limbs 1. Solid ink carries a buffer-only marker, so the converter never thins it and prints it as `#`; the thin edges of solid shapes stay blank. On far slices, figures fall back to thin grey lines.
+8. **Economy and danger:** an ink economy (pencil lead fades; pen ink is permanent) and real-time combat with physics.
 
 ## Original design (approved plan, in Portuguese)
 

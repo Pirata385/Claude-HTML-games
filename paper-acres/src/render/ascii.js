@@ -102,14 +102,16 @@
       // darkness map + ridge thinning: a sample is ink only if it is the darkest across the stroke
       // (strict on one side so a line split evenly over two samples keeps exactly one of them)
       const N = bw * bh;
-      if (!this.dk || this.dk.length !== N) { this.dk = new Uint8Array(N); this.on = new Uint8Array(N); }
-      const dk = this.dk, onm = this.on;
-      for (let i = 0, o = 0; i < N; i++, o += 4) dk[i] = 255 - data[o];
+      if (!this.dk || this.dk.length !== N) { this.dk = new Uint8Array(N); this.on = new Uint8Array(N); this.sol = new Uint8Array(N); }
+      const dk = this.dk, onm = this.on, sol = this.sol;
+      // solid body ink (Ascii.SOLID: dark red channel, bright blue channel) is never thinned
+      for (let i = 0, o = 0; i < N; i++, o += 4) { dk[i] = 255 - data[o]; sol[i] = dk[i] > thr && data[o + 2] > 160 ? 1 : 0; }
       for (let y = 0; y < bh; y++) {
         const row = y * bw;
         for (let x = 0; x < bw; x++) {
           const i = row + x, d = dk[i];
           if (d <= thr) { onm[i] = 0; continue; }
+          if (sol[i]) { onm[i] = 1; continue; }
           const L = x > 0 ? dk[i - 1] : 0, Rr = x < bw - 1 ? dk[i + 1] : 0;
           const U = y > 0 ? dk[i - bw] : 0, D = y < bh - 1 ? dk[i + bw] : 0;
           onm[i] = ((d > L && d >= Rr) || (d > U && d >= D)) ? 1 : 0;
@@ -131,17 +133,19 @@
       for (let r = 0; r < rows; r++) {
         for (let c = 0; c < cols; c++) {
           const idx = r * cols + c;
-          let key = 0, sum = 0, on = 0;
+          let key = 0, sum = 0, on = 0, ns = 0, sbits = 0;
           const base = r * SY * bw + c * SX;
           for (let yy = 0; yy < SY; yy++) {
             let i = base + yy * bw;
             for (let xx = 0; xx < SX; xx++, i++) {
-              if (onm[i]) { key |= 1 << (yy * SX + xx); sum += dk[i]; on++; }
+              if (onm[i]) { const bit = 1 << (yy * SX + xx); key |= bit; sum += dk[i]; on++; if (sol[i]) { ns++; sbits |= bit; } }
             }
           }
-          let ch = key ? M.classify(key) : ' ';
+          // a body cell is either '#' or nothing: the thin edges of a solid shape never become stroke glyphs
+          if (ns && ns < M.SOLID_MIN) key = (key & ~sbits) >>> 0;
+          let ch = key ? M.pick(key, ns) : ' ';
           this.glyph[idx] = ch;
-          let style = on && sum / on >= boldAt ? 1 : 0;
+          let style = (on && sum / on >= boldAt) || ns >= M.SOLID_MIN ? 1 : 0;
           let inv = false;
           const st = stampMap.get(idx);
           if (st) { ch = st.ch; if (st.style != null) style = st.style; inv = !!st.invert; }
@@ -172,5 +176,7 @@
       return out;
     }
   }
+  // Buffer-only marker colour for solid body ink (never reaches the screen; see the palette test).
+  Ascii.SOLID = '#0000ff';
   PA.Ascii = Ascii;
 })(typeof window !== 'undefined' ? window : globalThis);

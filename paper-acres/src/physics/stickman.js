@@ -6,7 +6,9 @@
   const PA = root.PA = root.PA || {};
   const TAU = Math.PI * 2;
   const BONES = { thigh: 14, shin: 14, upper: 10, fore: 10, spine: 17, neck: 3 };
-  const HEAD_R = 6;
+  // body thickness in figure units (the figure is drawn 1.5x; 4 units = 6 px = one character)
+  const SHAPE = { limb: 4, torso: 8, head: 8 };
+  const HEAD_R = SHAPE.head;
   const HIP_Y = -27.5;
 
   const v = (x, y) => ({ x, y });
@@ -137,7 +139,33 @@
     ctx.moveTo(X(j.chest), j.chest.y); ctx.lineTo(nx * f, ny);
   }
 
-  /** Draw the figure: paper halo first (so scenery never cuts through it), then ink. */
+  /** Solid body: back limbs, torso + neck, front limbs as thick round strokes in st.solid; the head is a hollow ring. */
+  function drawSolid(ctx, j, f, st) {
+    const X = (q) => q.x * f;
+    const stroke = (w, build) => { ctx.lineWidth = w; ctx.strokeStyle = st.solid; ctx.beginPath(); build(); ctx.stroke(); };
+    const limb = (a, b, c, foot) => stroke(SHAPE.limb, () => { ctx.moveTo(X(a), a.y); ctx.lineTo(X(b), b.y); ctx.lineTo(X(c), c.y); if (foot) ctx.lineTo((c.x + 3) * f, c.y); });
+    // the left limbs are the far side when facing right (and the near side when facing left)
+    const backArm = f > 0 ? ['elbowL', 'handL'] : ['elbowR', 'handR'], frontArm = f > 0 ? ['elbowR', 'handR'] : ['elbowL', 'handL'];
+    const backLeg = f > 0 ? ['kneeL', 'footL'] : ['kneeR', 'footR'], frontLeg = f > 0 ? ['kneeR', 'footR'] : ['kneeL', 'footL'];
+    limb(j.chest, j[backArm[0]], j[backArm[1]]);
+    limb(j.hip, j[backLeg[0]], j[backLeg[1]], true);
+    const mx = (j.hip.x + j.chest.x) / 2 - (j.bend || 0) * 0.6, my = (j.hip.y + j.chest.y) / 2;
+    // the neck stops at the rim of the head so the ring stays round
+    const hd = Math.hypot(j.head.x - j.chest.x, j.head.y - j.chest.y) || 1;
+    const nk = Math.max(0, hd - HEAD_R - SHAPE.limb * 0.6) / hd;
+    const nx = j.chest.x + (j.head.x - j.chest.x) * nk, ny = j.chest.y + (j.head.y - j.chest.y) * nk;
+    stroke(SHAPE.torso, () => { ctx.moveTo(X(j.hip), j.hip.y); ctx.quadraticCurveTo(mx * f, my, X(j.chest), j.chest.y); });
+    if (st.wide) stroke(SHAPE.torso + st.wide, () => { ctx.moveTo(X(j.chest), j.chest.y + 2); ctx.lineTo(X(j.hip), j.hip.y + 8); });
+    if (st.skirt) { ctx.fillStyle = st.solid; ctx.beginPath(); ctx.moveTo(X(j.hip) - 4, j.hip.y - 4); ctx.lineTo(X(j.hip) - 11, j.hip.y + 12); ctx.lineTo(X(j.hip) + 11, j.hip.y + 12); ctx.lineTo(X(j.hip) + 4, j.hip.y - 4); ctx.closePath(); ctx.fill(); }
+    stroke(SHAPE.limb, () => { ctx.moveTo(X(j.chest), j.chest.y); ctx.lineTo(nx * f, ny); });
+    limb(j.hip, j[frontLeg[0]], j[frontLeg[1]], true);
+    limb(j.chest, j[frontArm[0]], j[frontArm[1]]);
+    // hollow round head: blank paper inside a thin ink ring
+    ctx.fillStyle = st.paper; ctx.beginPath(); ctx.arc(j.head.x * f, j.head.y, HEAD_R, 0, TAU); ctx.fill();
+    ctx.strokeStyle = st.ink; ctx.lineWidth = st.lw; ctx.beginPath(); ctx.arc(j.head.x * f, j.head.y, HEAD_R, 0, TAU); ctx.stroke();
+  }
+
+  /** Draw the figure: paper halo first (so scenery never cuts through it), then the body. */
   function draw(ctx, j, facing, st) {
     const f = facing < 0 ? -1 : 1;
     ctx.lineCap = 'round'; ctx.lineJoin = 'round';
@@ -149,12 +177,13 @@
       const cx = (x0 + x1) / 2, cy = (y0 + y1) / 2, rx = (x1 - x0) / 2 + st.halo, ry = (y1 - y0) / 2 + st.halo;
       ctx.fillStyle = st.paper; ctx.beginPath(); ctx.ellipse(cx, cy, rx * 1.15, ry * 1.08, 0, 0, TAU); ctx.fill();
     }
+    if (st.solid) { drawSolid(ctx, j, f, st); return; }
     ctx.strokeStyle = st.ink; ctx.lineWidth = st.lw;
     ctx.beginPath(); tracePath(ctx, j, f);
     ctx.moveTo(j.head.x * f + HEAD_R, j.head.y); ctx.arc(j.head.x * f, j.head.y, HEAD_R, 0, TAU);
     ctx.stroke();
   }
 
-  PA.Stick = { rig, blend, draw, ik, BONES, HEAD_R, RIGS, SCALE: 1.5 }; // drawn 1.5x: ~9 character rows tall
+  PA.Stick = { rig, blend, draw, ik, BONES, HEAD_R, SHAPE, RIGS, SCALE: 1.5 }; // drawn 1.5x: ~9 character rows tall
   if (typeof module !== 'undefined' && module.exports) module.exports = PA.Stick;
 })(typeof window !== 'undefined' ? window : globalThis);

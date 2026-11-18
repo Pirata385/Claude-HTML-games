@@ -173,10 +173,10 @@
       R.use(p);
       const ctx = R.ctx;
       ctx.save();
-      const k = PA.Stick.SCALE;
-      ctx.translate(this.x, this.feet + this.drawOffset - 1);
+      const k = PA.Stick.SCALE, gx = Math.round(this.x / (C.CELL_W / 2)) * (C.CELL_W / 2); // whole characters: the torso fills exactly two
+      ctx.translate(gx, this.feet + this.drawOffset - 1);
       ctx.scale(k, k);
-      PA.Stick.draw(ctx, j, this.facing, { ink: '#000', paper: '#fff', lw: R.lw(p, 1.0) / k, halo: R.lw(p, 4.5) / k });
+      PA.Stick.draw(ctx, j, this.facing, { ink: '#000', paper: '#fff', solid: p.level === 0 ? PA.Ascii.SOLID : null, lw: R.lw(p, 1.0) / k, halo: R.lw(p, 4.5) / k });
       ctx.restore();
       const sx = p.ox + this.x * p.scale, sy = p.oy + this.feet * p.scale;
       R.mask(sx - 36 * p.scale, sy - 96 * p.scale, sx + 36 * p.scale, sy);

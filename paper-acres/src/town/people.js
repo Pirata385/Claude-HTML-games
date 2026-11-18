@@ -6,7 +6,7 @@
   const C = PA.C;
   const SPEED = 1.15; // px per physics step
 
-  function accessories(ctx, j, look, f, lw) {
+  function accessories(ctx, j, look, f, lw, solidBody) {
     const X = (q) => q.x * f, h = j.head, R = PA.Stick.HEAD_R;
     ctx.beginPath();
     switch (look.hat) {
@@ -22,10 +22,10 @@
     if (look.glasses) { ctx.moveTo(X(h) + 2 * f + 2.2, h.y - 1); ctx.arc(X(h) + 2 * f, h.y - 1, 2.2, 0, Math.PI * 2); }
     if (look.beard) { ctx.moveTo(X(h) - 4, h.y + 3); ctx.quadraticCurveTo(X(h) + 2 * f, h.y + 13, X(h) + 6 * f, h.y + 3); }
     if (look.mustache) { ctx.moveTo(X(h) + 1 * f, h.y + 2); ctx.lineTo(X(h) + 7 * f, h.y + 3); }
-    if (look.skirt) { ctx.moveTo(j.hip.x * f - 2, j.hip.y - 3); ctx.lineTo(j.hip.x * f - 10, j.hip.y + 12); ctx.lineTo(j.hip.x * f + 10, j.hip.y + 12); ctx.lineTo(j.hip.x * f + 2, j.hip.y - 3); }
-    if (look.apron) { ctx.moveTo(j.chest.x * f + 3 * f, j.chest.y + 3); ctx.lineTo(j.hip.x * f + 5 * f, j.hip.y + 6); }
-    if (look.coat) { ctx.moveTo(j.chest.x * f - 3, j.chest.y + 2); ctx.lineTo(j.hip.x * f - 8, j.hip.y + 10); ctx.moveTo(j.chest.x * f + 3, j.chest.y + 2); ctx.lineTo(j.hip.x * f + 8, j.hip.y + 10); }
-    if (look.scarf) { ctx.moveTo(j.chest.x * f - 4, j.chest.y - 1); ctx.lineTo(j.chest.x * f + 4, j.chest.y - 1); ctx.lineTo(j.chest.x * f - 3 * f, j.chest.y + 9); }
+    if (look.skirt && !solidBody) { ctx.moveTo(j.hip.x * f - 2, j.hip.y - 3); ctx.lineTo(j.hip.x * f - 10, j.hip.y + 12); ctx.lineTo(j.hip.x * f + 10, j.hip.y + 12); ctx.lineTo(j.hip.x * f + 2, j.hip.y - 3); }
+    if (look.apron && !solidBody) { ctx.moveTo(j.chest.x * f + 3 * f, j.chest.y + 3); ctx.lineTo(j.hip.x * f + 5 * f, j.hip.y + 6); }
+    if (look.coat && !solidBody) { ctx.moveTo(j.chest.x * f - 3, j.chest.y + 2); ctx.lineTo(j.hip.x * f - 8, j.hip.y + 10); ctx.moveTo(j.chest.x * f + 3, j.chest.y + 2); ctx.lineTo(j.hip.x * f + 8, j.hip.y + 10); }
+    if (look.scarf && !solidBody) { ctx.moveTo(j.chest.x * f - 4, j.chest.y - 1); ctx.lineTo(j.chest.x * f + 4, j.chest.y - 1); ctx.lineTo(j.chest.x * f - 3 * f, j.chest.y + 9); }
     if (look.cane) { ctx.moveTo(j.handR.x * f, j.handR.y); ctx.lineTo(j.handR.x * f + 2 * f, 0); }
     ctx.lineWidth = lw; ctx.stroke();
   }
@@ -101,11 +101,12 @@
         if (look.build) { target.chest = { x: target.chest.x, y: target.chest.y }; }
         a.lastJ = PA.Stick.blend(a.lastJ, target, a.lastJ ? 0.25 : 1);
         const feet = g.surfaceY(Math.floor(a.x / C.CELL_W), z) * C.CELL_H - 1;
-        ctx.save(); ctx.translate(a.x, feet); ctx.scale(k * (look.build || 1) * 0.92 + k * 0.08, k);
-        const lw = R.lw(p, 1.0) / k;
-        PA.Stick.draw(ctx, a.lastJ, a.facing, { ink: st.ink, paper: st.paper, lw, halo: p.level === 0 ? R.lw(p, 3.5) / k : 0 });
+        const gx = p.level === 0 ? Math.round(a.x / (C.CELL_W / 2)) * (C.CELL_W / 2) : a.x;
+        ctx.save(); ctx.translate(gx, feet); ctx.scale(k, k);
+        const lw = R.lw(p, 1.0) / k, solid = p.level === 0 ? PA.Ascii.SOLID : null;
+        PA.Stick.draw(ctx, a.lastJ, a.facing, { ink: st.ink, paper: st.paper, lw, halo: p.level === 0 ? R.lw(p, 3.5) / k : 0, solid, skirt: solid && look.skirt, wide: solid && (look.coat || look.build) ? 4 : 0 });
         ctx.strokeStyle = st.ink;
-        accessories(ctx, a.lastJ, look, a.facing < 0 ? -1 : 1, lw);
+        accessories(ctx, a.lastJ, look, a.facing < 0 ? -1 : 1, lw, !!solid);
         ctx.restore();
         // name tag when you are close
         const pl = game.player;

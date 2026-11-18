@@ -98,12 +98,16 @@
     return m;
   }
 
+  /** A cell that is mostly solid body (>= 42% of its samples) prints as '#'; otherwise match the strokes. */
+  const SOLID_MIN = 10;
+  function pick(key, nSolid) { return nSolid >= SOLID_MIN ? '#' : classify(key); }
+
   function keyFromRows(rows) {
     let k = 0;
     for (let r = 0; r < SY; r++) for (let c = 0; c < SX; c++) if (rows[r][c] === '#') k |= 1 << (r * SX + c);
     return k >>> 0;
   }
 
-  PA.Matcher = { SX, SY, FULL, classify, keyFromRows, popcount, templates: T, cacheSize: () => memo.size };
+  PA.Matcher = { SX, SY, FULL, classify, pick, SOLID_MIN, keyFromRows, popcount, templates: T, cacheSize: () => memo.size };
   if (typeof module !== 'undefined' && module.exports) module.exports = PA.Matcher;
 })(typeof window !== 'undefined' ? window : globalThis);

@@ -35,3 +35,12 @@ test('classification is memoised and stable', () => {
   assert.strictEqual(M.classify(k), M.classify(k));
   assert.ok(M.cacheSize() > 0);
 });
+
+test('pick: solid cells become #, partly solid cells fall back to the stroke matcher', () => {
+  const full = M.FULL;
+  assert.strictEqual(M.pick(full, 24), '#');
+  const k = pic('....', '....', '####', '....', '....', '....');
+  assert.strictEqual(M.pick(k, 7), M.classify(k), '30% solid keeps the stroke glyph');
+  assert.strictEqual(M.pick(k, 0), '-');
+  assert.strictEqual(M.pick(0, 0), ' ');
+});

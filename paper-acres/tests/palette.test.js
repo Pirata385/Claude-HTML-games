@@ -27,6 +27,7 @@ test('only paper and ink are ever shown', () => {
       const h = m[0].toLowerCase();
       if (h === '#efe4c8' || h === '#000000' || h === '#000') continue;
       if (BUFFER_FILES.has(f) && isGrey(h)) continue;
+      if (f === 'src/render/ascii.js' && h === '#0000ff') continue; // solid-body marker inside the offscreen buffer only
       bad.push(f + ': ' + h);
     }
     if (/\b(rgba?|hsla?)\(/.test(src)) bad.push(f + ': rgb/hsl colour');

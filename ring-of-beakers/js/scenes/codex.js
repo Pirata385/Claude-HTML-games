@@ -19,6 +19,9 @@
     ['The open sea', 'Win the Grand Ring and pay off the bank, and Biu fits a speedboat kit: drive into water and sail off. The sea never ends, and every island has its own land, its own race of birds, and maybe a village or an arena. A big island of each land rings the mainland. Out on open water, flocks of sea birds pass over, feed or rest on the swell. Albatrosses, frigatebirds, puffins, boobies and tropicbirds live only out there. A sandbox game starts with all of it, every island a sail away, endless items and endless fossils.'],
     ['Breeding islands', 'Out at sea, claim an island nobody lives on ($500) or raise a new one in open water ($2500). Leave birds (or people you netted) at its field station and they breed on their own, generation after generation, and grow old there. Stay a while (up to a month at once) to watch the generations go by. Leave odd mushrooms or isotopes and the island turns radioactive: the young come out mutated and deformed. It fades each night, or pay for a clean-up.'],
     ['The map', 'Zoom with the buttons, the wheel or a pinch, and drag to look around. Markers puts pins on the kinds of place you want (arenas, fossils of each kind, sea birds...) and an arrow on the road points to the nearest. Islands you have landed on can be sailed to straight from the map. Staying out all night costs nothing: the new day starts where you are.'],
+    ['Habits and happenings', 'Many birds have a habit of their own once grown (on their card): circles, chasing, staring, singing at odd hours, or a grudge against one bird. Now and then two birds square off, a wild bird wanders into the yard, or someone finds something strange in the grass. It is all for show.'],
+    ['Hall of Fame', 'The board by the gate keeps your champions, record holders, birds with a story and fighters who retired well, with a biography each. They stay on it after they are gone.'],
+    ['Wardrobe', 'Tap a bird and Wear: a hat, something for the face, the neck, the back, the feet and the tail, plus one piece of fighting kit. Madame Odete sells most of it; some pieces are prizes for feats.'],
     ['Old age', 'A bird that reaches the end of its lifespan retires instead of dying: no more fights, nests, training or shows. Take it to Sunset Roost, just north-west of home, where Dona Nina looks after retired birds in her garden for free. You can visit them, or take one home again.'],
   ];
 
@@ -74,7 +77,8 @@
           const a = common.ACH[ids[i]], got = S.codex.ach[ids[i]];
           ui.rect(x, y + 2, w - 6, 40, got ? pal.paper : pal.soft, 8);
           ui.icon(got ? 'trophy' : 'lock', x + 22, y + 22, 20, got ? pal.mustard : pal.grey);
-          ui.text(a[0], x + 44, y + 19, { size: 13, color: got ? pal.ink : pal.grey }); ui.text(a[1] + (a[3] && !got && a[3](S) ? ' (' + a[3](S) + ')' : ''), x + 44, y + 34, { size: 10, bold: false, color: pal.grey, maxW: w - 54 });
+          ui.text(a[0], x + 44, y + 19, { size: 13, color: got ? pal.ink : pal.grey }); const prize = RB.items.UNLOCKS[ids[i]];
+          ui.text(a[1] + (a[3] && !got && a[3](S) ? ' (' + a[3](S) + ')' : '') + (prize ? ' · Prize: ' + RB.items.ITEMS[prize].name : ''), x + 44, y + 34, { size: 10, bold: false, color: pal.grey, maxW: w - 54 });
         });
       } else {
         const flat = [];

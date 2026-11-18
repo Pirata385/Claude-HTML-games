@@ -35,12 +35,14 @@
       if (c.buff === 'chili') c.buff = null;
       if (won) {
         c.wins++; S.stats.wins++; c.bond = Math.min(1, c.bond + 0.05);
+        if (c.wins === 1) ST.note(S, c, 'won its first bout' + (A.arena ? ' at ' + A.arena.name : ''));
         if (card.purse) { S.money += card.purse; S.stats.earned += card.purse; out.push(['Purse', card.purse]); }
         if (A.arena) {
           const lg = RB.economy.leagueOf(S, A.arena.id);
           if (card.boss) {
             lg.boss = true;
             out.push([A.arena.name + ' is yours!', 0]);
+            ST.note(S, c, 'beat ' + A.arena.boss.trainer + '\'s ' + A.arena.boss.bird + ' to take ' + A.arena.name); ST.title(c, 'Champion of ' + A.arena.name);
             A.prizes = ST.bossPrizes(S); // the first two bosses hand over a tool that never wears out
             for (const id of A.prizes) out.push(['Prize: the ' + RB.items.ITEMS[id].name.toLowerCase() + '!', 0]);
             if (A.arena.boss.final) S.won = true;
@@ -51,6 +53,7 @@
       }
       if (card.duel) RB.npc.info(S, card.duel).fought = S.day;
       ST.dirty(c);
+      ST.fameCheck(S);
     }
     if (A.bet && A.bet.amount > 0) {
       if (A.bet.side === r.winner) { const pay = Math.round(A.bet.amount * (1 + A.bet.mult)); S.money += pay; S.stats.earned += pay - A.bet.amount; out.push(['Bet won', pay]); }

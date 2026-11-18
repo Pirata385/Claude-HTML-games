@@ -165,6 +165,7 @@
     /** Context action (E / act button): harvest, forage, machines, chests, bin, NPCs. */
     interact(game, fromUse) {
       const s = game.state, p = game.player, mid = game.map.id;
+      if (PA.Animals.interact(game)) return true;
       const xs = [Math.floor(p.x / C.CELL_W), Farm.targets(game, 0)[0]];
       for (const x of xs) {
         const crop = Farm.cropAt(s, mid, x, p.z);
@@ -210,6 +211,12 @@
         const c = Farm.cropAt(s, 'overworld', x, z);
         if (!c && !wet && Math.random() < 0.06) g.set(x, y, z, T.GRASS); // untended soil grows over
       }
+      // crows
+      const ow_crops = s.crops.filter((c) => c.map === 'overworld');
+      const scare = s.objects.concat(s.drawings.filter((d) => d.word === 'scarecrow' && !d.item).map((d) => ({ id: 'scarecrow', map: d.map, x: Math.floor(d.x / C.CELL_W), z: d.z })));
+      const eaten = PA.Wildlife.crowTargets(ow_crops, scare, Math.random);
+      for (const c of eaten) s.crops.splice(s.crops.indexOf(c), 1);
+      if (eaten.length) PA.UI.toast('Crows ate ' + eaten.length + ' of your crops! A scarecrow would help.', 4000);
       // shipping
       let total = 0;
       for (const e of s.ship || []) total += PA.Items.sellPrice(e.id, e.extra) * e.n;

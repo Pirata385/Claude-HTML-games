@@ -124,6 +124,7 @@
       const delta = Math.min(this.lastNow ? nowMs - this.lastNow : phaserDelta, 250);
       this.lastNow = nowMs;
       const dt = Math.min(delta, 50);
+      this.frameDt = dt;
       if (this.mode === 'title') { this.titleCam(dt); this.render(nowMs, dt); return; }
       const inp = PA.Input.poll();
       if (inp.pauseP && !PA.Input.blocked) this.togglePause();
@@ -145,6 +146,8 @@
         PA.Farm.tickAction(this, STEP);
         PA.Drawn.step(this, STEP);
         PA.NPCs.step(this, STEP);
+        PA.Animals.step(this, STEP);
+        PA.Wildlife.step(this, STEP);
         this.player.update(STEP, stepInp, this.simTime);
         this.matter.world.step(STEP);
         this.acc -= STEP; first = false;
@@ -160,6 +163,7 @@
       if (PA.Input.blocked) return;
       if (inp.hotbar >= 0) this.selectHot(inp.hotbar);
       if (inp.wheel) this.selectHot(this.hot + Math.sign(inp.wheel));
+      if (PA.Fishing.active) { PA.Fishing.step(this, this.frameDt || 16, inp); return; }
       if (inp.useP || (inp.use && now - (this.lastUse || 0) > 420)) { this.lastUse = now; PA.Farm.useSelected(this); }
       if (inp.interactP) PA.Farm.interact(this, false);
       if (inp.drawP && PA.Sketch) PA.Sketch.open(this);
@@ -194,7 +198,7 @@
       if (facing) p.facing = facing;
       p.lastJ = null;
       this.terrain.sync(p.x, z);
-      if (this.state) PA.Drawn.loadMap(this);
+      if (this.state) { PA.Drawn.loadMap(this); this.animalActors = null; PA.Animals.actors(this); PA.Wildlife.list = []; PA.Fishing.active = null; }
       this.cam.x = p.x; this.cam.y = feet - 3 * C.CELL_H; this.cam.z = z;
       PA.Bus.emit('map', { id, kind: map.kind });
     }
@@ -257,6 +261,7 @@
         const r = PA.Time.newDay(s);
         PA.Farm.newDay(this);
         PA.Drawn.newDay(this);
+        PA.Animals.newDay(this);
         PA.Dialogue.newDay(s);
         for (const m of PA.Quests.mailFor(s)) if (!s.mail.some((q) => q.id === m.id)) s.mail.push(m);
         if (s.flags.upgrade && s.flags.upgradeReady <= s.stats.days) {
@@ -331,7 +336,10 @@
         p.level = level;
         this.proj[z] = p;
         const st = this.world.drawSlice(R, z, p, level, this.season);
-        if (this.mode === 'play') { this.world.drawDynamic(R, z, p, st, this.state); PA.Drawn.draw(R, z, p, st, this); PA.NPCs.draw(R, z, p, st, this); }
+        if (this.mode === 'play') {
+          this.world.drawDynamic(R, z, p, st, this.state); PA.Drawn.draw(R, z, p, st, this); PA.NPCs.draw(R, z, p, st, this);
+          PA.Animals.draw(R, z, p, st, this); PA.Wildlife.draw(R, z, p, st); PA.Fishing.draw(R, z, p, st, this);
+        }
         if (this.mode === 'play' && this.player.z === z) this.player.draw(R, p, dt);
         this.world.drawFront(R, z, p, st, this.season);
         if (level >= 0 && level <= 2) this.collectLights(z, p, lights);

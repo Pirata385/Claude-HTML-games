@@ -1343,7 +1343,8 @@ test('the Hall of Fame keeps champions, record holders and odd lives, even after
   assert.ok(e && e.titles.includes('Champion of Backyard Pit') && e.titles.includes('Veteran (10+ wins)') && e.titles.includes('Record: most wins'));
   assert.ok(ST.fameBio(e).includes('beat Old Bira') && ST.fameBio(e).includes('12 won'));
   assert.strictEqual(e.status, 'In your yard');
-  // a curious story: a bird freed and netted again
+  // a curious story: a bird freed and netted again (one that has fought, so it is eligible)
+  hen.losses = 1;
   const rec = ST.setFree(S, hen, 100, 100); S.day += 3; ST.recapture(S, rec);
   ST.fameCheck(S);
   const h = ST.fameOf(S, hen.id);
@@ -1362,7 +1363,9 @@ test('the Hall of Fame keeps champions, record holders and odd lives, even after
   S.money = 1e5; for (let i = 0; i < RB.lab.FRAGMENTS; i++) RB.lab.addFragment(S, 'dodo');
   RB.lab.rebuild(S, 'dodo'); S.feeder = 9; ST.sleep(S); ST.sleep(S); ST.sleep(S);
   const dodo = S.birds.find((c) => c.log && c.log.some((l) => l.t.includes('fossil')));
-  assert.ok(dodo && ST.fameOf(S, dodo.id) && ST.fameOf(S, dodo.id).titles.includes('Back from extinction'));
+  assert.ok(dodo && !ST.fameOf(S, dodo.id), 'not until it is put to use');
+  dodo.wins = 1; ST.fameCheck(S);
+  assert.ok(ST.fameOf(S, dodo.id) && ST.fameOf(S, dodo.id).titles.includes('Back from extinction'));
   // saves keep the Hall; older saves start with an empty one; a full Hall drops the least remembered of the gone
   const back = ST.deserialize(JSON.parse(JSON.stringify(ST.serialize(S))));
   assert.strictEqual(back.fame.length, S.fame.length);
@@ -1418,4 +1421,92 @@ test('when your champion retires or leaves, a new champion claims the arena a da
   const N = ST.create(225), nlg = EC2.leagueOf(N, A.id); nlg.boss = true; N.feeder = 99;
   ST.sleep(N); ST.sleep(N);
   assert.ok(nlg.boss);
+});
+
+
+test('the Hall only takes birds you used (or caught outstanding), island-born ones only once taken home, and sorts them into tabs', () => {
+  const S = ST.create(227), mk = (id, o) => Object.assign(ST.addBird(S, RB.species.make(id, S._rng, { sport: 0 }), { at: 'home' }), o || {});
+  // unused birds stay out, whatever their story
+  const freak = mk('chicken'); freak.titles = ['A clone of Capitao']; ST.fameCheck(S);
+  assert.ok(!ST.fameOf(S, freak.id));
+  // a sideshow star gets in on the strength of the sideshow alone
+  const star = mk('roadrunner', { shows: 5, showWins: 3 }); ST.fameCheck(S);
+  const se = ST.fameOf(S, star.id);
+  assert.ok(se && se.titles.includes('Sideshow star (3+ wins)') && se.titles.includes('Record: most sideshow wins'));
+  assert.ok(ST.fameBio(se).includes('5 sideshow contests and won 3'));
+  // a wild catch with outstanding numbers: in; an ordinary one: out
+  let great = null, plain = null;
+  for (let i = 0; i < 400 && !(great && plain); i++) {
+    const c = Object.assign(ST.addBird(S, RB.species.make('gamecock', S._rng, { sport: 0.5 }), { at: 'home' }), { origin: 'wild' }), top = ST.outstanding(ST.pheno(c));
+    if (top && !great) great = c; else if (!top && !plain) plain = c; else ST.removeBird(S, c);
+  }
+  assert.ok(great && plain, 'found both');
+  ST.fameCheck(S);
+  assert.ok(ST.fameOf(S, great.id).titles.includes('Wild talent'));
+  assert.ok(!ST.fameOf(S, plain.id));
+  // born on one of your islands and never taken off it: out, whatever its numbers
+  const isle = ST.claimIsle(Object.assign(S, { money: 99999 }), { id: 'tst', name: 'Test Isle', x: 0, y: 0, R: 300, main: 'farm', sites: [] });
+  assert.ok(isle && typeof isle === 'object', 'claimed');
+  let islandGreat = null;
+  for (let i = 0; i < 400 && !islandGreat; i++) {
+    const c = Object.assign(ST.addBird(S, RB.species.make('gamecock', S._rng, { sport: 0.5 }), { at: 'home' }), { origin: 'born', gen: 3 });
+    if (ST.outstanding(ST.pheno(c))) islandGreat = c; else ST.removeBird(S, c);
+  }
+  assert.ok(islandGreat, 'found an outstanding islander');
+  ST.toIsle(S, isle, islandGreat);
+  const islandPlain = mk('chicken', { origin: 'born', gen: 2 }); ST.toIsle(S, isle, islandPlain);
+  ST.fameCheck(S);
+  assert.ok(!ST.fameOf(S, islandGreat.id) && !ST.fameOf(S, islandPlain.id));
+  // taken home, it counts like any other: outstanding numbers get it in as a talent; a plain one has to earn it
+  ST.fromIsle(S, isle, islandGreat); ST.fromIsle(S, isle, islandPlain);
+  assert.strictEqual(islandGreat.taken, S.day);
+  ST.fameCheck(S);
+  const ie = ST.fameOf(S, islandGreat.id);
+  assert.ok(ie && ie.titles.includes('Island talent') && ST.fameIn(ie, 'talents'));
+  assert.ok(ST.fameBio(ie).includes('brought home on day ' + S.day) && ST.fameBio(ie).includes('Taken off the island with numbers'));
+  assert.ok(!ST.fameOf(S, islandPlain.id));
+  islandPlain.wins = 10; ST.fameCheck(S);
+  assert.ok(ST.fameOf(S, islandPlain.id).titles.includes('Veteran (10+ wins)'), 'fought once it was home');
+  // back on the island it stays in: it was yours
+  ST.toIsle(S, isle, islandPlain); ST.fameCheck(S);
+  assert.ok(ST.fameOf(S, islandPlain.id));
+  // a fighter: tabs by kind of title
+  const champ = mk('gamecock', { wins: 12, losses: 1 }); ST.title(champ, 'Champion of Backyard Pit'); ST.fameCheck(S);
+  const ce = ST.fameOf(S, champ.id);
+  assert.ok(ST.fameIn(ce, 'champions') && ST.fameIn(ce, 'fighters') && ST.fameIn(ce, 'records') && ST.fameIn(ce, 'all') && !ST.fameIn(ce, 'sideshow'));
+  assert.ok(ST.fameIn(se, 'sideshow') && !ST.fameIn(se, 'champions'));
+  assert.ok(ST.fameIn(ST.fameOf(S, great.id), 'talents'));
+  assert.deepStrictEqual(ST.FAME_TABS.map((t) => t[0]), ['all', 'champions', 'fighters', 'records', 'sideshow', 'talents', 'retired', 'stories']);
+  assert.strictEqual(ST.fameTabOf('Two heads'), 'stories');
+  // retired standouts: grew old after making a name; a retired bird with only a story is not one
+  assert.ok(!ST.fameIn(ce, 'retired'));
+  const old = (c) => { c.age = ST.pheno(c).lifespan + 1; return c; };
+  old(champ); old(star);
+  const oldFighter = old(mk('gamecock', { wins: 4, losses: 6 })), oldOdd = old(mk('chicken', { wins: 1, losses: 0 })); ST.title(oldOdd, 'A clone of Capitao');
+  ST.fameCheck(S);
+  const oc = ST.fameOf(S, champ.id), os = ST.fameOf(S, star.id), of = ST.fameOf(S, oldFighter.id), oo = ST.fameOf(S, oldOdd.id);
+  assert.ok(oc.retired && oc.titles.includes('Retired champion') && !oc.titles.includes('Retired fighter') && ST.fameIn(oc, 'retired') && ST.fameIn(oc, 'champions'));
+  assert.ok(os.titles.includes('Retired sideshow star') && ST.fameIn(os, 'retired'));
+  assert.ok(of.titles.includes('Retired fighter') && ST.fameIn(of, 'retired') && !ST.fameIn(of, 'fighters'));
+  assert.ok(oo && oo.retired && !ST.fameIn(oo, 'retired'), 'a story alone is not a standout');
+  assert.strictEqual(ST.fameTabOf('Retired fighter'), 'retired');
+  // older saves: island-born birds already at home count as taken; old entries learn whether they were
+  const S2 = ST.create(228), home = ST.addBird(S2, RB.species.make('chicken', S2._rng, { sport: 0 }), { at: 'home' });
+  home.gen = 2; home.origin = 'born';
+  S2.fame.push({ id: 88001, name: 'Away', titles: ['Veteran (10+ wins)'], wins: 10, losses: 0, gen: 3, gone: true, status: 'Set free on day 4', day: 3 });
+  S2.fame.push({ id: 88002, name: 'Stayer', titles: ['Veteran (10+ wins)'], wins: 10, losses: 0, gen: 3, gone: true, status: 'Passed away of old age on Test Isle on day 9', day: 9 });
+  S2.fame.push({ id: 88003, name: 'Pensioner', titles: ['Retired fighter'], wins: 3, losses: 1, gen: 0, gone: true, status: 'Went off in the BFC van on day 8', day: 8 });
+  const L = ST.deserialize(JSON.parse(JSON.stringify(ST.serialize(S2))));
+  assert.ok(L.birds.find((c) => c.id === home.id).taken > 0);
+  const f = (id) => L.fame.find((e) => e.id === id);
+  assert.ok(f(88001).taken > 0 && !f(88002).taken && f(88003).retired);
+  ST.fameCheck(L);
+  assert.ok(ST.fameOf(L, 88001) && !ST.fameOf(L, 88002) && ST.fameIn(ST.fameOf(L, 88003), 'retired'));
+  // older saves: entries that would not get in today are dropped, old titles cleared
+  S.fame.push({ id: 99999, name: 'Old Islander', titles: ['Island dynasty, generation 6'], wins: 0, losses: 0, gen: 6, gone: true, status: 'x', day: 1 });
+  S.fame.push({ id: 99998, name: 'Old Pensioner', titles: ['Retired at Sunset Roost'], wins: 0, losses: 0, gen: 0, origin: 'start', gone: true, status: 'x', day: 1 });
+  S.fame.push({ id: 99997, name: 'Old Fighter', titles: ['Retired at Sunset Roost', 'Veteran (10+ wins)'], wins: 11, losses: 4, gen: 0, gone: true, status: 'x', day: 1 });
+  ST.fameCheck(S);
+  assert.ok(!ST.fameOf(S, 99999) && !ST.fameOf(S, 99998));
+  assert.deepStrictEqual(ST.fameOf(S, 99997).titles.filter((t) => !t.startsWith('Record')), ['Veteran (10+ wins)']);
 });

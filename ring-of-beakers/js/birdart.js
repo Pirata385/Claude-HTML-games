@@ -419,7 +419,7 @@
     }
     const m = pts.length, hx = pts[m - 2], hy = pts[m - 1];
     ctx.lineJoin = 'round'; ctx.lineCap = 'round';
-    ctx.strokeStyle = P.sw.bare || P.bareHead > 0.5 ? c.skin : bodyCol; ctx.lineWidth = P.NT;
+    ctx.strokeStyle = P.sw.bare || P.bareHead > 0.5 ? c.skin : bodyCol; ctx.lineWidth = P.person ? Math.min(P.NT, P.HR * 0.95) : P.NT;
     ctx.beginPath(); ctx.moveTo(pts[0], pts[1]);
     for (let i = 2; i < m; i += 2) ctx.lineTo(pts[i], pts[i + 1]);
     ctx.stroke();
@@ -467,7 +467,11 @@
     ctx.translate(mx, my); ctx.rotate(ang); if (f < 0) ctx.scale(1, -1);
     if (acc.back) drawBackAcc(ctx, acc.back, rx, ry, true);
     if (cl || P.person) {
-      seg(ctx, -TL / 2 + TD * 0.1, 0, TL / 2, 0, TD * 0.95, cl ? cl.shirt : bodyCol);
+      // a person's trunk: rounded at the hips, square at the shoulders, which end where the neck begins
+      const hw = TD * 0.475, x0 = -TL / 2 + TD * 0.1 - hw, x1 = TL / 2, rr0 = hw, rr1 = TD * 0.28;
+      ctx.fillStyle = cl ? cl.shirt : bodyCol;
+      ctx.beginPath(); ctx.moveTo(x1 - rr1, -hw); ctx.arcTo(x1, -hw, x1, -hw + rr1, rr1); ctx.lineTo(x1, hw - rr1); ctx.arcTo(x1, hw, x1 - rr1, hw, rr1);
+      ctx.lineTo(x0 + rr0, hw); ctx.arc(x0 + rr0, 0, hw, Math.PI / 2, Math.PI * 1.5); ctx.closePath(); ctx.fill();
     } else {
       const chestR = ry * (0.9 + 0.16 * P.chest);
       ctx.fillStyle = bodyCol;

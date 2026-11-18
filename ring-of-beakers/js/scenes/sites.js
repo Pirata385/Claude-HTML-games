@@ -413,7 +413,11 @@
         ui.bar(box.x + 58, y + 28, box.w - 62, 12, e.s / top * k, e.me ? pal.coral : pal.teal);
       });
       if (k >= 1) {
-        if (!paid) { paid = true; if (won) { earn(sh.prize); c.bond = Math.min(1, c.bond + 0.04); } else RB.audio.play('lose'); RB.game.save(); }
+        if (!paid) {
+          paid = true; c.shows = (c.shows || 0) + 1; // the Hall of Fame keeps count
+          if (won) { earn(sh.prize); c.bond = Math.min(1, c.bond + 0.04); c.showWins = (c.showWins || 0) + 1; if (c.showWins === 1) ST.note(S, c, 'won its first sideshow contest, the ' + sh.name); } else RB.audio.play('lose');
+          ST.fameCheck(S); RB.game.save();
+        }
         ui.text(won ? c.name + ' wins $' + sh.prize + '!' : c.name + ' did not place first.', box.x + box.w / 2, box.y + box.h - 54, { size: 14, align: 'center', color: won ? pal.teal : pal.ink });
         if (ui.btn(box.x + box.w / 2 - 70, box.y + box.h - 42, 140, 40, 'OK', { key: 'Enter' })) ui.close();
       }

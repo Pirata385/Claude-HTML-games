@@ -14,21 +14,27 @@
       for (let i = 0; i < 70; i++) ctx.fillRect(Math.floor(r() * 256), Math.floor(r() * 256), 1, 1);
       scene.textures.addCanvas('paper-specks', cv);
     }
-    if (!scene.textures.exists('rule')) {
-      const cv = document.createElement('canvas'); cv.width = 8; cv.height = C.GH;
-      const ctx = cv.getContext('2d');
-      ctx.fillStyle = C.INK; ctx.fillRect(0, C.GH - 2, 8, 2);
-      scene.textures.addCanvas('rule', cv);
-    }
+    Paper.ruleTexture(scene, 30);
   }
 
   class Paper {
+    /** Ruled line texture: one device pixel, dotted (1 on / 2 off) so it reads lighter in pure black. */
+    static ruleTexture(scene, period) {
+      period = Math.max(4, Math.round(period));
+      if (scene.textures.exists('rule')) { if (Paper.period === period) return; scene.textures.remove('rule'); }
+      const cv = document.createElement('canvas'); cv.width = 3; cv.height = period;
+      const ctx = cv.getContext('2d');
+      ctx.fillStyle = C.INK; ctx.fillRect(0, period - 1, 1, 1);
+      scene.textures.addCanvas('rule', cv);
+      Paper.period = period;
+    }
     constructor(scene) {
       this.scene = scene;
       makeTextures(scene);
       const W = scene.scale.width, H = scene.scale.height;
       this.specks = scene.add.tileSprite(0, 0, W, H, 'paper-specks').setOrigin(0).setDepth(-100);
-      this.rule = scene.add.tileSprite(0, 0, W, H, 'rule').setOrigin(0).setDepth(1500);
+      this.rule = scene.add.tileSprite(0, 0, W, H, 'rule').setOrigin(0).setDepth(-99);
+      this.zoom = 1;
       this.g = scene.add.graphics().setDepth(2000);
       this.resize(W, H);
     }
@@ -50,11 +56,10 @@
       for (let x = mx + 6 * u; x < W; x += 7 * u) g.fillRect(x, Math.round(H * 0.47), u, u);
       this.marginX = mx;
     }
-    update(p0) {
-      if (!p0) return;
-      const s = p0.scale / 2;
-      this.rule.setTileScale(1, s);
-      this.rule.tilePositionY = -p0.oy / s;
+    /** Ruled lines follow the fixed character grid: one line under every text row. */
+    setCell(cellPx) {
+      if (cellPx !== Paper.period) { Paper.ruleTexture(this.scene, cellPx); this.rule.setTexture('rule'); }
+      this.rule.tilePositionY = 0;
     }
     setVisible(v) { this.specks.visible = v; this.rule.visible = v; this.g.visible = v; }
   }

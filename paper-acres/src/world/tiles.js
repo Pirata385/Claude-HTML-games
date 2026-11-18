@@ -19,36 +19,32 @@
   function def(id, o) { const d = Object.assign({}, DEF, o); if (d.opaque == null) d.opaque = !SEE_THROUGH.has(d.name); TILES[id] = d; }
 
   def(T.AIR, { name: 'air', glyph: () => ' ' });
-  def(T.DIRT, { name: 'dirt', solid: true, tillable: true, glyph(g, x, y, z) {
-    if (!g.solid(x, y - 1, z) && g.get(x, y - 1, z) !== T.WATER) return pick(['=', '=', '-', '='], x, y, z);
-    const r = H(x, y, z) % 24;
-    return r < 15 ? ' ' : r < 20 ? '.' : r < 22 ? ':' : ',';
+  // Natural ground is drawn as an outline: the surface line lives in the air cell above (see airGlyph),
+  // step/cliff sides get '|', ceilings '-', and the inside is nearly empty paper.
+  function groundGlyph(g, x, y, z, dots) {
+    if (!g.solid(x - 1, y, z) || !g.solid(x + 1, y, z)) return g.solid(x, y - 1, z) || !g.solid(x, y + 1, z) ? (g.solid(x, y + 1, z) ? '|' : '|') : '|';
+    if (!g.solid(x, y + 1, z) && y + 1 < g.h) return '-';
+    const r = H(x, y, z) % 60;
+    return r < 60 - dots ? ' ' : r % 2 ? '.' : ',';
+  }
+  def(T.DIRT, { name: 'dirt', solid: true, tillable: true, line: '_', glyph: (g, x, y, z) => groundGlyph(g, x, y, z, 3) });
+  def(T.GRASS, { name: 'grass', solid: true, tillable: true, line: 'grass', glyph: (g, x, y, z) => groundGlyph(g, x, y, z, 2) });
+  def(T.STONE, { name: 'stone', solid: true, line: 'stone', breakable: { tool: 'pickaxe', hp: 6, drop: 'stone' }, glyph(g, x, y, z) {
+    const e = groundGlyph(g, x, y, z, 0);
+    if (e !== ' ') return e;
+    const r = H(x, y, z) % 40;
+    return r < 2 ? '%' : r < 4 ? '.' : ' ';
   } });
-  def(T.GRASS, { name: 'grass', solid: true, tillable: true, glyph(g, x, y, z) {
-    const s = season();
-    if (s === 'winter') return pick(['_', '_', '.', '_', '-'], x, y, z);
-    if (s === 'fall') return pick(['"', ',', '.', "'", '"', ','], x, y, z);
-    return pick(['"', '"', "'", '"', ',', '"', '`'], x, y, z);
-  } });
-  def(T.STONE, { name: 'stone', solid: true, breakable: { tool: 'pickaxe', hp: 6, drop: 'stone' }, glyph(g, x, y, z) {
-    if (!g.solid(x, y - 1, z)) return pick(['^', 'n', '^', 'A'], x, y, z);
-    const r = H(x, y, z) % 20;
-    return r < 3 ? '%' : r < 5 ? '#' : r < 8 ? '=' : r < 12 ? '.' : ' ';
-  } });
-  def(T.BEDROCK, { name: 'bedrock', solid: true, glyph: (g, x, y, z) => pick(['#', '#', '@', '#'], x, y, z) });
+  def(T.BEDROCK, { name: 'bedrock', solid: true, line: '_', glyph: (g, x, y, z) => pick(['=', '-', '=', ' '], x, y, z) });
   def(T.WATER, { name: 'water', water: true, glyph(g, x, y, z) {
     if (g.get(x, y - 1, z) === T.AIR) return '~';
     return pick([' ', ' ', '-', '~', ' ', '.'], x, y, z);
   } });
-  def(T.SAND, { name: 'sand', solid: true, glyph: (g, x, y, z) => (!g.solid(x, y - 1, z) ? '_' : pick(['.', ':', '.', ' ', '.'], x, y, z)) });
+  def(T.SAND, { name: 'sand', solid: true, line: '_', glyph: (g, x, y, z) => { const e = groundGlyph(g, x, y, z, 0); return e !== ' ' ? e : pick(['.', ' ', ' ', '.', ' ', ' '], x, y, z); } });
   def(T.PLANK, { name: 'plank', solid: true, glyph: (g, x, y, z) => metaChar(g, x, y, z, '=') });
   def(T.TRUNK, { name: 'trunk', decor: true, breakable: { tool: 'axe', hp: 10, drop: 'wood' }, glyph: (g, x, y, z) => metaChar(g, x, y, z, '|') });
-  def(T.LEAVES, { name: 'leaves', decor: true, glyph(g, x, y, z) {
-    const s = season();
-    if (s === 'winter') return pick([' ', '.', ' ', '*', ' '], x, y, z);
-    if (s === 'fall') return pick(['&', ' ', '%', '.', '*', ' '], x, y, z);
-    return pick(['&', '@', '%', '*', '&', 'o'], x, y, z);
-  } });
+  // Canopies are painted as outlines (meta char); the inside is blank paper that still hides farther slices.
+  def(T.LEAVES, { name: 'leaves', decor: true, glyph: (g, x, y, z) => metaChar(g, x, y, z, ' ') });
   def(T.DECO, { name: 'deco', decor: true, glyph: (g, x, y, z) => metaChar(g, x, y, z, ' ') });
   def(T.ART, { name: 'art', solid: true, glyph: (g, x, y, z) => metaChar(g, x, y, z, '#') });
   def(T.DOOR, { name: 'door', decor: true, glyph: (g, x, y, z) => metaChar(g, x, y, z, '|') });
@@ -77,7 +73,17 @@
   def(T.FRAGILE, { name: 'cracked rock', solid: true, breakable: { tool: 'bomb', hp: 1, drop: null }, glyph: (g, x, y, z) => pick(['%', 'x', '%'], x, y, z) });
   def(T.GLASS, { name: 'glass', solid: true, glyph: () => ' ' });
 
+  /** Glyph for an AIR cell: the outline of the ground right below it (or nothing). */
+  function airGlyph(g, x, y, z) {
+    const b = TILES[g.get(x, y + 1, z)];
+    if (!b || !b.line || y + 1 >= g.h) return ' ';
+    if (b.line === 'grass') { const r = H(x, y, z, 9) % 9; return r === 0 ? ',' : '_'; }
+    if (b.line === 'stone') { const r = H(x, y, z, 9) % 12; return r === 0 ? '^' : '_'; }
+    return b.line;
+  }
+
   function tileGlyph(g, x, y, z) {
+    if (g.get(x, y, z) === 0) return airGlyph(g, x, y, z);
     const t = TILES[g.get(x, y, z)];
     return t ? t.glyph(g, x, y, z) : '?';
   }
@@ -85,5 +91,6 @@
   PA.T = T;
   PA.TILES = TILES;
   PA.tileGlyph = tileGlyph;
+  PA.airGlyph = airGlyph;
   if (typeof module !== 'undefined' && module.exports) module.exports = { T, TILES, tileGlyph };
 })(typeof window !== 'undefined' ? window : globalThis);

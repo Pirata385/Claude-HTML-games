@@ -64,3 +64,14 @@ test('onChange fires with coordinates', () => {
   g.set(1, 2, 0, T.STONE);
   assert.deepStrictEqual(seen, [[1, 2, 0]]);
 });
+
+test('ground is drawn as an outline: a line in the air cell above, a pipe at step sides', () => {
+  const g = new PA.Grid(10, 10, 1);
+  for (let x = 0; x < 10; x++) for (let y = (x < 5 ? 6 : 5); y < 10; y++) g.set(x, y, 0, T.DIRT, false);
+  assert.strictEqual(PA.airGlyph(g, 2, 5, 0), '_');     // above low ground
+  assert.strictEqual(PA.airGlyph(g, 7, 4, 0), '_');     // above high ground
+  assert.strictEqual(PA.airGlyph(g, 2, 3, 0), ' ');     // open sky
+  assert.strictEqual(PA.tileGlyph(g, 5, 5, 0), '|');    // left side of the step
+  const inner = PA.tileGlyph(g, 7, 8, 0);
+  assert.ok(inner === ' ' || inner === '.' || inner === ',');
+});

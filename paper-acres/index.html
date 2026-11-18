@@ -24,6 +24,20 @@ body { touch-action: none; -webkit-user-select: none; user-select: none; -webkit
 #ui { position: fixed; inset: 0; pointer-events: none; font-size: calc(15px * var(--ui)); }
 #ui > * { pointer-events: auto; }
 .hidden { display: none !important; }
+/* touch overlay: outline only */
+#touch { position: fixed; inset: 0; pointer-events: none; --tb: 1; }
+#touch > *, #touch .tbtns > * { pointer-events: auto; }
+#touch .stick { position: absolute; left: calc(env(safe-area-inset-left) + 26px); bottom: calc(env(safe-area-inset-bottom) + 26px); width: calc(132px * var(--tb)); height: calc(132px * var(--tb)); border: 2px dashed var(--ink); border-radius: 50%; touch-action: none; }
+#touch .knob { position: absolute; left: 50%; top: 50%; width: 40%; height: 40%; margin: -20% 0 0 -20%; border: 2px solid var(--ink); border-radius: 50%; }
+#touch .tbtns { position: absolute; right: calc(env(safe-area-inset-right) + 18px); bottom: calc(env(safe-area-inset-bottom) + 22px); display: grid; grid-template-columns: repeat(2, auto); gap: 10px; align-items: end; pointer-events: none; }
+#touch .tb { width: calc(64px * var(--tb)); height: calc(64px * var(--tb)); border: 2px solid var(--ink); border-radius: 50%; background: none; color: var(--ink); font: 700 calc(14px * var(--tb)) var(--mono); touch-action: none; padding: 0; }
+#touch .tb.big { width: calc(78px * var(--tb)); height: calc(78px * var(--tb)); }
+#touch .tb.small { width: calc(52px * var(--tb)); height: calc(52px * var(--tb)); }
+#touch .tb.on { border-style: dashed; border-width: 3px; }
+#touch .tb.corner { position: absolute; right: calc(env(safe-area-inset-right) + 14px); top: calc(env(safe-area-inset-top) + 64px); width: 46px; height: 46px; border-radius: 8px; }
+#touch.lefty .stick { left: auto; right: calc(env(safe-area-inset-right) + 26px); }
+#touch.lefty .tbtns { right: auto; left: calc(env(safe-area-inset-left) + 18px); }
+body.night #touch .tb, body.night #touch .stick, body.night #touch .knob { border-color: var(--paper); color: var(--paper); }
 #loading { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; font-family: var(--hand); font-size: 28px; background: var(--paper); }
 </style>
 </head>
@@ -41,12 +55,22 @@ body { touch-action: none; -webkit-user-select: none; user-select: none; -webkit
 <script src="src/world/tiles.js"></script>
 <script src="src/world/grid.js"></script>
 <script src="src/world/gen.js"></script>
-<script src="src/render/sliceStack.js"></script>
-<script src="src/render/entities.js"></script>
+<script src="src/ascii/matcher.js"></script>
+<script src="src/render/view.js"></script>
+<script src="src/render/props.js"></script>
+<script src="src/render/worldDraw.js"></script>
+<script src="src/render/ascii.js"></script>
 <script src="src/render/paper.js"></script>
+<script src="src/physics/terrain.js"></script>
+<script src="src/physics/stickman.js"></script>
+<script src="src/physics/player.js"></script>
+<script src="src/systems/input.js"></script>
+<script src="src/ui/touch.js"></script>
 <script src="src/scenes/Game.js"></script>
 <script src="src/scenes/Boot.js"></script>
 <script>
+  PA.Input.init();
+  PA.Touch.init();
   PA.start();
   PA.Bus.on('ready', () => document.getElementById('loading').remove());
 </script>

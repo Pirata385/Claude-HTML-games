@@ -78,3 +78,10 @@ test('glyph frames are unique per char/style/variant and unknown maps to ?', () 
   assert.strictEqual(seen.size, 5 * 9);
   assert.strictEqual(G.frame('é', 0, 0), G.frame('?', 0, 0));
 });
+
+test('atlas has the round head glyph and paper/ink box frames', () => {
+  const G = PA.Glyphs;
+  assert.notStrictEqual(G.frame('\u25CB', 1, 0), G.frame('?', 1, 0));
+  assert.ok(Number.isInteger(G.box('paper')) && Number.isInteger(G.box('ink')));
+  assert.notStrictEqual(G.box('paper'), G.box('ink'));
+});

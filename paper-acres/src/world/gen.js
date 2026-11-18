@@ -128,6 +128,7 @@
     /* ---- buildings: solid walls in their slices, drawn by the building prop ---- */
     const building = (id, x0, w, zf, h, o) => {
       const depth = o.depth || 2;
+      h = Math.round(h * 1.5); // sized for the 1.5x stickman
       for (let z = zf; z < zf + depth; z++) {
         flat(x0 - 1, x0 + w, z, GY);
         for (let x = x0; x < x0 + w; x++) for (let y = GY - h; y < GY; y++) g.put(x, y, z, T.WALL, 0, false);

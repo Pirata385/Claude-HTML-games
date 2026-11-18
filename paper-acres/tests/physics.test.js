@@ -27,18 +27,3 @@ test('collision bits: slice and actor bits separate', () => {
   assert.notStrictEqual(PA.sliceBit(3) & PA.actorBit(3), PA.sliceBit(3));
 });
 
-test('walk pose keeps feet on the ground at contact phases', () => {
-  for (const t of [0, 0.5]) {
-    const j = PA.Stick.pose('walk', t, {});
-    const lowest = Math.max(j.footL.y, j.footR.y);
-    assert.ok(Math.abs(lowest) <= 2, `phase ${t} lowest foot ${lowest}`);
-    assert.ok(j.footL.y > -3 && j.footR.y > -3);
-    assert.ok(j.head.y < -38 && j.head.y > -50);
-  }
-});
-
-test('toSegs returns limb segments with finite coordinates', () => {
-  const segs = PA.Stick.toSegs(PA.Stick.pose('idle', 0, {}));
-  assert.ok(segs.length >= 9);
-  for (const s of segs) for (const k of ['x1', 'y1', 'x2', 'y2']) assert.ok(Number.isFinite(s[k]));
-});

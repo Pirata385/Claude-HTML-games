@@ -3,28 +3,39 @@ const test = require('node:test');
 const assert = require('node:assert');
 const { load } = require('./load');
 const PA = load('src/core/config.js', 'src/core/util.js', 'src/physics/stickman.js');
-const C = PA.C;
+const S = PA.Stick;
+const len = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
+const KINDS = ['idle', 'walk', 'run', 'jump', 'fall', 'land', 'crouch', 'climb', 'swim', 'swing', 'hurt', 'wave', 'talk'];
 
-test('figure fits a 3x3 character box standing on the feet line', () => {
-  for (const kind of ['idle', 'walk', 'run', 'jump', 'fall', 'climb', 'swim', 'swing', 'hurt']) {
-    for (let t = 0; t < 1; t += 0.25) {
-      const f = PA.Stick.figure(kind, t, { progress: t });
-      for (const s of f.segs) for (const [x, y] of [[s[0], s[1]], [s[2], s[3]]]) {
-        assert.ok(Math.abs(x) <= 1.5 * C.CELL_W + 4, `${kind} x ${x}`);
-        assert.ok(y <= 1 && y >= -3 * C.CELL_H - (kind === 'jump' || kind === 'climb' ? 6 : 0), `${kind} y ${y}`);
-      }
-      assert.ok(f.head.y < -2 * C.CELL_H && f.head.y > -3 * C.CELL_H, `${kind} head row`);
-    }
+test('every pose keeps bone lengths (a real skeleton, not a stamp)', () => {
+  for (const k of KINDS) for (let t = 0; t < 1; t += 0.125) {
+    const j = S.rig(k, t, { progress: t });
+    assert.ok(Math.abs(len(j.hip, j.kneeL) - S.BONES.thigh) < 0.6, `${k} thigh`);
+    assert.ok(Math.abs(len(j.kneeR, j.footR) - S.BONES.shin) < 0.6 || len(j.hip, j.footR) > S.BONES.thigh + S.BONES.shin - 1, `${k} shin`);
+    assert.ok(Math.abs(len(j.chest, j.elbowL) - S.BONES.upper) < 0.6, `${k} upper arm`);
+    for (const p of Object.values(j)) if (typeof p === 'object') assert.ok(Number.isFinite(p.x) && Number.isFinite(p.y));
   }
 });
 
-test('idle: arms reach the side cells, legs spread to the side cells', () => {
-  const f = PA.Stick.figure('idle', 0, {});
-  const xs = f.segs.flatMap((s) => [s[0], s[2]]);
-  assert.ok(Math.min(...xs) <= -C.CELL_W + 1 && Math.max(...xs) >= C.CELL_W - 1);
+test('walking: feet touch the ground at the contact phases and the body bobs', () => {
+  for (const t of [0, 0.5]) {
+    const j = S.rig('walk', t, {});
+    assert.ok(Math.max(j.footL.y, j.footR.y) > -1.5, 'a foot is planted');
+  }
+  const hips = [0, 0.25, 0.5, 0.75].map((t) => S.rig('walk', t, {}).hip.y);
+  assert.ok(Math.max(...hips) - Math.min(...hips) > 0.8, 'hip bob');
+  const a = S.rig('walk', 0.1, {}), b = S.rig('walk', 0.35, {});
+  assert.ok(Math.abs(a.handL.x - b.handL.x) > 2, 'arms swing');
 });
 
-test('facing left mirrors x', () => {
-  const r = PA.Stick.figure('swing', 0.5, { progress: 0.5 }, 1), l = PA.Stick.figure('swing', 0.5, { progress: 0.5 }, -1);
-  assert.strictEqual(l.segs[0][0], -r.segs[0][0]);
+test('the head sits above the chest and the figure is about three cells tall', () => {
+  const j = S.rig('idle', 0, {});
+  assert.ok(j.head.y < j.chest.y - 4);
+  assert.ok(j.head.y - S.HEAD_R > -62 && j.head.y - S.HEAD_R < -52);
+});
+
+test('blend moves joints toward the target pose', () => {
+  const a = S.rig('idle', 0, {}), b = S.rig('jump', 0, {});
+  const m = S.blend(a, b, 0.5);
+  assert.ok(Math.abs(m.handL.y - (a.handL.y + b.handL.y) / 2) < 1e-6);
 });

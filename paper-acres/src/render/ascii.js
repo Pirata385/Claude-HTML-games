@@ -96,9 +96,25 @@
     /** Convert the buffer to glyphs. */
     end(now) {
       const M = PA.Matcher, SX = M.SX, SY = M.SY, cols = this.cols, rows = this.rows;
-      const bw = this.canvas.width;
-      const data = this.ctx.getImageData(0, 0, bw, this.canvas.height).data;
+      const bw = this.canvas.width, bh = this.canvas.height;
+      const data = this.ctx.getImageData(0, 0, bw, bh).data;
       const thr = this.threshold, boldAt = this.boldAt;
+      // darkness map + ridge thinning: a sample is ink only if it is the darkest across the stroke
+      // (strict on one side so a line split evenly over two samples keeps exactly one of them)
+      const N = bw * bh;
+      if (!this.dk || this.dk.length !== N) { this.dk = new Uint8Array(N); this.on = new Uint8Array(N); }
+      const dk = this.dk, onm = this.on;
+      for (let i = 0, o = 0; i < N; i++, o += 4) dk[i] = 255 - data[o];
+      for (let y = 0; y < bh; y++) {
+        const row = y * bw;
+        for (let x = 0; x < bw; x++) {
+          const i = row + x, d = dk[i];
+          if (d <= thr) { onm[i] = 0; continue; }
+          const L = x > 0 ? dk[i - 1] : 0, Rr = x < bw - 1 ? dk[i + 1] : 0;
+          const U = y > 0 ? dk[i - bw] : 0, D = y < bh - 1 ? dk[i + bw] : 0;
+          onm[i] = ((d > L && d >= Rr) || (d > U && d >= D)) ? 1 : 0;
+        }
+      }
       const stampMap = new Map();
       const masked = (s) => this.masks.some((m) => s.c >= m[0] && s.c <= m[2] && s.r >= m[1] && s.r <= m[3]);
       for (const s of this.stamps) {
@@ -116,12 +132,11 @@
         for (let c = 0; c < cols; c++) {
           const idx = r * cols + c;
           let key = 0, sum = 0, on = 0;
-          const base = (r * SY * bw + c * SX) * 4;
+          const base = r * SY * bw + c * SX;
           for (let yy = 0; yy < SY; yy++) {
-            let o = base + yy * bw * 4;
-            for (let xx = 0; xx < SX; xx++, o += 4) {
-              const d = 255 - data[o];
-              if (d > thr) { key |= 1 << (yy * SX + xx); sum += d; on++; }
+            let i = base + yy * bw;
+            for (let xx = 0; xx < SX; xx++, i++) {
+              if (onm[i]) { key |= 1 << (yy * SX + xx); sum += dk[i]; on++; }
             }
           }
           let ch = key ? M.classify(key) : ' ';

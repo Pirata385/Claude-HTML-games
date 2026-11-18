@@ -80,9 +80,6 @@
             thin.moveTo(x * CW + 1, y * CH + 5); thin.lineTo(x * CW + 11, y * CH + 5);
             thin.moveTo(x * CW + 1, y * CH + 12); thin.lineTo(x * CW + 11, y * CH + 12);
             if (t === T.SOIL_WET) { thin.moveTo(x * CW + 1, y * CH + 8.5); thin.lineTo(x * CW + 11, y * CH + 8.5); thin.moveTo(x * CW + 1, y * CH + 16); thin.lineTo(x * CW + 11, y * CH + 16); }
-          } else if (!L && !R && !B && !exposed) {
-            const dens = t === T.STONE ? 16 : 48;
-            if (h % dens === 0) { dots.moveTo(x * CW + 7.5, y * CH + 11); dots.arc(x * CW + 6, y * CH + 11, 1.5, 0, Math.PI * 2); }
           }
           if (d.style === 2) { // ore: a small filled nugget
             dots.moveTo(x * CW + 9, y * CH + 10); dots.arc(x * CW + 6, y * CH + 10, 3, 0, Math.PI * 2);

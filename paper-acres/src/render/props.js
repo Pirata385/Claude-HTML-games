@@ -141,10 +141,10 @@
     outline(ctx, st, () => { ctx.rect(x0 + 1.5, top + 1.5, x1 - x0 - 3, base - top - 1.5); });
     // door (two cells) with a knob
     const dx = b.door * C.CELL_W;
-    ctx.beginPath(); ctx.rect(dx + 2, base - 46, 2 * C.CELL_W - 4, 46); ctx.stroke();
-    ctx.beginPath(); ctx.arc(dx + 2 * C.CELL_W - 8, base - 22, 1.6, 0, Math.PI * 2); ctx.fillStyle = st.ink; ctx.fill();
+    ctx.beginPath(); ctx.rect(dx + 1, base - 74, 2 * C.CELL_W - 2, 74); ctx.stroke();
+    ctx.beginPath(); ctx.arc(dx + 2 * C.CELL_W - 7, base - 36, 1.8, 0, Math.PI * 2); ctx.fillStyle = st.ink; ctx.fill();
     // windows with a cross, spread on both sides of the door
-    const n = b.windows, wy = top + (base - top) * 0.32, ws = 18;
+    const n = b.windows, wy = top + (base - top) * 0.22, ws = 26;
     const slots = [];
     for (let i = 0; i < n; i++) { slots.push(x0 + (dx - x0) * (i + 1) / (n + 1)); slots.push(dx + 2 * C.CELL_W + (x1 - dx - 2 * C.CELL_W) * (i + 1) / (n + 1)); }
     ctx.beginPath();

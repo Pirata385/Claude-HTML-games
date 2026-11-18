@@ -1,162 +1,160 @@
-/* Procedural stickman: joint positions in world px relative to the feet centre (y up is negative), facing right. */
+/* Stickman rig: a hand-drawn stick figure with real joints (IK knees and elbows), animated procedurally.
+ * Coordinates are world px relative to the point between the feet (y up is negative), facing right.
+ * The ASCII renderer converts the drawing; nothing here knows about characters. */
 (function (root) {
   'use strict';
   const PA = root.PA = root.PA || {};
   const TAU = Math.PI * 2;
-  const THIGH = 11.5, SHIN = 11.5, UPPER = 8, FORE = 8;
-  const HIP = -22, NECK = -36, HEAD = -42;
+  const BONES = { thigh: 14, shin: 14, upper: 10, fore: 10, spine: 17, neck: 3 };
+  const HEAD_R = 6;
+  const HIP_Y = -27.5;
 
   const v = (x, y) => ({ x, y });
-  /** 2-bone IK: joint between a and b with given bone lengths, bending toward side (+1 forward). */
+  /** Two-bone IK: the middle joint between a and b, bending toward `side` (+1 = the figure's front). */
   function ik(a, b, l1, l2, side) {
     let dx = b.x - a.x, dy = b.y - a.y, d = Math.hypot(dx, dy);
-    const max = l1 + l2 - 0.01;
-    if (d > max) { b = v(a.x + dx / d * max, a.y + dy / d * max); dx = b.x - a.x; dy = b.y - a.y; d = max; }
+    const max = l1 + l2 - 0.02;
+    if (d > max) { dx *= max / d; dy *= max / d; d = max; }
     if (d < 1e-3) return v(a.x + side * l1, a.y);
     const along = (l1 * l1 - l2 * l2 + d * d) / (2 * d);
     const h = Math.sqrt(Math.max(0, l1 * l1 - along * along));
     const ux = dx / d, uy = dy / d;
+    // perpendicular pointing to the figure's front (+x) when the limb hangs down
     return v(a.x + ux * along - uy * h * side, a.y + uy * along + ux * h * side);
   }
-  function limb(a, end, l1, l2, side) { const mid = ik(a, end, l1, l2, side); return [mid, end]; }
+  /** Clamp an end effector so the limb can reach it. */
+  function reach(a, b, l) { const d = Math.hypot(b.x - a.x, b.y - a.y); return d <= l ? b : v(a.x + (b.x - a.x) / d * l, a.y + (b.y - a.y) / d * l); }
 
-  function build(hip, neck, footL, footR, handL, handR, legSide = 1, armSide = -1) {
-    const [kneeL] = limb(hip, footL, THIGH, SHIN, legSide);
-    const [kneeR] = limb(hip, footR, THIGH, SHIN, legSide);
-    const sh = v(neck.x, neck.y + 2);
-    const [elbowL] = limb(sh, handL, UPPER, FORE, armSide);
-    const [elbowR] = limb(sh, handR, UPPER, FORE, armSide);
-    const head = v(neck.x + (neck.x - hip.x) * 0.35, neck.y - 6);
-    return { head, neck, hip, kneeL, footL, kneeR, footR, shoulder: sh, elbowL, handL, elbowR, handR };
+  /** Assemble a full pose from the hip, a lean, foot targets and hand targets. */
+  function pose(hip, lean, footL, footR, handL, handR, o) {
+    const opt = o || {};
+    const chest = v(hip.x + lean, hip.y - Math.sqrt(Math.max(1, BONES.spine * BONES.spine - lean * lean)));
+    const legL = BONES.thigh + BONES.shin, armL = BONES.upper + BONES.fore;
+    footL = reach(hip, footL, legL); footR = reach(hip, footR, legL);
+    handL = reach(chest, handL, armL); handR = reach(chest, handR, armL);
+    const kneeL = ik(hip, footL, BONES.thigh, BONES.shin, -1);
+    const kneeR = ik(hip, footR, BONES.thigh, BONES.shin, -1);
+    const elbowL = ik(chest, handL, BONES.upper, BONES.fore, opt.elbows || 1);
+    const elbowR = ik(chest, handR, BONES.upper, BONES.fore, opt.elbows || 1);
+    const tilt = opt.headTilt || 0;
+    const neckDir = Math.atan2(chest.y - hip.y, chest.x - hip.x) + tilt;
+    const head = v(chest.x + Math.cos(neckDir) * (BONES.neck + HEAD_R), chest.y + Math.sin(neckDir) * (BONES.neck + HEAD_R));
+    return { hip, chest, head, kneeL, footL, kneeR, footR, elbowL, handL, elbowR, handR, bend: opt.bend || 0 };
   }
 
-  const POSES = {
+  const RIGS = {
     idle(t) {
-      const b = Math.sin(t * TAU) * 0.6;
-      return build(v(0, HIP + b * 0.3), v(0, NECK + b), v(-4, 0), v(4, 0), v(-5, -19 + b), v(5, -19 + b));
+      const b = Math.sin(t * TAU);
+      const hip = v(0, HIP_Y + b * 0.4);
+      return pose(hip, 0.6, v(-7, 0), v(7, 0), v(-11, -24 + b * 0.8), v(11.5, -24 + b * 0.8), { bend: 1.5 });
     },
     walk(t, p) {
-      const a = (p.stride || 7), lift = p.lift || 4;
-      const c = Math.cos(t * TAU), s = Math.sin(t * TAU);
-      const fL = v(a * c, -lift * Math.max(0, -s)), fR = v(-a * c, -lift * Math.max(0, s));
-      const bob = -Math.abs(s) * 1.2;
-      const lean = p.lean || 0;
-      const hip = v(0, HIP + bob), neck = v(lean, NECK + bob);
-      return build(hip, neck, fL, fR, v(-a * c * 0.7 + lean, -20 + bob), v(a * c * 0.7 + lean, -20 + bob));
+      const S = p.stride || 10, L = p.lift || 6, ph = t * TAU;
+      const c = Math.cos(ph), s = Math.sin(ph);
+      const footL = v(S * c, -L * Math.max(0, -s)), footR = v(-S * c, -L * Math.max(0, s));
+      const hip = v(0, HIP_Y + 1.6 * Math.abs(c) - 0.6);
+      const lean = p.lean != null ? p.lean : 2.5;
+      const A = p.arm || 11;
+      const handL = v(lean - A * c - 3, -24 + Math.abs(c) * 3), handR = v(lean + A * c + 3, -24 + Math.abs(c) * 3);
+      return pose(hip, lean, footL, footR, handL, handR, { bend: 2 });
     },
-    run(t) { return POSES.walk(t, { stride: 10, lift: 7, lean: 3 }); },
-    jump() { return build(v(0, HIP + 2), v(1, NECK + 2), v(-3, -5), v(5, -3), v(-7, -42), v(8, -41)); },
-    fall() { return build(v(0, HIP), v(0, NECK), v(-7, -1), v(6, -2), v(-12, -36), v(12, -36)); },
+    run(t) {
+      const ph = t * TAU, c = Math.cos(ph), s = Math.sin(ph);
+      const footL = v(13 * c, -9 * Math.max(0, -s) - 1), footR = v(-13 * c, -9 * Math.max(0, s) - 1);
+      const hip = v(2, HIP_Y + 2.4 * Math.abs(c) - 0.5);
+      const lean = 7;
+      // pumping arms, elbows bent at ~90 degrees
+      const handL = v(2 + lean - 9 * c, -33 - 3 * s), handR = v(2 + lean + 9 * c, -33 + 3 * s);
+      return pose(hip, lean, footL, footR, handL, handR, { elbows: -1, bend: 3 });
+    },
+    crouch() { return pose(v(0, HIP_Y + 7), 4, v(-6, 0), v(6, 0), v(-4, -18), v(10, -20), { bend: 4 }); },
+    jump(t) {
+      const s = Math.sin(t * TAU) * 1.5;
+      return pose(v(0, HIP_Y), 0.5, v(-7, -8 + s), v(9, -4), v(-11, -61), v(12, -60 + s), { headTilt: -0.15 });
+    },
+    fall(t) {
+      const s = Math.sin(t * TAU * 2) * 3;
+      return pose(v(0, HIP_Y), -0.5, v(-7, 0), v(8, -3), v(-15, -50 + s), v(15, -52 - s));
+    },
+    land() { return pose(v(0, HIP_Y + 8), 5, v(-7, 0), v(7, 0), v(-12, -14), v(14, -16), { bend: 5 }); },
     climb(t) {
       const s = Math.sin(t * TAU);
-      return build(v(0, HIP), v(0, NECK), v(-3, -2 - s * 3), v(3, -2 + s * 3), v(-4, -44 + s * 4), v(4, -44 - s * 4), 1, 1);
+      return pose(v(0, HIP_Y), 0, v(-4, -3 - s * 4), v(4, -3 + s * 4), v(-4, -60 + s * 5), v(4, -60 - s * 5), { elbows: -1 });
     },
     swim(t) {
       const s = Math.sin(t * TAU), c = Math.cos(t * TAU);
-      return build(v(0, HIP + 6), v(4, NECK + 8), v(-8, -2 + s * 3), v(-6, -6 - s * 3), v(12 + c * 4, NECK + 4 + s * 4), v(10 - c * 4, NECK + 8 - s * 3));
+      const hip = v(-6, -22);
+      const j = pose(hip, 13, v(-26, -18 + s * 4), v(-25, -24 - s * 4), v(20 + c * 6, -38 + s * 5), v(18 - c * 6, -30 - s * 5));
+      return j;
     },
-    /** Tool/weapon swing: p.progress 0..1, p.aim angle (rad, 0 = forward). Right hand sweeps an arc. */
-    swing(t, p) {
-      const pr = p.progress || 0, base = p.aim != null ? p.aim : 0.4;
-      const a = base - 1.9 + pr * 2.8;
-      const sh = v(1, NECK + 2);
-      const hand = v(sh.x + Math.cos(a) * 15, sh.y + Math.sin(a) * 15);
-      return build(v(0, HIP), v(1, NECK), v(-5, 0), v(6, 0), v(-6, -20), hand, 1, -1);
-    },
-    sit() { return build(v(0, -12), v(0, -27), v(8, 0), v(10, 0), v(6, -14), v(8, -15)); },
-    sleep() { return build(v(-12, -3), v(8, -4), v(-24, -2), v(-23, -1), v(0, -2), v(2, -3)); },
-    hurt(t) { const s = Math.sin(t * TAU * 3) * 1.5; return build(v(-2, HIP), v(-6 + s, NECK + 2), v(-6, 0), v(4, 0), v(-12, -30), v(-4, -40)); },
-    wave(t) { const s = Math.sin(t * TAU * 2); return build(v(0, HIP), v(0, NECK), v(-4, 0), v(4, 0), v(-5, -19), v(8 + s * 3, -46)); },
-  };
-
-  /* ---- Full-size 3x3 ASCII sprite (facing right); the game draws the player and NPCs with these. ---- */
-  const H = '\u25CB';
-  const SPRITES = {
-    idle: [[` ${H} `, '/|\\', '/ \\']],
-    walk: [[` ${H} `, '/|\\', '/ \\'], [` ${H} `, '/|\\', ' |\\'], [` ${H} `, '/|\\', ' | '], [` ${H} `, '/|\\', '/| ']],
-    run: [[` ${H} `, '-|\\', '/ >'], [` ${H} `, '/|-', ' |\\'], [` ${H} `, '-|\\', ' |>'], [` ${H} `, '/|-', '/| ']],
-    jump: [[` ${H} `, '\\|/', '/ \\']],
-    fall: [[` ${H} `, '\\|/', '| |']],
-    climb: [[` ${H} `, '\\|/', '/ \\'], [` ${H} `, '\\|/', ' | ']],
-    swim: [[` ${H} `, '\\|/', '~~~'], [` ${H} `, '/|\\', '~~~']],
-    swing: [[` ${H} `, '/|_', '/ \\']],
-    hurt: [[` ${H} `, '\\|/', '| \\'], [`  ${H}`, ' \\|', '/ \\']],
-    sit: [[` ${H} `, '/|\\', ' |_']],
-    wave: [[` ${H}/`, '/| ', '/ \\'], [` ${H}|`, '/| ', '/ \\']],
-    sleep: [['   ', `${H}__ `, '   ']],
-    talk: [[` ${H} `, '/|\\', '/ \\'], [` ${H} `, '/|-', '/ \\']],
-  };
-  const MIRROR = { '/': '\\', '\\': '/', '(': ')', ')': '(', '<': '>', '>': '<', '[': ']', ']': '[', '{': '}', '}': '{', 'b': 'd', 'd': 'b', 'p': 'q', 'q': 'p' };
-  function mirror(rows) { return rows.map((r) => r.split('').reverse().map((c) => MIRROR[c] || c).join('')); }
-  function sprite(kind, t, facing) {
-    const frames = SPRITES[kind] || SPRITES.idle;
-    const f = frames[Math.floor(((t % 1) + 1) % 1 * frames.length) % frames.length];
-    return facing < 0 ? mirror(f) : f.slice();
-  }
-
-  /* ---- ASCII-friendly vector figure: 3x3 character cells (12x20 px each), feet on y=0, facing right.
-   * Limbs start near cell boundaries so the converted result reads like  o / /|\ / / \ . ---- */
-  const TAU2 = Math.PI * 2;
-  // Limbs begin at the edges of the centre column (x = +-7) so side cells get clean / and \ strokes.
-  const legs = (fl, fr, liftL, liftR) => {
-    const leg = (fx, lift) => (Math.abs(fx) < 5 ? [1.5 + fx * 0.3, -19, 1.5 + fx, -1 - lift] : [Math.sign(fx) * 6, -19, fx + Math.sign(fx) * 1.5, -1 - lift]);
-    return [leg(fl, liftL), leg(fr, liftR)];
-  };
-  const FIG = {
-    idle() { return { segs: [[1.5, -39, 1.5, -21], [-5, -38, -16, -23], [5, -38, 16, -23], ...legs(-15, 15, 0, 0)] }; },
-    walk(t) {
-      const c = Math.cos(t * TAU2), sn = Math.sin(t * TAU2);
-      return { segs: [[1.5, -39, 1.5, -21], [-5, -38, -16, -23], [5, -38, 16, -23], ...legs(-15 * c, 15 * c, 4 * Math.max(0, -sn), 4 * Math.max(0, sn))] };
-    },
-    run(t) {
-      const c = Math.cos(t * TAU2), sn = Math.sin(t * TAU2);
-      return { segs: [[3, -39, 1.5, -21], [5, -38, 16, -30 + 5 * c], [-5, -38, -15, -27 - 5 * c], ...legs(-16 * c, 16 * c, 7 * Math.max(0, -sn), 7 * Math.max(0, sn))] };
-    },
-    jump() { return { segs: [[1.5, -39, 1.5, -22], [-5, -40, -15, -57], [5, -40, 15, -57], ...legs(-12, 12, 6, 6)] }; },
-    fall() { return { segs: [[1.5, -39, 1.5, -21], [-5, -40, -16, -54], [5, -40, 16, -54], ...legs(-14, 15, 0, 2)] }; },
-    climb(t) {
-      const sn = Math.sin(t * TAU2);
-      return { segs: [[1.5, -39, 1.5, -21], [-5, -40, -9, -56 + sn * 3], [5, -40, 9, -56 - sn * 3], ...legs(-9, 9, 3 + sn * 3, 3 - sn * 3)] };
-    },
-    swim(t) {
-      const sn = Math.sin(t * TAU2);
-      return { segs: [[8, -34, -6, -26], [7, -33, 16, -38 + sn * 5], [7, -33, 15, -24 - sn * 4], [-6, -26, -16, -21 + sn * 4], [-6, -26, -16, -31 - sn * 4]], head: [13, -44] };
-    },
+    /** Tool/weapon swing: p.progress 0..1, p.aim (rad, 0 = straight ahead). */
     swing(t, p) {
       const pr = PA.U.clamp(p.progress || 0, 0, 1), base = p.aim != null ? p.aim : 0.35;
-      const a = base - 2.0 + pr * 2.7;
-      const hand = [3 + Math.cos(a) * 15, -38 + Math.sin(a) * 15];
-      return { segs: [[1.5, -39, 1.5, -21], [4, -38, hand[0], hand[1]], [-5, -38, -16, -23], ...legs(-15, 14, 0, 0)], hand };
+      const a = base - 2.2 + PA.U.smooth(pr) * 3.0;
+      const lean = -2 + pr * 7;
+      const hip = v(0, HIP_Y + pr * 2);
+      const chest = v(lean, hip.y - BONES.spine);
+      const handR = v(chest.x + Math.cos(a) * 19, chest.y + Math.sin(a) * 19);
+      const j = pose(hip, lean, v(-9, 0), v(10, 0), v(-12, -30), handR, { elbows: 1 });
+      return j;
     },
-    hurt() { return { segs: [[-1.5, -39, 1.5, -21], [-5, -40, -16, -52], [5, -38, 15, -30], ...legs(-15, 11, 0, 0)], head: [-4, -46.7] }; },
-    wave(t) { const sn = Math.sin(t * TAU2 * 2); return { segs: [[1.5, -39, 1.5, -21], [-5, -38, -16, -23], [5, -40, 13 + sn * 3, -57], ...legs(-15, 15, 0, 0)] }; },
-    sit() { return { segs: [[0, -30, 0, -12], [-5, -29, -14, -16], [5, -29, 14, -16], [2, -12, 15, -12], [15, -12, 16, -1]], head: [0, -37] }; },
+    hurt(t) {
+      const s = Math.sin(t * TAU * 3) * 2;
+      return pose(v(-1, HIP_Y), -6, v(-7, 0), v(7, -2), v(-16, -46 + s), v(10, -48 - s), { headTilt: 0.35 });
+    },
+    wave(t) { const s = Math.sin(t * TAU * 2); return pose(v(0, HIP_Y), 0.5, v(-7, 0), v(7, 0), v(-11, -24), v(12 + s * 4, -58), { elbows: -1 }); },
+    talk(t) { const s = Math.sin(t * TAU * 2); return pose(v(0, HIP_Y), 1, v(-7, 0), v(7, 0), v(-11, -24), v(13, -34 + s * 3), { elbows: -1 }); },
+    sit() { return pose(v(-2, -14), 1.5, v(14, 0), v(16, 0), v(8, -16), v(10, -16)); },
   };
-  function figure(kind, t, p, facing = 1) {
-    const f = (FIG[kind] || FIG.idle)(t || 0, p || {});
-    const m = facing < 0 ? -1 : 1;
-    const head = f.head || [0, -46.7]; // centred in the top cell; torso sits on a sample column (x = 1.5)
-    return {
-      segs: f.segs.map((q) => [q[0] * m, q[1], q[2] * m, q[3]]),
-      head: { x: head[0] * m, y: head[1], r: 5, rx: 4.6, ry: 5.2 },
-      hand: f.hand ? { x: f.hand[0] * m, y: f.hand[1] } : null,
-    };
+
+  function rig(kind, t, p) { return (RIGS[kind] || RIGS.idle)(t || 0, p || {}); }
+
+  function blend(a, b, k) {
+    if (!a) return b;
+    const out = {};
+    for (const key in b) {
+      if (typeof b[key] === 'number') { out[key] = b[key]; continue; }
+      const A = a[key] || b[key];
+      out[key] = v(A.x + (b[key].x - A.x) * k, A.y + (b[key].y - A.y) * k);
+    }
+    return out;
   }
 
-  function pose(kind, t, p) { return (POSES[kind] || POSES.idle)(t, p || {}); }
-
-  function toSegs(j, facing = 1) {
-    const f = (q) => ({ x: q.x * facing, y: q.y });
-    const L = (a, b) => { const A = f(a), B = f(b); return { x1: A.x, y1: A.y, x2: B.x, y2: B.y }; };
-    return [
-      L(j.neck, j.hip),
-      L(j.hip, j.kneeL), L(j.kneeL, j.footL),
-      L(j.hip, j.kneeR), L(j.kneeR, j.footR),
-      L(j.shoulder, j.elbowL), L(j.elbowL, j.handL),
-      L(j.shoulder, j.elbowR), L(j.elbowR, j.handR),
-    ];
+  /** Build the figure's path (limbs, curved spine, little feet) into ctx, mirrored by facing. */
+  function tracePath(ctx, j, f) {
+    const X = (q) => q.x * f;
+    const limb = (a, b, c) => { ctx.moveTo(X(a), a.y); ctx.lineTo(X(b), b.y); ctx.lineTo(X(c), c.y); };
+    // spine: a gentle curve that bows backward when leaning
+    const mx = (j.hip.x + j.chest.x) / 2 - (j.bend || 0) * 0.6, my = (j.hip.y + j.chest.y) / 2;
+    ctx.moveTo(X(j.hip), j.hip.y); ctx.quadraticCurveTo(mx * f, my, X(j.chest), j.chest.y);
+    limb(j.hip, j.kneeL, j.footL); limb(j.hip, j.kneeR, j.footR);
+    limb(j.chest, j.elbowL, j.handL); limb(j.chest, j.elbowR, j.handR);
+    // feet: short strokes pointing forward
+    ctx.moveTo(X(j.footL), j.footL.y); ctx.lineTo((j.footL.x + 3.5) * f, j.footL.y);
+    ctx.moveTo(X(j.footR), j.footR.y); ctx.lineTo((j.footR.x + 3.5) * f, j.footR.y);
+    // neck
+    const nx = j.chest.x + (j.head.x - j.chest.x) * 0.35, ny = j.chest.y + (j.head.y - j.chest.y) * 0.35;
+    ctx.moveTo(X(j.chest), j.chest.y); ctx.lineTo(nx * f, ny);
   }
 
-  PA.Stick = { pose, toSegs, ik, POSES, HEIGHT: 46, sprite, mirror, SPRITES, HEAD: H, figure, FIG };
+  /** Draw the figure: paper halo first (so scenery never cuts through it), then ink. */
+  function draw(ctx, j, facing, st) {
+    const f = facing < 0 ? -1 : 1;
+    ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+    if (st.halo) {
+      // a blank-paper aura around the whole figure: nothing behind it may cut through the drawing
+      let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity;
+      for (const k in j) { const q = j[k]; if (typeof q !== 'object') continue; x0 = Math.min(x0, q.x * f); x1 = Math.max(x1, q.x * f); y0 = Math.min(y0, q.y); y1 = Math.max(y1, q.y); }
+      y0 = Math.min(y0, j.head.y - HEAD_R);
+      const cx = (x0 + x1) / 2, cy = (y0 + y1) / 2, rx = (x1 - x0) / 2 + st.halo, ry = (y1 - y0) / 2 + st.halo;
+      ctx.fillStyle = st.paper; ctx.beginPath(); ctx.ellipse(cx, cy, rx * 1.15, ry * 1.08, 0, 0, TAU); ctx.fill();
+    }
+    ctx.strokeStyle = st.ink; ctx.lineWidth = st.lw;
+    ctx.beginPath(); tracePath(ctx, j, f);
+    ctx.moveTo(j.head.x * f + HEAD_R, j.head.y); ctx.arc(j.head.x * f, j.head.y, HEAD_R, 0, TAU);
+    ctx.stroke();
+  }
+
+  PA.Stick = { rig, blend, draw, ik, BONES, HEAD_R, RIGS, SCALE: 1.5 }; // drawn 1.5x: ~9 character rows tall
   if (typeof module !== 'undefined' && module.exports) module.exports = PA.Stick;
 })(typeof window !== 'undefined' ? window : globalThis);

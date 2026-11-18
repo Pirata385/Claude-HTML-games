@@ -41,6 +41,35 @@ body.night #touch .tb, body.night #touch .stick, body.night #touch .knob { borde
 #toasts { position: fixed; left: 50%; bottom: calc(env(safe-area-inset-bottom) + 110px); transform: translateX(-50%); display: flex; flex-direction: column; align-items: center; gap: 6px; pointer-events: none; }
 .toast { background: var(--paper); color: var(--ink); border: 2px solid var(--ink); padding: 6px 14px; font: 700 calc(15px * var(--ui)) var(--mono); transition: opacity .3s; max-width: 80vw; text-align: center; }
 .toast.out { opacity: 0; }
+/* HUD */
+#hud { position: fixed; inset: 0; pointer-events: none; font: 700 calc(14px * var(--ui)) var(--mono); }
+#hud > div { position: absolute; top: calc(env(safe-area-inset-top) + 8px); background: var(--paper); border: 2px solid var(--ink); padding: 4px 10px; line-height: 1.35; white-space: pre; }
+#hud .hud-l { left: calc(env(safe-area-inset-left) + 104px); }
+#hud .hud-r { right: calc(env(safe-area-inset-right) + 10px); text-align: right; }
+body.touchmode #hud .hud-l { left: calc(env(safe-area-inset-left) + 70px); }
+body.touchmode #hud .hud-r { right: calc(env(safe-area-inset-right) + 70px); }
+/* modal */
+.modal { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; pointer-events: auto; }
+.modal .card, .tpage { background: var(--paper); border: 2px solid var(--ink); padding: 18px 22px; max-width: min(92vw, 560px); box-shadow: 6px 6px 0 var(--ink); }
+.modal p { font: 700 calc(16px * var(--ui)) var(--mono); margin: 0 0 14px; }
+.modal .row { display: flex; gap: 10px; justify-content: flex-end; flex-wrap: wrap; }
+button { font: 700 calc(15px * var(--ui)) var(--mono); background: var(--paper); color: var(--ink); border: 2px solid var(--ink); padding: 6px 14px; cursor: pointer; }
+button:hover, button:focus-visible { background: var(--ink); color: var(--paper); outline: none; }
+button:disabled { border-style: dashed; cursor: default; background: var(--paper); color: var(--ink); text-decoration: line-through; }
+/* title */
+#title { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; pointer-events: auto; padding: 16px; }
+#title .tpage { width: min(92vw, 620px); max-height: 92vh; overflow: auto; }
+#title h1 { font: 400 clamp(44px, 9vw, 84px) var(--hand); margin: 0; line-height: 1; text-align: center; }
+#title .sub { font: 400 clamp(16px, 3vw, 22px) var(--hand); text-align: center; margin: 6px 0 16px; }
+#title .tmenu { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; }
+#title .tpanel { margin-top: 14px; }
+#title .hint, #title .about { font: 400 13px var(--mono); text-align: center; margin: 14px 0 0; line-height: 1.5; }
+.tform { display: grid; gap: 10px; }
+.tform label { display: grid; grid-template-columns: 9em 1fr; align-items: center; gap: 8px; font: 700 14px var(--mono); }
+input, select { font: 700 15px var(--mono); background: var(--paper); color: var(--ink); border: 2px solid var(--ink); padding: 5px 8px; border-radius: 0; }
+.slot { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; margin: 6px 0; font: 700 13px var(--mono); }
+.slot span { flex: 1 1 220px; }
+.slot button { padding: 4px 8px; font-size: 13px; }
 #loading { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; font-family: var(--hand); font-size: 28px; background: var(--paper); }
 </style>
 </head>
@@ -67,16 +96,27 @@ body.night #touch .tb, body.night #touch .stick, body.night #touch .knob { borde
 <script src="src/physics/terrain.js"></script>
 <script src="src/physics/stickman.js"></script>
 <script src="src/physics/player.js"></script>
+<script src="src/systems/state.js"></script>
+<script src="src/systems/time.js"></script>
+<script src="src/systems/save.js"></script>
+<script src="src/systems/settings.js"></script>
+<script src="src/render/weather.js"></script>
 <script src="src/systems/input.js"></script>
 <script src="src/ui/touch.js"></script>
 <script src="src/ui/toast.js"></script>
+<script src="src/ui/dialog.js"></script>
+<script src="src/ui/hud.js"></script>
+<script src="src/ui/title.js"></script>
 <script src="src/scenes/Game.js"></script>
 <script src="src/scenes/Boot.js"></script>
 <script>
   PA.Input.init();
   PA.Touch.init();
+  PA.UI.HUD.init();
+  PA.UI.Title.init();
+  PA.Settings.apply();
   PA.start();
-  PA.Bus.on('ready', () => document.getElementById('loading').remove());
+  PA.Bus.on('ready', () => { document.getElementById('loading').remove(); PA.scene.showTitle(); });
 </script>
 </body>
 </html>

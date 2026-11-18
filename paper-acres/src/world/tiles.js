@@ -15,13 +15,14 @@
 
   const DEF = { solid: false, ladder: false, water: false, decor: false, style: null, breakable: null, tillable: false };
   const TILES = [];
-  function def(id, o) { TILES[id] = Object.assign({}, DEF, o); }
+  const SEE_THROUGH = new Set(['weed', 'flower', 'branch', 'crop', 'forage', 'fence', 'ladder', 'spikes', 'object', 'rock', 'bush', 'air']);
+  function def(id, o) { const d = Object.assign({}, DEF, o); if (d.opaque == null) d.opaque = !SEE_THROUGH.has(d.name); TILES[id] = d; }
 
   def(T.AIR, { name: 'air', glyph: () => ' ' });
   def(T.DIRT, { name: 'dirt', solid: true, tillable: true, glyph(g, x, y, z) {
     if (!g.solid(x, y - 1, z) && g.get(x, y - 1, z) !== T.WATER) return pick(['=', '=', '-', '='], x, y, z);
-    const r = H(x, y, z) % 20;
-    return r < 9 ? ' ' : r < 15 ? '.' : r < 18 ? ':' : ',';
+    const r = H(x, y, z) % 24;
+    return r < 15 ? ' ' : r < 20 ? '.' : r < 22 ? ':' : ',';
   } });
   def(T.GRASS, { name: 'grass', solid: true, tillable: true, glyph(g, x, y, z) {
     const s = season();
@@ -32,7 +33,7 @@
   def(T.STONE, { name: 'stone', solid: true, breakable: { tool: 'pickaxe', hp: 6, drop: 'stone' }, glyph(g, x, y, z) {
     if (!g.solid(x, y - 1, z)) return pick(['^', 'n', '^', 'A'], x, y, z);
     const r = H(x, y, z) % 20;
-    return r < 5 ? '%' : r < 9 ? '#' : r < 13 ? '=' : r < 17 ? '.' : ' ';
+    return r < 3 ? '%' : r < 5 ? '#' : r < 8 ? '=' : r < 12 ? '.' : ' ';
   } });
   def(T.BEDROCK, { name: 'bedrock', solid: true, glyph: (g, x, y, z) => pick(['#', '#', '@', '#'], x, y, z) });
   def(T.WATER, { name: 'water', water: true, glyph(g, x, y, z) {

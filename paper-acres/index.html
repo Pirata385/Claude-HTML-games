@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#efe4c8">
+<title>Paper Acres</title>
+<style>
+@font-face { font-family: 'Courier Prime'; font-weight: 400; src: url('fonts/courier-prime-latin-400-normal.woff2') format('woff2'); font-display: block; }
+@font-face { font-family: 'Courier Prime'; font-weight: 700; src: url('fonts/courier-prime-latin-700-normal.woff2') format('woff2'); font-display: block; }
+@font-face { font-family: 'Patrick Hand'; font-weight: 400; src: url('fonts/patrick-hand-latin-400-normal.woff2') format('woff2'); font-display: block; }
+:root {
+  --paper: #efe4c8;
+  --ink: #000000;
+  --mono: 'Courier Prime', 'Courier New', monospace;
+  --hand: 'Patrick Hand', 'Comic Sans MS', cursive;
+  --ui: 1;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; overflow: hidden; background: var(--paper); color: var(--ink); font-family: var(--mono); }
+body { touch-action: none; -webkit-user-select: none; user-select: none; -webkit-tap-highlight-color: transparent; overscroll-behavior: none; }
+#game { position: fixed; inset: 0; }
+#game canvas { display: block; }
+#ui { position: fixed; inset: 0; pointer-events: none; font-size: calc(15px * var(--ui)); }
+#ui > * { pointer-events: auto; }
+.hidden { display: none !important; }
+#loading { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; font-family: var(--hand); font-size: 28px; background: var(--paper); }
+</style>
+</head>
+<body>
+<div id="game"></div>
+<div id="ui"></div>
+<div id="loading">sharpening pencils...</div>
+<script src="lib/phaser.min.js"></script>
+<script src="src/core/config.js"></script>
+<script src="src/core/util.js"></script>
+<script src="src/core/rng.js"></script>
+<script src="src/core/events.js"></script>
+<script src="src/ascii/rasterize.js"></script>
+<script src="src/ascii/glyphs.js"></script>
+<script src="src/world/tiles.js"></script>
+<script src="src/world/grid.js"></script>
+<script src="src/world/gen.js"></script>
+<script src="src/render/sliceStack.js"></script>
+<script src="src/render/entities.js"></script>
+<script src="src/render/paper.js"></script>
+<script src="src/scenes/Game.js"></script>
+<script src="src/scenes/Boot.js"></script>
+<script>
+  PA.start();
+  PA.Bus.on('ready', () => document.getElementById('loading').remove());
+</script>
+</body>
+</html>

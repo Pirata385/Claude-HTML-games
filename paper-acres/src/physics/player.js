@@ -100,7 +100,7 @@
     update(dt, inp, now) {
       const b = this.body;
       const mid = this.tileAt(0, this.feet - this.H / 2), low = this.tileAt(0, this.feet - 4);
-      this.onLadder = mid.ladder || low.ladder;
+      this.onLadder = mid.ladder || low.ladder || (PA.Drawn && PA.Drawn.onLadder(this.z, this.x, this.feet - this.H, this.feet));
       this.inWater = mid.water;
       if (this.groundNow) this.lastGround = now;
       const grounded = this.groundNow;
@@ -137,6 +137,9 @@
         vy *= 0.8; // variable jump height
       }
       if (vy > 11) vy = 11;
+      // a drawn umbrella in hand turns a fall into a glide
+      const sel = PA.scene && PA.scene.inv && PA.scene.inv.slots[PA.scene.hot];
+      if (sel && sel.id === 'drawn' && sel.extra.word === 'umbrella' && vy > 1.8 && !this.climbing && !this.inWater) { vy = 1.8; this.gliding = true; } else this.gliding = false;
       // auto step-up onto 1-cell ledges while walking on the ground
       if (inp.moveX && (grounded || now - this.lastGround < 60) && !this.climbing) this.tryStepUp(inp.moveX > 0 ? 1 : -1);
       this.setVel(vx, vy);

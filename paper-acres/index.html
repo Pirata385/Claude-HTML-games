@@ -109,6 +109,24 @@ input[type=range] { accent-color: #000000; }
 input[type=checkbox] { width: 20px; height: 20px; accent-color: #000000; justify-self: start; }
 .modal .card.wide { max-width: min(96vw, 760px); width: 100%; max-height: 90vh; overflow: auto; }
 hr { border: 0; border-top: 2px dashed var(--ink); }
+/* sketchpad */
+#sketch { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; pointer-events: auto; padding: 8px; background: var(--paper); }
+#sketch .sk { width: 100%; height: 100%; display: flex; flex-direction: column; gap: 8px; }
+#sketch .sk-top { display: flex; gap: 12px; align-items: center; font: 400 22px var(--hand); }
+#sketch .sk-top .sk-note { flex: 1; font-size: 16px; }
+#sketch .sk-main { flex: 1; display: flex; gap: 14px; align-items: flex-start; justify-content: center; min-height: 0; }
+#sketch .sk-main.tall { flex-direction: column; align-items: center; }
+#sketch .sk-pad { position: relative; border: 2px solid var(--ink); touch-action: none; cursor: crosshair; }
+#sketch .sk-pad canvas { display: block; }
+#sketch .sk-ascii { position: absolute; inset: 0; margin: 0; pointer-events: none; font-family: var(--mono); font-weight: 700; white-space: pre; overflow: hidden; }
+#sketch .sk-side { width: min(300px, 92vw); display: flex; flex-direction: column; gap: 8px; font: 700 14px var(--mono); max-height: 100%; overflow: auto; }
+#sketch .sk-tools { display: flex; flex-wrap: wrap; gap: 4px; }
+#sketch .sk-tools button.on { background: var(--ink); color: var(--paper); }
+#sketch .sk-words { display: flex; flex-wrap: wrap; gap: 4px; }
+#sketch .sk-words p { width: 100%; }
+#sketch .word span { font-weight: 400; margin-left: 6px; }
+#sketch .word.best { border-width: 3px; }
+#place { position: fixed; left: 50%; bottom: calc(env(safe-area-inset-bottom) + 70px); transform: translateX(-50%); display: flex; gap: 6px; pointer-events: auto; }
 #loading { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; font-family: var(--hand); font-size: 28px; background: var(--paper); }
 </style>
 </head>
@@ -137,6 +155,11 @@ hr { border: 0; border-top: 2px dashed var(--ink); }
 <script src="src/farm/crops.js"></script>
 <script src="src/farm/crafting.js"></script>
 <script src="src/farm/farm.js"></script>
+<script src="src/ascii/shapes.js"></script>
+<script src="src/draw/words.js"></script>
+<script src="src/draw/ink.js"></script>
+<script src="src/draw/sketchpad.js"></script>
+<script src="src/draw/drawnObject.js"></script>
 <script src="src/physics/terrain.js"></script>
 <script src="src/physics/stickman.js"></script>
 <script src="src/physics/player.js"></script>
@@ -152,6 +175,7 @@ hr { border: 0; border-top: 2px dashed var(--ink); }
 <script src="src/ui/hud.js"></script>
 <script src="src/ui/title.js"></script>
 <script src="src/ui/notebook.js"></script>
+<script src="src/ui/words.js"></script>
 <script src="src/scenes/Game.js"></script>
 <script src="src/scenes/Boot.js"></script>
 <script>

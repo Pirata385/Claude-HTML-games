@@ -84,6 +84,8 @@
           if (above === T.BRANCH) { g.set(x, gy - 1, z, T.AIR); inv.add('wood', 1 + (Math.random() < 0.5 ? 1 : 0)); did = true; break; }
           const tree = game.map.props.find((pr) => (pr.type === 'tree' || pr.type === 'stump') && pr.z === z && Math.abs(pr.x - x) <= 1);
           if (tree) { Farm.chop(game, tree, a.lvl); did = true; break; }
+        } else if (a.kind === 'eraser') {
+          PA.Drawn.eraseNear(game); did = true; break;
         } else if (a.kind === 'pickaxe') {
           if (above === T.ROCK) { g.set(x, gy - 1, z, T.AIR); inv.add('stone', 1 + (Math.random() < 0.4 ? 1 : 0)); did = true; break; }
           if (!crop && (ground === T.SOIL || ground === T.SOIL_WET)) { g.set(x, gy, z, T.DIRT); did = true; break; }

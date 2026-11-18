@@ -63,6 +63,7 @@
     selectHot(i) { this.hot = (i + 9) % 9; PA.UI.Hotbar.render(); }
     startGame(state, slot, isNew) {
       this.state = state; this.slot = slot;
+      PA.Drawn.clearBodies(this);
       this.maps = {};
       this.maps.overworld = PA.Gen.overworld(state.seed);
       for (const id in state.maps) this.getMap(id).grid.importEdits(state.maps[id].edits || []);
@@ -71,7 +72,7 @@
       if (state.inv) this.inv = PA.Inventory.from(state.inv);
       else {
         this.inv = new PA.Inventory(36);
-        for (const t of ['hoe', 'can', 'axe', 'pickaxe', 'scythe']) this.inv.add(t, 1, t === 'can' ? { lvl: 0, water: 40 } : { lvl: 0 });
+        for (const t of ['hoe', 'can', 'axe', 'pickaxe', 'scythe', 'eraser']) this.inv.add(t, 1, t === 'can' ? { lvl: 0, water: 40 } : { lvl: 0 });
         this.inv.add('parsnip_seeds', 15); this.inv.add('bread', 2);
       }
       this.hot = 0;
@@ -85,6 +86,7 @@
       this.loadMap(state.map, state.pos.x, state.pos.z, state.pos.facing);
       this.mode = 'play';
       this.paused = false;
+      this.placing = null;
       PA.UI.Title.show(false);
       PA.UI.HUD.show(true);
       PA.UI.Hotbar.show(true); PA.UI.Hotbar.render();
@@ -106,6 +108,7 @@
       }
       s.map = this.map.id;
       if (this.inv) s.inv = this.inv.toJSON();
+      PA.Drawn.sync();
       s.pos = { x: Math.floor(this.player.x / C.CELL_W), z: this.player.z, facing: this.player.facing };
       return s;
     }
@@ -126,15 +129,18 @@
         const ev = PA.Time.tick(this.state, delta, PA.settings.dayLength);
         if (ev.passOut) this.sleep(true);
       }
-      if (!this.transition && !this.paused) { this.checkDoors(inp); this.handleActions(inp, nowMs); }
+      let pinp = inp;
+      if (this.placing && !this.paused) { PA.Drawn.placementInput(this, inp); pinp = Object.assign({}, inp, PA.Input.NO_EDGES, { moveX: 0, up: false, down: false, jump: false, use: false }); }
+      else if (!this.transition && !this.paused) { this.checkDoors(inp); this.handleActions(inp, nowMs); }
       // fixed 60 Hz physics so speed doesn't depend on frame rate
       const STEP = 1000 / 60;
       this.acc = this.paused ? 0 : Math.min((this.acc || 0) + Math.min(delta, 100), STEP * 5);
       let first = true;
       while (this.acc >= STEP) {
-        const stepInp = first ? inp : Object.assign({}, inp, PA.Input.NO_EDGES);
+        const stepInp = first ? pinp : Object.assign({}, pinp, PA.Input.NO_EDGES);
         this.simTime = (this.simTime || 0) + STEP;
         PA.Farm.tickAction(this, STEP);
+        PA.Drawn.step(this, STEP);
         this.player.update(STEP, stepInp, this.simTime);
         this.matter.world.step(STEP);
         this.acc -= STEP; first = false;
@@ -184,6 +190,7 @@
       if (facing) p.facing = facing;
       p.lastJ = null;
       this.terrain.sync(p.x, z);
+      if (this.state) PA.Drawn.loadMap(this);
       this.cam.x = p.x; this.cam.y = feet - 3 * C.CELL_H; this.cam.z = z;
       PA.Bus.emit('map', { id, kind: map.kind });
     }
@@ -245,6 +252,7 @@
         s.hp = s.maxHp;
         const r = PA.Time.newDay(s);
         PA.Farm.newDay(this);
+        PA.Drawn.newDay(this);
         PA.Bus.emit('newday', { state: s, rolled: r });
         this.setSeason(PA.SEASONS[s.season]);
         const bed = PA.Gen.ROOMS.house.furn[0];
@@ -294,7 +302,7 @@
         p.level = level;
         this.proj[z] = p;
         const st = this.world.drawSlice(R, z, p, level, this.season);
-        if (this.mode === 'play') this.world.drawDynamic(R, z, p, st, this.state);
+        if (this.mode === 'play') { this.world.drawDynamic(R, z, p, st, this.state); PA.Drawn.draw(R, z, p, st, this); }
         if (this.mode === 'play' && this.player.z === z) this.player.draw(R, p, dt);
         this.world.drawFront(R, z, p, st, this.season);
         if (level >= 0 && level <= 2) this.collectLights(z, p, lights);
@@ -304,7 +312,9 @@
       const dark = this.map.kind === 'interior' || !this.state ? 0 : PA.Time.darkness(this.state.time);
       if (dark > 0) {
         const p0 = this.proj[this.player.z];
-        if (p0) lights.push({ x: p0.ox + this.player.x * p0.scale, y: p0.oy + (this.player.feet - 30) * p0.scale, r: R.cellH * 7 });
+        const lantern = this.inv && this.inv.slots.some((q) => q && q.id === 'drawn' && q.extra.word === 'lantern');
+        if (p0) lights.push({ x: p0.ox + this.player.x * p0.scale, y: p0.oy + (this.player.feet - 30) * p0.scale, r: R.cellH * (lantern ? 16 : 7) });
+        for (const e of PA.Drawn.live) if ((e.rec.word === 'lamp' || e.rec.word === 'lantern') && this.proj[e.rec.z]) { const q = this.proj[e.rec.z]; lights.push({ x: q.ox + e.rec.x * q.scale, y: q.oy + e.rec.y * q.scale, r: R.cellH * 10 * q.scale / this.cam.zoom }); }
         R.night = { t: dark, lights };
         document.body.classList.toggle('night', dark > 0.5);
       } else { R.night = null; document.body.classList.remove('night'); }

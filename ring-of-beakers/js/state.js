@@ -6,10 +6,22 @@
   const { Rng, clamp, hashStr } = RB.core;
   const GN = RB.genome;
 
-  const BIRD_NAMES = ['Pepper', 'Biscuit', 'Farofa', 'Pimenta', 'Trovao', 'Pipoca', 'Fuba', 'Quindim', 'Pacoca', 'Cuscuz', 'Jilo', 'Faisca', 'Brasa', 'Ticao',
-    'Banze', 'Fuzue', 'Muvuca', 'Xodo', 'Caju', 'Dende', 'Mandioca', 'Rapadura', 'Canjica', 'Tapioca', 'Moqueca', 'Sabia', 'Zangado', 'Relampago', 'Ventania',
-    'Capitao', 'Baronesa', 'Duque', 'Marques', 'Comadre', 'Valente', 'Mimoso', 'Furacao', 'Chuvisco', 'Garoa', 'Poeira', 'Carvao', 'Ferrugem', 'Canela', 'Cravo',
-    'Mostarda', 'Pequi', 'Jabuti', 'Tucupi', 'Feijao', 'Torresmo', 'Bolacha', 'Cocada', 'Brigadeiro', 'Goiabada', 'Catuaba', 'Bambu', 'Graveto', 'Pedrita'];
+  const BIRD_NAMES = [
+    'Pepper', 'Biscuit', 'Farofa', 'Pimenta', 'Trovao', 'Pipoca', 'Fuba', 'Quindim', 'Pacoca', 'Cuscuz', 'Jilo', 'Faisca', 'Brasa', 'Ticao', 'Banze', 'Fuzue', 'Muvuca',
+    'Xodo', 'Caju', 'Dende', 'Mandioca', 'Rapadura', 'Canjica', 'Tapioca', 'Moqueca', 'Sabia', 'Zangado', 'Relampago', 'Ventania', 'Capitao', 'Baronesa', 'Duque',
+    'Marques', 'Comadre', 'Valente', 'Mimoso', 'Furacao', 'Chuvisco', 'Garoa', 'Poeira', 'Carvao', 'Ferrugem', 'Canela', 'Cravo', 'Mostarda', 'Pequi', 'Jabuti',
+    'Tucupi', 'Feijao', 'Torresmo', 'Bolacha', 'Cocada', 'Brigadeiro', 'Goiabada', 'Catuaba', 'Bambu', 'Graveto', 'Pedrita', 'Pamonha', 'Curau', 'Mungunza', 'Acaraje',
+    'Vatapa', 'Baiao', 'Xaxado', 'Forro', 'Frevo', 'Samba', 'Chorinho', 'Maracatu', 'Pirulito', 'Chiclete', 'Pacoquinha', 'Jujuba', 'Bombom', 'Sonho', 'Pastel',
+    'Coxinha', 'Esfiha', 'Empada', 'Pudim', 'Mingau', 'Angu', 'Polenta', 'Pinhao', 'Jabuticaba', 'Pitanga', 'Acerola', 'Cupuacu', 'Graviola', 'Manga', 'Maracuja',
+    'Guarana', 'Carambola', 'Tamarindo', 'Abacaxi', 'Melancia', 'Azeitona', 'Batuta', 'Bigode', 'Careca', 'Cabecao', 'Tampinha', 'Tico', 'Teco', 'Bidu', 'Toto',
+    'Fumaca', 'Neblina', 'Granizo', 'Trovoada', 'Tempestade', 'Raio', 'Cometa', 'Foguete', 'Turbo', 'Corisco', 'Lampiao', 'Sargento', 'Almirante', 'Doutor', 'Professor',
+    'Princesa', 'Rainha', 'Imperador', 'Sultao', 'Pirata', 'Bandido', 'Cangaceiro', 'Vaqueiro', 'Boiadeiro', 'Sanfona', 'Pandeiro', 'Cuica', 'Tamborim', 'Berimbau',
+    'Viola', 'Gaita', 'Apito', 'Biruta', 'Pipa', 'Peteca', 'Piao', 'Ioio', 'Bolinha', 'Pingo', 'Floco', 'Algodao', 'Pluma', 'Penacho', 'Topete', 'Esporao', 'Bicudo',
+    'Tinoco', 'Mane', 'Juvenal', 'Tonico', 'Genoveva', 'Clotilde', 'Gertrudes', 'Filomena', 'Esmeralda', 'Perola', 'Rubi', 'Safira', 'Topazio', 'Jade', 'Opala', 'Ambar',
+    'Cobre', 'Bronze', 'Prata', 'Diamante', 'Nugget', 'Waffles', 'Pancake', 'Muffin', 'Noodle', 'Pickles', 'Dumpling', 'Peanut', 'Pretzel', 'Sprout', 'Turnip', 'Radish',
+    'Clover', 'Thistle', 'Bramble', 'Rusty', 'Sparky', 'Ziggy', 'Rocket', 'Thunder', 'Blizzard', 'Gizmo', 'Gumbo', 'Tater', 'Chickpea', 'Meringue', 'Custard', 'Truffle',
+    'Paprika', 'Saffron', 'Nutmeg', 'Ginger', 'Juniper', 'Basil', 'Sage', 'Admiral', 'Duchess', 'Baron', 'Marmalade', 'Crumpet', 'Toffee', 'Sprinkles', 'Dynamo',
+    'Tornado', 'Pistachio'];
 
   // opts: { sandbox: everything unlocked from the start (every upgrade and tool, the lab powered,
   //   no debt, the open sea) }
@@ -337,12 +349,30 @@
   // Each one is remembered where it was let go (the most recent RELEASED_MAX); from the next day
   // on, a few wild animals born near there carry some of its genes (see world.population).
   const RELEASED_MAX = 30;
+  // The bird itself goes on living out there under its own name, near where it was let go: net it
+  // again and it is the same bird (name, age, record, training, hat). Returns the record, or null.
   function setFree(S, c, x, y) {
     removeBird(S, c);
-    if (c.person) return;
+    if (c.person) return null;
     S.released = S.released || [];
-    S.released.push({ g: GN.serialize(c.g), x: Math.round(x), y: Math.round(y), day: S.day, name: c.name, key: kindKey(c), label: label(c) });
+    const bird = serBird(c); delete bird.g; delete bird.at;
+    const rec = { g: GN.serialize(c.g), x: Math.round(x), y: Math.round(y), day: S.day, name: c.name, key: kindKey(c), label: label(c), bird };
+    S.released.push(rec);
     if (S.released.length > RELEASED_MAX) S.released.splice(0, S.released.length - RELEASED_MAX);
+    return rec;
+  }
+  // Net a bird you once set free: it comes back as it was, a little older and a little less sure of you.
+  function recapture(S, rec) {
+    const i = (S.released || []).indexOf(rec);
+    if (i >= 0) S.released.splice(i, 1);
+    if (!rec.bird) return addBird(S, GN.deserialize(rec.g), { at: 'cage', name: rec.name, bond: 0.1, origin: 'wild' }); // freed before birds kept their names
+    const c = JSON.parse(JSON.stringify(rec.bird));
+    c.g = GN.deserialize(rec.g); c._P = null;
+    if (c.age < pheno(c).lifespan) c.age = Math.min(pheno(c).lifespan, c.age + Math.max(0, S.day - rec.day));
+    Object.assign(c, { at: 'cage', fed: false, hungry: 0, tired: false, rest: 0, bouts: 0, love: false, bond: Math.max(0, (c.bond || 0) - 0.15) });
+    c._P = null;
+    S.birds.push(c);
+    return c;
   }
   // The released genes the wild draws on today: only those let go before today, decoded.
   const gened = new Map();
@@ -573,7 +603,7 @@
   }
 
   RB.state = { create, addBird, removeBird, pheno, dirty, kind, isAdult, isRetired, checkIn, checkOut, BOSS_PRIZES, bossPrizes, GOLD_DIGS, goldLeft, digsLeft, useDig, useNet,
-    RELEASED_MAX, setFree, genePool, HEAT_DAYS, caughtPerson, trainPreview, openSea, hasBoat, makeBird,
+    RELEASED_MAX, setFree, recapture, genePool, HEAT_DAYS, caughtPerson, trainPreview, openSea, hasBoat, makeBird,
     ENDLESS_KINDS, endless, owned, fmtCount, canSail, serBird, deBird, STAY_MAX, stay, netKeeper, installKeeper, releasePerson, mainlanders, nettedCount, nettedAll, ISLE_EXTRA,
     CLAIM_COST, RAISE_COST, RAISE_R, CLEAN_COST, DOSE, isleOf, isleCap, claimIsle, raiseIsle, toIsle, fromIsle, dose, cleanIsle, colonyNight, byId, at, atHome, cageCap, coopCap, nestCount, count, give, take, move, feed, train, TRAIN,
     layChance, sleep, serialize, deserialize, freeName, BIRD_NAMES, eat, soldPerson, kindKey, isCross, label };

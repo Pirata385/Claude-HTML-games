@@ -63,6 +63,23 @@
     RB.game.wild = { key, list };
     return list;
   }
+  // Birds you set free live on near where you let them go, under their own names (each day a little
+  // way off, wandering). Kept in step with S.released: freed ones join in, netted ones leave.
+  function releasedWild(rec, x, y) {
+    const r = new Rng((hashStr(rec.name + ':' + rec.x + ':' + rec.y) ^ Math.imul(S.day, 6007)) >>> 0);
+    const wx = x !== undefined ? x : rec.x + r.range(-260, 260), wy = y !== undefined ? y : rec.y + r.range(-200, 200);
+    const w = makeWild(RB.genome.deserialize(rec.g), wx, wy, 'graze');
+    w.rel = rec; w.name = rec.name; w.any = true; w.hat = rec.bird ? rec.bird.hat : null;
+    if (!WD.inMain(wx, wy)) w.island = 'sea';
+    return w;
+  }
+  function syncReleased() {
+    if (!wild) return;
+    const recs = new Set(S.released || []);
+    for (let i = wild.length - 1; i >= 0; i--) if (wild[i].rel && !recs.has(wild[i].rel)) wild.splice(i, 1);
+    const shown = new Set(wild.filter((w) => w.rel).map((w) => w.rel));
+    for (const rec of S.released || []) if (!shown.has(rec)) wild.push(releasedWild(rec));
+  }
   // The birds living on your islands walk about there too (they are yours: the field station is
   // where you take one back). Rebuilt whenever the map opens or a colony changes.
   function syncColonies() {
@@ -223,6 +240,14 @@
     const hold = clamp((big ? 1.7 : 1.25) - 0.26 * strength + (w.stam < 20 ? 0.3 : 0) + (w.state === 'trapped' ? 0.5 : 0), 0.08, 1);
     if (!rng.chance(hold)) { ui.toast('It tore right through the net!', pal.coral); RB.audio.play('bad'); w.state = 'flee'; w.t = 3; puff(w.x, w.y - 30, 6, pal.paper); return 'torn'; }
     removeWild(w);
+    if (w.rel) { // one you set free: the same bird, name and all
+      const c = ST.recapture(S, w.rel);
+      S.stats.caught++;
+      ui.toast(c.name + ' is back in the truck. It seems to remember you.', pal.teal);
+      RB.audio.play('catch'); RB.audio.voice(w.P.voice, 'squawk'); puff(w.x, w.y - 30, 8, w.P.css.body);
+      common.checkAch(S);
+      return 'caught';
+    }
     const x = w.cross || {};
     const c = ST.addBird(S, w.g, { at: 'cage', bond: 0.1, origin: 'wild', mom: x.mom, dad: x.dad, momKey: x.momKey, dadKey: x.dadKey });
     if (w.kin) ui.toast('This one has a look of ' + w.kin.name + ', whom you set free.', pal.plum);
@@ -345,6 +370,7 @@
       if (!S.marksDug) { S.marksDug = {}; for (const m of world.marks) { const k = m.cx + ',' + m.cy; if (S.dug[k]) S.marksDug[k] = true; } }
       RB.sea.restoreIsles(world, S); // your islands, and their field stations
       wild = loadWild();
+      syncReleased();
       syncColonies();
       decorCache = new Map();
       if (!paths || paths.seed !== world.seed) { buildPaths(); paths.seed = world.seed; }
@@ -617,7 +643,8 @@
           const pose = RB.pose.animPose(w.P, { x: w.x, y: w.y + pit, f: w.f, phase: w.ph, speed: w.sp, time: t, fly: w.alt > 8 ? 1 : 0, alt: w.alt * 1.6 });
           if (w.state === 'trapped') pose.eye = 'scared'; else if (w.state === 'charge') pose.eye = 'angry';
           if (w.state === 'eat' || (w.state === 'graze' && Math.sin(t * 2 + w.ph * 20) > 0.6)) { const k = pose.neck.length; pose.neck[k - 1] += w.P.NL * 0.5; pose.neck[k - 2] += w.f * w.P.NL * 0.3; pose.headAng += w.f > 0 ? 0.9 : -0.9; }
-          RB.art.drawCreature(ctx, w.P, pose, w.clothes ? { clothes: w.clothes } : {});
+          RB.art.drawCreature(ctx, w.P, pose, w.clothes ? { clothes: w.clothes } : w.hat ? { hat: w.hat } : {});
+          if (w.rel && Math.hypot(w.x - car.x, w.y - car.y) < 700) props.label(ctx, w.name, w.x, w.y - w.P.rest - w.P.TD - 18 - w.alt * 1.6, 18, pal.plum); // a bird you set free still answers to its name
           if (afloat) { ctx.restore(); ctx.strokeStyle = 'rgba(255,255,255,0.7)'; ctx.lineWidth = 2; ctx.beginPath(); ctx.ellipse(w.x, w.y + 1, w.P.TL * 0.65 + Math.sin(t * 2 + w.ph * 7) * 3, w.P.TL * 0.16, 0, 0, TAU); ctx.stroke(); }
           if (w.stam <= 0 && w.state === 'flee') props.label(ctx, 'puff...', w.x, w.y - w.P.rest - w.P.TD - 14, 14, pal.ink);
         } else if (e.kind === 3) {
@@ -770,8 +797,9 @@
       refreshFolk();
       const f = folk.find((o) => o.base.id === c.person);
       if (f && !f.gone) { f.x = wx; f.y = wy; f.scared = 5; }
-    } else { const w = addWild(c.g, wx, wy, 'graze'); w.stam = 30; w.t = 2; }
-    ST.setFree(S, c, wx, wy); // its genes join the wild around here
+    }
+    const rec = ST.setFree(S, c, wx, wy); // it lives on out here, and its genes join the wild around here
+    if (rec) { const w = releasedWild(rec, wx, wy); w.stam = 30; w.t = 2; wild.push(w); }
     puff(wx, wy - 30, 6, pal.paper);
     ui.toast(c.name + (c.person ? ' scrambles off home.' : ' is free again.') + (back ? ' ' + back.name + ', who was minding the place, hops back into the truck.' : ''), pal.ink);
     RB.audio.play('poof');

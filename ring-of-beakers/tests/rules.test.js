@@ -1234,3 +1234,33 @@ test('the lab changes a creature\'s sex, and knows which genes work together', (
   assert.deepStrictEqual(L.related(junk), []);
   assert.ok(GN.GENES[muscle[1]].name.startsWith(GN.GENES[muscle[0]].name.split(' ')[0]));
 });
+
+test('a bird set free keeps its name out in the wild, and netted again it is the same bird', () => {
+  const S = ST.create(207), c = S.birds[0];
+  c.name = 'Biscoito'; c.wins = 4; c.losses = 1; c.train.muscle = 0.1; c.hat = 'tophat'; c.age = 5;
+  const id = c.id, hash = RB.genome.hash(c.g);
+  const rec = ST.setFree(S, c, 5000, 4000);
+  assert.ok(!S.birds.includes(c) && S.released.includes(rec));
+  S.feeder = 99; // the hen left at home is fed while we wait
+  assert.strictEqual(rec.name, 'Biscoito'); assert.strictEqual(rec.bird.hat, 'tophat');
+  // it is still out there after a few nights and a save
+  ST.sleep(S); ST.sleep(S); ST.sleep(S);
+  const back = ST.deserialize(JSON.parse(JSON.stringify(ST.serialize(S))));
+  const r2 = back.released.find((e) => e.name === 'Biscoito');
+  assert.ok(r2);
+  const b = ST.recapture(back, r2);
+  assert.strictEqual(b.name, 'Biscoito'); assert.strictEqual(b.id, id); assert.strictEqual(RB.genome.hash(b.g), hash);
+  assert.strictEqual(b.wins, 4); assert.strictEqual(b.losses, 1); assert.strictEqual(b.train.muscle, 0.1); assert.strictEqual(b.hat, 'tophat');
+  assert.strictEqual(b.at, 'cage'); assert.strictEqual(b.age, 8, 'three nights older');
+  assert.ok(back.birds.includes(b) && !back.released.includes(r2));
+  assert.ok(ST.pheno(b).species);
+  // birds freed before names were kept come back with the name they had
+  const old = { g: RB.genome.serialize(b.g), x: 10, y: 10, day: 1, name: 'Farofinha', key: 'chicken', label: 'Hen' };
+  back.released.push(old);
+  assert.strictEqual(ST.recapture(back, old).name, 'Farofinha');
+  // people are not kept as wild birds
+  const guy = ST.addBird(S, RB.npc.personGenome(new Rng(2), 'M'), { at: 'cage', person: 'h_0', name: 'Ze' });
+  assert.strictEqual(ST.setFree(S, guy, 0, 0), null);
+  // and there are plenty of names to go round
+  assert.ok(ST.BIRD_NAMES.length >= 200 && new Set(ST.BIRD_NAMES).size === ST.BIRD_NAMES.length);
+});

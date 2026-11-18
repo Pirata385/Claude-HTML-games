@@ -113,9 +113,10 @@
         if (e.length) s.maps[id] = { edits: e };
       }
       s.map = this.map.id;
+      s.pos = { x: Math.floor(this.player.x / C.CELL_W), z: this.player.z, facing: this.player.facing };
+      if (this.map.kind === 'mine') { const d = this.maps.overworld.doors.find((q) => q.to === 'mine'); s.map = 'overworld'; s.pos = { x: d.x, z: d.z - 1, facing: 1 }; }
       if (this.inv) s.inv = this.inv.toJSON();
       PA.Drawn.sync();
-      s.pos = { x: Math.floor(this.player.x / C.CELL_W), z: this.player.z, facing: this.player.facing };
       return s;
     }
     save() { if (this.state) return PA.Save.write(this.slot, this.snapshot()); return false; }

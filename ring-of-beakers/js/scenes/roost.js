@@ -167,7 +167,7 @@
       pen.layout(box, list); pen.sync(list);
       const n = retiredInTruck().length;
       say = n ? (n === 1 ? 'Who have you brought me? Let me see the old dear.' : 'Who have you brought me? Let me see them.') : S.roost.length ? LINES[0] : 'A garden, a porch and all the grain they want. Bring me your old-timers.';
-      RB.audio.setTune('roost');
+      RB.audio.setTune(S.time >= 19 ? 'night' : 'day');
     },
     exit() { if (pen) { pen.dispose(); pen = null; } },
     debug() { return { pen, nina }; },

@@ -346,7 +346,8 @@
   }
   function arenaLobby(b) {
     const arena = EC.ARENA[site.id], lg = EC.leagueOf(S, arena.id), cards = EC.cards(S, arena), exs = [EC.exhibition(S, arena, 0), EC.exhibition(S, arena, 1)];
-    ui.text(lg.boss ? 'You are champion here.' : 'Wins ' + lg.wins + ' of ' + arena.need + ' to face ' + arena.boss.trainer, b.x + 4, b.y + 14, { size: 13 });
+    const champ = RB.economy.bossOf(S, arena), held = lg.boss && lg.champ !== undefined ? ST.byId(S, lg.champ) : null;
+    ui.text(lg.boss ? 'You are champion here' + (held ? ', with ' + held.name : lg.champName ? ', with ' + lg.champName : '') + '.' : lg.wins >= arena.need ? (champ.gen ? 'The title went to ' + champ.trainer + ' and ' + champ.bird + '. Take it back!' : 'Face ' + champ.trainer + ' for the title.') : 'Wins ' + lg.wins + ' of ' + arena.need + ' to face ' + champ.trainer, b.x + 4, b.y + 14, { size: 13, maxW: b.w - 8 });
     ui.bar(b.x + 4, b.y + 22, Math.min(300, b.w - 8), 8, lg.boss ? 1 : lg.wins / arena.need, pal.mustard);
     // what this arena does instead of ring-outs
     const tw = RB.fight.TWISTS[arena.modes[0]] || RB.fight.TWISTS.pit;
@@ -434,8 +435,8 @@
       keeper = base ? RB.npc.current(S, base) : null;
       say = site.kind === 'house' || site.kind === 'exotic' ? RB.npc.greeting(S, keeper) : RB.npc.chirp(keeper) + (LINES[site.id] || site.line || 'Hello.');
       if (keeper) RB.npc.info(S, keeper.id).met = true;
-      // each kind of place has its own tune
-      RB.audio.setTune(site.id === 'cellar' || site.id === 'market' ? 'cellar' : site.kind === 'arena' ? 'fight' : site.kind === 'carnival' ? 'carnival' : site.kind === 'house' ? 'farm' : 'town');
+      // the arenas' lobby and the night shops have music of their own; elsewhere the day or night music plays on
+      RB.audio.setTune(site.id === 'cellar' || site.id === 'market' ? 'nightshop' : site.kind === 'arena' ? 'arena' : S.time >= 19 ? 'night' : 'day');
     },
     update(dt) { if (common.checkBroke(S, 'map')) return; t += dt; },
     draw(ctx) {

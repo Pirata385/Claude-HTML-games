@@ -28,7 +28,8 @@
   }
   // crispr: play the cutting mini-game for each gene edit (off: edits apply at once)
   // goals: show the next goal as a hint at the top of the yard and the map
-  const DEFAULTS = { sfx: 0.8, music: 0.5, fast: false, crispr: true, goals: true };
+  // musicMode: 'always' (one track after another) or 'sometimes' (quiet stretches between the open-air tracks)
+  const DEFAULTS = { sfx: 0.8, music: 0.5, fast: false, crispr: true, goals: true, musicMode: 'always' };
   function settings() { try { return Object.assign({}, DEFAULTS, JSON.parse(get('settings') || '{}')); } catch (e) { return Object.assign({}, DEFAULTS); } }
   const setSettings = (o) => set('settings', JSON.stringify(o));
 

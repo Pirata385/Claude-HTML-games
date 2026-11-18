@@ -178,6 +178,39 @@
     return others.reduce((best, o) => (k(o) < k(best) ? o : best));
   }
 
+  // ---- arena champions: an arena you have won is held by the bird that won it. When that bird
+  // retires, or leaves you (sold, sent to BFC, set free, traded, or dead of old age on an island),
+  // the title stands empty; a day later a new champion claims it, and you can fight them for it.
+  function championAt(S, id) {
+    for (const c of S.birds) if (c.id === id) return c;
+    for (const c of S.roost || []) if (c.id === id) return c;
+    for (const isle of S.isles || []) for (const c of isle.birds) if (c.id === id) return c;
+    return null;
+  }
+  function championsNight(S, lines) {
+    for (const id of Object.keys(S.league || {})) {
+      const lg = S.league[id], A = RB.economy.ARENA[id];
+      if (!A || !lg.boss) continue;
+      if (lg.champ === undefined) { // won before champions were kept: the bird wearing the title, if any
+        const holder = everyone(S).map((e) => e[0]).find((c) => (c.titles || []).includes('Champion of ' + A.name));
+        if (!holder) continue;
+        lg.champ = holder.id; lg.champName = holder.name;
+      }
+      if (lg.vacant === undefined) {
+        const c = championAt(S, lg.champ);
+        if (c && !isRetired(c) && c.at !== 'roost') continue;
+        lg.vacant = c ? S.day : S.day - 1; // retired this morning, or gone during the day
+        lines.push((c ? c.name + ' has retired' : (lg.champName || 'Your champion') + ' is no longer yours') + ': nobody holds the title at ' + A.name + ' now.' + (c ? ' Someone will claim it tomorrow.' : ''));
+      }
+      if (S.day >= lg.vacant + 1) {
+        lg.boss = false; lg.ever = true; lg.gen = (lg.gen || 0) + 1;
+        delete lg.champ; delete lg.vacant;
+        const b = RB.economy.bossOf(S, A);
+        lines.push(A.name + ' has a new champion: ' + b.trainer + ' and ' + b.bird + '. Beat them there to take the title back.');
+      }
+    }
+  }
+
   // ---- the Hall of Fame: the birds that mattered. Notes are kept on each bird as things happen
   // (note, title); fameCheck looks over the flock and keeps a snapshot of every bird that has earned a
   // place (champions, record holders, curious stories, retired fighters), so they stay in the Hall
@@ -389,6 +422,7 @@
     for (const c of S.roost || []) { c.fed = true; c.hungry = 0; c.tired = false; c.rest = 0; c.bouts = 0; c.love = false; if (c.hp < 1) c.hp = Math.min(1, c.hp + 0.25); if (c.cond < 1) { c.cond = Math.min(1, c.cond + 0.25); dirty(c); } }
     // your islands: the colonies there live their own lives
     for (const isle of S.isles || []) { const ln = colonyNight(S, isle, r); if (ln) lines.push(ln); }
+    championsNight(S, lines);
     // the heat dies down: back to nothing after one night for each person netted (three at most)
     if (S.heat > 0) {
       const n = Math.max(1, S.heatDays || 1);

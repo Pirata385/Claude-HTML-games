@@ -40,9 +40,10 @@
         if (A.arena) {
           const lg = RB.economy.leagueOf(S, A.arena.id);
           if (card.boss) {
-            lg.boss = true;
-            out.push([A.arena.name + ' is yours!', 0]);
-            ST.note(S, c, 'beat ' + A.arena.boss.trainer + '\'s ' + A.arena.boss.bird + ' to take ' + A.arena.name); ST.title(c, 'Champion of ' + A.arena.name);
+            const was = RB.economy.bossOf(S, A.arena);
+            lg.boss = true; lg.ever = true; lg.champ = c.id; lg.champName = c.name; delete lg.vacant; // the title is held by this bird
+            out.push([A.arena.name + (was.gen ? ' is yours again!' : ' is yours!'), 0]);
+            ST.note(S, c, 'beat ' + was.trainer + '\'s ' + was.bird + ' to take ' + A.arena.name); ST.title(c, 'Champion of ' + A.arena.name);
             A.prizes = ST.bossPrizes(S); // the first two bosses hand over a tool that never wears out
             for (const id of A.prizes) out.push(['Prize: the ' + RB.items.ITEMS[id].name.toLowerCase() + '!', 0]);
             if (A.arena.boss.final) S.won = true;
@@ -271,7 +272,7 @@
             goldshovel: 'Dona Zefa hands over a golden shovel. "My grandfather dug half this county with it." It digs ten holes a day, every day, and never wears out. Your other shovels take over when it is done for the day.',
           };
           if (prize) ui.message(RB.items.ITEMS[prize].name, PRIZE_TEXT[prize], () => RB.game.go(A.back || 'coop', A.backArgs), { head: pal.mustard });
-          else if (mine && card.boss && r.winner === 0 && A.arena.boss.final) ui.message('Champion!', 'Madame Plume hands over the belt without a word. ' + F[0].name + ' crows until the lights go out.\n\nThe Grand Ring is yours. If Big Wattle still has his hand out, the bank is open. Either way the map, the lab and every strange egg are still there.', () => RB.game.go(A.back || 'coop', A.backArgs), { head: pal.mustard });
+          else if (mine && card.boss && r.winner === 0 && A.arena.boss.final) ui.message('Champion!', ((A.b && A.b.trainer) || 'Madame Plume') + ' hands over the belt without a word. ' + F[0].name + ' crows until the lights go out.\n\nThe Grand Ring is yours. If Big Wattle still has his hand out, the bank is open. Either way the map, the lab and every strange egg are still there.', () => RB.game.go(A.back || 'coop', A.backArgs), { head: pal.mustard });
           else RB.game.go(A.back || 'coop', A.backArgs);
         }
       }

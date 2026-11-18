@@ -1372,3 +1372,50 @@ test('the Hall of Fame keeps champions, record holders and odd lives, even after
   ST.fameCheck(S);
   assert.ok(S.fame.length <= 60 && ST.fameOf(S, cock.id), 'the champion stays');
 });
+
+test('when your champion retires or leaves, a new champion claims the arena a day later, and can be beaten', () => {
+  const S = ST.create(221), EC2 = RB.economy, A = EC2.ARENAS[0], lg = EC2.leagueOf(S, A.id);
+  const [cock, hen] = S.birds;
+  S.feeder = 99;
+  // the title is won (as the ring does it)
+  lg.wins = A.need; lg.boss = true; lg.ever = true; lg.champ = cock.id; lg.champName = cock.name;
+  assert.ok(!EC2.cards(S, A).some((k) => k.boss), 'no boss card while you hold the title');
+  ST.sleep(S);
+  assert.ok(lg.boss, 'held while the champion is yours');
+  // sold to BFC during the day: the next morning someone new holds the title
+  ST.fameLeave(S, cock, 'Went through the BFC kitchen door'); ST.removeBird(S, cock);
+  const r = ST.sleep(S);
+  assert.ok(!lg.boss && lg.ever && lg.gen === 1);
+  const champ = EC2.bossOf(S, A);
+  assert.ok(champ.gen === 1 && champ.trainer !== A.boss.trainer && champ.bird);
+  assert.ok(r.lines.some((l) => l.includes(cock.name) && l.includes('no longer yours')));
+  assert.ok(r.lines.some((l) => l.includes('new champion') && l.includes(champ.trainer)));
+  // the boss card is back, with the new champion, and the qualifying wins still count
+  const card = EC2.cards(S, A).find((k) => k.boss);
+  assert.ok(card && card.key.endsWith(':boss:1') && card.purse > A.boss.purse);
+  const opp = EC2.opponentFor(S, A, card);
+  assert.strictEqual(opp.trainer, champ.trainer); assert.strictEqual(opp.name, champ.bird); assert.ok(opp.boss);
+  // won back by another bird; when that one retires, the title stays a day, then passes on again
+  lg.boss = true; lg.champ = hen.id; lg.champName = hen.name;
+  hen.age = ST.pheno(hen).lifespan - 1;
+  const r1 = ST.sleep(S);
+  assert.ok(ST.isRetired(hen) && lg.boss && lg.vacant === S.day && r1.lines.some((l) => l.includes('has retired')));
+  const r2 = ST.sleep(S);
+  assert.ok(!lg.boss && lg.gen === 2 && r2.lines.some((l) => l.includes('new champion')));
+  assert.notStrictEqual(EC2.bossOf(S, A).trainer + EC2.bossOf(S, A).bird, champ.trainer + champ.bird);
+  // having been champion everywhere still opens the Grand Ring, title or not
+  const grand = EC2.ARENAS.find((a) => a.boss.final);
+  for (const a of EC2.ARENAS) if (a !== grand) { EC2.leagueOf(S, a.id).ever = true; EC2.leagueOf(S, a.id).boss = false; }
+  assert.ok(EC2.arenaOpen(S, grand));
+  // a save from before champions were kept: the bird carrying the title holds it
+  const O = ST.create(223), olg = EC2.leagueOf(O, A.id), holder = O.birds[1];
+  olg.wins = A.need; olg.boss = true; ST.title(holder, 'Champion of ' + A.name);
+  O.feeder = 99; ST.sleep(O);
+  assert.strictEqual(olg.champ, holder.id); assert.ok(olg.boss);
+  ST.removeBird(O, holder); ST.sleep(O);
+  assert.ok(!olg.boss && olg.gen === 1);
+  // and a title nobody wears (won long ago, champion unknown) is left alone
+  const N = ST.create(225), nlg = EC2.leagueOf(N, A.id); nlg.boss = true; N.feeder = 99;
+  ST.sleep(N); ST.sleep(N);
+  assert.ok(nlg.boss);
+});

@@ -1,10 +1,10 @@
-// audio.js — everything is synthesised with WebAudio: effects, bird voices shaped by their voice
-// genes and their kind of call, and a generative tune per place. Nothing loads from disk.
+// audio.js — sound effects and bird voices, synthesised with WebAudio: voices are shaped by their
+// voice genes and their kind of call. The music is recorded (music/*.mp3) and played by music.js.
 (function () {
   'use strict';
   const RB = globalThis.RB;
   const audio = { sfx: 0.8, music: 0.5, tune: null };
-  let ac = null, sfxG = null, musG = null, noiseBuf = null, timer = null, step = 0, nextT = 0;
+  let ac = null, sfxG = null, noiseBuf = null;
 
   function ensure() {
     if (ac) { if (ac.state === 'suspended') ac.resume(); return true; }
@@ -12,14 +12,14 @@
     if (!AC) return false;
     try { ac = new AC(); } catch (e) { return false; }
     sfxG = ac.createGain(); sfxG.gain.value = audio.sfx * 0.5; sfxG.connect(ac.destination);
-    musG = ac.createGain(); musG.gain.value = audio.music * 0.16; musG.connect(ac.destination);
     noiseBuf = ac.createBuffer(1, ac.sampleRate, ac.sampleRate);
     const d = noiseBuf.getChannelData(0);
     for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
     return true;
   }
   audio.unlock = ensure;
-  audio.setVolumes = function (sfx, music) { audio.sfx = sfx; audio.music = music; if (ac) { sfxG.gain.value = sfx * 0.5; musG.gain.value = music * 0.16; } };
+  audio.setVolumes = function (sfx, music) { audio.sfx = sfx; audio.music = music; if (ac) sfxG.gain.value = sfx * 0.5; };
+  audio.setTune = () => {}; // until music.js takes over
 
   // One note. o: { type, vol, to (slide to this frequency), at (delay), out (gain node), attack,
   //   vib: [rate Hz, depth as a fraction of the pitch] (a warble), bp: [freq, q] (a nasal filter),
@@ -282,89 +282,7 @@
   };
   audio.STYLE = STYLE;
 
-  // ---- music
-  // A tune: bpm, root (Hz), scale (semitones), bar (steps of an eighth note per bar: 8 for 4/4, 6
-  // for 3/4), prog (the chord of each bar, as a scale degree), lead (phrases two bars long, scale
-  // degrees, -1 rest, -2 hold the last note), form (the order of the phrases; alt is used every
-  // other time round), bass and arp (one bar each, relative to the chord: bass in scale degrees,
-  // arp as the chord's 1st/3rd/5th = 0/1/2, 3 all three), drums (k kick, s snare, h hat: 'x' hits),
-  // wave (the lead's sound), swing (0..0.5), harm (every other time round, a second voice a third up).
-  const MAJ = [0, 2, 4, 5, 7, 9, 11], MIN = [0, 2, 3, 5, 7, 8, 10], DOR = [0, 2, 3, 5, 7, 9, 10], MIX = [0, 2, 4, 5, 7, 9, 10], HMIN = [0, 2, 3, 5, 7, 8, 11], WHOLE = [0, 2, 4, 6, 8, 10];
-  const _ = -1, H = -2;
-  const TUNES = {
-    title: { bpm: 100, root: 196, scale: MAJ, prog: [0, 3, 4, 0, 5, 3, 4, 4], wave: 'triangle', harm: true,
-      lead: [[4, H, 2, H, 0, H, 2, 4, 3, H, 5, H, 4, H, H, _], [4, H, 6, H, 8, H, 7, 6, 5, H, 4, H, 3, H, 2, _], [5, H, 4, 5, 7, H, 5, H, 3, H, 5, H, 7, H, H, _], [4, H, 6, H, 4, 3, 2, 1, 0, H, H, H, _, _, _, _]],
-      form: [0, 1, 2, 3], bass: [0, H, H, H, 4, H, H, H], arp: [_, 0, 1, 2, _, 1, 2, 1] },
-    farm: { bpm: 108, root: 220, scale: MAJ, prog: [0, 0, 3, 4, 0, 3, 4, 0], wave: 'square', pluck: true, harm: true,
-      lead: [[0, 2, 4, 2, 0, _, 4, _, 0, 2, 4, 7, 4, _, 2, _], [3, 5, 7, 5, 3, _, 5, _, 4, 6, 8, 6, 4, H, _, _], [7, _, 6, _, 5, _, 4, _, 3, 5, 4, 2, 0, H, _, _], [4, _, 4, 5, 6, _, 8, _, 7, H, _, 4, 7, H, H, _]],
-      form: [0, 1, 0, 2], alt: [3, 1, 0, 2], bass: [0, _, 4, _, 0, _, 4, _], drums: { k: 'x...x...', h: '..x...x.' } },
-    map: { bpm: 118, root: 196, scale: MIX, prog: [0, 6, 3, 0, 0, 6, 4, 4], wave: 'triangle', harm: true,
-      lead: [[4, H, 4, 2, 4, H, 7, H, 6, H, 4, H, 6, H, H, _], [3, H, 5, H, 7, H, 5, 3, 4, H, 2, H, 0, H, H, _], [7, H, 8, 7, 6, H, 4, H, 6, H, 8, H, 6, 4, 2, _], [4, H, 6, H, 8, H, 6, H, 4, H, H, H, 1, 2, 3, _]],
-      form: [0, 1, 2, 3], alt: [2, 1, 0, 3], bass: [0, 0, _, 0, 4, _, 0, _], arp: [_, _, 1, _, _, _, 2, _], drums: { k: 'x..x..x.', h: '.x.x.x.x' } },
-    night: { bpm: 78, root: 175, scale: DOR, prog: [0, 0, 3, 3, 4, 4, 0, 0], wave: 'sine',
-      lead: [[4, H, H, H, 2, H, 3, H, 4, H, H, 6, 4, H, H, _], [5, H, H, 4, 3, H, 2, H, 0, H, H, H, _, _, _, _], [7, H, 6, H, 4, H, H, H, 5, H, 4, H, 2, H, H, _]],
-      form: [0, 1, 2, 1], bass: [0, H, H, H, 4, H, H, H], arp: [0, _, 1, _, 2, _, 1, _], drums: { h: '....x...' } },
-    fight: { bpm: 142, root: 147, scale: MIN, prog: [0, 0, 5, 6, 0, 0, 5, 4], wave: 'square',
-      lead: [[0, 0, 2, _, 0, 0, 4, _, 0, 0, 2, 3, 4, _, 2, _], [5, 5, 7, _, 5, 5, 9, _, 6, 6, 8, _, 6, _, 4, _], [7, _, 6, _, 4, _, 2, _, 3, _, 4, _, 6, _, 7, _], [4, 4, 6, _, 4, _, 8, _, 7, H, 6, H, 4, H, H, _]],
-      form: [0, 1, 0, 3], alt: [2, 1, 2, 3], bass: [0, 0, _, 0, 0, _, 0, 4], drums: { k: 'x...x.x.', s: '..x...x.', h: 'x.x.x.x.' } },
-    boss: { bpm: 152, root: 139, scale: HMIN, prog: [0, 0, 5, 4, 0, 0, 3, 4], wave: 'square', harm: true,
-      lead: [[0, _, 0, 2, 3, _, 2, 0, 6, _, 4, _, 6, 7, H, _], [5, _, 4, 5, 7, _, 5, 4, 3, _, 2, 3, 4, H, H, _], [7, 7, 6, _, 4, 4, 3, _, 2, 2, 3, _, 4, _, 6, _]],
-      form: [0, 1, 0, 2], bass: [0, 0, 0, _, 0, 0, 4, _], drums: { k: 'x.x.x.x.', s: '..x...x.', h: 'xxxxxxxx' } },
-    lab: { bpm: 84, root: 233, scale: WHOLE, prog: [0, 0, 1, 1, 0, 0, 2, 1], wave: 'sine',
-      lead: [[0, _, 3, _, 1, _, 4, _, 2, _, 5, _, 3, H, _, _], [6, _, 5, _, 3, _, 4, _, 2, _, 0, _, 1, H, H, _]],
-      form: [0, 1, 0, 1], bass: [0, H, H, H, _, _, _, _], arp: [0, 1, 2, 1, 0, 1, 2, 1], drums: { h: '..x..x..' } },
-    town: { bpm: 112, root: 262, scale: MAJ, prog: [0, 5, 1, 4, 0, 5, 1, 4], wave: 'triangle', swing: 0.22, harm: true,
-      lead: [[4, _, 2, _, 0, 2, 4, H, 5, _, 7, _, 5, 4, 2, _], [3, _, 5, _, 8, _, 7, H, 6, _, 4, _, 6, H, H, _], [7, 6, 7, _, 4, _, 2, _, 5, 4, 5, _, 1, _, 4, _]],
-      form: [0, 1, 2, 1], bass: [0, _, 2, _, 4, _, 5, _], drums: { k: 'x...x...', h: '..x...x.' } },
-    carnival: { bpm: 150, root: 196, scale: MAJ, bar: 6, prog: [0, 4, 4, 0, 0, 3, 4, 0], wave: 'square', pluck: true,
-      lead: [[4, H, H, 7, H, H, 6, H, 5, 4, H, H], [3, H, H, 5, H, H, 4, H, H, 2, H, H], [7, H, 8, 7, 6, 5, 4, H, 6, H, 8, H], [4, H, 3, 2, 1, _, 0, H, H, H, _, _]],
-      form: [0, 1, 2, 3], bass: [0, _, _, 4, _, _], arp: [_, _, 3, _, 3, _] },
-    roost: { bpm: 92, root: 175, scale: MAJ, bar: 6, prog: [0, 3, 0, 4, 0, 3, 4, 0], wave: 'sine', harm: true,
-      lead: [[2, H, H, 4, H, 3, 2, H, H, 0, H, H], [3, H, H, 5, H, 4, 3, H, H, 1, H, H], [4, H, 5, 7, H, 5, 4, H, H, 2, H, H], [3, H, H, 1, H, H, 0, H, H, H, H, _]],
-      form: [0, 1, 2, 3], bass: [0, H, H, _, _, _], arp: [_, _, 1, _, 2, _] },
-    cellar: { bpm: 96, root: 131, scale: HMIN, prog: [0, 0, 3, 3, 5, 4, 0, 4], wave: 'square', swing: 0.28,
-      lead: [[0, _, 2, 3, 4, H, 3, 2, 0, H, _, _, 4, 3, 2, _], [3, _, 5, 6, 7, H, 6, 5, 3, H, _, _, 7, 6, 5, _], [5, H, 4, H, 3, H, 2, H, 1, H, 2, H, 4, H, H, _]],
-      form: [0, 1, 2, 0], bass: [0, _, 2, _, 4, _, 2, _], drums: { k: 'x...x...', s: '......x.', h: 'x.xxx.xx' } },
-  };
-  audio.TUNES = TUNES;
-  const noteF = (tune, deg, oct) => { const n = tune.scale.length; return tune.root * Math.pow(2, (tune.scale[((deg % n) + n) % n] + 12 * (Math.floor(deg / n) + (oct || 0))) / 12); };
-  // how many steps a note lasts: itself and any holds after it
-  const lenAt = (arr, i) => { let n = 1; while (i + n < arr.length && arr[i + n] === H) n++; return n; };
-  function schedule() {
-    const tune = TUNES[audio.tune];
-    if (!tune || !ac || audio.music <= 0) return;
-    const bar = tune.bar || 8, phrase = bar * 2, spb = 60 / tune.bpm / 2, loopLen = tune.form.length * phrase;
-    while (nextT < ac.currentTime + 0.25) {
-      const loop = Math.floor(step / loopLen), s = step % loopLen, form = tune.alt && loop % 2 ? tune.alt : tune.form;
-      const lead = tune.lead[form[Math.floor(s / phrase)]], li = s % phrase, bi = s % bar;
-      const chord = tune.prog[Math.floor(s / bar) % tune.prog.length];
-      const at = Math.max(0, nextT - ac.currentTime) + (tune.swing && step % 2 ? tune.swing * spb : 0);
-      const d = lead[li];
-      if (d >= 0) {
-        const len = tune.pluck ? Math.min(2, lenAt(lead, li)) : lenAt(lead, li);
-        tone(noteF(tune, d, 1), spb * len * 0.95 + 0.05, { type: tune.wave, vol: tune.wave === 'square' ? 0.28 : 0.5, at, out: musG });
-        if (tune.harm && loop % 2) tone(noteF(tune, d + 2, 1), spb * len * 0.9, { type: 'triangle', vol: 0.18, at, out: musG });
-      }
-      const b = tune.bass ? tune.bass[bi] : _;
-      if (b >= 0) tone(noteF(tune, chord + b, -1), spb * lenAt(tune.bass, bi) * 0.95 + 0.05, { type: 'sine', vol: 0.8, at, out: musG });
-      const a = tune.arp ? tune.arp[bi] : _;
-      if (a >= 0) for (const k of a === 3 ? [0, 1, 2] : [a]) tone(noteF(tune, chord + k * 2, 0), spb * 0.9, { type: 'triangle', vol: a === 3 ? 0.14 : 0.2, at, out: musG });
-      const dr = tune.drums;
-      if (dr) {
-        const fill = s >= loopLen - bar && loop % 2; // a busier last bar every other time round
-        if (dr.k && dr.k[bi] === 'x') tone(130, 0.16, { type: 'sine', vol: 0.9, at, to: 45, out: musG });
-        if ((dr.s && dr.s[bi] === 'x') || (fill && bi >= bar - 2)) noise(0.12, { freq: 1800, band: true, q: 0.7, vol: 0.45, at, out: musG });
-        if (dr.h && dr.h[bi] === 'x') noise(0.035, { freq: 7000, high: true, vol: 0.18, at, out: musG });
-      }
-      step++; nextT += spb;
-    }
-  }
-  audio.setTune = function (name) {
-    if (audio.tune === name) return;
-    audio.tune = name; step = 0;
-    if (ac) nextT = ac.currentTime + 0.1;
-    if (!timer) timer = setInterval(() => { if (ac && ac.state === 'running') schedule(); }, 90);
-  };
+  // ---- music: the recorded tracks, played by music.js (audio.setTune comes from there)
 
   RB.audio = audio;
 })();

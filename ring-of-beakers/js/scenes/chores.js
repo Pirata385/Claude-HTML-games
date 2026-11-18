@@ -80,7 +80,7 @@
         const p = inFloor(40);
         hens.push({ P: RB.pheno.express(RB.species.make(rng.pick(['chicken', 'chicken', 'bantam', 'chicken']), rng, { sex: i ? 'F' : 'M', sport: 0 })), x: p.x, y: p.y, tx: p.x, ty: p.y, f: 1, ph: rng.next(), sp: 0, t: rng.range(0, 2), voice: rng.range(3, 9) });
       }
-      RB.audio.setTune('farm');
+      RB.audio.setTune(S.time >= 19 ? 'night' : 'day');
     },
     update(dt) {
       t += dt;

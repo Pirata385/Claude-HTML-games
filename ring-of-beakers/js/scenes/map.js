@@ -13,6 +13,8 @@
   const zoom = () => clamp(Math.max(ui.view.w, ui.view.h) / 1500, 0.45, 0.8);
   const toWorld = (px, py) => ({ x: cam.x + (px - ui.view.w / 2) / zoom(), y: cam.y + (py - ui.view.h / 2) / zoom() });
   const isNight = () => S.time >= 19;
+  // the music out here: day or night, on the mainland or out at sea
+  const mapMood = () => (car && ST.openSea(S) && !WD.inMain(car.x, car.y) ? (isNight() ? 'seanight' : 'sea') : isNight() ? 'night' : 'day');
   const mapSpeed = (P) => clamp(P.speedMax * 1.45, 90, 560);
   const range = () => (S.equip.launcher ? 900 : 520);
   const cageRoom = () => ST.cageCap(S) - ST.at(S, 'cage').length;
@@ -380,7 +382,7 @@
       });
       refreshFolk();
       sheriff = folk.find((f) => f.base.role === 'sheriff');
-      RB.audio.setTune(isNight() ? 'night' : 'map');
+      RB.audio.setTune(mapMood());
       // the truck's cage, live: grab the riders, tap one for its card, drag one out to let it go
       pen = new RB.Pen({ drawOpts: common.drawOpts, onTap: (c) => common.card(c, riderActions), onDropOut: (c, sx, sy) => { const w = toWorld(sx, sy); releaseAt(c, w.x, w.y); } });
     },
@@ -390,7 +392,7 @@
       const v = ui.view, z = zoom();
       if (common.checkBroke(S, 'map')) return;
       t += dt; stun = Math.max(0, stun - dt);
-      RB.audio.setTune(isNight() ? 'night' : 'map'); // the night tune comes in at nightfall
+      RB.audio.setTune(mapMood()); // night music at nightfall, sea music past the shore
       // world time: an hour every 30 s, or faster with the speed button; it drops back to normal at nightfall
       const before = S.time, g = RB.game;
       S.time += dt / 30 * (g.timeSpeed || 1);

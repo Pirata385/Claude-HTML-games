@@ -10,7 +10,12 @@
   let seaWarned = false, guide = null, guideAt = 0, isleHint = null, hintAt = 0, raiseAt = null, seaT = 6;
   let S, world, car, cam, wild, folk, sheriff, nets, flying, seeds, parts, t, rng, tool, aim, stick, digT, near, paths, decorCache, det, stun, warned, sirenT, pen;
 
-  const zoom = () => clamp(Math.max(ui.view.w, ui.view.h) / 1500, 0.45, 0.8);
+  const baseZoom = () => clamp(Math.max(ui.view.w, ui.view.h) / 1500, 0.45, 0.8);
+  // the player's own zoom, kept in Settings: 1 is the usual view, 2 sees twice as far
+  const ZOOM_MAX = 2;
+  const viewZoom = () => clamp((RB.game.settings && RB.game.settings.viewZoom) || 1, 1, ZOOM_MAX);
+  const zoom = () => baseZoom() / viewZoom();
+  function setViewZoom(k) { const v = +clamp(k, 1, ZOOM_MAX).toFixed(3); if (v !== viewZoom()) { RB.game.settings.viewZoom = v; RB.game.applySettings(); } }
   const toWorld = (px, py) => ({ x: cam.x + (px - ui.view.w / 2) / zoom(), y: cam.y + (py - ui.view.h / 2) / zoom() });
   const isNight = () => S.time >= 19;
   // the music out here: day or night, on the mainland or out at sea
@@ -448,6 +453,12 @@
       if (input.hit('Digit1')) tool = 'net'; if (input.hit('Digit2') && ST.count(S, 'bignet')) tool = 'bignet'; if (input.hit('Digit3')) tool = 'seed';
       if (input.hit('KeyQ')) dig();
       if (input.hit('KeyH')) honk();
+      // zoom: the wheel, or - and = (the buttons are drawn with the other controls)
+      if (!ui.modals.length) {
+        if (input.wheel) setViewZoom(viewZoom() * Math.pow(1.12, input.wheel));
+        if (input.hit('Minus') || input.hit('NumpadSubtract')) setViewZoom(viewZoom() * 1.25);
+        if (input.hit('Equal') || input.hit('NumpadAdd')) setViewZoom(viewZoom() / 1.25);
+      }
       if (digT > 0) { digT -= dt; if (digT <= 0) finishDig(); }
       aim = null;
       for (const p of input.ptrs) { // dragging from the net button aims a throw
@@ -590,12 +601,14 @@
         ctx.strokeStyle = '#dcccaa'; ctx.lineWidth = 78; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
         for (const road of is.roads) { ctx.beginPath(); ctx.moveTo(road[0].x, road[0].y); for (let i = 1; i < road.length; i++) ctx.lineTo(road[i].x, road[i].y); ctx.stroke(); }
       }
-      // ground texture: one small tuft per cell, darker than its biome
-      const gs = 150;
+      // ground texture: one small tuft per cell, darker than its biome (one fill per colour)
+      const gs = 150, tufts = new Map();
       for (let gx = Math.floor(x0 / gs); gx <= Math.floor(x1 / gs); gx++) for (let gy = Math.floor(y0 / gs); gy <= Math.floor(y1 / gs); gy++) {
-        const hx = (gx + hash2(gx, gy, 3)) * gs, hy = (gy + hash2(gx, gy, 4)) * gs;
-        ctx.fillStyle = WD.BIOMES[WD.biomeAt(world, hx, hy)].dark; ctx.beginPath(); ctx.ellipse(hx, hy, 16, 5, 0, 0, TAU); ctx.fill();
+        const hx = (gx + hash2(gx, gy, 3)) * gs, hy = (gy + hash2(gx, gy, 4)) * gs, col = WD.BIOMES[WD.biomeAt(world, hx, hy)].dark;
+        let path = tufts.get(col); if (!path) { path = new Path2D(); tufts.set(col, path); }
+        path.moveTo(hx + 16, hy); path.ellipse(hx, hy, 16, 5, 0, 0, TAU);
       }
+      for (const [col, path] of tufts) { ctx.fillStyle = col; ctx.fill(path); }
       // the Bone Quarry's dig: a terraced pit roped off on four posts, with bones showing
       const qs = world.site.quarry;
       if (qs && Math.abs(qs.x - cam.x) < 3000 && Math.abs(qs.y - cam.y) < 3000) {
@@ -716,6 +729,11 @@
       if (ST.count(S, 'bignet')) tools.push(['bignet', ST.fmtCount(ST.count(S, 'bignet'))]);
       if (ST.count(S, 'seed')) tools.push(['seed', ST.fmtCount(ST.count(S, 'seed'))]);
       const bs = 54, by = v.h - bs - 10;
+      // zoom out to see further (up to twice as far), or back in, above the clock
+      const vz = viewZoom(), zw = (bs - 4) / 2, zy = by - 46 - 42;
+      if (ui.btn(v.w - 10 - bs, zy, zw, 34, '', { icon: 'minus', fill: pal.paper, iconCol: pal.ink, disabled: vz >= ZOOM_MAX - 0.001 })) { setViewZoom(vz * 1.25); RB.audio.play('click'); }
+      if (ui.btn(v.w - 10 - zw, zy, zw, 34, '', { icon: 'plus', fill: pal.paper, iconCol: pal.ink, disabled: vz <= 1.001 })) { setViewZoom(vz / 1.25); RB.audio.play('click'); }
+      if (vz > 1.001) ui.text('x' + vz.toFixed(1), v.w - 10 - bs / 2, zy - 6, { size: 11, align: 'center', color: n > 0.5 ? pal.white : pal.ink });
       // time speed, above the shovel
       const sp1 = RB.game.timeSpeed || 1;
       if (ui.btn(v.w - 10 - bs, by - 46, bs, 38, 'x' + sp1, { icon: 'clock', fill: sp1 > 1 ? pal.plum : pal.paper, color: sp1 > 1 ? pal.white : pal.ink, iconCol: sp1 > 1 ? pal.white : pal.plum, size: 13, key: 'KeyT' })) {

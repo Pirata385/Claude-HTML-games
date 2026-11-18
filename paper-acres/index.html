@@ -1,0 +1,220 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#efe4c8">
+<title>Paper Acres</title>
+<style>
+@font-face { font-family: 'Courier Prime'; font-weight: 400; src: url('fonts/courier-prime-latin-400-normal.woff2') format('woff2'); font-display: block; }
+@font-face { font-family: 'Courier Prime'; font-weight: 700; src: url('fonts/courier-prime-latin-700-normal.woff2') format('woff2'); font-display: block; }
+@font-face { font-family: 'Patrick Hand'; font-weight: 400; src: url('fonts/patrick-hand-latin-400-normal.woff2') format('woff2'); font-display: block; }
+:root {
+  --paper: #efe4c8;
+  --ink: #000000;
+  --mono: 'Courier Prime', 'Courier New', monospace;
+  --hand: 'Patrick Hand', 'Comic Sans MS', cursive;
+  --ui: 1;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; overflow: hidden; background: var(--paper); color: var(--ink); font-family: var(--mono); }
+body { touch-action: none; -webkit-user-select: none; user-select: none; -webkit-tap-highlight-color: transparent; overscroll-behavior: none; }
+#game { position: fixed; inset: 0; }
+#game canvas { display: block; }
+#ui { position: fixed; inset: 0; pointer-events: none; font-size: calc(15px * var(--ui)); }
+#ui > * { pointer-events: auto; }
+.hidden { display: none !important; }
+/* touch overlay: outline only */
+#touch { position: fixed; inset: 0; pointer-events: none; --tb: 1; }
+#touch > *, #touch .tbtns > * { pointer-events: auto; }
+#touch .stick { position: absolute; left: calc(env(safe-area-inset-left) + 26px); bottom: calc(env(safe-area-inset-bottom) + 26px); width: calc(132px * var(--tb)); height: calc(132px * var(--tb)); border: 2px dashed var(--ink); border-radius: 50%; touch-action: none; }
+#touch .knob { position: absolute; left: 50%; top: 50%; width: 40%; height: 40%; margin: -20% 0 0 -20%; border: 2px solid var(--ink); border-radius: 50%; }
+#touch .tbtns { position: absolute; right: calc(env(safe-area-inset-right) + 18px); bottom: calc(env(safe-area-inset-bottom) + 22px); display: grid; grid-template-columns: repeat(2, auto); gap: 10px; align-items: end; pointer-events: none; }
+#touch .tb { width: calc(64px * var(--tb)); height: calc(64px * var(--tb)); border: 2px solid var(--ink); border-radius: 50%; background: none; color: var(--ink); font: 700 calc(14px * var(--tb)) var(--mono); touch-action: none; padding: 0; }
+#touch .tb.big { width: calc(78px * var(--tb)); height: calc(78px * var(--tb)); }
+#touch .tb.small { width: calc(52px * var(--tb)); height: calc(52px * var(--tb)); }
+#touch .tb.on { border-style: dashed; border-width: 3px; }
+#touch .tb.corner { position: absolute; right: calc(env(safe-area-inset-right) + 14px); top: calc(env(safe-area-inset-top) + 64px); width: 46px; height: 46px; border-radius: 8px; }
+#touch.lefty .stick { left: auto; right: calc(env(safe-area-inset-right) + 26px); }
+#touch.lefty .tbtns { right: auto; left: calc(env(safe-area-inset-left) + 18px); }
+body.night #touch .tb, body.night #touch .stick, body.night #touch .knob { border-color: var(--paper); color: var(--paper); }
+#toasts { position: fixed; left: 50%; bottom: calc(env(safe-area-inset-bottom) + 110px); transform: translateX(-50%); display: flex; flex-direction: column; align-items: center; gap: 6px; pointer-events: none; }
+.toast { background: var(--paper); color: var(--ink); border: 2px solid var(--ink); padding: 6px 14px; font: 700 calc(15px * var(--ui)) var(--mono); transition: opacity .3s; max-width: 80vw; text-align: center; }
+.toast.out { opacity: 0; }
+/* HUD */
+#hud { position: fixed; inset: 0; pointer-events: none; font: 700 calc(14px * var(--ui)) var(--mono); }
+#hud > div { position: absolute; top: calc(env(safe-area-inset-top) + 8px); background: var(--paper); border: 2px solid var(--ink); padding: 4px 10px; line-height: 1.35; white-space: pre; }
+#hud .hud-l { left: calc(env(safe-area-inset-left) + 104px); }
+#hud .hud-r { right: calc(env(safe-area-inset-right) + 10px); text-align: right; }
+body.touchmode #hud .hud-l { left: calc(env(safe-area-inset-left) + 70px); }
+body.touchmode #hud .hud-r { right: calc(env(safe-area-inset-right) + 70px); }
+/* modal */
+.modal { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; pointer-events: auto; }
+.modal .card, .tpage { background: var(--paper); border: 2px solid var(--ink); padding: 18px 22px; max-width: min(92vw, 560px); box-shadow: 6px 6px 0 var(--ink); }
+.modal p { font: 700 calc(16px * var(--ui)) var(--mono); margin: 0 0 14px; }
+.modal .row { display: flex; gap: 10px; justify-content: flex-end; flex-wrap: wrap; }
+button { font: 700 calc(15px * var(--ui)) var(--mono); background: var(--paper); color: var(--ink); border: 2px solid var(--ink); padding: 6px 14px; cursor: pointer; }
+button:hover, button:focus-visible { background: var(--ink); color: var(--paper); outline: none; }
+button:disabled { border-style: dashed; cursor: default; background: var(--paper); color: var(--ink); text-decoration: line-through; }
+/* title */
+#title { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; pointer-events: auto; padding: 16px; }
+#title .tpage { width: min(92vw, 620px); max-height: 92vh; overflow: auto; }
+#title h1 { font: 400 clamp(44px, 9vw, 84px) var(--hand); margin: 0; line-height: 1; text-align: center; }
+#title .sub { font: 400 clamp(16px, 3vw, 22px) var(--hand); text-align: center; margin: 6px 0 16px; }
+#title .tmenu { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; }
+#title .tpanel { margin-top: 14px; }
+#title .hint, #title .about { font: 400 13px var(--mono); text-align: center; margin: 14px 0 0; line-height: 1.5; }
+.tform { display: grid; gap: 10px; }
+.tform label { display: grid; grid-template-columns: 9em 1fr; align-items: center; gap: 8px; font: 700 14px var(--mono); }
+input, select { font: 700 15px var(--mono); background: var(--paper); color: var(--ink); border: 2px solid var(--ink); padding: 5px 8px; border-radius: 0; }
+.slot { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; margin: 6px 0; font: 700 13px var(--mono); }
+.slot span { flex: 1 1 220px; }
+.slot button { padding: 4px 8px; font-size: 13px; }
+/* hotbar */
+#hotbar { position: fixed; left: 50%; bottom: calc(env(safe-area-inset-bottom) + 8px); transform: translateX(-50%); text-align: center; pointer-events: none; }
+#hotbar .hb-name { font: 700 calc(13px * var(--ui)) var(--mono); background: var(--paper); display: inline-block; padding: 0 6px; margin-bottom: 3px; min-height: 1.2em; }
+#hotbar .hb-name:empty { visibility: hidden; }
+#hotbar .hb-slots { display: flex; gap: 3px; pointer-events: auto; }
+.hb, .cell { position: relative; width: calc(44px * var(--ui)); height: calc(40px * var(--ui)); padding: 0; display: flex; align-items: center; justify-content: center; font: 700 calc(14px * var(--ui)) var(--mono); }
+.hb .k { position: absolute; left: 3px; top: 1px; font-size: 9px; }
+.hb .n, .cell .n { position: absolute; right: 3px; bottom: 1px; font-size: 10px; }
+.hb.sel, .cell.sel { background: var(--ink); color: var(--paper); }
+body.touchmode #hotbar { bottom: calc(env(safe-area-inset-bottom) + 4px); }
+body.touchmode .hb { width: calc(36px * var(--ui)); height: calc(34px * var(--ui)); font-size: calc(12px * var(--ui)); }
+/* notebook */
+#notebook { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; pointer-events: auto; padding: 10px; }
+#notebook .nb { background: var(--paper); border: 2px solid var(--ink); box-shadow: 6px 6px 0 var(--ink); width: min(96vw, 860px); height: min(92vh, 620px); display: flex; flex-direction: column; }
+#notebook .nb-tabs { display: flex; flex-wrap: wrap; border-bottom: 2px solid var(--ink); }
+#notebook .nb-tabs button { border: 0; border-right: 2px solid var(--ink); padding: 6px 10px; font-size: calc(13px * var(--ui)); }
+#notebook .nb-tabs button.on { background: var(--ink); color: var(--paper); }
+#notebook .nb-tabs .nb-x { margin-left: auto; border-left: 2px solid var(--ink); border-right: 0; }
+#notebook .nb-body { flex: 1; overflow: auto; padding: 12px 14px; font: 700 calc(14px * var(--ui)) var(--mono); }
+.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(calc(44px * var(--ui)), 1fr)); gap: 4px; }
+.cell.hot { border-style: double; border-width: 4px; }
+.info { margin: 10px 0; min-height: 2.4em; font-weight: 400; }
+.row { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
+.muted { font-weight: 400; margin: 0 0 8px; }
+.recipe { display: flex; gap: 10px; align-items: center; border-bottom: 1px dashed var(--ink); padding: 5px 0; flex-wrap: wrap; }
+.recipe .ic { width: 3em; text-align: center; }
+.recipe .req { flex: 1; font-weight: 400; }
+pre.map { font: 700 calc(11px * var(--ui)) var(--mono); line-height: 1.15; overflow: auto; margin: 0; }
+.cal { display: grid; grid-template-columns: repeat(7, 1fr); gap: 3px; }
+.cal .day { border: 1px solid var(--ink); min-height: 3.2em; padding: 2px 4px; font-weight: 400; font-size: 11px; }
+.cal .day b { font-size: 13px; }
+.cal .day i { display: block; font-style: normal; }
+.cal .today { background: var(--ink); color: var(--paper); }
+.settings { display: grid; gap: 8px; }
+.settings label { display: grid; grid-template-columns: 14em 1fr; align-items: center; gap: 10px; }
+input[type=range] { accent-color: #000000; }
+input[type=checkbox] { width: 20px; height: 20px; accent-color: #000000; justify-self: start; }
+.modal .card.wide { max-width: min(96vw, 760px); width: 100%; max-height: 90vh; overflow: auto; }
+hr { border: 0; border-top: 2px dashed var(--ink); }
+/* sketchpad */
+#sketch { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; pointer-events: auto; padding: 8px; background: var(--paper); }
+#sketch .sk { width: 100%; height: 100%; display: flex; flex-direction: column; gap: 8px; }
+#sketch .sk-top { display: flex; gap: 12px; align-items: center; font: 400 22px var(--hand); }
+#sketch .sk-top .sk-note { flex: 1; font-size: 16px; }
+#sketch .sk-main { flex: 1; display: flex; gap: 14px; align-items: flex-start; justify-content: center; min-height: 0; }
+#sketch .sk-main.tall { flex-direction: column; align-items: center; }
+#sketch .sk-pad { position: relative; border: 2px solid var(--ink); touch-action: none; cursor: crosshair; }
+#sketch .sk-pad canvas { display: block; }
+#sketch .sk-ascii { position: absolute; inset: 0; margin: 0; pointer-events: none; font-family: var(--mono); font-weight: 700; white-space: pre; overflow: hidden; }
+#sketch .sk-side { width: min(300px, 92vw); display: flex; flex-direction: column; gap: 8px; font: 700 14px var(--mono); max-height: 100%; overflow: auto; }
+#sketch .sk-tools { display: flex; flex-wrap: wrap; gap: 4px; }
+#sketch .sk-tools button.on { background: var(--ink); color: var(--paper); }
+#sketch .sk-words { display: flex; flex-wrap: wrap; gap: 4px; }
+#sketch .sk-words p { width: 100%; }
+#sketch .word span { font-weight: 400; margin-left: 6px; }
+#sketch .word.best { border-width: 3px; }
+#place { position: fixed; left: 50%; bottom: calc(env(safe-area-inset-bottom) + 70px); transform: translateX(-50%); display: flex; gap: 6px; pointer-events: auto; }
+/* talking and town screens */
+.modal .card.talk { position: fixed; left: 50%; bottom: calc(env(safe-area-inset-bottom) + 64px); transform: translateX(-50%); width: min(94vw, 680px); }
+.talk .who { display: flex; justify-content: space-between; font: 400 22px var(--hand); }
+.talk .who span { font: 700 12px var(--mono); }
+.talk .say { font: 400 calc(16px * var(--ui)) var(--mono); min-height: 3em; }
+.shop .row button.on { background: var(--ink); color: var(--paper); }
+.shop .list { margin-top: 8px; }
+.letter { border: 1px dashed var(--ink); padding: 6px 10px; margin: 6px 0; font-weight: 400; }
+.page { border-top: 2px solid var(--ink); padding-top: 6px; margin-top: 8px; }
+.page.done { text-decoration: line-through; }
+pre.reel { font: 700 16px var(--mono); line-height: 1; margin: 0 auto; width: max-content; }
+#loading { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; font-family: var(--hand); font-size: 28px; background: var(--paper); }
+</style>
+</head>
+<body>
+<div id="game"></div>
+<div id="ui"></div>
+<div id="loading">sharpening pencils...</div>
+<script src="lib/phaser.min.js"></script>
+<script src="src/core/config.js"></script>
+<script src="src/core/util.js"></script>
+<script src="src/core/rng.js"></script>
+<script src="src/core/events.js"></script>
+<script src="src/ascii/rasterize.js"></script>
+<script src="src/ascii/glyphs.js"></script>
+<script src="src/world/tiles.js"></script>
+<script src="src/world/grid.js"></script>
+<script src="src/world/gen.js"></script>
+<script src="src/ascii/matcher.js"></script>
+<script src="src/render/view.js"></script>
+<script src="src/render/props.js"></script>
+<script src="src/render/worldDraw.js"></script>
+<script src="src/render/ascii.js"></script>
+<script src="src/render/paper.js"></script>
+<script src="src/farm/items.js"></script>
+<script src="src/farm/inventory.js"></script>
+<script src="src/farm/crops.js"></script>
+<script src="src/farm/crafting.js"></script>
+<script src="src/farm/farm.js"></script>
+<script src="src/farm/animals.js"></script>
+<script src="src/life/wildlife.js"></script>
+<script src="src/life/fishing.js"></script>
+<script src="src/ascii/shapes.js"></script>
+<script src="src/draw/words.js"></script>
+<script src="src/draw/ink.js"></script>
+<script src="src/draw/sketchpad.js"></script>
+<script src="src/draw/drawnObject.js"></script>
+<script src="src/town/npcs.js"></script>
+<script src="src/town/dialogue.js"></script>
+<script src="src/town/shops.js"></script>
+<script src="src/town/quests.js"></script>
+<script src="src/town/festivals.js"></script>
+<script src="src/town/people.js"></script>
+<script src="src/combat/combat.js"></script>
+<script src="src/combat/enemies.js"></script>
+<script src="src/combat/mine.js"></script>
+<script src="src/physics/terrain.js"></script>
+<script src="src/physics/stickman.js"></script>
+<script src="src/physics/player.js"></script>
+<script src="src/systems/state.js"></script>
+<script src="src/systems/time.js"></script>
+<script src="src/systems/save.js"></script>
+<script src="src/systems/settings.js"></script>
+<script src="src/systems/audio.js"></script>
+<script src="src/systems/quality.js"></script>
+<script src="src/render/weather.js"></script>
+<script src="src/systems/input.js"></script>
+<script src="src/ui/touch.js"></script>
+<script src="src/ui/toast.js"></script>
+<script src="src/ui/dialog.js"></script>
+<script src="src/ui/hud.js"></script>
+<script src="src/ui/title.js"></script>
+<script src="src/ui/notebook.js"></script>
+<script src="src/ui/words.js"></script>
+<script src="src/ui/townui.js"></script>
+<script src="src/ui/hints.js"></script>
+<script src="src/scenes/Game.js"></script>
+<script src="src/scenes/Boot.js"></script>
+<script>
+  PA.Input.init();
+  PA.Touch.init();
+  PA.UI.HUD.init();
+  PA.UI.Title.init();
+  PA.UI.Hotbar.init();
+  PA.UI.Notebook.init();
+  PA.Settings.apply();
+  PA.start();
+  PA.Bus.on('ready', () => { document.getElementById('loading').remove(); PA.scene.showTitle(); });
+</script>
+</body>
+</html>

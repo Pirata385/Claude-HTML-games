@@ -221,7 +221,7 @@
   };
   const ITEM_ICON = { net: ['net', pal.teal], bignet: ['net', pal.plum], silvernet: ['net', '#8f9db0'], goldshovel: ['shovel', '#d9a21b'], shovel: ['shovel', pal.brick], seed: ['seed', pal.mustard], detector: ['detector', pal.grey], launcher: ['target', pal.coral], lantern: ['lantern', pal.ink],
     grain: ['grain', pal.mustard], grainsack: ['bag', pal.mustard], worm: ['worm', pal.coral], chili: ['chili', '#d7372f'], tonic: ['bottle', pal.teal], gromash: ['bag', pal.leaf], loveseed: ['heart', pal.coral], mushroom: ['mushroom', pal.plum], isotope: ['atom', '#58c468'],
-    elixir: ['bottle', pal.plum], spurs: ['spur', pal.grey], helmet: ['shield', pal.grey], scarf: ['feather', pal.coral], anklets: ['weight', pal.ink], tophat: ['hat', pal.ink], cowboy: ['hat', pal.brick], party: ['hat', pal.mustard],
+    elixir: ['bottle', pal.plum], vigor: ['bottle', '#d9a21b'], spurs: ['spur', pal.grey], helmet: ['shield', pal.grey], scarf: ['feather', pal.coral], anklets: ['weight', pal.ink], tophat: ['hat', pal.ink], cowboy: ['hat', pal.brick], party: ['hat', pal.mustard],
     bandana: ['hat', pal.coral], crown: ['trophy', pal.mustard], bucket: ['bucket', pal.white], beaker: ['beaker', pal.teal], enzyme: ['dna', pal.plum], fuse: ['fuse', pal.mustard], cap: ['coin', pal.grey], boot: ['boot', pal.brick],
     shard: ['shard', pal.brick], oldspur: ['spur', pal.mustard], idol: ['trophy', pal.mustard],
     beakcap: ['spur', '#8b97a8'], mail: ['shield', '#8b97a8'], wingwax: ['feather', pal.mustard], horseshoe: ['star', pal.mustard], springs: ['up', pal.teal], flask: ['bottle', pal.coral] };

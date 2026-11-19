@@ -207,7 +207,7 @@ test('the world has every site on dry land, people for each, and stable buried l
     const w = RB.world.generate(seed);
     for (const s of w.sites) assert.notStrictEqual(RB.world.biomeAt(w, s.x, s.y), 'water', s.id + ' is in the water (seed ' + seed + ')');
     assert.ok(w.npcs.length >= 20);
-    for (const n of w.npcs) { assert.ok(w.site[n.site], n.id + ' has no site'); assert.ok(RB.pheno.express(n.g).person, n.name + ' is not a person'); }
+    for (const n of w.npcs) { assert.ok(w.site[n.site], n.id + ' has no site'); assert.ok(n.colonel || RB.pheno.express(n.g).person, n.name + ' is not a person'); } // the Coronel is a rooster-man
     for (const m of w.marks) { const l = RB.world.lootAt(w, m.cx, m.cy, 1); assert.ok(l && l.marked); assert.deepStrictEqual(RB.world.lootAt(w, m.cx, m.cy, 9), l, 'a treasure mark holds the same find every day'); }
     let found = 0, dry = 0;
     const kinds = {};
@@ -1063,11 +1063,11 @@ test('netting every person on the mainland is a feat; sea islanders do not count
   const S = ST.create(187), w = RB.world.generate(S.seed);
   RB.sea.chunk(w, -4, 2); RB.sea.chunk(w, 5, -3); // islands with people of their own
   const main = ST.mainlanders(w);
-  assert.strictEqual(main.length, 30, 'fourteen keepers, three later places, twelve neighbours and the sheriff');
+  assert.strictEqual(main.length, 31, 'fourteen keepers, three later places, twelve neighbours, the sheriff and the Coronel');
   assert.ok(main.every((n) => !w.site[n.site].island));
   assert.ok(w.npcs.length > main.length, 'the sea islands have people too');
   for (const n of main.slice(0, -1)) ST.netKeeper(S, n);
-  assert.strictEqual(ST.nettedCount(S, w), 29); assert.ok(!ST.nettedAll(S, w));
+  assert.strictEqual(ST.nettedCount(S, w), 30); assert.ok(!ST.nettedAll(S, w));
   ST.netKeeper(S, main[main.length - 1]);
   assert.ok(ST.nettedAll(S, w));
   // a save from before rebuilds the list from who is missing
@@ -1526,4 +1526,178 @@ test('a bird riding in the truck can be fed and dressed from the bag, away from 
   const L = ST.deserialize(JSON.parse(JSON.stringify(ST.serialize(S))));
   const back = L.birds.find((b) => b.id === c.id);
   assert.ok(back.at === 'cage' && back.fed && ST.wornIn(back, RB.items.ITEMS.tophat.kind) === 'tophat');
+});
+
+test('a single-gene beaker goes back into copy A or copy B only (or both, if you pick it)', () => {
+  const L = RB.lab, G = RB.genome, S = ST.create(231), r = new Rng(31);
+  const donor = ST.addBird(S, RB.species.make('chicken', r, { sex: 'M', sport: 0 }));
+  const gi = G.TRAITS.legLen.genes[0];
+  assert.notStrictEqual(G.GENES[gi].chr, G.Z_CHR);
+  const get = (c, k) => G.getGeneBases(c.g, gi, k).join('');
+  const into = (copy, pick) => {
+    const tg = ST.addBird(S, RB.species.make('chicken', r, { sex: 'M', sport: 0 }));
+    G.setGeneBases(tg.g, gi, [0, 0, 0, 0], 'a'); G.setGeneBases(tg.g, gi, [1, 1, 1, 1], 'b');
+    const v = L.extract(S, donor, gi, copy);
+    assert.strictEqual(v.copy, copy, 'the beaker remembers its copy');
+    for (let i = 0; i < 4; i++) L.edit(v, i, 3);
+    const pv = L.preview(S, v, tg, false, pick);
+    L.inject(S, v, tg, false, pick);
+    assert.deepStrictEqual(ST.pheno(tg).rate, pv.after.rate, 'it matches its preview');
+    return { tg, pv };
+  };
+  // from copy B, into copy B: copy A stays as it was
+  let { tg, pv } = into('b');
+  assert.strictEqual(pv.into, 'b');
+  assert.strictEqual(get(tg, 'b'), '3333'); assert.strictEqual(get(tg, 'a'), '0000');
+  // from copy A, into copy A
+  ({ tg } = into('a'));
+  assert.strictEqual(get(tg, 'a'), '3333'); assert.strictEqual(get(tg, 'b'), '1111');
+  // the other copy, or both, when picked
+  ({ tg } = into('a', 'b'));
+  assert.strictEqual(get(tg, 'a'), '0000'); assert.strictEqual(get(tg, 'b'), '3333');
+  ({ tg } = into('b', 'both'));
+  assert.strictEqual(get(tg, 'a'), '3333'); assert.strictEqual(get(tg, 'b'), '3333');
+  // a female's Z gene has a single copy: B means that one
+  const zg = G.TRAITS.tailLen.genes[0];
+  assert.strictEqual(G.GENES[zg].chr, G.Z_CHR);
+  const hen = ST.addBird(S, RB.species.make('chicken', r, { sex: 'F', sport: 0 }));
+  G.setGeneBases(hen.g, zg, [0, 0, 0, 0], 'a');
+  const vz = L.extract(S, donor, zg, 'b');
+  for (let i = 0; i < 4; i++) L.edit(vz, i, 2);
+  assert.strictEqual(L.intoCopy(vz, hen), 'a');
+  L.inject(S, vz, hen, false);
+  assert.strictEqual(G.getGeneBases(hen.g, zg, 'a').join(''), '2222');
+  // an older beaker that never said which copy it was goes into A
+  assert.strictEqual(L.intoCopy({ gi, bases: [0, 0, 0, 0] }, donor), 'a');
+  // the copy survives a save
+  L.extract(S, donor, gi, 'b');
+  const S2 = ST.deserialize(JSON.parse(JSON.stringify(ST.serialize(S))));
+  assert.strictEqual(S2.lab.vials[S2.lab.vials.length - 1].copy, 'b');
+});
+
+test('a bird set free keeps getting older out there, and dies the night after its last day', () => {
+  const S = ST.create(232), c = S.birds[0], life = ST.pheno(c).lifespan;
+  c.age = life - 2; c.wins = 12; ST.fameCheck(S);
+  assert.ok(ST.fameOf(S, c.id), 'a veteran in the Hall');
+  const home = RB.world.generate(232).site.home;
+  const rec = ST.setFree(S, c, home.x, home.y);
+  assert.strictEqual(ST.wildLife(rec), life);
+  const nights = (n) => { let all = []; for (let i = 0; i < n; i++) all = all.concat(ST.sleep(S).lines); return all; };
+  let lines = nights(2); // now on its last day
+  assert.strictEqual(ST.wildAge(S, rec), life);
+  assert.ok(ST.wildAlive(rec) && !lines.some((l) => l.includes('died of old age')));
+  lines = nights(1); // past it
+  assert.ok(!ST.wildAlive(rec) && rec.dead === S.day);
+  assert.ok(lines.some((l) => l.startsWith(c.name + ', whom you set free') && l.includes('died of old age out in the wild')));
+  assert.ok(/died of old age in the wild/.test(ST.fameOf(S, c.id).status));
+  // its genes stay in the wild around there for a while
+  assert.ok(ST.genePool(S).some((e) => e.name === c.name));
+  // a bird freed young and caught again before its time comes back older, not dead
+  const S2 = ST.create(233), y = S2.birds[1];
+  y.age = 3;
+  const r2 = ST.setFree(S2, y, 0, 0);
+  ST.sleep(S2); ST.sleep(S2);
+  const back = ST.recapture(S2, r2);
+  assert.strictEqual(back.age, 5);
+  // only so many freed birds are remembered: the dead go first
+  const S3 = ST.create(234);
+  const old = ST.setFree(S3, S3.birds[0], 0, 0); old.dead = 1;
+  for (let i = 0; i < ST.RELEASED_MAX; i++) ST.setFree(S3, ST.addBird(S3, RB.species.make('chicken', S3._rng, { sport: 0 })), 0, 0);
+  assert.strictEqual(S3.released.length, ST.RELEASED_MAX);
+  assert.ok(!S3.released.includes(old));
+});
+
+test('the lab guide says what every kind of gene does', () => {
+  const L = RB.lab, G = RB.genome, entries = L.guideEntries();
+  assert.strictEqual(entries.length, G.TRAIT_LIST.length);
+  for (const e of entries) {
+    assert.ok(e.text.length > 20, e.id + ' has a description');
+    assert.ok(e.groupName && e.how, e.id + ' has a group and says how it is inherited');
+    const onZ = e.genes.some((gi) => G.GENES[gi].chr === G.Z_CHR);
+    assert.strictEqual(/on Z/.test(e.how), onZ, e.id + ' says whether it sits on Z');
+  }
+  assert.ok(L.GUIDE_INTRO.length >= 5);
+  assert.strictEqual(L.guideOf(G.TRAITS.muscle.genes[1]).id, 'muscle');
+  assert.strictEqual(L.guideOf(G.GENES.findIndex((g) => !g.trait)), null, 'junk DNA has no entry');
+  assert.ok(/recessive switch/.test(entries.find((e) => e.id === 'teeth').how) && /dominant switch/.test(entries.find((e) => e.id === 'melanic').how));
+});
+
+test('the tonic of eternal vigor: never dies and breeds for ever; in a normal game it still retires from the ring', () => {
+  const S = ST.create(241), [rooster, hen] = S.birds, life = ST.pheno(rooster).lifespan;
+  ST.give(S, 'vigor', 3);
+  assert.ok(RB.items.STOCK.market.includes('vigor') && RB.items.ITEMS.vigor.kind === 'feed');
+  rooster.age = life; hen.age = ST.pheno(hen).lifespan; // both retired
+  assert.ok(ST.isRetired(rooster) && !ST.canBreed(rooster));
+  assert.ok(/retired: no more nesting/.test(ST.move(S, rooster, 'nest0')));
+  assert.ok(/never die/.test(ST.feed(S, rooster, 'vigor')) && rooster.eternal === 1);
+  assert.ok(/already has eternal vigor/.test(ST.feed(S, rooster, 'vigor')) && ST.count(S, 'vigor') === 2, 'not used up twice');
+  assert.ok(ST.feed(S, hen, 'vigor') && hen.eternal === 1);
+  // still retired: no ring, no sideshow, no training
+  assert.ok(ST.isRetired(rooster) && /Retired/.test(EC.canEnter(S, rooster, { open: true, wc: 9 }) || ''));
+  assert.ok(/retired/.test(ST.train(S, rooster, 'muscle')));
+  // but they nest and lay, day after day
+  assert.strictEqual(ST.move(S, rooster, 'nest0'), ''); assert.strictEqual(ST.move(S, hen, 'nest0'), '');
+  let eggs = 0;
+  for (let i = 0; i < 12; i++) { const before = S.eggs.length + S.stats.bred; ST.sleep(S); if (S.eggs.length + S.stats.bred > before) eggs++; S.feeder = 9; ST.move(S, rooster, 'nest0'); ST.move(S, hen, 'nest0'); }
+  assert.ok(eggs > 0, 'eternal birds keep laying');
+  // on an island they never pass away; in the wild they never die
+  const isle = ST.claimIsle(Object.assign(S, { money: 99999 }), { id: 'ev', name: 'Ever Isle', x: 0, y: 0, R: 300, main: 'farm', sites: [] });
+  const mortal = ST.addBird(S, RB.species.make('chicken', S._rng, { sport: 0 }), { at: 'home' });
+  mortal.age = ST.pheno(mortal).lifespan + 1;
+  ST.move(S, rooster, 'home'); ST.move(S, hen, 'home');
+  ST.toIsle(S, isle, rooster); ST.toIsle(S, isle, mortal);
+  for (let i = 0; i < 4; i++) ST.sleep(S);
+  assert.ok(isle.birds.includes(rooster) && !isle.birds.includes(mortal));
+  const rec = ST.setFree(S, hen, 0, 0);
+  for (let i = 0; i < 4; i++) ST.sleep(S);
+  assert.ok(ST.wildAlive(rec), 'a freed eternal bird lives on');
+  // BFC still takes it
+  const back = ST.recapture(S, rec);
+  ST.move(S, back, 'crate'); ST.sleep(S);
+  assert.ok(!S.birds.includes(back));
+});
+
+test('in a sandbox game the tonic has no limits: it fights, shows and stays in its prime for ever', () => {
+  const S = ST.create(242, { sandbox: true }), c = S.birds[0], life = ST.pheno(c).lifespan;
+  c.age = life + 5; ST.dirty(c);
+  assert.ok(ST.isRetired(c));
+  const old = ST.pheno(c).rate.power;
+  assert.ok(/fight, show and breed for ever/.test(ST.feed(S, c, 'vigor')) && c.eternal === 2);
+  assert.ok(!ST.isRetired(c) && ST.canBreed(c));
+  assert.ok(!/Retired/.test(EC.canEnter(S, c, { open: true, wc: 9 }) || ''), 'it may fight');
+  assert.strictEqual(ST.train(S, c, 'muscle'), '', 'it may train');
+  const P = ST.pheno(c);
+  assert.notStrictEqual(P.stage, 'elder');
+  assert.ok(P.rate.power >= old, 'back in its prime');
+  assert.ok(ST.bodyAge(c) < life && c.age === life + 5);
+  const age0 = c.age; ST.sleep(S);
+  assert.strictEqual(c.age, age0 + 1, 'the days still count');
+  assert.notStrictEqual(ST.pheno(c).stage, 'elder');
+});
+
+test('Coronel Galo runs BFC: a rooster-man in a white suit who can be netted indoors', () => {
+  const world = RB.world.generate(7), S = ST.create(7);
+  const base = world.npcs.find((n) => n.site === 'bfc');
+  assert.ok(base && base.id === 'k_bfc' && base.name === 'Coronel Galo');
+  const P = RB.pheno.express(base.g);
+  assert.ok(P.sw.arms && P.hasBeak && !P.person && P.comb > 0.5, 'a rooster with arms, not a plain person');
+  assert.ok(base.clothes.shirt === '#f4f1e8' && base.clothes.hat === 'planter' && base.clothes.cane && base.clothes.tie);
+  // everyone else in the world is who they always were (he comes from his own seed)
+  assert.strictEqual(ST.mainlanders(world).length, 31);
+  // netted: he rides in the truck, suit, hat and cane and all; BFC shuts, and the van skips the box
+  const c = ST.netKeeper(S, base);
+  assert.ok(c.person === 'k_bfc' && ST.kind(c) === 'Rooster-man' && c.clothes.cane && c.clothes.hat === 'planter');
+  assert.strictEqual(RB.npc.vacancy(S, base), 'away');
+  const hen = S.birds[1]; ST.move(S, hen, 'crate');
+  const rep = ST.sleep(S);
+  assert.ok(S.birds.includes(hen) && rep.lines.some((l) => /BFC van did not come/.test(l)));
+  // let him go and BFC opens again; the van comes
+  ST.releasePerson(S, c, 0); ST.removeBird(S, c);
+  assert.strictEqual(RB.npc.vacancy(S, base), '');
+  ST.sleep(S);
+  assert.ok(!S.birds.includes(hen));
+  // whoever takes BFC over after him is another rooster-man
+  RB.npc.info(S, base.id).gen = 1;
+  const jr = RB.npc.current(S, base);
+  assert.ok(jr.name === 'Coronel Galo Jr.' && RB.pheno.express(jr.g).sw.arms && jr.clothes.cane);
 });

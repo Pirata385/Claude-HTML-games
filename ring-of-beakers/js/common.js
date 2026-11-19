@@ -145,6 +145,7 @@
   common.statusOf = function (c) {
     const out = [];
     if (ST.isRetired(c)) out.push(['Retired', pal.plum]);
+    if (c.eternal) out.push([c.eternal === 2 ? 'Eternal vigor' : 'Eternal: breeds for ever', '#d9a21b']);
     if (c.rest > 0) out.push(['Dazed', pal.coral]);
     if (c.tired) out.push(['Worn out', pal.grey]);
     if (c.hp < 0.99) out.push(['Wounded ' + Math.round(c.hp * 100) + '%', pal.brick]);
@@ -171,7 +172,7 @@
       ui.icon(P.sex === 'M' ? 'male' : 'female', tx + 8, ty - 4, 15, P.sex === 'M' ? '#3d6fa5' : pal.coral);
       ui.text(ST.kind(c), tx + 22, ty, { size: 15, maxW: tw - 24 });
       ty += 19;
-      const stage = c.person ? 'not amused' : ST.isRetired(c) ? 'retired at ' + c.age + ' days' + (c.at === 'roost' ? ', at Sunset Roost since day ' + c.since : '') : P.stage + ', day ' + c.age + ' of about ' + P.lifespan;
+      const stage = c.person ? 'not amused' : c.eternal === 2 ? 'in its prime for ever, day ' + c.age : ST.isRetired(c) ? 'retired at ' + c.age + ' days' + (c.at === 'roost' ? ', at Sunset Roost since day ' + c.since : '') : P.stage + ', day ' + c.age + ' of about ' + P.lifespan;
       ui.text(stage, tx, ty, { size: 12, bold: false, maxW: tw }); ty += 16;
       ui.text(common.fmtKg(P.weightKg) + ' · ' + RB.pheno.WEIGHT_CLASSES[P.weightClass][0] + 'weight', tx, ty, { size: 12, bold: false, maxW: tw }); ty += 16;
       ui.text('Record ' + c.wins + '–' + c.losses + (c.person ? '' : ' · worth about $' + RB.economy.value(c)), tx, ty, { size: 12, bold: false, maxW: tw }); ty += 14;

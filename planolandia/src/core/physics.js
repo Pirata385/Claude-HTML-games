@@ -60,6 +60,11 @@
         b.z = z1;
         return { blocker: null };
       }
+      // encostado numa superfície curva que cresce: um empurrãozinho lateral resolve
+      if (C2.aabbShape(b.x, b.y, b.hx, b.hy, nudgeShape(room, blocker, z1), mtv) && mtv.depth < 2) {
+        const nx = b.x + mtv.nx * (mtv.depth + 0.02), ny = b.y + mtv.ny * (mtv.depth + 0.02);
+        if (!Phys.overlapAt(b, room, nx, ny, z1)) { b.x = nx; b.y = ny; b.z = z1; return { blocker: null }; }
+      }
       // bloqueado: avança o máximo possível (busca binária)
       let lo = 0, hi = 1;
       for (let i = 0; i < 6; i++) {
@@ -98,6 +103,9 @@
       return worst;
     },
   };
+
+  const nudgeTmp = PL.G3 ? PL.G3.newShape() : null;
+  function nudgeShape(room, p, z) { return PL.G3.sliceInto(p, z, nudgeTmp) ? nudgeTmp : { minX: 1, maxX: 0, minY: 1, maxY: 0 }; }
 
   function upSep(b, room, x, y, z) {
     let best = 0;

@@ -20,16 +20,18 @@
     o[0] = c - e; o[1] = c + e;
   }
 
-  // círculo → polígono temporário de 16 lados (para separação direcional)
-  const circPoly = { type: 'poly', n: 16, pts: new Float64Array(32), cx: 0, cy: 0, minX: 0, minY: 0, maxX: 0, maxY: 0 };
+  // círculo → polígono temporário de 24 lados CIRCUNSCRITO (contém o círculo; para separação direcional)
+  const CN = 24, CR = 1 / Math.cos(Math.PI / CN);
+  const circPoly = { type: 'poly', n: CN, pts: new Float64Array(CN * 2), cx: 0, cy: 0, minX: 0, minY: 0, maxX: 0, maxY: 0 };
   function polyOfCircle(s) {
-    for (let i = 0; i < 16; i++) {
-      const a = (i / 16) * Math.PI * 2;
-      circPoly.pts[i * 2] = s.cx + Math.cos(a) * s.r;
-      circPoly.pts[i * 2 + 1] = s.cy + Math.sin(a) * s.r;
+    for (let i = 0; i < CN; i++) {
+      const a = (i / CN) * Math.PI * 2;
+      circPoly.pts[i * 2] = s.cx + Math.cos(a) * s.r * CR;
+      circPoly.pts[i * 2 + 1] = s.cy + Math.sin(a) * s.r * CR;
     }
     circPoly.cx = s.cx; circPoly.cy = s.cy;
-    circPoly.minX = s.minX; circPoly.maxX = s.maxX; circPoly.minY = s.minY; circPoly.maxY = s.maxY;
+    const rr = s.r * CR;
+    circPoly.minX = s.cx - rr; circPoly.maxX = s.cx + rr; circPoly.minY = s.cy - rr; circPoly.maxY = s.cy + rr;
     return circPoly;
   }
 
@@ -94,8 +96,8 @@
 
   // distância t ≥ 0 ao longo de (dx,dy) (unitário) para a caixa deixar de sobrepor s; Infinity se impossível; 0 se não sobrepõe
   function aabbSepDir(cx, cy, hx, hy, s, dx, dy, out) {
-    if (!boundsOverlap(cx, cy, hx, hy, s)) return 0;
     const poly = s.type === 'circle' ? polyOfCircle(s) : s;
+    if (!boundsOverlap(cx, cy, hx, hy, poly)) return 0;
     let best = Infinity, bx = 0, by = 0, overlapping = true;
     const p = poly.pts, n = poly.n;
     for (let i = -2; i < n; i++) {

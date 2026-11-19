@@ -53,7 +53,7 @@
     },
   };
   PL.M = M;
-  PL.VERSION = '0.1.0-marco1';
+  PL.VERSION = '0.1.0';
 
   if (typeof module !== 'undefined' && module.exports) module.exports = PL;
 })(typeof globalThis !== 'undefined' ? globalThis : this);

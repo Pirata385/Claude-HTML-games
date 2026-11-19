@@ -24,6 +24,26 @@
   }
   function clothes(r, hat) { const shirt = r.pick(SHIRTS), pants = r.pick(PANTS); return { shirt, shirtDark: darker(shirt), pants, pantsDark: darker(pants), hat: hat || null }; }
 
+  // ---- Coronel Galo, who runs BFC: a rooster of a man. Rooster head (comb, wattles, beak), white
+  // feathers, a man's height and stance, arms; a white suit, a string tie, a planter's hat and a cane.
+  function colonelGenome(r) {
+    const t = Object.assign({}, RB.species.SPECIES.human.t, {
+      size: r.range(2.1, 2.3), posture: 0.95, bodyDepth: r.range(1.0, 1.15), neckLen: 0.55, neckThick: 1.2, headSize: 1.15, eyeSize: 0.9,
+      beakLen: 0.95, beakDepth: 1.15, beakHook: 0.25, comb: 1.45, combType: 0.5, wattle: 1.0, crest: 0, bareHead: 0,
+      wingSize: 0.25, tailLen: 0.9, tailFan: 0.6, tailUp: 0.7, spur: 0.7, talon: 0.3, armLen: 1.05,
+      hue: 0.1, sat: 0.08, lit: 0.93, litHead: 0, hueHead: 0, litWing: -0.03, litTail: -0.05, beakTone: 0.6, legTone: 0.6, combHue: 0, pattern: 0.5, patContrast: 0, belly: 0,
+      lifespan: 22, courage: 0.8, aggression: 0.55, focus: 0.7, cunning: 0.8 });
+    return RB.genome.fromTargets(t, ['arms', 'knee'], r, { sex: 'M', variation: 0.15, colorVar: 0.02, carrier: 0, carriers: { melanic: 0, leucistic: 0 } });
+  }
+  const colonelClothes = () => ({ shirt: '#f4f1e8', shirtDark: '#d9d3c2', pants: '#f4f1e8', pantsDark: '#d9d3c2', hat: 'planter', cane: true, tie: true });
+  const COLONEL_TITLES = ['Coronel Galo', 'Coronel Galo Jr.', 'Coronel Galo III', 'Coronel Galo IV', 'Coronel Galo V'];
+  const colonelName = (gen) => COLONEL_TITLES[gen] || 'Coronel Galo ' + (gen + 1);
+  // Made from his own seed (not the world's shared stream), so every other person stays who they were.
+  function colonel(world) {
+    const r = new Rng((world.seed ^ hashStr('coronel-galo')) >>> 0);
+    return { id: 'k_bfc', name: colonelName(0), role: 'keeper', site: 'bfc', sex: 'M', g: colonelGenome(r), clothes: colonelClothes(), wealth: 2.2, seed: r.int(1, 2e9), colonel: true, kindName: 'Rooster-man' };
+  }
+
   // One person, drawn from r.
   const make = (r, id, name, role, site, sex, hat) => ({ id, name, role, site, sex, g: personGenome(r, sex), clothes: clothes(r, hat), wealth: +r.range(0.7, 1.6).toFixed(2), seed: r.int(1, 2e9) });
   // All the people of a world. Called by world.generate with the world's own rng.
@@ -40,6 +60,7 @@
     });
     const sh = add('sheriff', 'Sheriff Tavares', 'sheriff', 'bank', 'M', 'star');
     sh.clothes.shirt = '#8a7a52'; sh.clothes.shirtDark = '#6e6142';
+    if (world.site && world.site.bfc) list.push(colonel(world));
     return list;
   }
 
@@ -55,6 +76,11 @@
     let n = newcomers.get(key);
     if (!n) {
       const r = new Rng((npc.seed ^ Math.imul(gen, 2654435761)) >>> 0), sex = r.chance(0.5) ? 'M' : 'F';
+      if (npc.colonel) { // BFC passes from father to son: another rooster-man in the same white suit
+        n = Object.assign({}, npc, { name: colonelName(gen), g: colonelGenome(r), clothes: colonelClothes(), seed: r.int(1, 2e9) });
+        newcomers.set(key, n);
+        return n;
+      }
       const name = npc.role === 'sheriff' ? 'Sheriff ' + r.pick(SURNAMES) : r.pick(sex === 'M' ? FIRST_M : FIRST_F);
       n = Object.assign({}, npc, { name, sex, g: personGenome(r, sex), clothes: clothes(r, npc.role === 'sheriff' ? 'star' : r.chance(0.3) ? r.pick(['cowboy', 'bandana']) : null), seed: r.int(1, 2e9) });
       if (npc.role === 'sheriff') { n.clothes.shirt = '#8a7a52'; n.clothes.shirtDark = '#6e6142'; }
@@ -192,5 +218,5 @@
   const SCREAMS = ['Hey! HEY!', 'Not the net!', 'I have a family!', 'This is a kidnapping!', 'Put me down!', 'My back!'];
 
   const randomName = (r, sex) => r.pick(sex === 'M' ? FIRST_M : FIRST_F);
-  RB.npc = { chirp, populate, make, exotic, randomName, personGenome, clothes, current, WISHES, info, vacancy, wishOf, offer, fitText, stockOf, challengeOf, greeting, SCREAMS, period, hashStr };
+  RB.npc = { chirp, populate, make, colonel, colonelGenome, colonelName, exotic, randomName, personGenome, clothes, current, WISHES, info, vacancy, wishOf, offer, fitText, stockOf, challengeOf, greeting, SCREAMS, period, hashStr };
 })();

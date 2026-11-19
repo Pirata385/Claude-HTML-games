@@ -448,12 +448,11 @@
       ctx.fillStyle = site.id === 'cellar' ? '#4a4460' : site.id === 'bfc' ? '#f7e3de' : site.kind === 'exotic' ? '#efe2f2' : pal.cream; ctx.fillRect(0, 0, v.w, v.h);
       // header: who you are talking to, and what they say
       ui.rect(0, 0, v.w, 70, pal.ink);
-      if (site.id === 'bfc') { ui.rect(8, 8, 54, 54, pal.paper, 10); RB.props.coronel(ctx, 35, 60, 0.74); }
-      else if (keeper) {
+      if (keeper) { // whoever minds the place (BFC's is the Coronel himself): tap the portrait to net them
         common.portrait({ P: RB.pheno.express(keeper.g) }, 8, 8, 54, 54, { fill: pal.paper, draw: { clothes: keeper.clothes } });
         if (RB.npc.vacancy(S, base) === '') common.keeperTap(S, base, 8, 8, 54, 54, () => { RB.game.go('map'); });
       }
-      const name = site.id === 'bfc' ? 'Coronel Galo' : keeper ? keeper.name : site.name;
+      const name = keeper ? keeper.name : site.name;
       ui.text(site.kind === 'house' ? name : site.name, 70, 24, { size: 16, color: pal.white, maxW: v.w - 252 });
       const lines = ui.wrap((site.kind === 'house' || site.kind === 'isle' ? '' : name + ': ') + say, v.w - 252, 11, false);
       lines.slice(0, 3).forEach((ln, i) => ui.text(ln, 70, 40 + i * 13, { size: 11, color: pal.sand, bold: false }));

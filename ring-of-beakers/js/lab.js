@@ -113,7 +113,7 @@
   function preview(S, vial, target, isEgg, into) {
     const g2 = vial.full ? GN.clone(vialGenome(vial)) : GN.clone(target.g);
     if (!vial.full) GN.setGeneBases(g2, vial.gi, vial.bases, intoCopy(vial, target, into));
-    const opts = isEgg ? {} : { age: target.age, train: target.train, cond: target.cond };
+    const opts = isEgg ? {} : { age: RB.state.bodyAge(target), train: target.train, cond: target.cond };
     const before = RB.pheno.express(target.g, opts), after = RB.pheno.express(g2, opts);
     if (vial.full) return { before, after, g: g2, trait: null, full: true, tooOld: !isEgg && target.age >= after.lifespan };
     const gene = GN.GENES[vial.gi], def = gene.trait ? GN.TRAITS[gene.trait] : null;

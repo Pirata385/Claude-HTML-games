@@ -169,6 +169,11 @@
     } else if (hat === 'star') { // sheriff
       ctx.fillStyle = '#6a5136'; ell(ctx, 0, -R * 0.82, R * 1.55, R * 0.24, 0); ctx.fillRect(-R * 0.7, -R * 1.7, R * 1.4, R * 0.9);
       ctx.fillStyle = '#f2c14e'; circ(ctx, R * 0.1, -R * 1.25, R * 0.24);
+    } else if (hat === 'planter') { // the Coronel's: a white planter's hat with a black band, worn over the comb
+      ctx.fillStyle = '#f7f4ea'; ell(ctx, 0, -R * 1.02, R * 1.85, R * 0.3, 0);
+      ctx.beginPath(); ctx.moveTo(-R * 0.82, -R * 1.05); ctx.quadraticCurveTo(-R * 0.86, -R * 2.1, 0, -R * 2.12); ctx.quadraticCurveTo(R * 0.86, -R * 2.1, R * 0.82, -R * 1.05); ctx.closePath(); ctx.fill();
+      ctx.fillStyle = '#23314a'; ctx.fillRect(-R * 0.84, -R * 1.42, R * 1.68, R * 0.26);
+      ctx.strokeStyle = 'rgba(35,49,74,0.18)'; ctx.lineWidth = R * 0.08; ctx.beginPath(); ctx.moveTo(-R * 0.3, -R * 2.06); ctx.lineTo(-R * 0.18, -R * 1.5); ctx.stroke();
     }
   }
 
@@ -472,6 +477,12 @@
       ctx.fillStyle = cl ? cl.shirt : bodyCol;
       ctx.beginPath(); ctx.moveTo(x1 - rr1, -hw); ctx.arcTo(x1, -hw, x1, -hw + rr1, rr1); ctx.lineTo(x1, hw - rr1); ctx.arcTo(x1, hw, x1 - rr1, hw, rr1);
       ctx.lineTo(x0 + rr0, hw); ctx.arc(x0 + rr0, 0, hw, Math.PI / 2, Math.PI * 1.5); ctx.closePath(); ctx.fill();
+      if (cl && cl.tie) { // a black string tie, down the front from the collar
+        ctx.fillStyle = INK; const ty = hw * 0.55;
+        tri(ctx, x1, ty - TD * 0.06, x1, ty + TD * 0.06, x1 - TD * 0.12, ty);
+        ctx.strokeStyle = INK; ctx.lineWidth = Math.max(0.6, TD * 0.035); ctx.lineCap = 'round';
+        ctx.beginPath(); ctx.moveTo(x1 - TD * 0.1, ty); ctx.lineTo(x1 - TD * 0.62, ty + TD * 0.08); ctx.moveTo(x1 - TD * 0.1, ty); ctx.lineTo(x1 - TD * 0.6, ty - TD * 0.04); ctx.stroke();
+      }
     } else {
       const chestR = ry * (0.9 + 0.16 * P.chest);
       ctx.fillStyle = bodyCol;
@@ -506,6 +517,19 @@
     drawNeckHead(ctx, P, pose, c, o, cl, bodyCol, P.twoHeads ? f * 0.12 : 0, 1);
     drawWing(ctx, P, pose, c, false, mx, my, ang);
     if (pose.arms) drawArm(ctx, P, pose.arms[0], c, f, false, cl);
+    if (cl && cl.cane && pose.arms) drawCane(ctx, P, pose, f);
+  }
+  // A walking cane in the near hand, its tip on the ground: dark wood, a crook and a gold band.
+  function drawCane(ctx, P, pose, f) {
+    const h = pose.arms[0], gy = Math.max(...pose.legs.map((l) => l.fy)), w = Math.max(1.2, P.LT * 0.55);
+    const tx = h.x + f * P.LT * 1.2, ty = h.y;
+    if (gy - ty < P.LT * 2) return; // the hand is down by the feet (a punch, a fall): no room for it
+    ctx.strokeStyle = '#5a3a22'; ctx.lineWidth = w; ctx.lineCap = 'round';
+    const r = w * 2.2;
+    ctx.beginPath(); ctx.moveTo(tx, gy); ctx.lineTo(tx, ty);
+    if (f > 0) ctx.arc(tx - r, ty, r, 0, Math.PI, true); else ctx.arc(tx + r, ty, r, Math.PI, 0, false); // the crook arches over the hand
+    ctx.stroke();
+    ctx.fillStyle = '#e9b44c'; ctx.fillRect(tx - w * 0.75, ty + w * 1.4, w * 1.5, w * 1.1);
   }
 
   // o: { clothes: { shirt, shirtDark, pants, pantsDark, hat }, hat, sil (colour: draw a silhouette), flash (0..1 white) }

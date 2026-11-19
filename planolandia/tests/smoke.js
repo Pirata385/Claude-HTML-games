@@ -150,7 +150,7 @@ const st = (page) => page.evaluate(() => PL.debug && PL.debug.state());
   s = await st(page);
   check(s.boss && s.boss.state !== 'sleep', 'a Mãe-Esfera acordou (' + (s.boss && s.boss.state) + ')');
   await page.screenshot({ path: path.join(OUT, '13-mae-esfera.png') });
-  await page.evaluate(() => { const g = PL.debug.game, b = g.boss; b.invuln = false; b.hp = 19; b.state = 'idle'; b.z = g.player.z; b.updateSlice(g.player.z); b.hit(g, 1, 1, 0, {}); });
+  await page.evaluate(() => { const g = PL.debug.game, b = g.boss; b.invuln = false; b.hp = 16; b.state = 'idle'; b.z = g.player.z; b.updateSlice(g.player.z); b.hit(g, 1, 1, 0, {}); });
   await wait(300);
   const kids = await page.evaluate(() => PL.debug.game.ents.filter((e) => e.daughter && e.alive).length);
   check(kids === 2, 'na metade da vida ela se divide em duas Filhas');

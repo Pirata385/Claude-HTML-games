@@ -93,6 +93,7 @@ Os scripts são clássicos (sem módulos nem build), num namespace global `PL`, 
 node --test planolandia/tests/*.test.js          # cortes, colisão, física, salas, salvamento, Garra, Teoremas, loja
 python3 -m http.server 8765                      # na raiz do repositório, noutro terminal
 node planolandia/tests/smoke.js                  # Playwright: menu, título, andar, profundidade, combate, os dois chefões, Bosque, loja, toque
+node planolandia/tests/bossbot.js [url] 4 todos todos   # robô que luta contra os chefões sem modo deus (perfis "bom" e "médio")
 ```
 
 Atalhos de depuração pela URL: `index.html?room=borda_arena&x=260&y=314&z=100&god=1&debug=1&abilities=dash`. Com `debug=1` aparecem os colisores e a posição. `window.PL.debug` expõe o estado e funções de teleporte.

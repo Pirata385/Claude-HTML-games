@@ -251,8 +251,6 @@
       B.box(0, 300, 640, 60);
       B.box(0, 0, 20, 240); B.box(620, 0, 20, 300);
       B.box(0, 0, 420, 16, 0, 240, { mat: 'copa' }); B.box(500, 0, 140, 16, 0, 240, { mat: 'copa' });
-      tronco(B, 120, 50, 16, 16, 300);
-      tronco(B, 300, 200, 16, 16, 300);
       // poço de Garra até a abertura do teto
       B.box(420, 16, 14, 260, 0, 240, { mat: 'casca' });
       B.box(490, 16, 14, 260, 0, 240, { mat: 'casca' });

@@ -146,6 +146,17 @@ Recursos:
 8. **O Desconhecido** (Costura): fatias de tesserato, giros de plano forçados e a dobra final.
 9. Opcional: **Rei Pentágono Dourado** (segredo da Cidade).
 
+### Regras de justiça dos chefões (validadas pelo robô `tests/bossbot.js`)
+
+- **Nada de dano sem aviso:** o chefão não desce nem passa por cima do Quadrado durante a transição entre estados. Primeiro sai do plano ou se afasta, depois desce.
+- **Ataques que seguem a profundidade travam antes de disparar:** no giro do Cubo, a mira em z para 0,4 s antes do disparo e o cubo pisca.
+- **Formas em repouso não ameaçam quem está parado embaixo:** fora dos giros, o Cubo volta a ficar deitado (ângulo múltiplo de 90°).
+- **A Mãe-Esfera não cruza o Quadrado:** parada, anda devagar até uma distância preferida e nunca passa por ele. Encurralada na parede, fica exposta.
+- **As Filhas se revezam:** só uma ataca por vez.
+- **O quique avisa por 0,95 s:** antes de quicar, ela recua.
+- **Esférulas:** no máximo 2 por vez, murcham em 9 s.
+- O robô joga só com os comandos do jogador, com reação de 0,16 s (perfil bom) ou 0,3 s (médio), e mede vitórias, tempo e de onde vem cada golpe recebido.
+
 ## Arte e animação
 
 - **Resolução:** altura interna de 270 px; a largura vai de 432 a 640 conforme a proporção da tela. `pixelArt: true` e escala nítida.

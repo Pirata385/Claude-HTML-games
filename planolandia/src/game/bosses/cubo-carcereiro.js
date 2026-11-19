@@ -133,8 +133,16 @@
       this.q = Q.slerp(this.q, this.qTarget, qk);
       this.spinV = M.damp(this.spinV, 0, 2, dt);
       this.spin += this.spinV * dt;
+      const spinning = this.state === 'spinPrep' || this.state === 'spin' || this.state === 'ramOut' || this.state === 'ramAim' || this.state === 'ram' || this.state === 'intro';
+      if (!spinning && Math.abs(this.spinV) < 1.5) {
+        const flat = Math.round(this.spin / (Math.PI / 2)) * (Math.PI / 2);
+        this.spinV = 0;
+        this.spin = M.damp(this.spin, flat, 6, dt);
+      }
       this.wob = Math.sin(this.t * 1.3) * 0.12;
       this.ruler.length = 0;
+      // atordoado no chão: janela de dano livre (não fere por contato)
+      this.contact = this.state === 'stun' ? 0 : 1;
 
       switch (this.state) {
         case 'sleep':
@@ -182,14 +190,19 @@
         case 'slamLand':
           if (this.stT > 1.0 / fast) { this.set('idle'); this.nextAtk = 1.1; }
           break;
-        case 'spinPrep':
+        case 'spinPrep': {
+          const prep = 1.1 / fast;
           this.x = M.damp(this.x, this.ramDir > 0 ? 90 : room.w - 90, 3, dt);
-          this.y = M.damp(this.y, this.FY - 48, 3, dt);
-          this.z = M.damp(this.z, P.z, 3, dt);
+          // só desce quando já está longe do Quadrado (não cai em cima dele)
+          if (Math.abs(this.x - P.x) > 70 || this.stT > prep * 0.7) this.y = M.damp(this.y, this.FY - 48, 3, dt);
+          // segue a profundidade do Quadrado e trava antes de disparar: o giro fica visível e desviável
+          if (this.stT < prep - 0.4) this.z = M.damp(this.z, P.z, 3, dt);
+          else this.flashT = Math.sin(this.stT * 40) > 0.6 ? 0.03 : this.flashT;
           this.spinV = 9;
           if (Math.random() < 0.4) G.fx.spawn({ x: this.x + (Math.random() - 0.5) * 70, y: this.FY - 2, z: P.z, vx: (Math.random() - 0.5) * 80, vy: -60, life: 0.4, color: 0xfff1a8, grav: 200 });
-          if (this.stT > 1.1 / fast) { this.set('spin'); G.sfx('spin'); }
+          if (this.stT > prep) { this.set('spin'); G.sfx('spin'); }
           break;
+        }
         case 'spin':
           this.spinV = 14;
           this.x += this.ramDir * 165 * fast * dt;
@@ -199,8 +212,10 @@
         case 'ramOut':
           // sai do plano para um lado da profundidade
           this.z = M.damp(this.z, this.zMid + this.ramSide * 150, 3, dt);
-          this.y = M.damp(this.y, this.FY - 44, 3, dt);
-          this.x = M.damp(this.x, P.x, 2.5, dt);
+          if (Math.abs(this.z - P.z) > 70) {
+            this.y = M.damp(this.y, this.FY - 44, 3, dt);
+            this.x = M.damp(this.x, P.x, 2.5, dt);
+          }
           this.spinV = 3;
           if (this.stT > 1.0) { this.set('ramAim'); this.lockX = P.x; }
           break;
@@ -217,9 +232,9 @@
           break;
         case 'return':
           this.qTarget = Q.id();
-          this.z = M.damp(this.z, P.z, 2.5, dt);
-          this.y = M.damp(this.y, hoverY, 2, dt);
-          if (this.stT > 1.0) { this.set('idle'); this.nextAtk = 0.9; }
+          this.y = M.damp(this.y, hoverY, 5, dt);
+          if (Math.abs(this.y - hoverY) < 8) this.z = M.damp(this.z, P.z, 2.5, dt);
+          if (this.stT > 1.2) { this.set('idle'); this.nextAtk = 0.9; }
           break;
         case 'stun':
           // atordoado: cai sentado com o núcleo virado para o plano do Quadrado

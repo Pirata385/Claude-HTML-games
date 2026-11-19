@@ -14,7 +14,7 @@
       super(G, d);
       this.daughter = !!d.daughter;
       this.R = d.R || (this.daughter ? 40 : 64);
-      this.hp = this.maxHp = this.daughter ? 12 : 36;
+      this.hp = this.maxHp = this.daughter ? 10 : 30;
       this.boss = !this.daughter;
       this.drop = this.daughter ? 6 : 0;
       this.mat = 'esfera';
@@ -52,11 +52,13 @@
     }
     updateSlice(pz, eco) {
       super.updateSlice(pz, eco);
-      this.eyeVis = this.visible && Math.abs(pz - this.z) < 12 && this.state !== 'dying';
+      this.eyeVis = this.visible && Math.abs(pz - this.z) < 16 && this.state !== 'dying';
     }
     set(st) { this.state = st; this.stT = 0; }
 
     pick(G) {
+      // as Filhas se revezam: se a irmã está atacando, esta espera
+      if (this.daughter && G.ents.some((e) => e !== this && e.daughter && e.alive && e.state !== 'idle' && e.state !== 'return')) { this.nextAtk = 0.7; return; }
       const opts = this.daughter ? ['pass', 'bounce', 'pass'] : ['pass', 'bounce', 'spawn', 'pass', 'bounce'];
       let a = opts[(Math.random() * opts.length) | 0];
       if (a === this.last) a = opts[(Math.random() * opts.length) | 0];
@@ -88,9 +90,15 @@
           if (this.stT > 3) { this.set('idle'); this.invuln = false; }
           break;
         case 'idle': {
-          const tx = M.clamp(P.x + Math.sin(this.t * 0.7) * 90, this.R + 20, room.w - this.R - 20);
-          this.x = M.damp(this.x, tx, 1.1 * this.speed, dt);
-          this.y = floorY - Math.abs(Math.sin(this.t * 3)) * 10;
+          // anda devagar até uma distância preferida do Quadrado, sem nunca cruzar por ele:
+          // dá para alcançá-la e golpear; encurralada na parede, fica exposta
+          const side = Math.abs(this.x - P.x) > 1 ? Math.sign(this.x - P.x) : (this.sideP || 1);
+          this.sideP = side;
+          const want = M.clamp(P.x + side * (this.R + 56 + Math.sin(this.t * 0.7) * 16), this.R + 20, room.w - this.R - 20);
+          // presa entre a parede e o Quadrado, não avança sobre ele (fica exposta, encurralada)
+          const towardP = Math.sign(want - this.x) === -side;
+          if (!(towardP && Math.abs(this.x - P.x) < this.R + 50)) this.x = M.approach(this.x, want, 45 * this.speed * dt);
+          this.y = floorY - Math.abs(Math.sin(this.t * 3)) * 5;
           this.z = M.damp(this.z, P.z + Math.sin(this.t * 0.9) * 22, 1.0, dt);
           this.nextAtk -= dt * this.speed;
           if (this.nextAtk <= 0) this.pick(G);
@@ -113,14 +121,21 @@
           if ((this.side > 0 && this.z < this.zMid - this.R - 120) || (this.side < 0 && this.z > this.zMid + this.R + 120)) this.set('return');
           break;
         case 'return':
-          this.z = M.damp(this.z, P.z + 30, 2, dt);
+          // volta ao plano longe do Quadrado
+          if (Math.abs(this.x - P.x) < this.R + 30) this.x = M.damp(this.x, M.clamp(P.x + (Math.sign(this.x - P.x) || 1) * (this.R + 44), this.R + 20, room.w - this.R - 20), 3, dt);
+          else this.z = M.damp(this.z, P.z + 30, 2, dt);
           if (this.stT > 1.1) { this.set('idle'); this.nextAtk = 1.2; }
           break;
-        case 'bounceAim':
+        case 'bounceAim': {
+          // recua para longe do Quadrado, trava a profundidade dele e treme: só então quica na direção dele
+          const back = M.clamp(P.x - Math.sign(this.vx) * (this.R + 90), this.R + 10, room.w - this.R - 10);
+          this.x = M.damp(this.x, back, 4, dt);
           this.z = M.damp(this.z, this.bz, 4, dt);
           this.y = floorY + Math.sin(this.stT * 30) * 2;
-          if (this.stT > 0.6) { this.set('bounce'); this.vy = -380; G.sfx('boing'); }
+          this.ruler.push({ z: this.bz, color: 0xffa65c });
+          if (this.stT > 0.95) { this.set('bounce'); this.vy = -380; this.vx = (P.x < this.x ? -1 : 1) * Math.abs(this.vx); G.sfx('boing'); }
           break;
+        }
         case 'bounce':
           this.vy += 900 * dt;
           this.x += this.vx * dt; this.y += this.vy * dt;
@@ -132,9 +147,9 @@
           this.y = floorY - Math.sin(this.stT * 8) * 6;
           if (this.stT > 0.8) {
             const n = G.ents.filter((e) => e.esferula && e.alive).length;
-            for (let i = 0; i < Math.min(4, 6 - n); i++) {
-              const e = G.spawnEnemy('esferoide', { x: this.x + (i - 1.5) * 24, y: this.y - this.R, z: P.z + (i % 2 ? 1 : -1) * (30 + i * 8), r: 7, hp: 1, za: 8 });
-              e.esferula = true; e.drop = 1; e.mat = 'esfera';
+            for (let i = 0; i < Math.min(2, 3 - n); i++) {
+              const e = G.spawnEnemy('esferoide', { x: this.x + (i ? 20 : -20), y: this.y - this.R, z: M.clamp(P.z + (i % 2 ? 1 : -1) * 52, 4, room.d - 4), r: 7, hp: 1, za: 8 });
+              e.esferula = true; e.drop = 1; e.mat = 'esfera'; e.life = 9;
             }
             G.sfx('spore');
             this.set('idle'); this.nextAtk = 1.6;

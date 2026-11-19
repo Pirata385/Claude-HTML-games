@@ -49,8 +49,8 @@
     toast(text) { this.toasts.push({ text: UI().keys(text), t: 0, dur: 3.2 }); if (this.toasts.length > 3) this.toasts.shift(); }
     pulse(k) { this.pulses[k] = 0.4; }
     flash(c) { if (!this.game_.settings.flashes) return; this.flashA = 0.5; this.flashC = c || 0xffffff; }
-    dialog(pages, title) {
-      this.dlg = { pages: pages.map((p) => UI().keys(p)), title: title || null, i: 0, shown: 0 };
+    dialog(pages, title, onClose) {
+      this.dlg = { pages: pages.map((p) => UI().keys(p)), title: title || null, i: 0, shown: 0, onClose: onClose || null };
       this.game_.dialogOpen = true;
       if (!title && this.dlg.pages.length > 1 && this.dlg.pages[0].length < 40) { this.dlg.title = this.dlg.pages.shift(); }
       PL.Input.clearAll();
@@ -63,7 +63,10 @@
       if (d.shown < full.length) { d.shown = full.length; return; }
       d.i++; d.shown = 0;
       PL.Audio.sfx('menu');
-      if (d.i >= d.pages.length) { this.dlg = null; this.game_.dialogOpen = false; PL.Input.clearAll(); }
+      if (d.i >= d.pages.length) {
+        this.dlg = null; this.game_.dialogOpen = false; PL.Input.clearAll();
+        if (d.onClose) d.onClose();
+      }
     }
     menuOpen() { return this.mode !== 'play'; }
 
@@ -87,6 +90,7 @@
           { label: 'Continuar', select: () => this.closeMenus() },
           { label: 'Mapa', select: () => this.toggleMap() },
           { label: 'Configurações', select: () => this.openSettings() },
+          { label: 'Teoremas', select: () => this.openTeoremas(!!this.game_.restingAt) },
           { label: 'Controles', select: () => this.openControls() },
           { label: 'Tela cheia', select: () => { if (this.scale.isFullscreen) this.scale.stopFullscreen(); else this.scale.startFullscreen(); } },
           { label: 'Sair para o título', select: () => this.quit() },
@@ -94,6 +98,64 @@
       });
       PL.Audio.sfx('menu');
     }
+    // ---------- loja ----------
+    openShop(id) {
+      this.closeMenus(true);
+      this.mode = 'shop';
+      this.game_.paused = true;
+      const G = this.game_, st = G.save, W = this.scale.width, H = this.scale.height;
+      const items = PL.SHOPS[id].map((it) => ({
+        label: it.nome,
+        get: () => (PL.Shop.sold(st, it.id) ? 'vendido' : it.preco + '◆'),
+        disabled: false,
+        hint: it.desc,
+        select: () => {
+          const r = PL.Shop.buy(st, id, it.id);
+          if (r.ok) {
+            PL.Audio.sfx('buy');
+            this.pulse('vert');
+            if (it.id.startsWith('frag')) this.toast(st.frags % 4 === 0 ? 'Quatro Fragmentos! Agora você suporta ' + st.maxLados + ' golpes.' : 'Fragmento de Lado (' + (st.frags % 4) + '/4)');
+            else this.toast('Comprado: ' + it.nome);
+            G.recalcMods();
+            if (G.slot >= 0) PL.Save.write(G.slot, st);
+          } else {
+            PL.Audio.sfx('block');
+            this.toast(r.why === 'vendido' ? 'Já é seu.' : 'Vértices insuficientes.');
+          }
+          if (this.menu && this.menu.titleT) this.menu.titleT.setText('LOJA DO PENTÁGONO · ◆ ' + st.vert);
+        },
+      }));
+      items.push({ label: 'Sair', select: () => this.closeMenus() });
+      this.menu = new (UI().Menu)(this, { x: W / 2, y: Math.round(H * 0.22), w: Math.min(W - 40, 300), title: 'LOJA DO PENTÁGONO · ◆ ' + st.vert, depth: 140, items, onBack: () => this.closeMenus() });
+    }
+
+    // ---------- Teoremas (equipar só num Ponto Fixo) ----------
+    openTeoremas(canEquip) {
+      this.closeMenus(true);
+      this.mode = 'teoremas';
+      this.game_.paused = true;
+      const G = this.game_, st = G.save, W = this.scale.width, H = this.scale.height;
+      const title = () => 'TEOREMAS · Postulados ' + PL.Teoremas.used(st) + '/' + st.postulados;
+      const owned = Object.keys(PL.TEOREMAS).filter((k) => st.teoremas[k]);
+      const items = owned.map((k) => {
+        const t = PL.TEOREMAS[k];
+        return {
+          label: t.nome + ' (' + t.custo + ')',
+          get: () => (st.equip.includes(k) ? '■ equipado' : '○'),
+          hint: t.desc,
+          select: () => {
+            if (!canEquip) { PL.Audio.sfx('block'); this.toast('Teoremas só podem ser trocados descansando num Ponto Fixo.'); return; }
+            if (PL.Teoremas.toggle(st, k)) { PL.Audio.sfx('ok'); G.recalcMods(); if (G.slot >= 0) PL.Save.write(G.slot, st); }
+            else { PL.Audio.sfx('block'); this.toast('Não cabe: faltam Postulados.'); }
+            if (this.menu && this.menu.titleT) this.menu.titleT.setText(title());
+          },
+        };
+      });
+      if (!owned.length) items.push({ label: 'Nenhum Teorema ainda', disabled: true, hint: 'Teoremas aparecem escondidos pelo mundo, na loja e como presentes.' });
+      items.push({ label: 'Voltar', select: () => this.closeMenus() });
+      this.menu = new (UI().Menu)(this, { x: W / 2, y: Math.round(H * 0.2), w: Math.min(W - 40, 300), title: title(), depth: 140, items, sel: owned.length ? 0 : 1, onBack: () => this.closeMenus() });
+    }
+
     openSettings() {
       this.closeMenus(true);
       this.mode = 'settings';
@@ -121,8 +183,8 @@
       const back = this.add.bitmapText(0, 0, 'pxo', UI().keys('[pause] volta')).setTint(0x8f86b8).setDepth(141);
       back.setPosition(Math.round(W / 2 - back.width / 2), 48 + rows.length * 15 + 26);
       this.ctrlTexts.push(tip, back);
-      this.ctrlBack = () => this.openPause(3);
-      back.setInteractive().on('pointerdown', () => this.openPause(3));
+      this.ctrlBack = () => this.openPause(4);
+      back.setInteractive().on('pointerdown', () => this.openPause(4));
     }
     closeMenus(keepPaused) {
       if (this.menu) { this.menu.destroy(); this.menu = null; }
@@ -159,7 +221,7 @@
       } else if (this.mode === 'map') {
         if (I.pressed.map || I.pressed.pause || I.pressed.back) { I.eat('pause'); I.eat('back'); this.closeMenus(); }
       } else if (this.mode === 'controls') {
-        if (I.pressed.pause || I.pressed.back || I.pressed.confirm) { I.eat('pause'); I.eat('back'); this.openPause(3); }
+        if (I.pressed.pause || I.pressed.back || I.pressed.confirm) { I.eat('pause'); I.eat('back'); this.openPause(4); }
       } else if (this.menu) {
         this.menu.update();
       }
@@ -269,7 +331,7 @@
       if (this.flashA > 0) { fg.fillStyle(this.flashC, this.flashA); fg.fillRect(0, 0, W, H); this.flashA = Math.max(0, this.flashA - dt * 3); }
       // ----- mapa / menus / diálogo -----
       if (this.mode === 'map') UI().drawMap(fg, this, G, W, H, this.mapTexts);
-      else if (this.mode === 'pause' || this.mode === 'settings' || this.mode === 'controls') { fg.fillStyle(0x07040f, 0.6); fg.fillRect(0, 0, W, H); }
+      else if (this.mode !== 'play') { fg.fillStyle(0x07040f, 0.6); fg.fillRect(0, 0, W, H); }
       this.drawDialog(fg, W, H);
       this.touch.draw();
     }

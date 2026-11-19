@@ -90,6 +90,17 @@
       return best;
     },
 
+    // cogumelo (primitivo com bounce) logo abaixo dos pés
+    bounceUnder(b, room) {
+      const y = b.y + b.hy;
+      const c = room.query(b.z, b.x - b.hx + 1, y - 2, b.x + b.hx - 1, y + 2, W().MASK_SOLID, S, P);
+      for (let k = 0; k < c; k++) {
+        if (!P[k].bounce) continue;
+        if (C2.aabbShape(b.x, y + 1, b.hx - 1, 2, S[k], mtv)) return P[k];
+      }
+      return null;
+    },
+
     // perigo (espinhos etc.) tocando o corpo, com margem para não ser injusto
     hazardAt(b, room, shrink) {
       const sh = shrink === undefined ? 2 : shrink;

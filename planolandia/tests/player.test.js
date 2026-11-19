@@ -84,3 +84,39 @@ test('Paralelas: desliza na profundidade mais rápido', () => {
   run(a, 40, ['zf']); run(b, 40, ['zf']);
   assert.ok(b.z > a.z + 15, `${b.z.toFixed(1)} > ${a.z.toFixed(1)}`);
 });
+
+// escalada por pulos na parede numa sala real do jogo (alterna lados ao agarrar)
+function climb(P, maxFrames) {
+  let dir = 1, minY = P.y, jumpNext = 0;
+  run(P, 2, []);
+  run(P, 14, ['jump', 'right']);
+  for (let f = 0; f < maxFrames; f++) {
+    const hold = [dir > 0 ? 'right' : 'left'];
+    const tap = [];
+    if (P.cling === dir && jumpNext <= 0) { tap.push('jump'); jumpNext = 6; dir = -dir; }
+    jumpNext--;
+    run(P, 1, hold.concat(jumpNext > 2 ? ['jump'] : []), tap);
+    minY = Math.min(minY, P.y);
+  }
+  return minY;
+}
+for (const f of ['data/materials', 'game/enemies/base', 'game/entities', 'data/rooms/borda', 'data/rooms/bosque']) require('../src/' + f + '.js');
+
+test('Copa Alta: o poço sobe inteiro com a Garra e não sobe sem ela', () => {
+  const def = PL.World.defs.bosque_alto;
+  const rA = new World.Room(def, Save.fresh()), rB = new World.Room(def, Save.fresh());
+  const a = new Player(stubG(rA, { garra: true }), 272, 454, 80);
+  const b = new Player(stubG(rB, {}), 272, 454, 80);
+  const ya = climb(a, 600), yb = climb(b, 600);
+  assert.ok(ya < 120, 'com Garra chega ao topo: ' + ya.toFixed(0));
+  assert.ok(yb > 380, 'sem Garra fica embaixo: ' + yb.toFixed(0));
+});
+
+test('Ninho: o poço de Garra leva até a abertura do teto', () => {
+  const def = PL.World.defs.bosque_ninho;
+  const st = Save.fresh(); st.flags.boss_mae = true;
+  const r = new World.Room(def, st);
+  const a = new Player(stubG(r, { garra: true }), 462, 294, 120);
+  const y = climb(a, 600);
+  assert.ok(y < 20, 'chegou a ' + y.toFixed(0));
+});

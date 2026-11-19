@@ -53,7 +53,7 @@
     },
   };
   PL.M = M;
-  PL.VERSION = '0.1.0';
+  PL.VERSION = '0.2.0';
 
   if (typeof module !== 'undefined' && module.exports) module.exports = PL;
 })(typeof globalThis !== 'undefined' ? globalThis : this);

@@ -259,7 +259,7 @@
           case 'right': L.x = b.hx + 2; break;
           case 'left': L.x = tw - b.hx - 2; break;
           case 'bottom': L.y = b.hy + 2; break;
-          case 'top': L.y = th - b.hy - 2; vel.vy = Math.min(vel.vy, -330); break;
+          case 'top': L.y = th - b.hy - 2; vel.vy = Math.min(vel.vy, -340); P.jumping = false; break;
           case 'far': L.z = 1; break;
           case 'near': L.z = td - 1; break;
         }

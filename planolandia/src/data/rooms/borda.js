@@ -66,30 +66,29 @@
     },
   });
 
-  // ---------- 3. Primeiro Ponto Fixo ----------
+  // ---------- 3. Primeiro Ponto Fixo (e a subida para o Bosque dos Cones) ----------
   R({
     id: 'borda_ponto1', region: 'borda', name: 'Mirante do Ponto Fixo',
     pos: [1600, -280, 0], size: [560, 340, 160],
     exits: [
       { side: 'left', range: [216, 280], to: 'borda_degraus' },
       { side: 'right', range: [216, 280], to: 'borda_campo' },
+      { side: 'top', range: [430, 520], to: 'bosque_raizes' },
     ],
     build(B) {
       B.box(0, 280, 560, 60);
-      B.box(0, 0, 560, 24);
+      B.box(0, 0, 430, 24); B.box(520, 0, 40, 24);
       B.box(0, 24, 20, 192);
       B.box(540, 24, 20, 192);
-      B.box(392, 200, 128, 8, 0, 160, { oneWay: true, mat: 'plataforma' });
       B.cyl('z', 120, 252, 80, 16, 60, { mat: 'pedraEsc' });
+      // elevador de profundidade até a abertura do teto: rente ao chão na frente, alto no fundo
+      B.loft([430, 278, 520, 292], 0, [430, 40, 520, 54], 160, { mat: 'teal' });
       B.ent('bench', { x: 280, y: 280, z: 80 });
       B.ent('sign', { x: 190, y: 280, title: 'Inscrição gasta', pages: [
         'PONTO FIXO: um lugar que nenhuma transformação consegue mover.',
         'Descanse aqui ([up]) para salvar, recuperar os Lados e voltar a este ponto se o seu contorno se desfizer.',
       ] });
-      B.ent('fenda', { x: 456, y: 200, h: 56, title: 'Fenda para o Bosque', msg: [
-        'Uma fenda sobe até o Bosque dos Cones… ainda instável demais para atravessar. (Marco 2)',
-      ] });
-      B.ent('hint', { x0: 380, x1: 540, y1: 210, text: '[down] + [jump] desce de plataformas finas' });
+      B.ent('hint', { x0: 380, x1: 540, text: 'O elevador verde sobe até a abertura do teto: pise nele bem na frente ([zb]) e deslize para o fundo ([zf]).' });
     },
   });
 

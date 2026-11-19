@@ -164,10 +164,12 @@
   }
 
   // ---------- mapa: salas visitadas, Pontos Fixos, passagens de profundidade ----------
+  const benchCache = {};
   function drawMap(g, scene, game, W, H, texts) {
     const st = game.save, defs = PL.World.defs;
     const region = game.room.def.region;
-    const rooms = Object.values(defs).filter((d) => d.region === region && st.visited[d.id]);
+    const mapa = st.mapas && st.mapas[region];
+    const rooms = Object.values(defs).filter((d) => d.region === region && (st.visited[d.id] || mapa));
     let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
     for (const d of rooms) { x0 = Math.min(x0, d.pos[0]); y0 = Math.min(y0, d.pos[1]); x1 = Math.max(x1, d.pos[0] + d.size[0]); y1 = Math.max(y1, d.pos[1] + d.size[1]); }
     const mw = W - 60, mh = H - 80;
@@ -181,6 +183,12 @@
     for (let y = 0; y < H; y += 12) g.fillRect(0, y, W, 1);
     for (const d of rooms) {
       const cur = d.id === game.room.id;
+      if (!st.visited[d.id]) {
+        // sala conhecida pelo mapa comprado, ainda não visitada: só o contorno
+        const ux = X(d.pos[0]), uy = Y(d.pos[1]), uw = Math.max(3, Math.round(d.size[0] * sc)), uh = Math.max(3, Math.round(d.size[1] * sc));
+        g.lineStyle(1, 0x4b3e86, 1); g.strokeRect(ux + 0.5, uy + 0.5, uw - 1, uh - 1);
+        continue;
+      }
       const rx = X(d.pos[0]), ry = Y(d.pos[1]), rw = Math.max(3, Math.round(d.size[0] * sc)), rh = Math.max(3, Math.round(d.size[1] * sc));
       // espessura de profundidade: sombra oblíqua proporcional a d
       const dk = Math.max(1, Math.round(d.size[2] * sc * 0.25));
@@ -198,8 +206,8 @@
           g.fillStyle(0xff5fa2, 1); g.fillRect(ex - 1, ey - 2, 3, 5);
         }
       }
-      const room = new PL.World.Room(d, st);
-      for (const en of room.ents) if (en.type === 'bench') { const bx = X(d.pos[0] + en.x), by = Y(d.pos[1] + en.y); g.fillStyle(0x6fb6ff, 1); g.fillRect(bx - 1, by - 4, 3, 3); }
+      if (!benchCache[d.id]) benchCache[d.id] = new PL.World.Room(d, PL.Save.fresh()).ents.filter((en) => en.type === 'bench').map((en) => [en.x, en.y]);
+      for (const [ex, ey] of benchCache[d.id]) { const bx = X(d.pos[0] + ex), by = Y(d.pos[1] + ey); g.fillStyle(0x6fb6ff, 1); g.fillRect(bx - 1, by - 4, 3, 3); }
     }
     // jogador
     const P = game.player, r = game.room;

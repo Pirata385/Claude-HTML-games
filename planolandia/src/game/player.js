@@ -172,8 +172,8 @@
       // ----- movimento -----
       this.fallV = b.vy;
       Phys.move(b, room, dt);
-      const gp = b.grounded ? b.groundPrim : null;
-      if (gp && gp.bounce && this.fallV > 40) {
+      const gp = b.grounded ? (b.groundPrim && b.groundPrim.bounce ? b.groundPrim : Phys.bounceUnder(b, room)) : null;
+      if (gp && gp.bounce && this.fallV >= 0) {
         // cogumelo: lança para cima
         b.vy = -gp.bounce * (I.down.jump ? 1.1 : 1);
         b.grounded = false;

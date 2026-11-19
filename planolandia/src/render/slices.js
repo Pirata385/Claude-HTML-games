@@ -101,6 +101,10 @@
           if (h < 0.45) { g.fillStyle(h < 0.2 ? mat.hi : mat.top, 1); g.fillRect(x, y - 1 - Math.floor(h * 6), 1, 1 + Math.floor(h * 6)); }
         } else if (mat.deco === 'cristal') {
           if (h < 0.12) { g.fillStyle(mat.hi, 1); g.fillTriangle(x - 2, y, x + 2, y, x, y - 4 - Math.floor(h * 20)); }
+        } else if (mat.deco === 'musgo') {
+          if (h < 0.5) { g.fillStyle(h < 0.18 ? 0x9cc28e : 0x5c8a52, 1); g.fillRect(x, y - 1 - Math.floor(h * 4), 1 + (h < 0.1 ? 1 : 0), 1 + Math.floor(h * 4)); }
+        } else if (mat.deco === 'folha') {
+          if (h < 0.22) { g.fillStyle(h < 0.08 ? mat.hi : mat.top, 1); g.fillRect(x - 1, y - 2, 3, 1); g.fillRect(x, y - 3, 1, 1); }
         } else if (mat.deco === 'seta') {
           if (h < 0.3 && t % 12 < 4) { g.fillStyle(mat.hi, 1); g.fillRect(x, y + 3, 1, 1); g.fillRect(x - 1, y + 4, 3, 1); }
         }

@@ -4,14 +4,16 @@ const assert = require('node:assert/strict');
 const files = [
   'core/ns', 'core/geom3d', 'core/collide2d', 'core/world', 'core/physics', 'data/materials',
   'game/enemies/base', 'game/enemies/esferoide', 'game/enemies/cubo-sentinela', 'game/enemies/agulha', 'game/enemies/rabisco',
-  'game/bosses/cubo-carcereiro', 'game/entities', 'game/save', 'data/rooms/borda',
+  'game/enemies/esporo', 'game/enemies/brotocone', 'game/enemies/rolo', 'game/enemies/folha',
+  'game/bosses/cubo-carcereiro', 'game/bosses/mae-esfera', 'game/entities', 'game/save', 'game/teoremas', 'game/shop', 'data/npcs',
+  'data/rooms/borda', 'data/rooms/bosque',
 ];
 for (const f of files) require('../src/' + f + '.js');
 const { World, Phys, ENEMIES, ENTS, Save } = globalThis.PL;
 const defs = Object.values(World.defs);
 
 test('todas as salas existem e as conexões batem (bordas, aberturas e profundidade)', () => {
-  assert.ok(defs.length >= 10);
+  assert.ok(defs.length >= 21);
   assert.deepEqual(World.validate(defs), []);
 });
 

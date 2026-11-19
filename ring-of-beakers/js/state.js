@@ -477,6 +477,7 @@
     for (const c of S.roost || []) { c.fed = true; c.hungry = 0; c.tired = false; c.rest = 0; c.bouts = 0; c.love = false; if (c.hp < 1) c.hp = Math.min(1, c.hp + 0.25); if (c.cond < 1) { c.cond = Math.min(1, c.cond + 0.25); dirty(c); } }
     // your islands: the colonies there live their own lives
     for (const isle of S.isles || []) { const ln = colonyNight(S, isle, r); if (ln) lines.push(ln); }
+    wildNight(S, lines); // the birds you set free grow old out there too
     championsNight(S, lines);
     // the heat dies down: back to nothing after one night for each person netted (three at most)
     if (S.heat > 0) {
@@ -576,8 +577,26 @@
     const bird = serBird(c); delete bird.g; delete bird.at;
     const rec = { g: GN.serialize(c.g), x: Math.round(x), y: Math.round(y), day: S.day, name: c.name, key: kindKey(c), label: label(c), bird };
     S.released.push(rec);
-    if (S.released.length > RELEASED_MAX) S.released.splice(0, S.released.length - RELEASED_MAX);
+    // only so many are remembered: the dead go first, then the longest gone
+    while (S.released.length > RELEASED_MAX) { const d = S.released.findIndex((e) => e.dead); S.released.splice(d >= 0 ? d : 0, 1); }
     return rec;
+  }
+  // How old a freed bird is today: it goes on counting the days out there.
+  const wildAge = (S, rec) => (rec.bird ? rec.bird.age || 0 : 0) + Math.max(0, S.day - rec.day);
+  const wildLife = (rec) => Math.round(GN.traitValue(recGenome(rec), 'lifespan'));
+  // Still out there: alive, and remembered (birds freed before they kept their names have no age to count).
+  const wildAlive = (rec) => !rec.dead;
+  // Each night: a freed bird past its last day dies of old age out in the wild. Its genes stay in the
+  // wild around there for a while (its young carry them), but the bird itself is gone.
+  function wildNight(S, lines) {
+    for (const rec of S.released || []) {
+      if (rec.dead || !rec.bird) continue;
+      if (wildAge(S, rec) <= wildLife(rec)) continue;
+      rec.dead = S.day;
+      const fe = fameOf(S, rec.bird.id);
+      if (fe) fe.status = 'Set free on day ' + rec.day + ', and died of old age in the wild on day ' + S.day;
+      lines.push(rec.name + ', whom you set free on day ' + rec.day + ', died of old age out in the wild.');
+    }
   }
   // Net a bird you once set free: it comes back as it was, a little older and a little less sure of you.
   function recapture(S, rec) {
@@ -596,12 +615,13 @@
   }
   // The released genes the wild draws on today: only those let go before today, decoded.
   const gened = new Map();
+  function recGenome(e) {
+    let g = gened.get(e.g);
+    if (!g) { g = GN.deserialize(e.g); gened.set(e.g, g); }
+    return g;
+  }
   function genePool(S) {
-    return (S.released || []).filter((e) => e.day < S.day).map((e) => {
-      let g = gened.get(e.g);
-      if (!g) { g = GN.deserialize(e.g); gened.set(e.g, g); }
-      return Object.assign({}, e, { g });
-    });
+    return (S.released || []).filter((e) => e.day < S.day).map((e) => Object.assign({}, e, { g: recGenome(e) }));
   }
 
   // ---- breeding islands: an island of your own out at sea, claimed (an empty one) or raised from
@@ -836,7 +856,7 @@
 
   RB.state = { create, addBird, removeBird, pheno, dirty, kind, isAdult, isRetired, checkIn, checkOut, BOSS_PRIZES, bossPrizes, GOLD_DIGS, goldLeft, digsLeft, useDig, useNet,
     RELEASED_MAX, setFree, recapture, genePool, HEAT_DAYS, caughtPerson, trainPreview, openSea, hasBoat, makeBird,
-    note, title, fameOf, fameLeave, fameCheck, fameRank, fameBio, RECORDS, statScore, outstanding, fameEligible, caught, FAME_TABS, fameTabOf, fameIn, QUIRKS, quirkOf, grudgeTarget, slotOf, wornIn, wear, unwear, outfit, grantUnlocks, ENDLESS_KINDS, endless, owned, fmtCount, canSail, serBird, deBird, STAY_MAX, stay, netKeeper, installKeeper, releasePerson, mainlanders, nettedCount, nettedAll, ISLE_EXTRA,
+    wildAge, wildLife, wildAlive, wildNight, note, title, fameOf, fameLeave, fameCheck, fameRank, fameBio, RECORDS, statScore, outstanding, fameEligible, caught, FAME_TABS, fameTabOf, fameIn, QUIRKS, quirkOf, grudgeTarget, slotOf, wornIn, wear, unwear, outfit, grantUnlocks, ENDLESS_KINDS, endless, owned, fmtCount, canSail, serBird, deBird, STAY_MAX, stay, netKeeper, installKeeper, releasePerson, mainlanders, nettedCount, nettedAll, ISLE_EXTRA,
     CLAIM_COST, RAISE_COST, RAISE_R, CLEAN_COST, DOSE, isleOf, isleCap, claimIsle, raiseIsle, toIsle, fromIsle, dose, cleanIsle, colonyNight, byId, at, atHome, cageCap, coopCap, nestCount, count, give, take, move, feed, train, TRAIN,
     layChance, sleep, serialize, deserialize, freeName, BIRD_NAMES, eat, soldPerson, kindKey, isCross, label };
 })();

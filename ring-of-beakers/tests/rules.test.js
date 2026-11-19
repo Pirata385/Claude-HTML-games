@@ -1527,3 +1527,97 @@ test('a bird riding in the truck can be fed and dressed from the bag, away from 
   const back = L.birds.find((b) => b.id === c.id);
   assert.ok(back.at === 'cage' && back.fed && ST.wornIn(back, RB.items.ITEMS.tophat.kind) === 'tophat');
 });
+
+test('a single-gene beaker goes back into copy A or copy B only (or both, if you pick it)', () => {
+  const L = RB.lab, G = RB.genome, S = ST.create(231), r = new Rng(31);
+  const donor = ST.addBird(S, RB.species.make('chicken', r, { sex: 'M', sport: 0 }));
+  const gi = G.TRAITS.legLen.genes[0];
+  assert.notStrictEqual(G.GENES[gi].chr, G.Z_CHR);
+  const get = (c, k) => G.getGeneBases(c.g, gi, k).join('');
+  const into = (copy, pick) => {
+    const tg = ST.addBird(S, RB.species.make('chicken', r, { sex: 'M', sport: 0 }));
+    G.setGeneBases(tg.g, gi, [0, 0, 0, 0], 'a'); G.setGeneBases(tg.g, gi, [1, 1, 1, 1], 'b');
+    const v = L.extract(S, donor, gi, copy);
+    assert.strictEqual(v.copy, copy, 'the beaker remembers its copy');
+    for (let i = 0; i < 4; i++) L.edit(v, i, 3);
+    const pv = L.preview(S, v, tg, false, pick);
+    L.inject(S, v, tg, false, pick);
+    assert.deepStrictEqual(ST.pheno(tg).rate, pv.after.rate, 'it matches its preview');
+    return { tg, pv };
+  };
+  // from copy B, into copy B: copy A stays as it was
+  let { tg, pv } = into('b');
+  assert.strictEqual(pv.into, 'b');
+  assert.strictEqual(get(tg, 'b'), '3333'); assert.strictEqual(get(tg, 'a'), '0000');
+  // from copy A, into copy A
+  ({ tg } = into('a'));
+  assert.strictEqual(get(tg, 'a'), '3333'); assert.strictEqual(get(tg, 'b'), '1111');
+  // the other copy, or both, when picked
+  ({ tg } = into('a', 'b'));
+  assert.strictEqual(get(tg, 'a'), '0000'); assert.strictEqual(get(tg, 'b'), '3333');
+  ({ tg } = into('b', 'both'));
+  assert.strictEqual(get(tg, 'a'), '3333'); assert.strictEqual(get(tg, 'b'), '3333');
+  // a female's Z gene has a single copy: B means that one
+  const zg = G.TRAITS.tailLen.genes[0];
+  assert.strictEqual(G.GENES[zg].chr, G.Z_CHR);
+  const hen = ST.addBird(S, RB.species.make('chicken', r, { sex: 'F', sport: 0 }));
+  G.setGeneBases(hen.g, zg, [0, 0, 0, 0], 'a');
+  const vz = L.extract(S, donor, zg, 'b');
+  for (let i = 0; i < 4; i++) L.edit(vz, i, 2);
+  assert.strictEqual(L.intoCopy(vz, hen), 'a');
+  L.inject(S, vz, hen, false);
+  assert.strictEqual(G.getGeneBases(hen.g, zg, 'a').join(''), '2222');
+  // an older beaker that never said which copy it was goes into A
+  assert.strictEqual(L.intoCopy({ gi, bases: [0, 0, 0, 0] }, donor), 'a');
+  // the copy survives a save
+  L.extract(S, donor, gi, 'b');
+  const S2 = ST.deserialize(JSON.parse(JSON.stringify(ST.serialize(S))));
+  assert.strictEqual(S2.lab.vials[S2.lab.vials.length - 1].copy, 'b');
+});
+
+test('a bird set free keeps getting older out there, and dies the night after its last day', () => {
+  const S = ST.create(232), c = S.birds[0], life = ST.pheno(c).lifespan;
+  c.age = life - 2; c.wins = 12; ST.fameCheck(S);
+  assert.ok(ST.fameOf(S, c.id), 'a veteran in the Hall');
+  const home = RB.world.generate(232).site.home;
+  const rec = ST.setFree(S, c, home.x, home.y);
+  assert.strictEqual(ST.wildLife(rec), life);
+  const nights = (n) => { let all = []; for (let i = 0; i < n; i++) all = all.concat(ST.sleep(S).lines); return all; };
+  let lines = nights(2); // now on its last day
+  assert.strictEqual(ST.wildAge(S, rec), life);
+  assert.ok(ST.wildAlive(rec) && !lines.some((l) => l.includes('died of old age')));
+  lines = nights(1); // past it
+  assert.ok(!ST.wildAlive(rec) && rec.dead === S.day);
+  assert.ok(lines.some((l) => l.startsWith(c.name + ', whom you set free') && l.includes('died of old age out in the wild')));
+  assert.ok(/died of old age in the wild/.test(ST.fameOf(S, c.id).status));
+  // its genes stay in the wild around there for a while
+  assert.ok(ST.genePool(S).some((e) => e.name === c.name));
+  // a bird freed young and caught again before its time comes back older, not dead
+  const S2 = ST.create(233), y = S2.birds[1];
+  y.age = 3;
+  const r2 = ST.setFree(S2, y, 0, 0);
+  ST.sleep(S2); ST.sleep(S2);
+  const back = ST.recapture(S2, r2);
+  assert.strictEqual(back.age, 5);
+  // only so many freed birds are remembered: the dead go first
+  const S3 = ST.create(234);
+  const old = ST.setFree(S3, S3.birds[0], 0, 0); old.dead = 1;
+  for (let i = 0; i < ST.RELEASED_MAX; i++) ST.setFree(S3, ST.addBird(S3, RB.species.make('chicken', S3._rng, { sport: 0 })), 0, 0);
+  assert.strictEqual(S3.released.length, ST.RELEASED_MAX);
+  assert.ok(!S3.released.includes(old));
+});
+
+test('the lab guide says what every kind of gene does', () => {
+  const L = RB.lab, G = RB.genome, entries = L.guideEntries();
+  assert.strictEqual(entries.length, G.TRAIT_LIST.length);
+  for (const e of entries) {
+    assert.ok(e.text.length > 20, e.id + ' has a description');
+    assert.ok(e.groupName && e.how, e.id + ' has a group and says how it is inherited');
+    const onZ = e.genes.some((gi) => G.GENES[gi].chr === G.Z_CHR);
+    assert.strictEqual(/on Z/.test(e.how), onZ, e.id + ' says whether it sits on Z');
+  }
+  assert.ok(L.GUIDE_INTRO.length >= 5);
+  assert.strictEqual(L.guideOf(G.TRAITS.muscle.genes[1]).id, 'muscle');
+  assert.strictEqual(L.guideOf(G.GENES.findIndex((g) => !g.trait)), null, 'junk DNA has no entry');
+  assert.ok(/recessive switch/.test(entries.find((e) => e.id === 'teeth').how) && /dominant switch/.test(entries.find((e) => e.id === 'melanic').how));
+});

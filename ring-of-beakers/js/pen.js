@@ -35,7 +35,10 @@
     layout(box, list) {
       this.box = box;
       let tall = 30, wide = 0, sum = 0;
-      for (const c of list || this.items.map((it) => it.c)) { const P = ST.pheno(c); tall = Math.max(tall, P.rest + P.TD * 0.6 + P.NL * 0.9 + P.HR * 2); wide = Math.max(wide, P.TL); sum += P.TL; }
+      for (const c of list || this.items.map((it) => it.c)) {
+        const P = ST.pheno(c), hat = c.hat || (c.clothes && c.clothes.hat) ? P.HR * 1.3 : 0; // room for a hat on top
+        tall = Math.max(tall, P.rest + P.TD * 0.6 + P.NL * 0.9 + P.HR * 2 + hat); wide = Math.max(wide, P.TL); sum += P.TL;
+      }
       this.s = clamp((box.h - 16) / tall, 0.08, 1.4);
       if (this.o.roomy) this.s = clamp(Math.min((box.h - 16) / (tall * 1.15), box.w / Math.max(3 * wide, 0.8 * sum)), 0.08, 1.4);
       this.L = box.w / this.s;

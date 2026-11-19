@@ -82,10 +82,10 @@
   }
   function syncReleased() {
     if (!wild) return;
-    const recs = new Set(S.released || []);
+    const alive = (S.released || []).filter(ST.wildAlive), recs = new Set(alive); // the ones that died of old age are gone
     for (let i = wild.length - 1; i >= 0; i--) if (wild[i].rel && !recs.has(wild[i].rel)) wild.splice(i, 1);
     const shown = new Set(wild.filter((w) => w.rel).map((w) => w.rel));
-    for (const rec of S.released || []) if (!shown.has(rec)) wild.push(releasedWild(rec));
+    for (const rec of alive) if (!shown.has(rec)) wild.push(releasedWild(rec));
   }
   // The birds living on your islands walk about there too (they are yours: the field station is
   // where you take one back). Rebuilt whenever the map opens or a colony changes.
@@ -347,7 +347,7 @@
   function dawn() {
     const rep = ST.sleep(S);
     RB.game.timeSpeed = 1;
-    wild = loadWild();
+    wild = loadWild(); syncReleased(); syncColonies(); // the new day's wild, your freed birds (those still alive) and your colonies
     S.pos = { x: car.x, y: car.y };
     common.checkAch(S);
     RB.game.save();

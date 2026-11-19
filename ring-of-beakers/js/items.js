@@ -26,6 +26,7 @@
     mushroom: { name: 'Odd mushroom', kind: 'feed', price: 40, desc: 'Scrambles a few genes. Who knows.' },
     isotope: { name: 'Glowing isotope', kind: 'feed', price: 300, desc: 'Scrambles a lot of genes.' },
     elixir: { name: 'Youth elixir', kind: 'feed', price: 1800, desc: 'Takes three days off a bird\'s age.' },
+    vigor: { name: 'Tonic of eternal vigor', kind: 'feed', price: 9000, desc: 'Never dies, breeds for ever; no fights once retired. Sandbox: no limits.' },
 
     spurs: { name: 'Steel spurs', kind: 'gear', price: 350, desc: 'Kicks hit a fifth harder.' },
     helmet: { name: 'Tin helmet', kind: 'gear', price: 300, desc: 'Blows to the head hurt a quarter less.' },
@@ -116,7 +117,7 @@
       'shades', 'monocle', 'specs', 'hearts', 'patch', 'tache', 'nose', 'bowtie', 'necktie', 'pearls', 'cowbell', 'ruff',
       'cape', 'backpack', 'saddle', 'shell', 'sneakers', 'rainboots', 'socks', 'slippers', 'ribbon', 'flag', 'sparkler', 'pompom', 'streamers',
       'scarf', 'anklets', 'helmet', 'spurs', 'beakcap', 'mail', 'wingwax'],
-    market: ['mushroom', 'isotope', 'elixir', 'fuse', 'bignet', 'horseshoe', 'springs', 'flask', 'jetpack', 'skates'],
+    market: ['mushroom', 'isotope', 'elixir', 'vigor', 'fuse', 'bignet', 'horseshoe', 'springs', 'flask', 'jetpack', 'skates'],
   };
   // Upgrades: [id, name, levels as prices, description]
   const UPGRADES = {

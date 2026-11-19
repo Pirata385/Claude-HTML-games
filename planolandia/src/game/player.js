@@ -13,7 +13,9 @@
     ATK_T: 0.26, ATK_ACTIVE: 0.11, ATK_CD: 0.33,
     POGO_V: -290, RECOIL_V: 95, RECOIL_T: 0.07,
     INV: 1.15, FOCUS_T: 0.85, FOCUS_COST: 33, GEO_MAX: 99, GEO_HIT: 11,
+    CLING_FALL: 60, WJ_VY: -300, WJ_VX: 190, WJ_LOCK: 0.15, WALL_COYOTE: 0.08, REACH: 22,
   };
+  const MODS0 = { atkCd: 1, reach: 0, magnet: 44, depth: 1, focusT: 1, atkDepth: 0 };
 
   const tA = G3.newShape(), tB = G3.newShape();
   const COL = { body: 0xf6d55c, light: 0xfff1a8, shade: 0xd9a441, out: 0x2a1e3b, eye: 0xffffff, cheek: 0xf28a8a };
@@ -38,6 +40,17 @@
       this.blocker = null; this.blockT = 0; this.blockZ = 0;
       this.wasGrounded = false; this.fallV = 0; this.airT = 0;
       this.flashT = 0;
+      this.cling = 0; this.clingT = 0; this.clingDir = 0; this.wjT = 0; this.wjDir = 0;
+    }
+
+    get mods() { return this.G.mods || MODS0; }
+
+    // encostado numa parede escalável do lado dir?
+    wallTouch(dir) {
+      const b = this.b;
+      if (!this._probe) this._probe = { hx: b.hx, hy: b.hy - 3 };
+      const p = Phys.overlapAt(this._probe, this.G.room, b.x + dir * 1.5, b.y - 1, b.z);
+      return !!p && !p.slick && !p.bounce && !p.oneWay;
     }
 
     get x() { return this.b.x; }
@@ -52,6 +65,8 @@
       this.coyote = tm(this.coyote); this.jumpBuf = tm(this.jumpBuf); this.dashCd = tm(this.dashCd);
       this.atkCd = tm(this.atkCd); this.atkBuf = tm(this.atkBuf); this.recoilT = tm(this.recoilT);
       this.inv = tm(this.inv); this.lock = tm(this.lock); this.hurtT = tm(this.hurtT); this.blockT = tm(this.blockT); this.flashT = tm(this.flashT);
+      this.clingT = tm(this.clingT); this.wjT = tm(this.wjT);
+      const md = this.mods;
       this.updateRig(dt);
       if (this.dead || this.frozen) { this.vz = 0; return; }
 
@@ -59,6 +74,22 @@
       if (this.lock > 0 || this.focusing) mx = 0;
       if (mx && this.atkT <= 0) this.facing = mx;
       else if (mx && this.atkT > 0 && this.atkDir !== 'side') this.facing = mx;
+
+      // ----- Garra de Vértice: agarrar a parede -----
+      const wasCling = this.cling;
+      this.cling = 0;
+      if (ab.garra && !b.grounded && this.dashT <= 0 && this.lock <= 0 && mx && this.wjT <= 0 && this.wallTouch(mx)) {
+        this.cling = mx;
+        if (!wasCling) {
+          b.vy = Math.max(0, b.vy) * 0.3;
+          this.airDash = true;
+          this.kick(0.85, 1.15);
+          G.sfx('garra');
+        }
+        this.clingDir = mx; this.clingT = K.WALL_COYOTE;
+        this.facing = -mx;
+        if (b.vy > 20 && Math.random() < 0.35) G.fx.spawn({ x: b.x + mx * 6, y: b.y + 4, z: b.z, vx: -mx * 20, vy: -30, life: 0.3, color: 0xe8dcc0, grav: 120, size: 1 });
+      }
 
       // ----- Investida (dash) -----
       if (I.pressed.dash && ab.dash && this.dashCd <= 0 && this.dashT <= 0 && this.lock <= 0 && (b.grounded || this.airDash)) {
@@ -78,11 +109,12 @@
         if (Math.random() < 0.6) G.fx.spawn({ x: b.x - this.facing * 4, y: b.y + (Math.random() - 0.5) * 8, z: b.z, vx: -this.facing * 20, life: 0.25, color: 0xfff1a8, grav: 0, kind: 'streak' });
       } else {
         const acc = b.grounded ? K.ACC_G : K.ACC_A;
-        b.vx = M.approach(b.vx, mx * K.RUN, acc * dt);
+        if (this.wjT > 0) b.vx = -this.wjDir * K.WJ_VX;      // impulso do pulo na parede não pode ser anulado
+        else b.vx = M.approach(b.vx, mx * K.RUN, acc * dt);
         if (this.recoilT > 0) b.vx = this.recoilV;
         let g = Phys.GRAV;
         if (Math.abs(b.vy) < 45 && I.down.jump && !b.grounded) g *= K.APEX_G;
-        b.vy = Math.min(b.vy + g * dt, Phys.MAX_FALL);
+        b.vy = Math.min(b.vy + g * dt, this.cling ? K.CLING_FALL : Phys.MAX_FALL);
       }
 
       // ----- pulo -----
@@ -91,6 +123,16 @@
       const onOneWay = b.grounded && b.groundPrim && b.groundPrim.oneWay;
       if (this.jumpBuf > 0 && I.down.down && onOneWay) {
         b.dropT = 0.25; this.jumpBuf = 0; this.coyote = 0;
+      } else if (this.jumpBuf > 0 && !b.grounded && (this.cling || this.clingT > 0) && ab.garra && this.lock <= 0) {
+        // pulo na parede
+        const d = this.cling || this.clingDir;
+        b.vy = K.WJ_VY; b.vx = -d * K.WJ_VX;
+        this.wjT = K.WJ_LOCK; this.wjDir = d;
+        this.jumpBuf = 0; this.clingT = 0; this.cling = 0; this.jumping = true; this.facing = -d;
+        this.kick(0.7, 1.4);
+        this.vrot += -d * 20;
+        G.sfx('walljump');
+        G.fx.burst(b.x + d * 6, b.y, b.z, 5, { speed: 60, color: 0xe8dcc0, life: 0.3, grav: 80, ang0: d > 0 ? Math.PI : 0, spread: 1.4 });
       } else if (this.jumpBuf > 0 && this.coyote > 0 && this.lock <= 0 && this.dashT <= 0) {
         b.vy = K.JUMP_V; this.jumpBuf = 0; this.coyote = 0; this.jumping = true;
         this.kick(0.7, 1.4);
@@ -103,7 +145,7 @@
       // ----- profundidade -----
       let az = I.axisZ;
       if (this.lock > 0 || this.focusing || this.dashT > 0) az = 0;
-      this.vz = M.approach(this.vz, az * K.DEPTH, K.DEPTH_ACC * dt);
+      this.vz = M.approach(this.vz, az * K.DEPTH * md.depth, K.DEPTH_ACC * dt);
       if (Math.abs(this.vz) > 0.01) {
         const dz = this.vz * dt;
         const zmax = G.depthLimit(b, 1), zmin = G.depthLimit(b, -1);
@@ -130,7 +172,17 @@
       // ----- movimento -----
       this.fallV = b.vy;
       Phys.move(b, room, dt);
-      if (b.grounded && !this.wasGrounded) this.onLand(this.fallV);
+      const gp = b.grounded ? (b.groundPrim && b.groundPrim.bounce ? b.groundPrim : Phys.bounceUnder(b, room)) : null;
+      if (gp && gp.bounce && this.fallV >= 0) {
+        // cogumelo: lança para cima
+        b.vy = -gp.bounce * (I.down.jump ? 1.1 : 1);
+        b.grounded = false;
+        this.jumping = false; this.airDash = true; this.coyote = 0;
+        this.kick(0.6, 1.5);
+        gp.squashT = 0.25;
+        G.sfx('boing');
+        G.fx.burst(b.x, b.y + 6, b.z, 6, { speed: 70, color: [0xf29bc4, 0xffd2e8], life: 0.35, grav: 120, ang0: -Math.PI / 2, spread: 2.2 });
+      } else if (b.grounded && !this.wasGrounded) this.onLand(this.fallV);
       if (!b.grounded) this.airT += dt; else this.airT = 0;
       this.wasGrounded = b.grounded;
 
@@ -138,8 +190,9 @@
       if (I.pressed.attack) this.atkBuf = 0.12;
       if (this.atkBuf > 0 && this.atkCd <= 0 && this.dashT <= 0 && this.lock <= 0 && !this.focusing) {
         this.atkBuf = 0;
-        this.atkT = K.ATK_T; this.atkCd = K.ATK_CD;
+        this.atkT = K.ATK_T; this.atkCd = K.ATK_CD * md.atkCd;
         this.atkDir = I.down.up ? 'up' : (I.down.down && !b.grounded) ? 'down' : 'side';
+        if (this.cling && this.atkDir === 'side') this.facing = -this.cling;
         this.atkHit.clear();
         this.atkFlip = !this.atkFlip;
         this.vrot += (this.atkDir === 'side' ? -this.facing : this.atkDir === 'up' ? (this.atkFlip ? 1 : -1) : this.facing) * 26;
@@ -162,7 +215,7 @@
           const a = Math.random() * Math.PI * 2;
           G.fx.spawn({ x: b.x + Math.cos(a) * 16, y: b.y + Math.sin(a) * 16, z: b.z, vx: -Math.cos(a) * 50, vy: -Math.sin(a) * 50, life: 0.3, color: 0xffffff, grav: 0, drag: 0 });
         }
-        if (this.focusT >= K.FOCUS_T) {
+        if (this.focusT >= K.FOCUS_T * md.focusT) {
           this.focusT = 0;
           st.geo -= K.FOCUS_COST;
           st.lados = Math.min(st.maxLados, st.lados + 1);
@@ -186,7 +239,7 @@
       }
 
       // olhar
-      const tx = this.atkT > 0 && this.atkDir === 'side' ? this.facing : (mx || this.facing);
+      const tx = this.cling ? -this.cling : this.atkT > 0 && this.atkDir === 'side' ? this.facing : (mx || this.facing);
       this.lookX = M.damp(this.lookX, tx, 12, dt);
       this.lookY = M.damp(this.lookY, I.down.up ? -1 : I.down.down ? 1 : this.vz !== 0 ? -0.3 * Math.sign(this.vz) : 0, 10, dt);
     }
@@ -194,10 +247,11 @@
     atkHitbox() {
       const b = this.b;
       if (!this._hb) this._hb = G3.newShape();
-      if (this.atkDir === 'up') return G3.setRect(this._hb, b.x - 10, b.y - b.hy - 22, b.x + 10, b.y);
-      if (this.atkDir === 'down') return G3.setRect(this._hb, b.x - 10, b.y, b.x + 10, b.y + b.hy + 22);
+      const R = K.REACH + this.mods.reach;
+      if (this.atkDir === 'up') return G3.setRect(this._hb, b.x - 10, b.y - b.hy - R, b.x + 10, b.y);
+      if (this.atkDir === 'down') return G3.setRect(this._hb, b.x - 10, b.y, b.x + 10, b.y + b.hy + R);
       const f = this.facing;
-      return f > 0 ? G3.setRect(this._hb, b.x, b.y - 10, b.x + b.hx + 22, b.y + 9) : G3.setRect(this._hb, b.x - b.hx - 22, b.y - 10, b.x, b.y + 9);
+      return f > 0 ? G3.setRect(this._hb, b.x, b.y - 10, b.x + b.hx + R, b.y + 9) : G3.setRect(this._hb, b.x - b.hx - R, b.y - 10, b.x, b.y + 9);
     }
 
     // chamado pelo jogo quando o golpe acerta algo
@@ -291,7 +345,8 @@
       }
       // ----- corpo (quadrado com squash e rotação) -----
       const cx = x, cy = bottom - bodyH / 2;
-      const c = Math.cos(this.rot), s = Math.sin(this.rot);
+      const rotV = this.rot + (this.cling ? -this.cling * 0.16 : 0);
+      const c = Math.cos(rotV), s = Math.sin(rotV);
       const hw = bodyW / 2, hh = bodyH / 2;
       const P = [[-hw, -hh], [hw, -hh], [hw, hh], [-hw, hh]].map(([lx, ly]) => [cx + lx * c - ly * s, cy + lx * s + ly * c]);
       const path = (ox, oy) => {
@@ -357,7 +412,7 @@
       // carga do foco
       if (this.focusing) {
         g.lineStyle(1, 0xffffff, 0.8);
-        g.beginPath(); g.arc(x, y - 1, 11, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * (this.focusT / K.FOCUS_T)); g.strokePath();
+        g.beginPath(); g.arc(x, y - 1, 11, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * Math.min(1, this.focusT / (K.FOCUS_T * this.mods.focusT))); g.strokePath();
       }
     }
   }

@@ -20,7 +20,7 @@
       this.titleT = this.add.bitmapText(0, 0, 'pxo', 'PLANOLÂNDIA').setScale(3).setDepth(20).setTint(0xf6d55c);
       this.subT = this.add.bitmapText(0, 0, 'pxo', 'F O R A   D O   P L A N O').setDepth(20).setTint(0xc4b5ea);
       this.pressT = this.add.bitmapText(0, 0, 'pxo', '').setDepth(20).setTint(0xf3e7cf);
-      this.verT = this.add.bitmapText(0, 0, 'pxo', 'Marco 1 · v' + PL.VERSION).setDepth(20).setTint(0x6a5aa8);
+      this.verT = this.add.bitmapText(0, 0, 'pxo', 'Marco 2 · v' + PL.VERSION).setDepth(20).setTint(0x6a5aa8);
       this.menu = null;
       this.state = 'press';
       this.delMode = false;

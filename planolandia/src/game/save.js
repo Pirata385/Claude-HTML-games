@@ -33,6 +33,10 @@
         geo: 0, vert: 0,
         abilities: { dash: false, garra: false, eco: false, profunda: false, ponto: false, reflexao: false, giro: false },
         frags: 0,
+        teoremas: {},
+        equip: [],
+        postulados: 3,
+        mapas: {},
         flags: {},
         visited: {},
         contorno: null,
@@ -60,6 +64,14 @@
     },
 
     remove(slot) { del(Save.KEY + slot); },
+
+    // Fragmento de Lado: a cada 4, um Lado a mais
+    addFrag(st) {
+      st.frags++;
+      const n = st.frags % 4;
+      if (n === 0) { st.maxLados++; st.lados = st.maxLados; }
+      return { n: n === 0 ? 4 : n, complete: n === 0 };
+    },
 
     summary(slot) {
       const st = Save.load(slot);

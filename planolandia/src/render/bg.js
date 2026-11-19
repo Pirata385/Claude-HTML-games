@@ -17,6 +17,19 @@
     } else if (kind === 'octa') {
       verts.push([1, 0, 0], [-1, 0, 0], [0, 1, 0], [0, -1, 0], [0, 0, 1], [0, 0, -1]);
       faces.push([0, 2, 4], [0, 4, 3], [0, 3, 5], [0, 5, 2], [1, 2, 4], [1, 4, 3], [1, 3, 5], [1, 5, 2]);
+    } else if (kind === 'cone' || kind === 'cil') {
+      // árvores distantes: cone (copa) ou cilindro (tronco), em perspectiva simples
+      const H = s * (kind === 'cone' ? 2.4 : 2), R = s * (kind === 'cone' ? 0.9 : 0.35);
+      ctx.fillStyle = hex(fill);
+      ctx.beginPath();
+      if (kind === 'cone') { ctx.moveTo(Math.round(x), Math.round(y - H)); ctx.lineTo(Math.round(x + R), Math.round(y)); ctx.lineTo(Math.round(x - R), Math.round(y)); }
+      else { ctx.rect(Math.round(x - R), Math.round(y - H), Math.round(R * 2), Math.round(H)); }
+      ctx.closePath(); ctx.fill();
+      ctx.beginPath(); ctx.ellipse(Math.round(x), Math.round(y), R, R * 0.3, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = hex(edge);
+      for (let k = 0; k < H; k += 3) ctx.fillRect(Math.round(x - R * (kind === 'cone' ? k / H : 1) * 0.3), Math.round(y - H + k), 1, 1);
+      if (kind === 'cone') { ctx.fillStyle = hex(edge); ctx.fillRect(Math.round(x - 1), Math.round(y), 2, Math.round(s * 0.5)); }
+      return;
     } else {
       verts.push([0, -1.3, 0], [1, 0.6, 1], [-1, 0.6, 1], [0, 0.6, -1.2]);
       faces.push([0, 1, 2], [0, 2, 3], [0, 3, 1], [1, 2, 3]);
@@ -82,15 +95,15 @@
       const ctx = c.getContext('2d');
       const rnd = M.rng(M.hashStr(regionId + nm));
       const cols = R[nm];
-      const kinds = ['cubo', 'octa', 'tetra'];
-      const n = li === 0 ? 9 : 6;
+      const kinds = R.kinds || ['cubo', 'octa', 'tetra'];
+      const n = (li === 0 ? 9 : 6) + (R.vagalumes ? 4 : 0);
       for (let i = 0; i < n; i++) {
         const s = (14 + rnd() * 26) * big;
         const x = (i + 0.5) * (W / n) + (rnd() - 0.5) * 30;
         const y = H - 60 - s * (0.6 + rnd() * 1.4);
-        drawSolidSilhouette(ctx, kinds[(rnd() * 3) | 0], x, y, s, rnd() * 6, cols[0], cols[1]);
+        drawSolidSilhouette(ctx, kinds[(rnd() * kinds.length) | 0], x, y, s, rnd() * 6, cols[0], cols[1]);
         // repete na borda para emendar
-        if (x < s * 2) drawSolidSilhouette(ctx, kinds[i % 3], x + W, y, s, rnd() * 6, cols[0], cols[1]);
+        if (x < s * 2) drawSolidSilhouette(ctx, kinds[i % kinds.length], x + W, y, s, rnd() * 6, cols[0], cols[1]);
       }
       // chão distante: colinas facetadas
       ctx.fillStyle = hex(cols[0]);
@@ -151,8 +164,16 @@
         const par = 0.2 + m.z * 0.6;
         const x = ((m.x - camX * par - z * par * 0.6) % this.viewW + this.viewW) % this.viewW;
         const y = ((m.y - camY * par * 0.5 + Math.sin(t * 0.6 + m.ph) * 6 + z * par * 0.4) % this.viewH + this.viewH) % this.viewH;
-        g.fillStyle(R.fog, 0.25 + m.z * 0.4);
-        g.fillRect(Math.round(x), Math.round(y), m.s, m.s);
+        if (R.vagalumes) {
+          // vagalumes: piscam devagar, com halo
+          const on = Math.max(0, Math.sin(t * (0.8 + m.z) + m.ph * 3));
+          if (on < 0.05) continue;
+          g.fillStyle(R.fog, 0.18 * on); g.fillRect(Math.round(x) - 1, Math.round(y) - 1, 3, 3);
+          g.fillStyle(R.fog, 0.5 + 0.5 * on); g.fillRect(Math.round(x), Math.round(y), 1, 1);
+        } else {
+          g.fillStyle(R.fog, 0.25 + m.z * 0.4);
+          g.fillRect(Math.round(x), Math.round(y), m.s, m.s);
+        }
       }
     }
     destroy() {

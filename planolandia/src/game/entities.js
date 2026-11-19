@@ -31,7 +31,8 @@
       this.t += dt; this.delay -= dt;
       b.z = P.z;
       const dx = P.x - b.x, dy = P.y - b.y, d = Math.hypot(dx, dy);
-      if (this.delay <= 0 && d < 44 && !P.dead) {
+      const mag = G.mods ? G.mods.magnet : 44;
+      if (this.delay <= 0 && d < mag && !P.dead) {
         b.vx = M.approach(b.vx, (dx / d) * 220, 900 * dt);
         b.vy = M.approach(b.vy, (dy / d) * 220, 900 * dt);
         b.x += b.vx * dt; b.y += b.vy * dt;
@@ -150,6 +151,18 @@
         g.lineStyle(3, OUT, 1); g.lineBetween(x - c, y - s, x + c, y + s);
         g.lineStyle(1, 0xffe08a, 1); g.lineBetween(x - c, y - s, x + c, y + s);
         g.fillStyle(0xffffff, 1); g.fillRect(Math.round(x - c), Math.round(y - s), 1, 1); g.fillRect(Math.round(x + c), Math.round(y + s), 1, 1);
+      } else if (this.item === 'teorema') {
+        // um pergaminho com um triângulo retângulo
+        g.fillStyle(OUT, 1); g.fillRect(x - 6, y - 5, 12, 10);
+        g.fillStyle(0xf3e7cf, 1); g.fillRect(x - 5, y - 4, 10, 8);
+        g.fillStyle(0xff5fa2, 1); g.fillTriangle(x - 3, y + 2, x + 3, y + 2, x - 3, y - 3);
+        g.fillStyle(0xa8957a, 1); g.fillRect(x - 6, y - 5, 1, 10); g.fillRect(x + 5, y - 5, 1, 10);
+      } else if (this.item === 'garra') {
+        // uma quina afiada pulsando
+        const k = 4 + Math.abs(Math.sin(this.t * 3)) * 3;
+        g.fillStyle(OUT, 1); g.fillTriangle(x - k - 1, y + k + 1, x + k + 1, y + k + 1, x - k - 1, y - k - 1);
+        g.fillStyle(0xf6d55c, 1); g.fillTriangle(x - k, y + k, x + k, y + k, x - k, y - k);
+        g.fillStyle(0xffffff, 1); g.fillRect(Math.round(x - k), Math.round(y - k), 1, 2);
       } else {
         // orbe de habilidade: uma linha esticando (Investida)
         const w = 4 + Math.abs(Math.sin(this.t * 3)) * 8;
@@ -287,6 +300,53 @@
     }
   }
   PL.ENTS.rede = Rede;
+
+  // ---------- Disco: a Mãe-Esfera achatada ----------
+  class Disco {
+    constructor(G, d) { Object.assign(this, { G, x: d.x, y: d.y, alive: true, t: 0 }); }
+    update(dt) { this.t += dt; }
+    draw(g) {
+      const x = Math.round(this.x), y = Math.round(this.y);
+      g.fillStyle(0x3a1028, 1); g.fillEllipse(x, y - 3, 92, 9);
+      g.fillStyle(0xd96aa0, 1); g.fillEllipse(x, y - 3, 88, 6);
+      g.fillStyle(0xf29bc4, 1); g.fillEllipse(x - 6, y - 4, 60, 2);
+      // o olho, fechado, dorme no meio do disco
+      g.fillStyle(0x3a1028, 1); g.fillRect(x - 4, y - 4, 8, 1);
+    }
+  }
+  PL.ENTS.disco = Disco;
+
+  // ---------- NPC: achatados que conversam (Segmento, Pentágono) ----------
+  class Npc {
+    constructor(G, d) {
+      Object.assign(this, { G, x: d.x, y: d.y, z: d.z === undefined ? G.room.d / 2 : d.z, id: d.id, alive: true, t: Math.random() * 6 });
+      this.def = PL.NPCS[d.id];
+      this.half = 6;
+      this.prompt = 'Conversar';
+      this.blink = 0;
+    }
+    near(G) { const P = G.player; return inBand(G, this.z, this.half) && Math.abs(P.x - this.x) < 22 && Math.abs(P.y - (this.y - 8)) < 20 && P.b.grounded; }
+    interact(G) {
+      const r = this.def.talk(G, this);
+      PL.Audio.sfx('talk');
+      G.dialog(r.pages, this.def.nome, r.after ? () => r.after(G, this) : null);
+    }
+    update(dt) {
+      this.t += dt;
+      this.blink -= dt;
+      if (this.blink < -3 - Math.random() * 3) this.blink = 0.12;
+    }
+    draw(g, G, t) {
+      const ga = ghostAlpha(G, this.z, this.half);
+      if (!inBand(G, this.z, this.half)) {
+        if (ga) { g.lineStyle(1, 0xffffff, ga); g.strokeCircle(Math.round(this.x), Math.round(this.y - 12), 7); }
+        return;
+      }
+      const look = Math.sign(G.player.x - this.x) || 1;
+      this.def.draw(g, this, t, look, this.blink > 0);
+    }
+  }
+  PL.ENTS.npc = Npc;
 
   if (typeof module !== 'undefined' && module.exports) module.exports = PL;
 })(typeof globalThis !== 'undefined' ? globalThis : this);

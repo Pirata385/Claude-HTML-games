@@ -89,6 +89,12 @@
     menu: (t) => tone('sine', 660, 660, t, 0.03, 0.04),
     ok: (t) => { tone('sine', 880, 880, t, 0.05, 0.05); tone('sine', 1320, 1320, t + 0.05, 0.06, 0.04); },
     type: (t) => tone('square', 1200 + Math.random() * 200, 1200, t, 0.012, 0.012, null, 3000),
+    boing: (t) => { tone('sine', 180, 620, t, 0.18, 0.18); tone('triangle', 360, 900, t + 0.02, 0.14, 0.05); },
+    garra: (t) => { noise(t, 0.06, 0.1, 'bandpass', 2600, 1800, null, 3); tone('triangle', 700, 600, t, 0.04, 0.04); },
+    walljump: (t) => { tone('square', 330, 700, t, 0.08, 0.06, null, 2400); noise(t, 0.05, 0.08, 'highpass', 2000); },
+    spore: (t) => { [0, 0.05, 0.1].forEach((d) => { noise(t + d, 0.05, 0.06, 'bandpass', 1400, 900, null, 4); tone('sine', 500, 300, t + d, 0.05, 0.04); }); },
+    buy: (t) => { [784, 988, 1175, 1568].forEach((f, i) => tone('triangle', f, f, t + i * 0.05, 0.12, 0.06)); },
+    talk: (t) => { tone('triangle', 520, 580, t, 0.06, 0.05); tone('triangle', 660, 620, t + 0.07, 0.06, 0.04); },
   };
 
   // ---------- música generativa ----------
@@ -96,6 +102,8 @@
   const TRACKS = {
     title: { bpm: 70, root: 50, scale: [0, 2, 4, 6, 7, 9, 11], prog: [0, 5, 3, 4], pad: 0.05, arp: 0.25, bass: 0.10, drums: false, bell: true },
     borda: { bpm: 84, root: 50, scale: [0, 2, 4, 6, 7, 9, 11], prog: [0, 4, 5, 3], pad: 0.045, arp: 0.45, bass: 0.12, drums: false, bell: false },
+    bosque: { bpm: 78, root: 45, scale: [0, 3, 5, 7, 10, 12, 15], prog: [0, 3, 4, 2], pad: 0.04, arp: 0.5, bass: 0.11, drums: false, bell: false, flute: true, wood: true },
+    boss2: { bpm: 150, root: 42, scale: [0, 2, 3, 5, 7, 8, 11], prog: [0, 5, 3, 4], pad: 0.03, arp: 0.65, bass: 0.15, drums: true, bell: false, waltz: true },
     boss: { bpm: 138, root: 45, scale: [0, 1, 3, 5, 7, 8, 10], prog: [0, 0, 5, 6], pad: 0.03, arp: 0.7, bass: 0.16, drums: true, bell: false },
   };
   function chord(T, bar) {
@@ -127,10 +135,21 @@
     const arpP = T.drums ? (pos % 2 === 0 ? T.arp : 0.15) : (pos % 2 === 0 ? T.arp : 0.08);
     if (Math.random() < arpP) {
       const n = ch[(Math.random() * 3) | 0] + 24 + (Math.random() < 0.25 ? 12 : 0);
-      tone(T.drums ? 'square' : 'sine', NOTE(n), NOTE(n), t, T.drums ? spb * 0.9 : spb * 3, T.drums ? 0.025 : 0.04, musicBus, T.drums ? 2200 : 5000);
+      if (T.flute) {
+        // "flauta": triângulo com vibrato leve
+        const o = tone('triangle', NOTE(n), NOTE(n), t, spb * 3.5, 0.045, musicBus, 3500);
+        const l = ctx.createOscillator(), lg = ctx.createGain(); l.frequency.value = 5.5; lg.gain.value = NOTE(n) * 0.006; l.connect(lg); lg.connect(o.frequency); l.start(t); l.stop(t + spb * 3.6);
+      } else tone(T.drums ? 'square' : 'sine', NOTE(n), NOTE(n), t, T.drums ? spb * 0.9 : spb * 3, T.drums ? 0.025 : 0.04, musicBus, T.drums ? 2200 : 5000);
     }
+    if (T.wood && (pos === 4 || pos === 12 || (pos === 14 && Math.random() < 0.4))) noise(t, 0.04, 0.05, 'bandpass', 900, 700, musicBus, 8);
     if (T.bell && pos === 0 && Math.random() < 0.6) tone('triangle', NOTE(ch[2] + 36), NOTE(ch[2] + 36), t + spb * 4, 1.2, 0.03, musicBus);
-    if (T.drums) {
+    if (T.drums && T.waltz) {
+      // 6/8: bumbo no 1 e no 4 de cada grupo de 6 colcheias (aproximado nas semicolcheias)
+      const p6 = i % 12;
+      if (p6 === 0) tone('sine', 140, 40, t, 0.18, 0.35, musicBus);
+      if (p6 === 6) noise(t, 0.1, 0.1, 'bandpass', 1600, 900, musicBus);
+      if (p6 % 2 === 0) noise(t, 0.03, 0.03, 'highpass', 7000, null, musicBus);
+    } else if (T.drums) {
       if (pos % 4 === 0) { tone('sine', 140, 40, t, 0.18, 0.35, musicBus); }
       if (pos % 8 === 4) noise(t, 0.12, 0.12, 'bandpass', 1800, 900, musicBus);
       if (pos % 2 === 0) noise(t, 0.03, 0.035, 'highpass', 7000, null, musicBus);

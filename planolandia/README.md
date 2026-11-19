@@ -6,29 +6,55 @@ Um Quadrado de Planolândia é arrancado do seu mundo chato e jogado num mundo *
 
 Abra `index.html` (direto do arquivo ou servido) e jogue. Funciona no computador e no celular (deitado).
 
-## Estado: Marco 1 de 8
+## Estado: Marco 2 de 8
 
-O Marco 1 traz o motor de fatias completo e a primeira região, a **Borda do Plano**:
+### Marco 1: núcleo e Borda do Plano
 
-- 10 salas interligadas: Chegada, Degraus Oblíquos, Mirante do Ponto Fixo, Campo das Formas, uma sala secreta acessível pela profundidade, Fenda Vertical, Salão das Barras Giradas, Antecâmara, Cela do Carcereiro e Vão da Investida.
-- O Quadrado anda, pula com altura variável (com tempo de coyote e buffer de pulo), desliza na profundidade e ataca com o **golpe de Aresta** em 4 direções, com pogo no golpe para baixo. Também usa o **Foco**, que gasta Geometria para curar um Lado.
+- 10 salas interligadas, incluindo uma sala secreta acessível pela profundidade.
+- O Quadrado anda, pula com altura variável, desliza na profundidade e ataca com o **golpe de Aresta** em 4 direções, com pogo no golpe para baixo. Também usa o **Foco**, que gasta Geometria para curar um Lado.
 - 4 inimigos:
-  - **Esferóide**: quica e oscila na profundidade.
-  - **Cubo Sentinela**: o corte muda de largura quando ele gira; avista o Quadrado e investe.
-  - **Agulha**: um cone que atravessa o plano depois de um anel de aviso.
-  - **Rabisco**: um achatado que só existe num z.
-- O chefão **Cubo Carcereiro** gira em 3D, e a forma do corte anuncia o ataque:
-  - quadrado: esmaga, com ondas de choque;
-  - hexágono: gira cortando, e só se escapa pela profundidade;
-  - triângulo que cresce: investe pela profundidade.
+  - **Esferóide**: oscila na profundidade.
+  - **Cubo Sentinela**: o corte muda de largura ao girar.
+  - **Agulha**: atravessa o plano depois de um aviso.
+  - **Rabisco**: um achatado preso a um único z.
+- O chefão **Cubo Carcereiro**: a forma do corte (quadrado, hexágono, triângulo) anuncia o ataque, e o núcleo só aparece na profundidade certa. Entrega a **Investida** (dash).
+- Pontos Fixos, Lados, Geometria, Vértices, o **Contorno** deixado onde você morreu, Fragmentos de Lado, mapa, Régua de Profundidade, título, introdução, 3 espaços de salvamento e configurações.
 
-  O núcleo (ponto fraco) só aparece quando o seu plano o atravessa. Na fase 2, faixas do chão caem, e no fim ele se planifica numa rede de 6 quadrados. A recompensa é a **Investida** (dash), que abre o vão no fim da região.
-- Pontos Fixos (salvam, curam, viram ponto de retorno), Lados (vida), Geometria (energia de cura), Vértices (dinheiro), o **Contorno** (deixado onde você morreu, guarda os Vértices) e 3 Fragmentos de Lado escondidos.
-- Mapa das salas visitadas, Régua de Profundidade no HUD, premonição pontilhada do que vai surgir e contorno tremulante no que vai sumir.
-- Título, introdução, 3 espaços de salvamento, pausa, configurações (volumes, esquema de teclas, tremor, clarões, toque, modo economia, FPS) e tela de controles.
-- Som e música 100% sintetizados (WebAudio): ambiente generativo da Borda e tema do chefão.
+### Marco 2: Bosque dos Cones
 
-As saídas para o **Bosque dos Cones** (Marco 2) e para as **Minas Toroidais** (Marco 3) aparecem como fendas instáveis. O design completo e os próximos marcos estão em [`DESIGN.md`](DESIGN.md).
+- **11 salas novas**, com entrada por um elevador de profundidade no teto do Mirante do Ponto Fixo:
+  - Raízes, Trilha dos Troncos, Toca Escondida (pela profundidade), Copas (exige Investida);
+  - Clareira do Segmento, Tenda do Pentágono, Brejo dos Cogumelos, Cipós Oblíquos;
+  - Antessala, Ninho da Mãe-Esfera e Copa Alta (exige Garra).
+- **Troncos** são cilindros em pé que afinam e somem conforme você desliza. **Cogumelos** com chapéu em cone lançam você para o alto. **Cipós** e raízes verdes são elevadores de profundidade.
+- **Garra de Vértice:** agarre-se às paredes no ar e pule de uma para a outra.
+- 4 inimigos novos:
+  - **Brotocone**: cone que cospe esporos.
+  - **Esporo**: projétil 3D do qual se desvia pela profundidade.
+  - **Rolo**: tronco que rola e investe.
+  - **Folha**: lâmina que voa e mergulha.
+- O chefão **Mãe-Esfera**:
+  - um círculo que nasce de um ponto, cresce e some;
+  - o olho no equador só aparece quando você está na profundidade em que ela é maior;
+  - na metade da vida, divide-se em duas Filhas;
+  - no fim, murcha num disco e entrega a Garra, com uma fala que a liga à esfera de *Flatland*.
+- **NPCs com diálogos:** Segmento (uma Linha anciã) e Pentágono (cartógrafo e mercador).
+- **Loja:** mapa da região, Teoremas e um Fragmento de Lado.
+- **Veios de Vértices:** rochas que se quebram.
+- **6 Teoremas** (amuletos) em 3 Postulados, trocados descansando num Ponto Fixo:
+
+  | Teorema | Efeito |
+  | --- | --- |
+  | Ângulo Reto | golpe mais rápido |
+  | Ímã de Vértices | atrai Vértices de longe |
+  | Pitágoras | alcance maior |
+  | Paralelas | profundidade mais rápida |
+  | Lema do Foco | cura mais rápida |
+  | Bissetriz | o golpe atinge fatias vizinhas |
+
+- Música generativa do Bosque, tema da Mãe-Esfera em 6/8, vagalumes e silhuetas de árvores-cone no fundo.
+
+A saída para as **Minas Toroidais** (Marco 3) e a passagem para a **Cidade dos Sólidos** (Marco 4) aparecem como fendas instáveis. O design completo está em [`DESIGN.md`](DESIGN.md).
 
 ## Controles
 
@@ -37,7 +63,7 @@ As saídas para o **Bosque dos Cones** (Marco 2) e para as **Minas Toroidais** (
 | Andar | A / D | ← / → | analógico esq. / direcional | joystick à esquerda |
 | Mirar / interagir | W / S | ↑ / ↓ | ↑ / ↓ | arrastar GOLPE ↑↓ · botão ▲ |
 | Profundidade (trás / frente) | Q / E | A / S | LB / RB · analógico dir. | joystick ↑↓ (ou botões, nas configurações) |
-| Pular | Espaço | Z | A | PULO |
+| Pular (e pular da parede, com a Garra) | Espaço | Z | A | PULO |
 | Golpe de Aresta | J · clique esq. | X | X | GOLPE |
 | Investida | K · Shift | C | B | INVEST. |
 | Foco (curar) | L · botão dir. | V | Y | FOCO (segurar) |
@@ -64,9 +90,10 @@ Os scripts são clássicos (sem módulos nem build), num namespace global `PL`, 
 ## Testes
 
 ```
-node --test planolandia/tests/*.test.js          # cortes, colisão, física, salas, salvamento
+node --test planolandia/tests/*.test.js          # cortes, colisão, física, salas, salvamento, Garra, Teoremas, loja
 python3 -m http.server 8765                      # na raiz do repositório, noutro terminal
-node planolandia/tests/smoke.js                  # Playwright: menu, título, andar, profundidade, combate, chefão, toque
+node planolandia/tests/smoke.js                  # Playwright: menu, título, andar, profundidade, combate, os dois chefões, Bosque, loja, toque
+node planolandia/tests/bossbot.js [url] 4 todos todos   # robô que luta contra os chefões sem modo deus (perfis "bom" e "médio")
 ```
 
 Atalhos de depuração pela URL: `index.html?room=borda_arena&x=260&y=314&z=100&god=1&debug=1&abilities=dash`. Com `debug=1` aparecem os colisores e a posição. `window.PL.debug` expõe o estado e funções de teleporte.

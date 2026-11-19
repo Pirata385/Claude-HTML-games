@@ -61,6 +61,7 @@
       if (b.grounded && !was) { this.sqy = 0.65; this.vsq = 0; }
       if (b.x < this.r || b.x > G.room.w - this.r) { this.dir *= -1; b.x = M.clamp(b.x, this.r, G.room.w - this.r); }
       if (b.y > G.room.h + 40) { this.alive = false; }
+      if (this.life !== undefined) { this.life -= dt; if (this.life <= 0) { this.alive = false; G.fx.burst(this.x, this.y, this.z, 5, { speed: 40, color: [0xf29bc4, 0xffffff], life: 0.3, grav: 0 }); } }
       this.x = b.x; this.y = b.y + 1;
     }
     onHurt(G, dirX) {

@@ -75,6 +75,21 @@
       return { blocker };
     },
 
+    // sólido "móvel com a profundidade" (loft/hull) logo abaixo dos pés, com maior apoio horizontal
+    support(b, room) {
+      const y = b.y + b.hy;
+      const c = room.query(b.z, b.x - b.hx, y - 1, b.x + b.hx, y + 2, W().MASK_SOLID, S, P);
+      let best = null, bestW = 2;
+      for (let k = 0; k < c; k++) {
+        const p = P[k], s = S[k];
+        if ((p.kind !== 'loft' && p.kind !== 'hull') || p.dyn) continue;
+        if (s.minY < y - 3 || s.minY > y + 2) continue;
+        const w = Math.min(b.x + b.hx, s.maxX) - Math.max(b.x - b.hx, s.minX);
+        if (w > bestW) { bestW = w; best = p; }
+      }
+      return best;
+    },
+
     // perigo (espinhos etc.) tocando o corpo, com margem para não ser injusto
     hazardAt(b, room, shrink) {
       const sh = shrink === undefined ? 2 : shrink;

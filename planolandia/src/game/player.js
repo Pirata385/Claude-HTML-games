@@ -113,8 +113,8 @@
         if (nz !== b.z) {
           // apoio que desliza com a profundidade (barras giradas, plataformas oblíquas) leva o Quadrado junto
           let carry = 0;
-          const gp = b.grounded ? b.groundPrim : null;
-          if (gp && (gp.kind === 'loft' || gp.kind === 'hull') && !gp.dyn && G3.sliceInto(gp, b.z, tA) && G3.sliceInto(gp, nz, tB)) carry = tB.cx - tA.cx;
+          const gp = b.grounded ? Phys.support(b, room) : null;
+          if (gp && G3.sliceInto(gp, b.z, tA) && G3.sliceInto(gp, nz, tB)) carry = tB.cx - tA.cx;
           const z0 = b.z;
           const res = Phys.tryDepth(b, room, nz - b.z);
           if (res.blocker) { this.blocker = res.blocker; this.blockT = 0.35; this.blockZ = nz; this.vz = 0; G.sfx('block'); }

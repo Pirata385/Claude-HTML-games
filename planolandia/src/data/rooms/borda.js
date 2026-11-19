@@ -160,8 +160,8 @@
       B.box(180, 470, 120, 14);                       // P1
       // elevador entre P2 (z=0) e P1 (z=160)
       B.loft([300, 586, 330, 598], 0, [300, 470, 330, 482], 160, { mat: 'teal' });
-      // plataforma que desliza: à esquerda no fundo (z=150), à direita na frente (z=10)
-      B.loft([150, 640, 200, 650], 150, [290, 660, 340, 670], 10, { mat: 'teal' });
+      // plataforma que desliza: à esquerda no fundo (z=150), à direita na frente (z=0)
+      B.loft([150, 640, 200, 650], 150, [290, 660, 340, 670], 0, { mat: 'teal' });
       if (!B.flag('borda_parede1')) B.box(400, 526, 40, 60, 0, 160, { mat: 'pedraEsc', breakable: 3, flag: 'borda_parede1' });
       B.ent('pickup', { x: 450, y: 586, z: 80, item: 'fragLado', id: 'frag_borda_2', flag: 'frag_borda_2', msg: 'Atrás de uma parede rachada. Golpes revelam o que a geometria esconde.' });
       B.ent('agulha', { x: 240, y: 457, z: 80, period: 2.4 });
@@ -187,7 +187,7 @@
       B.spikes(260, 540, 300, 0, 180);
       B.box(0, 0, 800, 18);
       // barras longas giradas em torno do eixo vertical: o pedaço cortado corre de lado conforme z
-      B.cuboid(400, 256, 90, 300, 10, 22, { yaw: 0.42 }, { mat: 'teal' });
+      B.cuboid(400, 265, 90, 340, 10, 22, { yaw: 0.42 }, { mat: 'teal' });
       B.cuboid(330, 196, 60, 120, 10, 22, { yaw: -0.6 }, { mat: 'teal' });
       B.box(380, 150, 60, 10, 120, 180, { mat: 'ouro', oneWay: true });
       B.ent('cuboSentinela', { x: 640, y: 250, z: 90, x0: 570, x1: 770 });

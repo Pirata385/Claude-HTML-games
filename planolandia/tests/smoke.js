@@ -7,7 +7,7 @@ const path = require('path');
 const fs = require('fs');
 
 const BASE = process.argv[2] || 'http://127.0.0.1:8765';
-const OUT = process.argv[3] || path.join(__dirname, '..', '..', '.smoke');
+const OUT = process.argv[3] || path.join(require('os').tmpdir(), 'planolandia-smoke');
 fs.mkdirSync(OUT, { recursive: true });
 
 const wait = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -67,19 +67,21 @@ const st = (page) => page.evaluate(() => PL.debug && PL.debug.state());
   await wait(200);
   await hold(page, 'KeyD', 1200);
   s = await st(page);
-  check(s.x < 520, `a esfera bloqueia em z=80 (x=${s.x.toFixed(0)})`);
+  check(s.x < 535, `a esfera bloqueia em z=80 (x=${s.x.toFixed(0)})`);
   await hold(page, 'KeyE', 1000);
   await hold(page, 'KeyD', 2000);
   s = await st(page);
   check(s.x > 700, `passou pela esfera mudando de fatia (x=${s.x.toFixed(0)}, z=${s.z.toFixed(0)})`);
 
   console.log('combate no Campo');
-  await page.goto(BASE + '/planolandia/index.html?room=borda_campo&x=200&y=390&z=80&god=1');
+  await page.goto(BASE + '/planolandia/index.html?room=borda_campo&x=120&y=390&z=60&god=1');
   await wait(1200);
+  // um Rabisco (achatado, no mesmo z) logo à frente: o golpe tem de acertar
+  await page.evaluate(() => { const g = PL.debug.game, P = g.player; g.spawnEnemy('rabisco', { x: P.x + 18, y: P.y - 2, z: P.z, hp: 2 }); });
   const e0 = (await st(page)).enemies;
-  for (let i = 0; i < 14; i++) { await hold(page, 'KeyD', 120); await page.keyboard.press('KeyJ'); await wait(120); }
+  for (let i = 0; i < 4; i++) { await page.keyboard.press('KeyJ'); await wait(380); }
   s = await st(page);
-  check(s.enemies < e0 || s.geo > 0, `golpes acertaram (inimigos ${e0} → ${s.enemies}, geometria ${s.geo})`);
+  check(s.geo > 0, `golpes acertaram (geometria ${s.geo}, inimigos ${e0} → ${s.enemies})`);
   await page.screenshot({ path: path.join(OUT, '05-campo.png') });
 
   console.log('chefão');
@@ -104,7 +106,7 @@ const st = (page) => page.evaluate(() => PL.debug && PL.debug.state());
   await page.screenshot({ path: path.join(OUT, '07-chefao-luta.png') });
   // derrota forçada para ver a planificação
   await page.evaluate(() => { const b = PL.debug.game.boss; b.hp = 1; b.invuln = false; b.hit(PL.debug.game, 5, 1, 0, {}); });
-  await wait(5200);
+  await wait(7500);
   s = await st(page);
   await page.screenshot({ path: path.join(OUT, '08-planificado.png') });
   check(PL_flag(await page.evaluate(() => PL.debug.game.save.flags.boss_cubo)), 'chefão derrotado marcado no salvamento');

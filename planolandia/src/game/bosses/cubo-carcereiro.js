@@ -45,7 +45,7 @@
     constructor(G, d) {
       super(G, d);
       this.size = 64;
-      this.hp = this.maxHp = 46;
+      this.hp = this.maxHp = 40;
       this.drop = 0;
       this.mat = 'carcereiro';
       this.boss = true;
@@ -59,7 +59,7 @@
       this.base = G3.cuboidVerts(this.size, this.size, this.size);
       this.prim = G3.cuboid(this.x, this.y, this.z, this.size, this.size, this.size);
       this.coreR = 11;
-      this.coreLocal = [0, 0, 18];
+      this.coreLocal = [0, 14, 18];
       this.core = [0, 0, 0];
       this.coreS = G3.newShape();
       this.coreVis = false;
@@ -127,7 +127,7 @@
       this.flashT = Math.max(0, this.flashT - dt);
       this.coreFlash = Math.max(0, this.coreFlash - dt);
       const fast = this.phase === 2 ? 1.3 : 1;
-      const hoverY = this.FY - 78;
+      const hoverY = this.FY - 72;
       const qk = 1 - Math.exp(-dt * 5);
       this.q = Q.slerp(this.q, this.qTarget, qk);
       this.spinV = M.damp(this.spinV, 0, 2, dt);
@@ -253,7 +253,7 @@
         w.x += w.dir * 230 * dt;
         if (w.t > 1.6 || w.x < 20 || w.x > room.w - 20) this.waves.splice(i, 1);
       }
-      if (this.phase === 1 && this.hp <= this.maxHp / 2 && this.state !== 'dying') {
+      if (this.phase === 1 && this.hp <= this.maxHp / 2 && this.hp > 0 && this.state !== 'dying' && this.state !== 'unfold' && this.state !== 'dead') {
         this.phase = 2;
         G.sfx('roar'); G.shake(4, 0.4);
         G.toast('O Carcereiro range: os ladrilhos do chão se soltam!');

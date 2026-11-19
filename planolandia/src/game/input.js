@@ -19,13 +19,14 @@
     },
   };
   const LABELS = {
-    wasd: { left: 'A', right: 'D', up: 'W', down: 'S', zb: 'Q', zf: 'E', jump: 'Espaço', attack: 'J', dash: 'K', focus: 'L', map: 'M', pause: 'Esc' },
-    setas: { left: '←', right: '→', up: '↑', down: '↓', zb: 'A', zf: 'S', jump: 'Z', attack: 'X', dash: 'C', focus: 'V', map: 'M', pause: 'Esc' },
-    pad: { left: '◄', right: '►', up: '▲', down: '▼', zb: 'LB', zf: 'RB', jump: 'A', attack: 'X', dash: 'B', focus: 'Y', map: 'Select', pause: 'Start' },
-    toque: { zb: '▼ joystick', zf: '▲ joystick', jump: 'PULO', attack: 'GOLPE', dash: 'INVESTIDA', focus: 'FOCO', map: 'MAPA', pause: '❚❚' },
+    wasd: { left: 'A', right: 'D', up: 'W', down: 'S', zb: 'Q', zf: 'E', jump: 'Espaço', attack: 'J', dash: 'K', focus: 'L', map: 'M', pause: 'Esc', confirm: 'Enter', back: 'Esc' },
+    setas: { left: '←', right: '→', up: '↑', down: '↓', zb: 'A', zf: 'S', jump: 'Z', attack: 'X', dash: 'C', focus: 'V', map: 'M', pause: 'Esc', confirm: 'Enter', back: 'Esc' },
+    pad: { left: '◄', right: '►', up: '▲', down: '▼', zb: 'LB', zf: 'RB', jump: 'A', attack: 'X', dash: 'B', focus: 'Y', map: 'Select', pause: 'Start', confirm: 'A', back: 'B' },
+    toque: { zb: '▼', zf: 'joystick ▲', jump: 'PULO', attack: 'GOLPE', dash: 'INVESTIDA', focus: 'FOCO', map: 'MAPA', pause: '❚❚', confirm: 'toque', back: '❚❚' },
   };
 
   const keys = Object.create(null);
+  const taps = Object.create(null);   // teclas apertadas e soltas entre dois quadros também contam
   const mouse = { l: false, r: false };
   const state = {};
   const prev = {};
@@ -49,6 +50,7 @@
       const t = target || window;
       const block = ['Space', 'Tab', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'];
       t.addEventListener('keydown', (e) => {
+        if (!e.repeat) taps[e.code] = true;
         keys[e.code] = true;
         Input.last = 'teclado';
         if (block.includes(e.code)) e.preventDefault();
@@ -78,9 +80,10 @@
       for (const a of ACTIONS) {
         let v = false;
         const ks = map[a];
-        for (let i = 0; i < ks.length; i++) if (keys[ks[i]]) { v = true; break; }
+        for (let i = 0; i < ks.length; i++) if (keys[ks[i]] || taps[ks[i]]) { v = true; break; }
         state[a] = v;
       }
+      for (const k in taps) delete taps[k];
       if (mouse.l) state.attack = true;
       if (mouse.r) state.focus = true;
       let az = 0, ax = 0;
@@ -128,7 +131,7 @@
 
     // consome um "pressed" (para menus não reagirem duas vezes)
     eat(a) { Input.pressed[a] = false; },
-    clearAll() { for (const k in keys) keys[k] = false; for (const a of ACTIONS) { state[a] = false; Input.pressed[a] = false; } mouse.l = mouse.r = false; Input.virt.buttons = {}; },
+    clearAll() { for (const k in keys) keys[k] = false; for (const k in taps) delete taps[k]; for (const a of ACTIONS) { state[a] = false; Input.pressed[a] = false; } mouse.l = mouse.r = false; Input.virt.buttons = {}; },
   };
 
   PL.Input = Input;

@@ -249,10 +249,10 @@
       // ----- dica -----
       const h = G.activeHint;
       if (h && this.mode === 'play' && !this.dlg) {
-        const lines = PL.Font.wrap(UI().keys(h.text), Math.min(360, W - 60));
+        const lines = PL.Font.wrap(UI().keys(h.text), Math.min(340, W - 180));
         this.hintT.setText(lines.join('\n'));
         const hw = this.hintT.width, hh = lines.length * 14;
-        const y = this.touch.enabled ? 40 : H - 18 - hh;
+        const y = this.toasts.length ? 52 : 10;
         g.fillStyle(0x150f29, 0.7); g.fillRect(Math.round(W / 2 - hw / 2 - 6), y - 3, hw + 12, hh + 4);
         this.hintT.setPosition(Math.round(W / 2 - hw / 2), y);
       } else this.hintT.setText('');

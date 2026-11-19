@@ -57,7 +57,7 @@
       const sy = Math.max(0.004, Math.cos(tilt * Math.PI / 2));
       const P = (x, y) => [cx + x, cy + y * sy + tilt * 40];
       // o plano
-      const pw = 340, ph = 130;
+      const pw = 340, ph = 100;
       g.fillStyle(M.mix(0xe8dcc0, 0xf3e7cf, tilt), 1);
       const a = P(-pw, -ph), b = P(pw, ph);
       g.fillRect(Math.round(a[0]), Math.round(a[1]), Math.round(b[0] - a[0]), Math.max(1, Math.round(b[1] - a[1])));
@@ -71,7 +71,7 @@
         for (const f of this.folks) {
           f.x += Math.cos(f.a) * f.sp * 0.016; f.y += Math.sin(f.a) * f.sp * 0.016;
           if (Math.abs(f.x) > 300) f.a = Math.PI - f.a;
-          if (Math.abs(f.y) > 110) f.a = -f.a;
+          if (Math.abs(f.y) > 90) f.a = -f.a;
           if (f.s === 'linha') { const p = P(f.x, f.y), q = P(f.x + Math.cos(f.a) * 8, f.y + Math.sin(f.a) * 8); g.lineStyle(1, 0x2a2140, 1); g.lineBetween(p[0], p[1], q[0], q[1]); }
           else this.poly(g, f.x, f.y, 5, f.s === 'tri' ? 3 : 6, f.a, f.s === 'tri' ? 0xe0475b : 0x5fb7a8, 0x2a2140, P);
         }

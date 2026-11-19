@@ -204,6 +204,14 @@ footer { text-align: center; color: var(--muted); font-weight: 500; font-size: 0
       palette: ['#efe4c8', '#000000', '#efe4c8', '#000000', '#efe4c8'],
       scene: 'paper',
     },
+    {
+      path: 'planolandia/index.html',
+      title: 'Planolândia — Fora do Plano',
+      desc: 'A 2.5D pixel-art cartoon metroidvania built with Phaser 4: a square from Flatland is dragged into a real 3D world but only sees the 2D slice at its depth. Sliding forwards and backwards changes the slice, so spheres grow and vanish, tilted slabs become depth elevators and rotated bars carry you sideways. Hollow Knight style real-time combat with procedural animation, 3D enemies you dodge by changing depth, and a giant cube boss whose cross-section warns you of its next attack. Milestone 1: the Borda do Plano region. In Portuguese; keyboard, gamepad and touch.',
+      tags: ['pixel art', 'Phaser', '2.5D', 'metroidvania', 'platformer', 'mobile'],
+      palette: ['#150f29', '#2c2350', '#f6d55c', '#9b87c9', '#e97c6b'],
+      scene: 'planolandia',
+    },
   ];
   // App registry: entries for the "Apps" tab (tools rather than games; each in its own root folder).
   const APPS = [
@@ -629,6 +637,34 @@ footer { text-align: center; color: var(--muted); font-weight: 500; font-size: 0
       ctx.fillRect(73, 19, 1, 14); ctx.fillRect(75, 19, 1, 14);
       // a drawn bridge-plank being sketched
       ctx.fillRect(20, 26, 14, 1); ctx.fillRect(21, 27, 1, 2); ctx.fillRect(32, 27, 1, 2);
+    } else if (g.scene === 'planolandia') {
+      // a fatia 2D de um mundo 3D: céu quadriculado, chão bege, um cubo cortado em losango,
+      // uma esfera cortada com o contorno pontilhado da fatia vizinha, e o Quadrado amarelo
+      ctx.fillStyle = P[0]; ctx.fillRect(0, 0, W, H);
+      ctx.fillStyle = P[1];
+      for (let x = 0; x < W; x += 8) ctx.fillRect(x, 0, 1, 31);
+      for (let y = 0; y < 31; y += 8) ctx.fillRect(0, y, W, 1);
+      ctx.fillStyle = '#f3e7cf'; ctx.fillRect(0, 31, W, 1);
+      ctx.fillStyle = '#d9c9b0'; ctx.fillRect(0, 32, W, 8);
+      ctx.fillStyle = '#a8957a';
+      for (let i = 0; i < 14; i++) ctx.fillRect(Math.floor(rnd() * W), 34 + Math.floor(rnd() * 5), 1, 1);
+      ctx.fillStyle = '#6fb6ff';
+      for (let i = 0; i < 26; i++) { const a = (i / 26) * Math.PI * 2; ctx.fillRect(Math.round(66 + Math.cos(a) * 13), Math.round(20 + Math.sin(a) * 13), 1, 1); }
+      for (let y = -9; y <= 9; y++) for (let x = -9; x <= 9; x++) {
+        const d = x * x + y * y;
+        if (d > 81) continue;
+        ctx.fillStyle = d > 64 ? '#3a1a26' : x + y < -5 ? '#f7ab9a' : P[4];
+        ctx.fillRect(66 + x, 21 + y, 1, 1);
+      }
+      for (let y = -8; y <= 8; y++) {
+        const w = 8 - Math.abs(y);
+        ctx.fillStyle = '#231b3d'; ctx.fillRect(26 - w - 1, 15 + y, w * 2 + 3, 1);
+        ctx.fillStyle = y < -3 ? '#c4b5ea' : P[3]; ctx.fillRect(26 - w, 15 + y, w * 2 + 1, 1);
+      }
+      ctx.fillStyle = '#2a1e3b'; ctx.fillRect(42, 22, 10, 10);
+      ctx.fillStyle = P[2]; ctx.fillRect(43, 23, 8, 8);
+      ctx.fillStyle = '#fff'; ctx.fillRect(44, 25, 2, 3); ctx.fillRect(48, 25, 2, 3);
+      ctx.fillStyle = '#2a1e3b'; ctx.fillRect(45, 26, 1, 2); ctx.fillRect(49, 26, 1, 2); ctx.fillRect(46, 29, 2, 1);
     } else {
       ctx.fillStyle = '#5ea8c9'; ctx.fillRect(0, 0, W, H);
       ctx.fillStyle = '#f7e3a1'; ctx.fillRect(74, 5, 6, 6);

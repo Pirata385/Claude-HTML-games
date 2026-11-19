@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+  <meta name="theme-color" content="#07040f">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <title>Planolândia — Fora do Plano</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div id="game"></div>
+  <div id="rotate"><div class="sq"></div><div>Gire o aparelho:<br>Planolândia se joga deitado.</div></div>
+  <noscript>Planolândia precisa de JavaScript.</noscript>
+
+  <script src="vendor/phaser.min.js"></script>
+  <!-- núcleo (sem Phaser, testado em Node) -->
+  <script src="src/core/ns.js"></script>
+  <script src="src/core/geom3d.js"></script>
+  <script src="src/core/collide2d.js"></script>
+  <script src="src/core/world.js"></script>
+  <script src="src/core/physics.js"></script>
+  <script src="src/data/materials.js"></script>
+  <!-- desenho -->
+  <script src="src/render/slices.js"></script>
+  <script src="src/render/fx.js"></script>
+  <script src="src/render/bg.js"></script>
+  <!-- jogo -->
+  <script src="src/game/input.js"></script>
+  <script src="src/game/save.js"></script>
+  <script src="src/game/player.js"></script>
+  <script src="src/game/enemies/base.js"></script>
+  <script src="src/game/enemies/esferoide.js"></script>
+  <script src="src/game/enemies/cubo-sentinela.js"></script>
+  <script src="src/game/enemies/agulha.js"></script>
+  <script src="src/game/enemies/rabisco.js"></script>
+  <script src="src/game/bosses/cubo-carcereiro.js"></script>
+  <script src="src/game/entities.js"></script>
+  <script src="src/game/game.js"></script>
+  <script src="src/data/rooms/borda.js"></script>
+  <!-- áudio e interface -->
+  <script src="src/audio/synth.js"></script>
+  <script src="src/ui/font.js"></script>
+  <script src="src/ui/menus.js"></script>
+  <script src="src/ui/touch.js"></script>
+  <script src="src/ui/hud.js"></script>
+  <!-- cenas -->
+  <script src="src/scenes/boot.js"></script>
+  <script src="src/scenes/title.js"></script>
+  <script src="src/scenes/intro.js"></script>
+  <script src="src/scenes/game.js"></script>
+  <script src="src/main.js"></script>
+</body>
+</html>

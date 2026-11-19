@@ -5,7 +5,7 @@
   const PL = root.PL || (root.PL = {});
   const M = PL.M, G3 = PL.G3, C2 = PL.C2, Phys = PL.Phys;
 
-  const tmpRect = G3.newShape();
+  const tmpRect = G3.newShape(), depthTmp = G3.newShape();
   const QS = [], QP = [];
 
   class Game {
@@ -40,6 +40,7 @@
       this.player = null;
       this.hud = null;
       this.eco = !!this.save.abilities.eco;
+      this.mods = PL.Teoremas ? PL.Teoremas.mods(this.save) : null;
       this.fx.scale = this.settings.economy ? 0.5 : 1;
       this.slices.dens = this.settings.economy ? 0.5 : 1;
 
@@ -115,6 +116,7 @@
       const P = this.player, I = PL.Input;
 
       if (this.restingAt) {
+        if (I.pressed.up && this.hud) { I.eat('up'); this.hud.openTeoremas(true); return; }
         if (I.pressed.left || I.pressed.right || I.pressed.jump || I.pressed.attack || I.pressed.down || I.pressed.dash) { this.restingAt = null; P.frozen = false; }
       }
       P.update(sdt);
@@ -144,7 +146,8 @@
 
       // interação (▲) e dicas
       this.promptEnt = null;
-      if (!P.dead && !this.restingAt && P.b.grounded) {
+      if (this.restingAt) this.promptEnt = { x: this.restingAt.x, y: this.restingAt.y - 10, prompt: 'Teoremas', resting: true };
+      else if (!P.dead && P.b.grounded) {
         for (const e of this.ents) if (e.near && e.near(this)) { this.promptEnt = e; break; }
         if (this.promptEnt && I.pressed.up && P.atkT <= 0) { I.eat('up'); this.promptEnt.interact(this); }
       }
@@ -292,9 +295,15 @@
     // ---------- combate ----------
     playerAttack(P, hb) {
       let hit = false;
+      const reachZ = this.mods ? this.mods.atkDepth : 0;
       for (const e of this.ents) {
-        if (!e.enemy || !e.alive || !e.visible || P.atkHit.has(e)) continue;
-        if (!C2.overlap(hb, e.s)) continue;
+        if (!e.enemy || !e.alive || P.atkHit.has(e)) continue;
+        let es = e.visible ? e.s : null;
+        // Bissetriz: o golpe também corta fatias vizinhas
+        if (!es && reachZ > 0) {
+          for (const d of [-reachZ, -reachZ / 2, reachZ / 2, reachZ]) if (e.sliceAt(P.z + d, depthTmp) && C2.overlap(hb, depthTmp)) { es = depthTmp; break; }
+        }
+        if (!es || !C2.overlap(hb, es)) continue;
         P.atkHit.add(e);
         const dirX = P.atkDir === 'side' ? P.facing : (Math.sign(e.s.cx - P.x) || P.facing);
         const dirY = P.atkDir === 'up' ? -1 : P.atkDir === 'down' ? 1 : 0;
@@ -302,8 +311,8 @@
         if (ok || (e.pogo && P.atkDir === 'down')) {
           P.onAttackHit(e.geo === false ? 'hazard' : 'enemy');
           hit = true;
-          const mx = (Math.max(hb.minX, e.s.minX) + Math.min(hb.maxX, e.s.maxX)) / 2;
-          const my = (Math.max(hb.minY, e.s.minY) + Math.min(hb.maxY, e.s.maxY)) / 2;
+          const mx = (Math.max(hb.minX, es.minX) + Math.min(hb.maxX, es.maxX)) / 2;
+          const my = (Math.max(hb.minY, es.minY) + Math.min(hb.maxY, es.maxY)) / 2;
           this.fx.burst(mx, my, P.z, 6, { speed: 150, color: [0xffffff, 0xfff1a8], life: 0.22, grav: 0, size: 2, ang0: dirY ? (dirY > 0 ? Math.PI / 2 : -Math.PI / 2) : (dirX > 0 ? 0 : Math.PI), spread: 1.6 });
           this.hitstop = Math.max(this.hitstop, ok ? 0.05 : 0.03);
           this.sfx(ok ? 'hit' : 'clink');
@@ -331,13 +340,18 @@
         p.flashT = 0.1;
         this.sfx('crack');
         this.shake(1.5, 0.1);
-        this.fx.burst(QS[k].cx, QS[k].cy, this.player.z, 6, { speed: 100, color: [0xd9c9b0, 0xa8957a], life: 0.4, grav: 300, kind: 'shard' });
+        const bm = PL.MATS[p.mat] || PL.MATS.pedra;
+        const sx = QS[k].cx, sy = QS[k].cy, top = QS[k].minY;
+        this.fx.burst(sx, sy, this.player.z, 6, { speed: 100, color: [bm.fill, bm.dark], life: 0.4, grav: 300, kind: 'shard' });
+        // veio de Vértices: cada golpe solta um pouco
+        if (p.deposit > 0) { const n = Math.min(p.deposit, 1 + (Math.random() < 0.5 ? 1 : 0)); p.deposit -= n; this.dropVerts(sx, top, n); this.sfx('coin'); }
         if (p.breakable <= 0) {
           p.off = true;
           if (p.flag) this.save.flags[p.flag] = true;
+          if (p.deposit > 0) { this.dropVerts(sx, top, p.deposit); p.deposit = 0; }
           room.touch();
           this.sfx('kill');
-          this.fx.burst(QS[k].cx, QS[k].cy, this.player.z, 18, { speed: 160, color: [0xd9c9b0, 0xa8957a, 0xf3e7cf], life: 0.6, grav: 400, kind: 'shard' });
+          this.fx.burst(sx, sy, this.player.z, 18, { speed: 160, color: [bm.fill, bm.dark, bm.top], life: 0.6, grav: 400, kind: 'shard' });
         }
         hit = true;
         if (this.player.atkDir === 'side') this.player.onAttackHit('hazard');
@@ -449,14 +463,21 @@
       this.fx.ring(pk.x, pk.y - 6, this.player.z, 4, 34, 0.5, 0xfff1a8, 2);
       this.hitstop = 0.15;
       if (pk.item === 'fragLado') {
-        st.frags++;
-        const n = st.frags % 4;
-        if (n === 0) {
-          st.maxLados++; st.lados = st.maxLados;
-          this.dialog(['Fragmento de Lado (4/4)', 'Os quatro segmentos se encaixam. Você ganhou um Lado a mais: agora suporta ' + st.maxLados + ' golpes.']);
-        } else {
-          this.dialog(['Fragmento de Lado (' + n + '/4)', pk.msg || 'Um segmento de reta perdido, de algum polígono que passou por aqui. Junte quatro para ganhar um Lado.']);
-        }
+        const r = PL.Save.addFrag(st);
+        if (r.complete) this.dialog(['Fragmento de Lado (4/4)', 'Os quatro segmentos se encaixam. Você ganhou um Lado a mais: agora suporta ' + st.maxLados + ' golpes.']);
+        else this.dialog(['Fragmento de Lado (' + r.n + '/4)', pk.msg || 'Um segmento de reta perdido, de algum polígono que passou por aqui. Junte quatro para ganhar um Lado.']);
+      } else if (pk.item === 'teorema') {
+        const t = PL.TEOREMAS[pk.teorema];
+        st.teoremas[pk.teorema] = true;
+        this.dialog(['Teorema: ' + t.nome, t.desc, 'Custa ' + t.custo + ' Postulado' + (t.custo > 1 ? 's' : '') + '. Equipe Teoremas descansando num Ponto Fixo ([up]).'], 'Novo Teorema');
+      } else if (pk.item === 'garra') {
+        st.abilities.garra = true;
+        this.dialog([
+          'GARRA DE VÉRTICE',
+          'A Mãe-Esfera, achatada num disco, deixou cair um vértice afiado. Você aprendeu a cravar a própria quina nas paredes.',
+          'No ar, segure em direção a uma parede para se agarrar e deslizar devagar. Aperte [jump] para saltar para longe dela.',
+          'Alternando entre paredes, dá para subir poços inteiros.',
+        ], 'Nova habilidade');
       } else if (pk.item === 'dash') {
         st.abilities.dash = true;
         this.dialog([
@@ -469,25 +490,28 @@
       if (this.slot >= 0) PL.Save.write(this.slot, st);
     }
 
-    bossStart(boss, name, sub) {
+    bossStart(boss, name, sub, music) {
       for (const e of this.ents) if (e.type === 'gate') e.set(false);
       this.hud && this.hud.banner(name, sub, true);
-      PL.Audio.music('boss');
+      PL.Audio.music(music || 'boss');
     }
     bossDying() { this.slowT = 1.6; this.sfx('roar'); }
     bossDefeated(boss, pos) {
       const st = this.save;
-      st.flags.boss_cubo = true;
+      const r = boss.reward || { flag: 'boss_cubo', item: 'dash', id: 'hab_dash', deco: 'rede', msg: 'O Cubo Carcereiro foi planificado.' };
+      st.flags[r.flag] = true;
       for (const e of this.ents) if (e.type === 'gate') e.set(true);
-      this.ents.push(new PL.ENTS.rede(this, { x: pos.x, y: pos.y }));
-      this.spawnEnt({ type: 'pickup', item: 'dash', id: 'hab_dash', x: pos.x, y: pos.y - 26, z: this.player.z });
-      PL.Audio.music(this.room.def.music || 'borda');
-      this.toast('O Cubo Carcereiro foi planificado.');
+      if (r.deco && PL.ENTS[r.deco]) this.ents.push(new PL.ENTS[r.deco](this, { x: pos.x, y: pos.y }));
+      this.spawnEnt({ type: 'pickup', item: r.item, id: r.id, x: pos.x, y: pos.y - 26, z: this.player.z });
+      PL.Audio.music(this.room.def.music || PL.REGIONS[this.room.def.region].musica);
+      if (r.msg) this.toast(r.msg);
+      if (r.lines) this.dialog(r.lines, r.speaker);
       if (this.slot >= 0) PL.Save.write(this.slot, st);
     }
+    recalcMods() { this.mods = PL.Teoremas.mods(this.save); }
 
     // ---------- textos ----------
-    dialog(pages, title) { if (this.hud) this.hud.dialog(pages, title); }
+    dialog(pages, title, onClose) { if (this.hud) this.hud.dialog(pages, title, onClose); else if (onClose) onClose(); }
     toast(text) { if (this.hud) this.hud.toast(text); }
     sfx(n, k) { PL.Audio.sfx(n, k); }
 
@@ -499,7 +523,7 @@
         out.push({ z: e.side === 'far' ? r.d : 0, color: e.sealed ? 0xff5fa2 : 0xfff1a8, exit: true });
       }
       if (this.boss && this.boss.ruler) for (const m of this.boss.ruler) out.push(m);
-      if (this.boss && this.boss.alive && this.boss.state !== 'sleep') out.push({ z: this.boss.z, color: 0xc8b8ff, boss: true });
+      if (this.boss && this.boss.alive && this.boss.state !== 'sleep' && this.boss.state !== 'split') out.push({ z: this.boss.z, color: 0xc8b8ff, boss: true });
       for (const e of this.ents) if (e.type === 'contorno') out.push({ z: e.z, color: 0x6fb6ff });
       return out;
     }

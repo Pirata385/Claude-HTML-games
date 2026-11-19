@@ -76,6 +76,7 @@
       this.tileWarn = 0;
       this.minionT = 0;
       this.coreFlash = 0;
+      this.reward = { flag: 'boss_cubo', item: 'dash', id: 'hab_dash', deco: 'rede', msg: 'O Cubo Carcereiro foi planificado.' };
     }
 
     zRange() { return [this.prim.zMin, this.prim.zMax]; }

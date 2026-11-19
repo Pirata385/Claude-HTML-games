@@ -64,9 +64,9 @@
       tronco(B, 800, 120, 28, 16, 240);
       // subida para as Copas: cogumelo, galho alto do outro lado do vão (exige Investida) e folhas
       cogumelo(B, 160, 226, 110, 20, 480);
-      B.box(290, 116, 110, 12, 40, 180, { mat: 'casca' });
-      B.box(340, 76, 80, 6, 40, 180, { oneWay: true, mat: 'folha' });
-      B.box(360, 36, 80, 6, 40, 180, { oneWay: true, mat: 'folha' });
+      B.box(240, 124, 110, 12, 40, 180, { mat: 'casca' });
+      B.box(300, 84, 80, 6, 40, 180, { oneWay: true, mat: 'folha' });
+      B.box(330, 44, 80, 6, 40, 180, { oneWay: true, mat: 'folha' });
       B.box(60, 190, 80, 6, 60, 160, { oneWay: true, mat: 'folha' });
       if (!B.flag('veio_trilha')) B.box(470, 210, 30, 30, 0, 60, { mat: 'veio', breakable: 4, deposit: 20, flag: 'veio_trilha' });
       B.ent('brotocone', { x: 470, y: 227, z: 120 });
@@ -74,7 +74,7 @@
       B.ent('rolo', { x: 700, y: 229, z: 190 });
       B.ent('esferoide', { x: 380, y: 200, z: 130, za: 26 });
       B.ent('hint', { x0: 0, x1: 230, y0: 150, text: 'Troncos afinam quando você se afasta do meio deles: procure a fatia em que dá para passar.' });
-      B.ent('hint', { x0: 260, x1: 420, y0: 60, y1: 200, need: 'dash', text: 'Do alto do cogumelo, [dash] no ar alcança o galho.' });
+      B.ent('hint', { x0: 100, x1: 260, y0: 60, y1: 200, need: 'dash', text: 'Do alto do cogumelo, [dash] no ar alcança o galho.' });
     },
   });
 

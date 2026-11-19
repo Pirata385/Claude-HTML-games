@@ -7,7 +7,7 @@
   const TEOREMAS = {
     angulo_reto: { nome: 'Ângulo Reto', custo: 1, desc: 'Golpes mais rápidos: a Aresta volta 28% antes.', efeito: (m) => { m.atkCd *= 0.72; } },
     ima: { nome: 'Ímã de Vértices', custo: 1, desc: 'Vértices são atraídos de bem mais longe.', efeito: (m) => { m.magnet = 120; } },
-    pitagoras: { nome: 'Teorema de Pitágoras', custo: 2, desc: 'O quadrado da hipotenusa… alcança mais longe: golpe 9 px maior.', efeito: (m) => { m.reach += 9; } },
+    pitagoras: { nome: 'Pitágoras', custo: 2, desc: 'O quadrado da hipotenusa… alcança mais longe: golpe 9 px maior.', efeito: (m) => { m.reach += 9; } },
     paralelas: { nome: 'Postulado das Paralelas', custo: 1, desc: 'Deslize na profundidade 40% mais rápido.', efeito: (m) => { m.depth *= 1.4; } },
     lema_foco: { nome: 'Lema do Foco', custo: 2, desc: 'O Foco cura em bem menos tempo.', efeito: (m) => { m.focusT *= 0.65; } },
     bissetriz: { nome: 'Bissetriz', custo: 3, desc: 'O golpe corta também um pouco à frente e atrás: atinge até 12 de profundidade.', efeito: (m) => { m.atkDepth = 12; } },

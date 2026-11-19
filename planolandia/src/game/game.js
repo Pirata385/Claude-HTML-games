@@ -183,7 +183,7 @@
     camTarget() {
       const P = this.player, r = this.room, vw = this.vw, vh = this.vh;
       let tx = P.x + this.cam.lx - vw / 2;
-      let ty = P.y - vh * 0.56 + this.cam.look;
+      let ty = P.y - vh * 0.5 + this.cam.look;
       tx = r.w <= vw ? (r.w - vw) / 2 : M.clamp(tx, 0, r.w - vw);
       ty = r.h <= vh ? (r.h - vh) / 2 : M.clamp(ty, 0, r.h - vh);
       return [tx, ty];
@@ -501,7 +501,7 @@
       const r = boss.reward || { flag: 'boss_cubo', item: 'dash', id: 'hab_dash', deco: 'rede', msg: 'O Cubo Carcereiro foi planificado.' };
       st.flags[r.flag] = true;
       for (const e of this.ents) if (e.type === 'gate') e.set(true);
-      if (r.deco && PL.ENTS[r.deco]) this.ents.push(new PL.ENTS[r.deco](this, { x: pos.x, y: pos.y }));
+      if (r.deco && PL.ENTS[r.deco]) { const d = new PL.ENTS[r.deco](this, { x: pos.x, y: pos.y }); d.type = r.deco; this.ents.push(d); }
       this.spawnEnt({ type: 'pickup', item: r.item, id: r.id, x: pos.x, y: pos.y - 26, z: this.player.z });
       PL.Audio.music(this.room.def.music || PL.REGIONS[this.room.def.region].musica);
       if (r.msg) this.toast(r.msg);

@@ -1,6 +1,6 @@
 # Planolândia — Fora do Plano · documento de design
 
-Plano aprovado em 2026-11-19. O Marco 1 está implementado; os demais são o roteiro.
+Plano aprovado em 2026-11-19. Os Marcos 1 e 2 estão implementados; os demais são o roteiro.
 
 ## Intenção
 
@@ -87,7 +87,7 @@ O mundo usa **sólidos analíticos cortados matematicamente**, e não voxels. S�
 | --- | --- | --- |
 | Início | andar, pular, deslizar em profundidade, golpe de Aresta (4 direções, pogo), Foco | ✅ |
 | Cubo Carcereiro | **Investida** (dash; ele se estica como uma linha) | ✅ |
-| Mãe-Esfera | Garra de Vértice (agarrar a parede e pular dela) | Marco 2 |
+| Mãe-Esfera | Garra de Vértice (agarrar a parede e pular dela) | ✅ |
 | Verme Helicoidal | Eco-Visão (fatias fantasmas a ±48, segredos) | Marco 3 (o desenho fantasma já existe) |
 | Agudo | Investida Profunda (dash em z que atravessa sólidos finos) | Marco 4 |
 | Conselho Platônico | Ponto (projétil que gasta Geometria) | Marco 4 |
@@ -98,7 +98,16 @@ Recursos:
 - **Lados:** vida; começa com 5. 4 Fragmentos de Lado dão +1.
 - **Geometria:** +11 por golpe; o Foco custa 33.
 - **Vértices:** dinheiro.
-- **Teoremas:** amuletos (Marco 2).
+- **Teoremas:** amuletos em 3 Postulados (encaixes), trocados só em Ponto Fixo.
+
+  | Teorema | Custo | Efeito | Onde |
+  | --- | --- | --- | --- |
+  | Ângulo Reto | 1 | recarga do golpe ×0,72 | loja (90◆) |
+  | Ímã de Vértices | 1 | atrai Vértices de 120 px | loja (60◆) |
+  | Pitágoras | 2 | alcance do golpe +9 px | loja (140◆) |
+  | Paralelas | 1 | profundidade ×1,4 | Toca Escondida |
+  | Lema do Foco | 2 | Foco ×0,65 do tempo | presente do Segmento após o chefão |
+  | Bissetriz | 3 | o golpe atinge ±12 de profundidade | Copa Alta |
 
 ## Combate (valores do Marco 1, em `player.js`)
 
@@ -123,7 +132,12 @@ Recursos:
    - **Núcleo:** fora do centro. Acertá-lo dá 4 de dano, a casca 1. 4 acertos no núcleo atordoam o chefão.
    - **Fase 2:** faixas de ladrilhos do chão avisam, piscando, e caem; surgem cubinhos.
    - **Fim:** ele se planifica em 6 quadrados.
-2. **Mãe-Esfera** (Bosque): atravessa o plano como um círculo que cresce e encolhe; é preciso persegui-la pela régua. Divide-se em esférulas.
+2. **Mãe-Esfera** (Bosque) ✅
+   - **Corpo:** esfera R=64 em 3D. A intro é um ponto no chão que cresce até virar círculo.
+   - **Olho no equador:** visível quando |dz| < 12; golpes nele tiram 3, no resto 1.
+   - **Ataques:** Passagem (atravessa o plano no x travado do Quadrado, marcada na régua); Quique (pula pela arena no plano; foge-se pela profundidade); Esférulas.
+   - **Fase 2:** divide-se em duas Filhas (R=40).
+   - **Fim:** murcha num disco e entrega a Garra. Ela foi a esfera que visitou o Quadrado de *Flatland*.
 3. **Verme Helicoidal** (Minas, no escuro): segmentos que orbitam, mergulhando e emergindo de outras profundidades.
 4. **Agudo, o Isósceles** (Cidade, intermediário): duelo espelhado contra outro achatado que também muda de profundidade.
 5. **Conselho Platônico** (Cidade): cinco fases, uma por sólido de Platão.
@@ -181,8 +195,8 @@ Teclado em dois esquemas (WASD + Q/E, Setas + A/S), mouse, gamepad (mapeamento p
 | Marco | Conteúdo | Estado |
 | --- | --- | --- |
 | 1 · Núcleo + Borda do Plano | motor de fatias, física, Quadrado, combate, 4 inimigos, 10 salas, Cubo Carcereiro → Investida, HUD, mapa, salvamento, toque, áudio | ✅ |
-| 2 · Bosque dos Cones | ~12 salas, 3 inimigos, Mãe-Esfera → Garra de Vértice; NPCs e diálogos (Segmento, Pentágono), loja, Teoremas, Fragmentos | próximo |
-| 3 · Minas Toroidais | escuridão e luz, Eco-Visão, paredes quebráveis, Geodésicas, Verme Helicoidal | |
+| 2 · Bosque dos Cones | 11 salas, 4 inimigos, Mãe-Esfera → Garra de Vértice; NPCs e diálogos (Segmento, Pentágono), loja, 6 Teoremas, veios, mapa comprado | ✅ |
+| 3 · Minas Toroidais | escuridão e luz, Eco-Visão, paredes quebráveis, Geodésicas, Verme Helicoidal | próximo |
 | 4 · Cidade dos Sólidos | cidade hub com missões, Agudo → Investida Profunda, Conselho Platônico → Ponto, Rei Pentágono | |
 | 5 · Aqueduto de Fluxo | fluidos, correntes em z, nado; Leviatã de Möbius → Reflexão | |
 | 6 · Observatório Invertido | Giro do Plano (salas válidas nas duas orientações), quebra-cabeças de projeção; O Projecionista | |

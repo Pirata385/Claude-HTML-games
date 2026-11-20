@@ -3,7 +3,14 @@
 // their tracks one after another, or, if the player prefers ("now and then" in Settings), with long
 // stretches of quiet in between, the way music drifts in and out on a long walk. Places with their
 // own music (the arenas' lobby, the lab, the night shops), the menu and the fights play without a
-// break. Volume follows the music setting. Plain <audio> elements, so it works from file:// too.
+// break. Volume follows the music setting.
+//
+// The music is game sound, not a music player. It plays through the Web Audio API, as the sound
+// effects do, so phones mix it with whatever else is playing: it does not take over the audio (an
+// <audio> element counts as media playback there, so opening the game used to stop the music app
+// the player was listening to, and could show media controls). Only one track is decoded at a time
+// (two while one fades into the next), in a context of its own at 32 kHz, to keep memory down.
+// Opened straight from disk (file://), where the files cannot be fetched, it falls back to <audio>.
 (function () {
   'use strict';
   const RB = globalThis.RB;
@@ -24,6 +31,93 @@
   const now = () => performance.now() / 1000;
   const level = () => Math.max(0, Math.min(1, audio.music)) * 0.6;
   const sometimes = () => !!(RB.game && RB.game.settings && RB.game.settings.musicMode === 'sometimes');
+  const clamp01 = (v) => Math.max(0, Math.min(1, v));
+
+  // Safari: game sound that mixes with other apps' audio (and stays quiet on silent)
+  try { if (navigator.audioSession) navigator.audioSession.type = 'ambient'; } catch (e) { /* not there */ }
+
+  // ---- Web Audio: decoded tracks played from buffers
+  const AC = window.AudioContext || window.webkitAudioContext;
+  let useWA = !!(AC && window.fetch && location.protocol !== 'file:');
+  let ctx = null;
+  const cache = new Map(); // track name -> Promise<AudioBuffer>
+  function context() {
+    if (!ctx) {
+      try { ctx = new AC({ sampleRate: 32000, latencyHint: 'playback' }); } catch (e) { ctx = new AC(); }
+      if (m.hidden && ctx.suspend) ctx.suspend();
+    }
+    return ctx;
+  }
+  function load(name) {
+    if (!cache.has(name)) {
+      cache.set(name, fetch('music/' + name + '.mp3')
+        .then((r) => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.arrayBuffer(); })
+        .then((ab) => new Promise((ok, no) => { const p = context().decodeAudioData(ab, ok, no); if (p && p.then) p.then(ok, no); })));
+    }
+    return cache.get(name);
+  }
+  // keep only what is playing or fading in memory
+  function forget() {
+    const keep = new Set([m.cur && m.cur.name].concat(m.fading.map((f) => f.name)));
+    for (const k of [...cache.keys()]) if (!keep.has(k)) cache.delete(k);
+  }
+  function waTrack(name, loop, onEnd) {
+    const c = context(), gain = c.createGain();
+    gain.gain.value = 0; gain.connect(c.destination);
+    const t = { buf: null, src: null, at: 0, t0: 0, stopped: false };
+    const begin = (offset) => {
+      if (!t.buf || t.stopped) return;
+      if (t.src) { t.src.onended = null; try { t.src.stop(); } catch (e) { /* already stopped */ } }
+      const s = c.createBufferSource();
+      s.buffer = t.buf; s.loop = loop; s.connect(gain);
+      s.onended = () => { if (t.src === s && !t.stopped) onEnd(); };
+      s.start(0, offset || 0);
+      t.src = s; t.at = offset || 0; t.t0 = c.currentTime;
+    };
+    load(name).then((buf) => { if (t.stopped) return; t.buf = buf; begin(0); }, () => {
+      // could not fetch or decode it: play the music the old way from now on
+      if (t.stopped) return;
+      useWA = false; cache.clear();
+      if (m.cur && m.cur.track === api) { const mood = m.cur.mood; m.cur = null; start(mood); }
+    });
+    const api = {
+      set: (v) => { gain.gain.value = clamp01(v); },
+      time: () => (t.buf ? (t.at + c.currentTime - t.t0) % t.buf.duration : 0),
+      playing: () => !!t.src && c.state === 'running',
+      vol: () => gain.gain.value,
+      toEnd: () => { if (t.buf) begin(Math.max(0, t.buf.duration - 0.4)); },
+      stop: () => { t.stopped = true; if (t.src) { t.src.onended = null; try { t.src.stop(); } catch (e) { /* already stopped */ } } t.src = null; t.buf = null; try { gain.disconnect(); } catch (e) { /* gone */ } },
+    };
+    return api;
+  }
+  // the music's context waits for a tap before it may sound, and goes quiet while the game is hidden
+  function waRun() {
+    if (!ctx) return;
+    if (m.hidden) { if (ctx.state === 'running') ctx.suspend(); return; }
+    if (ctx.state !== 'running') { const p = ctx.resume(); if (p && p.catch) p.catch(() => {}); }
+  }
+
+  // ---- <audio>: only when the files cannot be fetched (opened from disk)
+  function elTrack(name, loop, onEnd) {
+    const el = new Audio('music/' + name + '.mp3');
+    el.preload = 'auto'; el.loop = loop; el.volume = 0;
+    el.addEventListener('ended', onEnd);
+    const play = () => { if (m.hidden || level() <= 0) return; const p = el.play(); if (p && p.catch) p.catch(() => { m.blocked = true; }); };
+    play();
+    return {
+      el, play,
+      set: (v) => {
+        el.volume = clamp01(v);
+        if (level() <= 0 && !el.paused) el.pause();
+        else if (level() > 0 && el.paused && !m.hidden && !m.blocked && !el.ended) play();
+      },
+      time: () => el.currentTime,
+      playing: () => !el.paused,
+      vol: () => el.volume,
+      toEnd: () => { if (el.duration) el.currentTime = Math.max(0, el.duration - 0.4); },
+      stop: () => { el.pause(); el.src = ''; },
+    };
+  }
 
   // a track not just heard, if the mood has more than one
   function pick(mood) {
@@ -32,26 +126,19 @@
     const options = list.filter((t) => t !== m.last[mood]);
     return options[Math.floor(Math.random() * options.length)];
   }
-  function play(el) {
-    if (m.hidden || level() <= 0) return;
-    const p = el.play();
-    if (p && p.catch) p.catch(() => { m.blocked = true; }); // the browser waits for a tap first
-  }
   function start(mood) {
     const name = pick(mood);
     m.last[mood] = name;
-    const el = new Audio('music/' + name + '.mp3');
-    el.preload = 'auto';
-    el.loop = !AMBIENT[mood] && TRACKS[mood].length === 1; // one track of its own: round and round
-    el.volume = 0;
-    const cur = { el, mood, name, t0: now(), gain: 0 };
-    el.addEventListener('ended', () => ended(cur));
+    const loop = !AMBIENT[mood] && TRACKS[mood].length === 1; // one track of its own: round and round
+    const cur = { mood, name, t0: now(), gain: 0 };
+    cur.track = (useWA ? waTrack : elTrack)(name, loop, () => ended(cur));
     m.cur = cur; m.waitUntil = 0;
-    play(el);
+    if (useWA) { forget(); waRun(); }
   }
   function ended(cur) {
     if (m.cur !== cur) return;
     m.cur = null;
+    cur.track.stop();
     if (AMBIENT[cur.mood] && sometimes()) m.waitUntil = now() + GAP[0] + Math.random() * (GAP[1] - GAP[0]); // a while of quiet
     else start(cur.mood);
   }
@@ -65,10 +152,11 @@
     fadeOut(m.cur); m.cur = null;
     start(mood);
   };
-  audio.musicNow = () => ({ mood: m.mood, track: m.cur ? m.cur.name : null, at: m.cur ? +m.cur.el.currentTime.toFixed(1) : 0, playing: !!(m.cur && !m.cur.el.paused), volume: m.cur ? +m.cur.el.volume.toFixed(2) : 0,
-    waiting: m.waitUntil ? Math.round(Math.max(0, m.waitUntil - now())) : 0, blocked: m.blocked });
+  audio.musicNow = () => ({ mood: m.mood, track: m.cur ? m.cur.name : null, at: m.cur ? +m.cur.track.time().toFixed(1) : 0, playing: !!(m.cur && m.cur.track.playing()),
+    volume: m.cur ? +m.cur.track.vol().toFixed(2) : 0, waiting: m.waitUntil ? Math.round(Math.max(0, m.waitUntil - now())) : 0, blocked: m.blocked || !!(useWA && ctx && ctx.state !== 'running' && !m.hidden),
+    engine: useWA ? 'webaudio' : 'element' });
   // (for checks) jump to the last moment of the current track
-  audio.musicToEnd = () => { const el = m.cur && m.cur.el; if (el && el.duration) el.currentTime = Math.max(0, el.duration - 0.4); };
+  audio.musicToEnd = () => { if (m.cur) m.cur.track.toEnd(); };
   // the next ambient track, now (used when a quiet stretch should end early)
   audio.musicSkipQuiet = () => { if (m.mood && !m.cur) start(m.mood); };
 
@@ -76,25 +164,26 @@
   setInterval(() => {
     const t = now(), lv = level();
     if (m.cur) {
-      const el = m.cur.el;
       m.cur.gain = Math.min(1, (t - m.cur.t0) / FADE_IN);
-      el.volume = Math.max(0, Math.min(1, lv * m.cur.gain));
-      if (lv <= 0 && !el.paused) el.pause();
-      else if (lv > 0 && el.paused && !m.hidden && !m.blocked && !el.ended) play(el);
+      m.cur.track.set(lv * m.cur.gain);
     } else if (m.mood && m.waitUntil && t >= m.waitUntil) start(m.mood);
     for (const f of m.fading.slice()) {
       const g = f.from * (1 - (t - f.out) / FADE_OUT);
-      if (g <= 0) { f.el.pause(); f.el.src = ''; m.fading.splice(m.fading.indexOf(f), 1); } else f.el.volume = Math.max(0, Math.min(1, lv * g));
+      if (g <= 0) { f.track.stop(); m.fading.splice(m.fading.indexOf(f), 1); if (useWA) forget(); } else f.track.set(lv * g);
     }
   }, 100);
 
   // browsers only let music start after the player has touched something
-  const retry = () => { if (!m.blocked) return; m.blocked = false; if (m.cur) play(m.cur.el); };
+  const retry = () => {
+    if (useWA) { waRun(); return; }
+    if (!m.blocked) return; m.blocked = false; if (m.cur && m.cur.track.play) m.cur.track.play();
+  };
   for (const ev of ['pointerdown', 'keydown', 'touchstart']) window.addEventListener(ev, retry, { passive: true });
   // quiet while the game is hidden
   document.addEventListener('visibilitychange', () => {
     m.hidden = document.hidden;
+    if (useWA) { waRun(); return; }
     if (!m.cur) return;
-    if (m.hidden) m.cur.el.pause(); else play(m.cur.el);
+    if (m.hidden) m.cur.track.el.pause(); else m.cur.track.play();
   });
 })();

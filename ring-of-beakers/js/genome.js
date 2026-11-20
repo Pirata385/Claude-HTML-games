@@ -90,6 +90,17 @@
   // Colour morphs added later, placed on loci that used to be junk so older saves keep their layout.
   // [id, label, threshold, mode]: a dominant morph shows with one copy, a recessive one needs two.
   const EXTRA = [['melanic', 'Melanism', 10, 'dom'], ['leucistic', 'Leucism', 9, 'rec']];
+  // Later still, two more junk loci came to life (after these, so the loci above stay where they are):
+  // the bill's shape, and a sail along the back. Random junk almost never spells either, so birds
+  // made before them look as they always did; and where a kind does not ask for them, they are made
+  // just as junk was, so everyone generated from a seed (the people of a world, say) stays the same.
+  // Bill shape: a copy spells a shape when it ends in TA; its first two bases say which. The bill takes
+  // that shape only when both copies spell the same one (recessive), else it stays plain. (Junk ends
+  // in TA in about one copy in fifty, and two copies spelling the same shape by chance is rarer still.)
+  const SHAPE_CODES = ['plain', 'spoon', 'down', 'up', 'crossed', 'casque', 'skimmer', 'sword', 'jaws', 'snout', 'plain', 'plain', 'plain', 'plain', 'plain', 'plain'];
+  const LATE_Q = [['billShape', 'Bill shape', 'beak']];
+  // Back sail: both copies must read TATA, exactly (junk does so about once in two thousand copies).
+  const LATE_SW = [['sail', 'Back sail', [3, 0, 3, 0]]];
   // Switches: recessive on/off genes. [id, label, threshold (min copy sum needed)]
   const SW = [
     ['teeth', 'Teeth', 9], ['arms', 'Arms', 9], ['bare', 'Bare skin', 9],
@@ -114,6 +125,8 @@
     const def = { id: s[0], n: 1, switch: true, thr: s[2], label: s[1], group: 'colour', mode: s[3], z: 0, genes: [], extra: true };
     TRAITS[def.id] = def; TRAIT_LIST.push(def);
   }
+  for (const s of LATE_Q) { const def = { id: s[0], n: 1, shape: true, label: s[1], group: s[2], mode: 'rec', pos: true, z: 0, genes: [], extra: true, late: true }; TRAITS[def.id] = def; TRAIT_LIST.push(def); }
+  for (const s of LATE_SW) { const def = { id: s[0], n: 1, switch: true, code: s[2], thr: 12, label: s[1], group: 'odd', mode: 'rec', z: 0, genes: [], extra: true, late: true }; TRAITS[def.id] = def; TRAIT_LIST.push(def); }
 
   // Fixed gene layout: related genes are scattered over the chromosomes by a fixed-seed shuffle,
   // so the map is the same in every save and what a player learns about it stays true.
@@ -210,7 +223,25 @@
     return (sa * da + sb * db) / (w * (da + db));
   }
   const traitValue = (g, id) => mapTrait(TRAITS[id], trait01(g, id));
-  const switchOn = (g, id) => { const def = TRAITS[id]; return geneValue(g, def.genes[0]) * 12 >= def.thr - 1e-6; };
+  // ---- the bill's shape: what one copy spells ('' if it spells nothing), and what the bill is
+  function copyShape(strand, gi) {
+    const o = gi * GENE_LEN;
+    return strand[o + 2] === 3 && strand[o + 3] === 0 ? SHAPE_CODES[strand[o] * 4 + strand[o + 1]] : '';
+  }
+  function billShape(g) {
+    const gi = TRAITS.billShape.genes[0], a = copyShape(g.a, gi), b = copyShape(g.b, gi);
+    return a && a === b ? a : 'plain';
+  }
+  // The four bases that spell a shape.
+  function shapeBases(shape) { const i = Math.max(0, SHAPE_CODES.indexOf(shape)); return [i >> 2, i & 3, 3, 0]; }
+  // A switch is on when its copies add up to enough (one copy for a dominant one, both for a recessive
+  // one); a switch with a code needs both copies to read exactly that.
+  const copyIs = (strand, gi, code) => { const o = gi * GENE_LEN; return strand[o] === code[0] && strand[o + 1] === code[1] && strand[o + 2] === code[2] && strand[o + 3] === code[3]; };
+  function switchOn(g, id) {
+    const def = TRAITS[id];
+    if (def.code) { const gi = def.genes[0]; return copyIs(g.a, gi, def.code) && (isHemi(g, gi) || copyIs(g.b, gi, def.code)); }
+    return geneValue(g, def.genes[0]) * 12 >= def.thr - 1e-6;
+  }
 
   // Random 4 bases with the given sum (0..12).
   function basesForSum(sum, rng) {
@@ -258,8 +289,11 @@
     const on = new Set(switches || []);
     for (let gi = 0; gi < N_GENES; gi++) {
       const gene = GENES[gi], def = gene.trait ? TRAITS[gene.trait] : null;
+      const asked = def && def.late && (def.shape ? targets && targets[def.id] && targets[def.id] !== 'plain' : on.has(def.id));
       for (const copy of ['a', 'b']) {
-        if (!def) { setGeneBases(g, gi, basesForSum(rng.int(0, 12), rng), copy); continue; }
+        if (!def || (def.late && !asked)) { setGeneBases(g, gi, basesForSum(rng.int(0, 12), rng), copy); continue; }
+        if (def.shape) { setGeneBases(g, gi, shapeBases(targets[def.id]), copy); continue; }
+        if (def.late) { setGeneBases(g, gi, def.code, copy); continue; }
         if (def.switch) {
           const p = opts.carriers && opts.carriers[def.id] !== undefined ? opts.carriers[def.id] : def.mode === 'dom' ? 0 : opts.carrier === undefined ? 0.04 : opts.carrier;
           const sum = on.has(def.id) ? rng.int(10, 12) : rng.chance(p) ? rng.int(def.thr, 12) : rng.int(0, Math.min(7, def.thr - 2));
@@ -275,7 +309,7 @@
         } else setGeneBases(g, gi, basesForSum(v * 12 + rng.gauss() * variation, rng), copy);
       }
       // a recessive carrier copy must never switch the trait on by accident
-      if (def && def.switch && def.mode === 'rec' && !on.has(def.id) && switchOn(g, def.id)) {
+      if (def && def.switch && !def.late && def.mode === 'rec' && !on.has(def.id) && switchOn(g, def.id)) {
         setGeneBases(g, gi, basesForSum(rng.int(0, 6), rng), isHemi(g, gi) ? 'a' : 'b');
       }
     }
@@ -316,7 +350,7 @@
   // Re-roll n coding genes to an extreme: the visible "sports" among wild animals.
   function sport(g, rng, n) {
     for (let k = 0; k < n; k++) {
-      let gi; do { gi = rng.int(0, N_GENES - 1); } while (!GENES[gi].trait || TRAITS[GENES[gi].trait].switch);
+      let gi; do { gi = rng.int(0, N_GENES - 1); } while (!GENES[gi].trait || TRAITS[GENES[gi].trait].switch || TRAITS[GENES[gi].trait].late);
       const sum = rng.chance(0.5) ? rng.int(0, 2) : rng.int(10, 12);
       setGeneBases(g, gi, basesForSum(sum, rng), 'both');
     }
@@ -355,7 +389,7 @@
     return h >>> 0;
   }
 
-  RB.genome = { BASES, N_CHR, GENES_PER_CHR, GENE_LEN, CHR_LEN, N_GENES, N_BASES, Z_CHR, TRAITS, TRAIT_LIST, GENES, DOM_W,
+  RB.genome = { SHAPE_CODES, copyShape, copyIs, billShape, shapeBases, BASES, N_CHR, GENES_PER_CHR, GENE_LEN, CHR_LEN, N_GENES, N_BASES, Z_CHR, TRAITS, TRAIT_LIST, GENES, DOM_W,
     mapTrait, unmapTrait, blank, clone, copySum, copyValue, posValue, isHemi, geneValue, hueValue, trait01, traitValue, switchOn, basesForSum, basesForPos,
     setGeneBases, getGeneBases, random, fromTargets, gamete, mutate, sport, breed, distance, serialize, deserialize, hash };
 })();

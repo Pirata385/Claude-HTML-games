@@ -29,7 +29,15 @@
     game.slot = slot; game.S = S; game.world = RB.world.generate(S.seed);
     return true;
   };
-  game.save = function () { if (game.S && game.slot >= 0) RB.save.save(game.slot, game.S); };
+  // Save to the slot. If the browser will not keep it (its storage full, or blocked), say so once,
+  // rather than carry on as if it had worked.
+  game.save = function () {
+    if (!game.S || game.slot < 0) return true;
+    const ok = RB.save.save(game.slot, game.S);
+    if (!ok && !game.saveFailed && RB.ui && RB.ui.toast) RB.ui.toast('Could not save: the browser will not store any more. Free space by deleting an old save slot.', RB.pal.coral);
+    game.saveFailed = !ok;
+    return ok;
+  };
   game.applySettings = function () { RB.audio.setVolumes(game.settings.sfx, game.settings.music); RB.save.setSettings(game.settings); };
   game.fullscreen = function () {
     const d = document, el = d.documentElement;

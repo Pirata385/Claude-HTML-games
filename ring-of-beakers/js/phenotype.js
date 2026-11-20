@@ -21,6 +21,8 @@
   const shade = (c, dl, ds) => [c[0], clamp01(c[1] + (ds || 0)), clamp01(c[2] + dl)];
 
   const PATTERNS = ['pied', 'barred', 'solid', 'speckled', 'laced'];
+  // How the bill's shape changes a peck: toothy jaws bite hardest, a spoon barely hurts.
+  const SHAPE_BITE = { spoon: 0.75, down: 0.95, up: 0.9, crossed: 0.9, casque: 1.1, skimmer: 0.95, sword: 1.2, jaws: 1.45, snout: 1.3 };
   const COMBS = ['casque', 'knob', 'single', 'rose', 'pea'];
   const bucket = (v) => (v < 0.18 ? 0 : v < 0.36 ? 1 : v < 0.64 ? 2 : v < 0.82 ? 3 : 4);
   const WEIGHT_CLASSES = [['Gnat', 0.15], ['Fly', 0.5], ['Feather', 1.5], ['Light', 4], ['Middle', 12], ['Heavy', 50], ['Titan', Infinity]];
@@ -30,7 +32,7 @@
   function express(g, o) {
     o = o || {};
     const t = {}, sw = {};
-    for (const def of G.TRAIT_LIST) { if (def.switch) sw[def.id] = G.switchOn(g, def.id); else t[def.id] = G.traitValue(g, def.id); }
+    for (const def of G.TRAIT_LIST) { if (def.shape) continue; if (def.switch) sw[def.id] = G.switchOn(g, def.id); else t[def.id] = G.traitValue(g, def.id); }
     const male = g.sex === 'M';
     if (!male) {
       t.comb *= 0.45; t.wattle *= 0.5; t.spur *= 0.3; t.tailLen *= t.tailLen > 1.3 ? 0.6 : 0.85; t.tailFan *= 0.7; t.size *= 0.93;
@@ -66,6 +68,10 @@
     if (P.person) P.NL = Math.max(P.NL, P.HR * 1.4); // a person's head sits on a neck, above the shoulders
     P.BL = 7 * S * beakLen * Math.sqrt(headRel); P.BD = 3.6 * S * t.beakDepth * Math.sqrt(headRel);
     P.hook = t.beakHook; P.flat = t.beakFlat; P.pouch = t.pouch; P.hasBeak = beakLen >= 0.15;
+    // the bill's shape (genome.js): a spoon, a sickle, crossed tips, a casque, toothy jaws...
+    P.shape = P.hasBeak && !P.person ? G.billShape(g) : 'plain';
+    if (P.shape === 'sword') { P.BL *= 1.7; P.BD *= 0.6; } // a needle longer than the bird
+    else if (P.shape === 'snout') { P.BL *= 1.15; P.BD *= 0.85; } // long and narrow, like a crocodile's
     // Legs run from the torso axis: LLv is the visible (genetic) leg below the belly, LL the whole strut.
     P.LLv = 21 * S * legLen; P.LL = P.LLv + 0.42 * P.TD; P.shin = t.shin; P.LT = 2.4 * S * t.legThick; P.FL = 7.5 * S * t.footSize;
     P.talon = t.talon; P.spur = spur; P.web = t.web;
@@ -129,7 +135,7 @@
     P.hpMax = 100 * Math.pow(P.massRel, 0.4) * Math.sqrt(t.bone) * Math.pow(t.hide, 0.8) * (1 - 0.2 * elder) * lerp(0.5, 1, grow) * lerp(0.6, 1, cond);
     P.stamMax = 100 * P.lungs;
     P.peckSharp = P.hasBeak
-      ? (0.42 + 0.55 * t.beakHook + 0.4 * Math.min(beakLen, 2) / 2 * (1 - t.beakFlat)) * (1 - 0.55 * t.beakFlat) * (sw.teeth ? 1.25 : 1) * (0.75 + 0.25 * t.beakDepth)
+      ? (0.42 + 0.55 * t.beakHook + 0.4 * Math.min(beakLen, 2) / 2 * (1 - t.beakFlat)) * (1 - 0.55 * t.beakFlat) * (sw.teeth ? 1.25 : 1) * (0.75 + 0.25 * t.beakDepth) * (SHAPE_BITE[P.shape] || 1)
       : 0.22;
     P.kickSharp = 0.3 + 0.8 * spur + 0.9 * t.talon;
     P.punchSharp = sw.arms ? 0.5 + 0.35 * t.talon : 0;
@@ -170,10 +176,11 @@
     if (sw.nana) P.odd.push('dwarf');
     if (sw.cyclops) P.odd.push('one eye');
     if (sw.legsExtra) P.odd.push('four legs');
+    if (sw.sail && !P.person) P.odd.push('back sail');
     if (white) P.odd.push('white morph');
     if (black) P.odd.push('black morph');
     return P;
   }
 
-  RB.pheno = { express, weightClass, WEIGHT_CLASSES, PATTERNS, COMBS, ramp };
+  RB.pheno = { express, weightClass, WEIGHT_CLASSES, PATTERNS, COMBS, ramp, SHAPE_BITE };
 })();

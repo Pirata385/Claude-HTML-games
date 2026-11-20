@@ -10,9 +10,12 @@
   const set = (k, v) => { mem[k] = v; try { if (store) store.setItem(KEY + k, v); return true; } catch (e) { return false; } };
   const del = (k) => { delete mem[k]; try { if (store) store.removeItem(KEY + k); } catch (e) { /* nothing to remove */ } };
 
+  // Returns whether the browser kept it.
   function save(slot, S) {
-    const meta = { day: S.day, money: S.money, birds: S.birds.length, won: !!S.won, sandbox: !!S.sandbox };
-    return set('slot' + slot, JSON.stringify({ meta, data: RB.state.serialize(S) }));
+    try {
+      const meta = { day: S.day, money: S.money, birds: S.birds.length, won: !!S.won, sandbox: !!S.sandbox };
+      return set('slot' + slot, JSON.stringify({ meta, data: RB.state.serialize(S) }));
+    } catch (e) { return false; }
   }
   function info(slot) { try { const o = JSON.parse(get('slot' + slot) || 'null'); return o ? o.meta : null; } catch (e) { return null; } }
   function load(slot) { try { const o = JSON.parse(get('slot' + slot) || 'null'); return o ? RB.state.deserialize(o.data) : null; } catch (e) { return null; } }

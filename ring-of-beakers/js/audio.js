@@ -106,6 +106,7 @@
     albatross: 'clatter', frigatebird: 'frog', puffin: 'grunt', haast: 'scream', auk: 'grunt', pelagornis: 'laugh', trex: 'roar',
     frogmouth: 'hoot', oilbird: 'scream', boatbill: 'croak', crane: 'honk', kookaburra: 'laugh', marabou: 'clatter', cormorant: 'grunt', booby: 'whistle', tropicbird: 'kee',
     gastornis: 'boom', gallimimus: 'honk', pteranodon: 'hiss',
+    spoonbill: 'grunt', ibis: 'croak', avocet: 'kee', crossbill: 'chirp', hornbill: 'honk', skimmer: 'laugh', swordbill: 'chirp', paradise: 'parrot', kingparadise: 'whistle', spino: 'roar',
   };
   const rnd = (a, b) => a + Math.random() * (b - a);
   const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];

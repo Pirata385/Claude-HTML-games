@@ -134,7 +134,7 @@
   const CAGE = [Infinity, Infinity, Infinity, Infinity], COOP = [6, 10, 16, 24];
 
   // Fossil sets for the lab's fossil bench: four fragments rebuild one.
-  const FOSSILS = { dodo: 'Dodo', terror: 'Terror bird', moa: 'Moa', archaeo: 'Archaeopteryx', raptor: 'Raptor', elephant: 'Elephant bird', trex: 'Tyrannosaurus', haast: 'Haast\'s eagle', auk: 'Great auk', pelagornis: 'Pelagornis', gastornis: 'Gastornis', gallimimus: 'Gallimimus', pteranodon: 'Pteranodon' };
+  const FOSSILS = { dodo: 'Dodo', terror: 'Terror bird', moa: 'Moa', archaeo: 'Archaeopteryx', raptor: 'Raptor', elephant: 'Elephant bird', trex: 'Tyrannosaurus', haast: 'Haast\'s eagle', auk: 'Great auk', pelagornis: 'Pelagornis', gastornis: 'Gastornis', gallimimus: 'Gallimimus', pteranodon: 'Pteranodon', spino: 'Spinosaurus' };
 
   // What can be worn, and where. One of each per bird; 'gear' is the fighting kit (one piece).
   const SLOTS = ['hat', 'face', 'neck', 'back', 'feet', 'tail', 'gear'];

@@ -16,7 +16,8 @@
   const SEA_BIRDS = ['albatross', 'frigatebird', 'puffin', 'booby', 'tropicbird'], SEA_FOSSILS = ['haast', 'auk', 'pelagornis', 'pteranodon'];
   // kinds added after the sea was charted: kept out of the islands' random picks (strangers, lost
   // kinds) so islands already visited keep the birds they had; they arrive by land type instead
-  const LATE = ['frogmouth', 'oilbird', 'boatbill', 'crane', 'kookaburra', 'marabou', 'cormorant', 'booby', 'tropicbird', 'gastornis', 'gallimimus', 'pteranodon'];
+  const LATE = ['frogmouth', 'oilbird', 'boatbill', 'crane', 'kookaburra', 'marabou', 'cormorant', 'booby', 'tropicbird', 'gastornis', 'gallimimus', 'pteranodon',
+    'spoonbill', 'ibis', 'avocet', 'crossbill', 'hornbill', 'skimmer', 'swordbill', 'paradise', 'kingparadise', 'spino'];
   const LANDS = ['farm', 'wetland', 'savanna', 'highlands', 'jungle', 'tundra', 'volcanic', 'desert'];
   const TWISTS = ['grain', 'mud', 'wind', 'dark', 'rounds'];
   const SYL = ['ka', 'lo', 'ma', 'ru', 'te', 'vi', 'no', 'sa', 'pe', 'ba', 'qui', 'tor', 'mel', 'ya', 'zu', 'ori', 'an', 'el', 'is', 'ur', 'do', 'fa'];
@@ -156,9 +157,17 @@
   }
 
   // ---- what the world asks of the sea
+  // The island a point is on. An island belongs to the chunk its centre is in, but a big one reaches
+  // over into the next chunks (the biggest, about 2500 across the middle, up to ~3300 with its wavy
+  // shore), so near a chunk's edge the neighbours are looked at too. (They were not: parts of the
+  // biggest islands were taken for open sea, and trucks and birds behaved as if in water there.)
+  const REACH = 3500;
   function islandAt(world, x, y) {
-    const c = chunkOf(x, y);
-    for (const is of chunk(world, c.cx, c.cy).islands) if (WD.inBlob(is.shape, x, y)) return is;
+    const c = chunkOf(x, y), lx = x - c.cx * CHUNK, ly = y - c.cy * CHUNK;
+    const xs = [0], ys = [0];
+    if (lx < REACH) xs.push(-1); if (lx > CHUNK - REACH) xs.push(1);
+    if (ly < REACH) ys.push(-1); if (ly > CHUNK - REACH) ys.push(1);
+    for (const dx of xs) for (const dy of ys) for (const is of chunk(world, c.cx + dx, c.cy + dy).islands) if (WD.inBlob(is.shape, x, y)) return is;
     return null;
   }
   function biomeAt(world, x, y) {

@@ -271,10 +271,10 @@
   // ---- the Bone Quarry: what you have dug up so far, and how to make a bird of it
   function quarry(b) {
     const sets = Object.keys(IT.FOSSILS);
-    ui.para('Dig anywhere in the roped-off pit south of my tent: most finds there are fossil fragments: nearly a third of them elephant bird, and now and then a dinosaur (a tyrannosaur, or the ostrich-like Gallimimus). Four fragments of one kind rebuild it at the Lab.', b.x + 4, b.y + 4, b.w - 8, { size: 13 });
+    ui.para('Dig anywhere in the roped-off pit south of my tent: most finds there are fossil fragments: nearly a third of them elephant bird, and now and then a dinosaur (a tyrannosaur, the ostrich-like Gallimimus, or a sail-backed Spinosaurus). Four fragments of one kind rebuild it at the Lab.', b.x + 4, b.y + 4, b.w - 8, { size: 13 });
     ui.list('quarry', b.x, b.y + 76, b.w, b.h - 76, sets.length, 60, (i, x, y, w) => {
       const id = sets[i], n = RB.lab.fragments(S, id), seen = S.codex.species[id];
-      const where = id === 'pteranodon' ? ' · a flying reptile: only on islands out at sea' : RB.sea.SEA_FOSSILS.includes(id) ? ' · only on islands out at sea' : id === 'trex' ? ' · a dinosaur: here, or on volcanic islands' : id === 'gallimimus' ? ' · a dinosaur: only here' : id === 'gastornis' ? ' · under farmland, here and out at sea' : '';
+      const where = id === 'pteranodon' ? ' · a flying reptile: only on islands out at sea' : RB.sea.SEA_FOSSILS.includes(id) ? ' · only on islands out at sea' : id === 'trex' ? ' · a dinosaur: here, or on volcanic islands' : id === 'gallimimus' ? ' · a dinosaur: only here' : id === 'spino' ? ' · a dinosaur: here, or on desert islands' : id === 'gastornis' ? ' · under farmland, here and out at sea' : '';
       row(x, y, w, { P: RB.pheno.express(RB.species.make(id, new Rng(RB.core.hashStr(id)), { sex: 'M', sport: 0 })), title: IT.FOSSILS[id] + (id === 'elephant' ? ' · the giant' : ''), sub: n + ' of ' + RB.lab.FRAGMENTS + ' fragments' + where + (n >= RB.lab.FRAGMENTS ? ' · ready to rebuild at the Lab' : '') + (seen ? ' · rebuilt before' : ''), subCol: n >= RB.lab.FRAGMENTS ? pal.teal : undefined });
     });
   }

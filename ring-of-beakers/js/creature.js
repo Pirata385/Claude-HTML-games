@@ -386,8 +386,10 @@
           a.phase = 1; a.t1 = a.t;
           const tg = a.tgt(), dx = tg.x - this.midX();
           const vy = P.jumpV * a.power, air = 2 * vy / this.world.g;
-          const vx = clamp((dx - f * P.LL * 0.5) / Math.max(0.12, air * 0.55), -P.jumpV * 1.2, P.jumpV * 1.2);
-          this.hop(vx, -vy); this.flap(1); this.crouchT = 1;
+          a.air = air; // a flying kick strikes for the whole leap (fight.js: the flying kick)
+          // an ordinary kick reaches the target near the top of the leap; a flying kick comes down on it
+          const vx = clamp((dx - f * P.LL * (a.fly ? 0.3 : 0.5)) / Math.max(0.12, air * (a.fly ? 0.85 : 0.55)), -P.jumpV * 1.2, P.jumpV * 1.2);
+          this.hop(vx, -vy); if (!a.fly && !a.low) this.flap(1); this.crouchT = 1; // no wingbeat on a flying kick (low and long) or a wader's little hop-kick
         } else if (a.phase === 1 && a.t >= a.t1 + 0.05) {
           a.phase = 2; a.t2 = a.t; a.leg.kick = true; a.leg.planted = false; a.leg.sw = null;
         } else if (a.phase === 2) {
@@ -398,7 +400,7 @@
           if (ld > max) { nx = ax + lx / ld * max; ny = ay + ly / ld * max; }
           F.vx = (nx - F.x) / dt; F.vy = (ny - F.y) / dt; F.x = nx; F.y = ny; leg.lift = 0.4;
           this.weapon = a.hit ? null : 'foot'; this.weaponLeg = leg;
-          if (a.hit || a.t >= a.t2 + 0.28) { a.phase = 3; this.weapon = null; leg.kick = false; }
+          if (a.hit || a.t >= a.t2 + (a.fly ? Math.max(0.28, (a.air || 0) * 0.95) : 0.28)) { a.phase = 3; this.weapon = null; leg.kick = false; }
         } else if (a.phase === 3 && (this.state === 'stand' || a.t > 1.6)) this.endAct();
       } else if (a.type === 'shove') {
         if (a.phase === 0 && a.t >= 0.07) { a.phase = 1; const dv = f * a.v; this.H.vx += dv; this.C.vx += dv; this.weapon = 'body'; }

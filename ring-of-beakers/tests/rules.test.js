@@ -1840,3 +1840,33 @@ test('long-legged peckers (herons, flamingos) leap in with flying kicks far less
   assert.ok(hits / swings > 0.4, 'most swings land: ' + hits + '/' + swings);
   assert.ok(decisions <= 2, 'bouts are settled, not run out on the clock by a bird hopping about: ' + decisions + ' of 10 went to a decision');
 });
+
+test('long-legged waders are one body type: they rarely leap about, and save a flying kick for a foe that falls back', () => {
+  const r = new Rng(281), fighter = (id, s) => new RB.fight.Fight({ a: { P: RB.pheno.express(RB.species.make(id, new Rng(s), { sport: 0 })) }, b: { P: RB.pheno.express(RB.species.make('chicken', new Rng(s + 500), { sport: 0 })) }, mode: 'grain', seed: s });
+  for (const id of ['heron', 'flamingo', 'crane', 'spoonbill', 'ibis', 'avocet', 'secretary']) assert.ok(fighter(id, 1).fighters[0].leggy, id + ' is long-legged');
+  for (const id of ['ostrich', 'chicken', 'duck', 'cassowary']) assert.ok(!fighter(id, 1).fighters[0].leggy, id + ' is not');
+  // an ordinary kick is a little hop for them (their leaps used to carry them several times their height);
+  // a gamecock still leaps in, as gamecocks do
+  const apex = (id) => {
+    let sum = 0, n = 0;
+    for (let s = 1; s <= 6; s++) {
+      const f = fighter(id, s), rag = f.fighters[0].rag, rest = f.fighters[0].P.rest; let cur = null;
+      while (!f.done && f.t < 60) { f.step(); const a = rag.act; if (a && a.type === 'kick' && !a.fly) { if (!cur || cur.a !== a) cur = { a, top: 0 }; cur.top = Math.max(cur.top, (-rag.C.y - rest) / rest); } else if (cur) { sum += cur.top; n++; cur = null; } }
+    }
+    return sum / Math.max(1, n);
+  };
+  for (const id of ['spoonbill', 'heron', 'crane']) assert.ok(apex(id) < 1, id + ' kicks with a little hop: ' + apex(id).toFixed(2));
+  assert.ok(apex('gamecock') > 2, 'a gamecock still leaps');
+  let fk = 0, landed = 0, flyDmg = 0, footDmg = 0, footN = 0;
+  for (let s = 1; s <= 12; s++) {
+    for (const id of ['spoonbill', 'heron']) {
+      const f = fighter(id, s);
+      f.run();
+      fk += f.events.filter((e) => e.type === 'flykick' && e.side === 0).length;
+      for (const e of f.events) if (e.type === 'hit' && e.side === 0 && e.weapon === 'foot') { if (e.fly) { landed++; flyDmg += e.dmg; } else { footDmg += e.dmg; footN++; } }
+    }
+  }
+  assert.ok(fk >= 12, 'flying kicks happen: ' + fk);
+  assert.ok(landed >= fk / 3, 'and land often enough: ' + landed + ' of ' + fk);
+  assert.ok(flyDmg / landed > 1.3 * footDmg / Math.max(1, footN), 'a flying kick lands much harder than an ordinary kick');
+});

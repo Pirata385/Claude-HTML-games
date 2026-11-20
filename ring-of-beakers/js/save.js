@@ -33,7 +33,8 @@
   // goals: show the next goal as a hint at the top of the yard and the map
   // musicMode: 'always' (one track after another) or 'sometimes' (quiet stretches between the open-air tracks)
   // viewZoom: how far the road map sees, from 1 (the usual view) to 2 (twice as far)
-  const DEFAULTS = { sfx: 0.8, music: 0.5, fast: false, crispr: true, goals: true, musicMode: 'always', viewZoom: 1 };
+  // impactFrames: a flying kick that lands freezes the bout for a moment with two stark black-and-white frames
+  const DEFAULTS = { sfx: 0.8, music: 0.5, fast: false, crispr: true, goals: true, musicMode: 'always', viewZoom: 1, impactFrames: true };
   function settings() { try { return Object.assign({}, DEFAULTS, JSON.parse(get('settings') || '{}')); } catch (e) { return Object.assign({}, DEFAULTS); } }
   const setSettings = (o) => set('settings', JSON.stringify(o));
 

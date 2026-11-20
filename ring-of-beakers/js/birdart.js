@@ -358,7 +358,6 @@
       // toothy reptile jaws in the face's own skin: deep and heavy (tyrannosaur), or long and narrow
       // with a knob at the tip, like a crocodile's (spinosaur)
       const croc = sh === 'snout', dark = P.sw.bare ? c.skinDark : c.bodyDark, d = croc ? BD * 0.55 : BD * 0.8, jl = BD * (croc ? 0.12 : 0.2);
-      if (gape > 0.5) poly([R * 0.4, jl, xt - d * 0.4, jl, xt - d * 0.7, jl + gape, R * 0.35, jl + gape * 0.6], '#7a2630'); // inside the mouth
       // lower jaw
       poly([R * 0.25, jl + gape * 0.15, xt - d * (croc ? 0.25 : 0.45), jl + gape, xt - d * (croc ? 0.4 : 0.7), jl + d * (croc ? 0.55 : 0.85) + gape, R * 0.2, R * 0.8], dark);
       // upper jaw and snout

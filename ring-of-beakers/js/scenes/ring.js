@@ -57,8 +57,8 @@
       ST.fameCheck(S);
     }
     if (A.bet && A.bet.amount > 0) {
-      if (A.bet.side === r.winner) { const pay = Math.round(A.bet.amount * (1 + A.bet.mult)); S.money += pay; S.stats.earned += pay - A.bet.amount; out.push(['Bet won', pay]); }
-      else out.push(['Bet lost', -A.bet.amount]);
+      const pay = EC.settleBet(S, A.bet, r.winner); // a lost bet that leaves too little for any entry: off to muck out
+      out.push(pay ? ['Bet won', pay] : ['Bet lost', -A.bet.amount]);
     }
     if (card.exh) EC.exhibitionDone(S, card.exh.arena, card.exh.slot);
     else if (card.key) S.bets[card.key] = S.day;

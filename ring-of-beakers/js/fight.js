@@ -229,12 +229,19 @@
       const dHead = Math.hypot(fr.head.x - rag.C.x, fr.head.y - rag.C.y), b = me.tg.body(), dBody = Math.hypot(b.x - rag.C.x, b.y - rag.C.y) - foe.P.TD * 0.4;
       const headOk = dHead < me.peckR, bodyOk = dBody < me.peckR;
       if (headOk || bodyOk) opts.push(['peck', me.wPeck]);
-      if (gap < me.kickR * 0.8 && rag.planted > 0) opts.push(['kick', me.wKick * (me.stam > COST.kick * 2 ? 1 : 0.4)]);
+      // A kick reaches as far as a leap carries, and long legs leap a long way (a heron's or a
+      // flamingo's from five body lengths off). From beyond a standing kick, that flying kick is for
+      // birds that fight with their feet; the others mostly close in to peck instead (they used to
+      // leap in from afar again and again, and seldom landed a blow).
+      const standR = 0.45 * P.LL + 0.25 * P.TL, kicker = me.wKick >= me.wPeck;
+      if (gap < me.kickR * 0.8 && rag.planted > 0) opts.push(['kick', me.wKick * (me.stam > COST.kick * 2 ? 1 : 0.4) * (gap > standR && !kicker ? 0.45 : 1)]);
+      if (!headOk && !bodyOk && gap > standR && !kicker) opts.push(['close', Math.max(me.wPeck, me.wPunch) * 0.45]);
       if (rag.hands.length && gap < P.armL + 0.2 * P.TL) opts.push(['punch', me.wPunch]);
       if (me.wWing > 0 && gap < P.WL * 0.6) opts.push(['buffet', me.wWing]);
       if (gap < P.TD * 0.6 + 4) opts.push(['shove', 0.6 + 2 * clamp(P.massRel / foe.P.massRel - 1, 0, 1.5) + (this.inMud(fr) ? 1.5 : 0)]);
       if (!opts.length) return;
       const pick = rng.weighted(opts, (o) => o[1] * o[1])[0];
+      if (pick === 'close') { me.cd = 0.2 + 0.2 * rng.next(); return; } // step in, and think again in a moment
       const cost = COST[pick] / Math.pow(P.muscle, 0.3) * (me.frenzy > 0 ? 1.3 : 1);
       if (me.stam < cost) { me.resting = true; return; }
       let ok = false;

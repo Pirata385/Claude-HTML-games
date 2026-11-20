@@ -1800,3 +1800,43 @@ test('every bit of a big island is land, even where it reaches over into the nex
     assert.notStrictEqual(RB.world.biomeAt(w, x, y), 'water');
   }
 });
+
+test('bets pay by the odds: little on the favourite, a lot on the underdog; a lost bet that leaves too little sends you to muck out', () => {
+  const r = new Rng(271), strong = RB.pheno.express(RB.species.make('gamecock', r, { sport: 0 }), { train: { muscle: 0.15, reflex: 0.15, lungs: 0.15, courage: 0.15 } });
+  const weak = RB.pheno.express(RB.species.make('quail', r, { sport: 0 }));
+  const p = EC.winChance(strong, weak);
+  assert.ok(p > 0.8 && EC.winChance(weak, strong) < 0.2, 'the house sees who is stronger');
+  assert.ok(EC.winChance(strong, strong) === 0.5 && EC.winChance(strong, weak, 0.2, 1) < p, 'and who is hurt');
+  assert.ok(EC.betReturn(p) <= 1.5 && EC.betReturn(p) >= 1.2, 'the favourite pays little');
+  assert.strictEqual(EC.betReturn(0.5), 2.4);
+  assert.strictEqual(EC.betReturn(1 - p), 4, 'the underdog pays most, up to four times');
+  assert.ok(EC.betReturn(0.85) < EC.BET_RETURN, 'less than the old flat three times on a favourite');
+  // settling
+  const S = ST.create(271); S.money = 100;
+  assert.strictEqual(EC.settleBet(S, { side: 0, amount: 50, mult: 0.4 }, 0), 70);
+  assert.strictEqual(S.money, 170);
+  S.money = 40; EC.settleBet(S, { side: 1, amount: 30, mult: 1 }, 0);
+  assert.ok(!S.mustMuck, '$40 still buys an entry ($' + EC.minEntry() + ')');
+  S.money = 10; EC.settleBet(S, { side: 1, amount: 30, mult: 1 }, 0);
+  assert.ok(S.mustMuck, 'down to $10 after a lost bet: off to the henhouse');
+  assert.strictEqual(EC.minEntry(), 15);
+});
+
+test('long-legged peckers (herons, flamingos) leap in with flying kicks far less, and land their blows', () => {
+  const Rag = RB.creature.Rag, orig = Rag.prototype.startKick, origP = Rag.prototype.startPeck;
+  const n = { kick: 0, peck: 0 };
+  Rag.prototype.startKick = function (...a) { const ok = orig.apply(this, a); if (ok !== false && this._me) n.kick++; return ok; };
+  Rag.prototype.startPeck = function (...a) { const ok = origP.apply(this, a); if (ok !== false && this._me) n.peck++; return ok; };
+  let hits = 0, swings = 0, decisions = 0;
+  try {
+    for (let s = 1; s <= 10; s++) {
+      const A = RB.pheno.express(RB.species.make('heron', new Rng(s), { sport: 0 })), B = RB.pheno.express(RB.species.make('chicken', new Rng(s + 50), { sport: 0 }));
+      const f = new RB.fight.Fight({ a: { P: A }, b: { P: B }, mode: 'grain', seed: s }); f.fighters[0].rag._me = true;
+      const res = f.run(); if (res.how === 'decision') decisions++;
+      hits += f.events.filter((e) => e.type === 'hit' && e.side === 0).length; swings += f.events.filter((e) => e.type === 'swing' && e.side === 0).length;
+    }
+  } finally { Rag.prototype.startKick = orig; Rag.prototype.startPeck = origP; }
+  assert.ok(n.peck > n.kick, 'more pecks (' + n.peck + ') than flying kicks (' + n.kick + ')');
+  assert.ok(hits / swings > 0.4, 'most swings land: ' + hits + '/' + swings);
+  assert.ok(decisions <= 2, 'bouts are settled, not run out on the clock by a bird hopping about: ' + decisions + ' of 10 went to a decision');
+});

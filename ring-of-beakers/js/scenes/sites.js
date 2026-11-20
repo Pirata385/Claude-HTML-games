@@ -286,16 +286,17 @@
     common.pick('Who fights?', all, (c) => betWindow(card, arena, opp, c), (c) => { const why = EC.canEnter(S, c, card); return { text: why || RB.pheno.WEIGHT_CLASSES[ST.pheno(c).weightClass][0] + 'weight · ' + c.wins + '–' + c.losses, ok: !why, label: 'Send in' }; });
     void list;
   }
-  // Before the bell: the two fighters' numbers side by side, and a bet. Nobody posts odds any more,
-  // so you judge the birds yourself; a winning bet pays back three times the stake.
+  // Before the bell: the two fighters' numbers side by side, and a bet. The house pays by its guess at
+  // each side's chance (economy.js: betReturn): little on the favourite, a lot on the underdog.
   const STATS = [['power', 'Power'], ['speed', 'Speed'], ['tough', 'Toughness'], ['stamina', 'Stamina'], ['guts', 'Guts'], ['wits', 'Wits'], ['fury', 'Fury']];
   function betWindow(card, arena, opp, c, exhibit) {
     let stake = 0, side = 0;
     const cap = arena ? arena.betCap : Math.max(100, card.fee * 5);
     const A = c ? { P: ST.pheno(c), name: c.name, hp: c.hp } : { P: exhibit.a.P, name: exhibit.a.name, hp: 1 };
     const B = { P: opp.P, name: opp.name, hp: 1 };
+    const pA = EC.winChance(A.P, B.P, A.hp, B.hp), pays = [EC.betReturn(pA), EC.betReturn(1 - pA)];
     ui.open({ draw() {
-      const box = ui.window((exhibit ? 'Place a bet' : 'Before the bell') + ' · wins pay ' + EC.BET_RETURN + '×', 400, exhibit ? 450 : 410, {});
+      const box = ui.window(exhibit ? 'Place a bet' : 'Before the bell', 400, exhibit ? 450 : 410, {});
       if (!box) return;
       const H = box.h, ph = H > 330 ? 62 : 44, sideH = exhibit ? 40 : 0;
       const rows = STATS.length + 1, rowH = clamp((H - ph - 30 - sideH - 58 - 50 - 6) / rows, 10, 16);
@@ -308,8 +309,8 @@
       ui.text(B.name, box.x + pw + 50 + pw / 2, y, { size: 13, align: 'center', maxW: pw });
       y += 13;
       const sub = (F) => F.P.species.name + ' · ' + common.fmtKg(F.P.weightKg);
-      ui.text(sub(A), box.x + pw / 2, y, { size: 10, align: 'center', bold: false, maxW: pw });
-      ui.text(sub(B), box.x + pw + 50 + pw / 2, y, { size: 10, align: 'center', bold: false, maxW: pw });
+      ui.text(sub(A) + ' · pays ' + pays[0] + '×', box.x + pw / 2, y, { size: 10, align: 'center', bold: false, maxW: pw });
+      ui.text(sub(B) + (exhibit ? ' · pays ' + pays[1] + '×' : ''), box.x + pw + 50 + pw / 2, y, { size: 10, align: 'center', bold: false, maxW: pw });
       y += 5;
       // the numbers: each bar grows out from the middle, longer is better
       const bw = box.w / 2 - 72, fs = Math.min(10, rowH - 2); // room for the numbers at both ends
@@ -334,13 +335,13 @@
         y += sideH;
       }
       const max = Math.max(0, Math.min(cap, S.money - (exhibit ? 0 : card.fee)));
-      ui.text(stake ? 'Bet $' + stake + ' on ' + (side ? B.name : A.name) + ': win $' + stake * EC.BET_RETURN + ' back' : 'No bet (up to $' + max + ' here)', box.x, y + 13, { size: 13, maxW: box.w });
+      ui.text(stake ? 'Bet $' + stake + ' on ' + (side ? B.name : A.name) + ': win $' + Math.round(stake * pays[side]) + ' back (' + pays[side] + '×)' : 'No bet (up to $' + max + ' here)', box.x, y + 13, { size: 13, maxW: box.w });
       [0, 0.25, 0.5, 1].forEach((f, i) => { const sw = (box.w - 18) / 4, v = Math.floor(max * f / 5) * 5; if (ui.btn(box.x + i * (sw + 6), y + 20, sw, 32, i === 0 ? 'None' : '$' + v, { fill: pal.mustard, color: pal.ink, size: 12, disabled: i > 0 && v <= 0 })) stake = v; });
       const fee = exhibit ? 0 : card.fee;
       if (ui.btn(box.x, box.y + box.h - 44, box.w, 44, exhibit ? (stake ? 'Bet and watch' : 'Just watch') : 'Fight!' + (fee ? ' (entry $' + fee + ')' : ''), { fill: pal.coral, disabled: S.money < fee + stake, key: 'Enter' })) {
         S.money -= fee + stake;
         ui.closeAll();
-        RB.game.go('ring', { a: c ? { c } : exhibit.a, b: opp, card, arena, bet: { side, amount: stake, mult: EC.BET_RETURN - 1 }, back: 'site', backArgs: { site: site.id } });
+        RB.game.go('ring', { a: c ? { c } : exhibit.a, b: opp, card, arena, bet: { side, amount: stake, mult: pays[side] - 1 }, back: 'site', backArgs: { site: site.id } });
       }
     } });
   }

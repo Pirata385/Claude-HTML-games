@@ -67,9 +67,12 @@
   };
 
   // ---- flat broke: off to muck out a henhouse for $50
+  // Off to muck out Dona Cida's henhouse: when not a coin is left, or when a lost bet leaves too
+  // little to enter even the cheapest bout (S.mustMuck, set when the bet is settled).
   common.checkBroke = function (S, back) {
-    if (S.money > 0 || RB.game.pending || ui.modals.length || RB.game.slot === undefined) return false;
-    ui.message('Flat broke', 'Not a coin to your name. Dona Cida at Feed & Seed pays $50 to muck out her henhouse, and she is not fussy about who does it.', () => RB.game.go('chores', { back }), { ok: 'Grab a shovel', head: pal.brick });
+    if ((S.money > 0 && !S.mustMuck) || RB.game.pending || ui.modals.length || RB.game.slot === undefined) return false;
+    const why = S.money > 0 ? 'That bet cost you dear: $' + S.money + ' left, not enough to enter even the cheapest bout ($' + RB.economy.minEntry() + ').' : 'Not a coin to your name.';
+    ui.message('Flat broke', why + ' Dona Cida at Feed & Seed pays $50 to muck out her henhouse, and she is not fussy about who does it.', () => RB.game.go('chores', { back }), { ok: 'Grab a shovel', head: pal.brick });
     return true;
   };
 

@@ -33,10 +33,15 @@ public class MainActivity extends Activity {
 
     // Injected at the top of the game's <head> (only inside the app, the game files are untouched).
     // It keeps hold of every AudioContext (sound effects, bird calls) and every <audio> element (the
-    // recorded music) the game plays, so the app can silence them while in the background. While the
-    // app is paused, play() is held back and remembered; on return, whatever was playing plays on.
+    // recorded music, when it is not played through Web Audio) the game plays, so the app can silence
+    // them while in the background. While the app is paused, AudioContext.resume() and play() are held
+    // back and remembered (the game resumes its music on any tap); on return, whatever was playing, or
+    // was asked to play, plays on.
     private static final String PAUSE_HOOK = "<script>(function(){"
             + "var ctxs=[],media=new Set(),paused=false,wasCtx=[],wasMedia=[];"
+            + "function hold(C){var P=C&&C.prototype;if(!P||!P.resume||P.__rbHeld)return;var r=P.resume;P.__rbHeld=r;"
+            + "P.resume=function(){if(paused){if(wasCtx.indexOf(this)<0)wasCtx.push(this);return Promise.resolve();}return r.apply(this,arguments);};}"
+            + "hold(window.AudioContext);hold(window.webkitAudioContext);"
             + "function wrap(C){if(!C)return C;function W(a,b){var c=arguments.length>1?new C(a,b):arguments.length?new C(a):new C();"
             + "ctxs.push(c);if(paused&&c.suspend)c.suspend();return c;}W.prototype=C.prototype;return W;}"
             + "if(window.AudioContext)window.AudioContext=wrap(window.AudioContext);"

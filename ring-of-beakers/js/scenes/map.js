@@ -497,14 +497,18 @@
         w.t -= dt;
         if (w.state === 'graze' || w.state === 'walk' || w.state === 'eat') {
           const alertR = (250 + 240 * P.focus) * (sp < 90 ? 0.55 : 1) * (w.state === 'eat' ? 0.45 : 1);
-          if (d < alertR) {
+          if (d < alertR && !w.own) { // the birds of your own islands know the truck: they neither run nor charge
             if (w.mean && rng.chance(0.6)) { w.state = 'charge'; w.t = 4; }
             else if (P.canFly && rng.chance(0.75)) { w.state = 'fly'; w.t = rng.range(2.4, 4); w.dir = Math.atan2(dy, dx) + rng.range(-0.7, 0.7); RB.audio.voice(P.voice, 'squawk'); }
             else { w.state = 'flee'; w.t = 1; if (rng.chance(0.4)) RB.audio.voice(P.voice, 'cluck'); }
           } else if (w.state === 'graze') {
             const seed = seeds.find((s) => Math.hypot(s.x - w.x, s.y - w.y) < 520);
             if (seed && P.hook < 0.7) { w.state = 'walk'; w.tx = seed.x + rng.range(-30, 30); w.ty = seed.y + rng.range(-20, 20); w.lured = true; w.t = 9; }
-            else if (w.t <= 0) { w.state = 'walk'; w.tx = w.x + rng.range(-260, 260); w.ty = w.y + rng.range(-200, 200); w.t = 6; w.lured = false; }
+            else if (w.t <= 0) {
+              const tx = w.x + rng.range(-260, 260), ty = w.y + rng.range(-200, 200);
+              if (biomeBlocked(tx, ty, P)) w.t = rng.range(0.5, 1.5); // that way is water: stay a moment, then look another way
+              else { w.state = 'walk'; w.tx = tx; w.ty = ty; w.t = 6; w.lured = false; }
+            }
           } else if (w.state === 'walk') {
             const ex = w.tx - w.x, ey = w.ty - w.y, ed = Math.hypot(ex, ey);
             if (ed < 16 || w.t <= 0) { w.state = w.lured ? 'eat' : 'graze'; w.t = w.lured ? 9 : rng.range(1.5, 5); }
@@ -526,7 +530,13 @@
           if (d < 62) { stun = 0.8; car.vx = -dx / d * -260; car.vy = -dy / d * -260; RB.audio.play('thud'); RB.audio.voice(P.voice, 'squawk'); puff(car.x, car.y - 40, 6, pal.paper, 'HONK!'); w.state = 'flee'; w.t = 2.5; if (!warned) { warned = true; ui.toast('That one fights back. Imagine it in the ring.', pal.coral); } }
           else if (w.t <= 0 || d > 800) { w.state = 'graze'; w.t = 2; }
         } else if (w.state === 'trapped') { if (w.t <= 0) { w.state = 'flee'; w.t = 2; } }
-        if (biomeBlocked(w.x + vx * dt, w.y + vy * dt, P)) { vx = -vx * 0.5; vy = -vy * 0.5; if (w.state === 'walk') w.state = 'graze'; }
+        // water ahead: slide along the shore if one way is still dry, or stop (bouncing back every frame
+        // left birds shaking on the spot at the water's edge)
+        if ((vx || vy) && biomeBlocked(w.x + vx * dt, w.y + vy * dt, P)) {
+          if (!biomeBlocked(w.x + vx * dt, w.y, P)) vy = 0;
+          else if (!biomeBlocked(w.x, w.y + vy * dt, P)) vx = 0;
+          else { vx = 0; vy = 0; if (w.state === 'walk') { w.state = 'graze'; w.t = rng.range(1, 3); } }
+        }
         // mainland animals keep to the mainland; island birds roam their own island (water stops them)
         if (w.island) { w.x += vx * dt; w.y += vy * dt; }
         else { w.x = clamp(w.x + vx * dt, 60, WD.W - 60); w.y = clamp(w.y + vy * dt, 60, WD.H - 60); }
@@ -787,7 +797,7 @@
     }
   }
   function biomeBlocked(x, y, P) { return P.web < 0.5 && WD.biomeAt(world, x, y) === 'water'; }
-  function honk() { RB.audio.play('horn'); for (const w of wild) if (Math.hypot(w.x - car.x, w.y - car.y) < 700 && (w.state === 'graze' || w.state === 'walk' || w.state === 'eat')) { w.state = 'flee'; w.t = 1.5; } }
+  function honk() { RB.audio.play('horn'); for (const w of wild) if (!w.own && Math.hypot(w.x - car.x, w.y - car.y) < 700 && (w.state === 'graze' || w.state === 'walk' || w.state === 'eat')) { w.state = 'flee'; w.t = 1.5; } }
   function dropSeed() {
     if (!ST.take(S, 'seed')) { ui.toast('No seed.', pal.coral); return; }
     seeds.push({ x: car.x + car.f * 60, y: car.y + 20, t: 40 }); RB.audio.play('click');

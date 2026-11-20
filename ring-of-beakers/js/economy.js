@@ -194,9 +194,30 @@
     if (!card.open && P.weightClass > card.wc) return 'Too heavy for ' + RB.pheno.WEIGHT_CLASSES[card.wc][0] + 'weight.';
     return '';
   }
-  // Betting: nobody posts odds, so read the fighters' numbers and trust your eye. A winning bet pays
-  // back three times the stake (twice the stake in winnings), whichever side you backed.
-  const BET_RETURN = 3;
+  // Betting. The house reads the two fighters' numbers (fightScore, and how hurt they are) and pays
+  // by its guess at each side's chance: the favourite pays little, an even bout about double, the
+  // underdog up to four times the stake. It pays a little over the odds, so a good eye still comes
+  // out ahead over time, but no longer by much. (It used to pay three times the stake on any winner,
+  // and backing the favourite of every exhibition, which you can watch all day, made a fortune.)
+  const BET_RETURN = 3; // the most an older build paid; kept for older callers
+  const BET_EDGE = 1.2, BET_MIN = 1.2, BET_MAX = 4, BET_SPREAD = 35;
+  // The house's guess at the chance that A beats B (hpA, hpB: health left, 0..1).
+  function winChance(PA, PB, hpA, hpB) {
+    const sa = fightScore(PA) * (0.6 + 0.4 * (hpA === undefined ? 1 : hpA)), sb = fightScore(PB) * (0.6 + 0.4 * (hpB === undefined ? 1 : hpB));
+    return 1 / (1 + Math.exp(-(sa - sb) / BET_SPREAD));
+  }
+  // What a winning bet on a side with chance p pays back, stake included (to one decimal).
+  const betReturn = (p) => Math.round(clamp(BET_EDGE / Math.max(0.01, p), BET_MIN, BET_MAX) * 10) / 10;
+  // The cheapest entry to a bout anywhere: lose a bet and fall below it, and it is time to muck out.
+  const minEntry = () => Math.min(...ARENAS.map((a) => Math.round(a.fee * 0.85 / 5) * 5));
+  // Settle a bet once the bout is over (the stake was paid when it was placed). A lost bet that leaves
+  // too little for any entry fee sends you to muck out the henhouse (common.checkBroke). Returns the payout.
+  function settleBet(S, bet, winner) {
+    if (!bet || !(bet.amount > 0)) return 0;
+    if (bet.side === winner) { const pay = Math.round(bet.amount * (1 + bet.mult)); S.money += pay; S.stats.earned += pay - bet.amount; return pay; }
+    if (S.money < minEntry()) S.mustMuck = true;
+    return 0;
+  }
 
   // ---- sideshow
   const SHOWS = [
@@ -219,5 +240,5 @@
   }
 
   RB.economy = { everWon, bossOf, addArena, value, bfcSpecial, bfcIsSpecial, bfcPrice, ARENAS, ARENA, TRAINERS, speciesByClass, leagueOf, arenaOpen, makeOpponent, makeBoss, cards, opponentFor, exhibition, exhibitionDone,
-    canEnter, BET_RETURN, fightScore, SHOWS, dashTime, hopHeight, pageantScore, showOfDay };
+    canEnter, BET_RETURN, winChance, betReturn, minEntry, settleBet, fightScore, SHOWS, dashTime, hopHeight, pageantScore, showOfDay };
 })();

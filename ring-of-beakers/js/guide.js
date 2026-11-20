@@ -56,7 +56,7 @@
       if (WD.FOSSIL_BIOME.coast === set) for (const f of [0.2, 0.5, 0.8]) add(WD.W * f, WD.seaY(world, WD.W * f) - 320, 'The coast');
       if (WD.QUARRY_SETS.some((e) => e[0] === set) && world.site.quarry) add(world.site.quarry.x, world.site.quarry.y + WD.QUARRY_DY, 'Bone Quarry');
       // islands: the sea's own fossils lie under every island, the others under islands of their land
-      for (const is of islands) if (RB.sea.SEA_FOSSILS.includes(set) || WD.FOSSIL_BIOME[is.main] === set) add(is.x, is.y, is.name);
+      for (const is of islands) if (RB.sea.SEA_FOSSILS.includes(set) || WD.FOSSIL_BIOME[is.main] === set || (WD.FOSSIL_ALSO && WD.FOSSIL_ALSO[is.main] === set)) add(is.x, is.y, is.name);
     } else if (cat.startsWith('bird:')) {
       const id = cat.slice(5);
       for (const is of islands) if (is.fauna.day.some((e) => e[0] === id)) add(is.x, is.y, is.name);

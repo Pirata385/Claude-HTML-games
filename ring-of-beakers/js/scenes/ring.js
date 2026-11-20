@@ -10,7 +10,12 @@
   const CMD = [['sic', 'Sic \'em!', 'bolt', pal.coral, 'Digit1'], ['back', 'Back off!', 'shield', pal.teal, 'Digit2'], ['whistle', 'Whistle', 'whistle', pal.mustard, 'Digit3']];
   const CROWD = ['#e76f51', '#2a9d8f', '#e9b44c', '#6d4c7d', '#7fb069', '#3d6fa5', '#d98cab', '#f2efe6'];
 
-  let A, fight, phase, pt, cam, parts, flash, seen, mine, speed, shake, bubbles, rng, settled, lines, cheer;
+  let A, fight, phase, pt, cam, parts, flash, seen, mine, speed, shake, bubbles, rng, settled, lines, cheer, impact;
+  // Impact frames: when a flying kick lands, the bout freezes for a moment and two stark frames flash
+  // up (black with white cut-outs, then white with black), speed lines bursting from the blow.
+  // Settings can switch them off.
+  const IMPACT_FRAMES = 0.2, IMPACT_LEN = 0.45;
+  const impactOn = () => !RB.game.settings || RB.game.settings.impactFrames !== false;
 
   function boom(x, y, n, col, kind) {
     for (let i = 0; i < n; i++) { const a = rng.range(0, TAU), s = rng.range(40, 260); parts.push({ x, y, vx: Math.cos(a) * s, vy: Math.sin(a) * s - 90, life: rng.range(0.5, 1.1), col, kind: kind || 'feather', rot: rng.range(0, TAU), vr: rng.range(-8, 8), size: rng.range(0.7, 1.3) }); }
@@ -57,14 +62,37 @@
       ST.fameCheck(S);
     }
     if (A.bet && A.bet.amount > 0) {
-      if (A.bet.side === r.winner) { const pay = Math.round(A.bet.amount * (1 + A.bet.mult)); S.money += pay; S.stats.earned += pay - A.bet.amount; out.push(['Bet won', pay]); }
-      else out.push(['Bet lost', -A.bet.amount]);
+      const pay = EC.settleBet(S, A.bet, r.winner); // a lost bet that leaves too little for any entry: off to muck out
+      out.push(pay ? ['Bet won', pay] : ['Bet lost', -A.bet.amount]);
     }
     if (card.exh) EC.exhibitionDone(S, card.exh.arena, card.exh.slot);
     else if (card.key) S.bets[card.key] = S.day;
     common.checkAch(S);
     RB.game.save();
     return out;
+  }
+
+  // The impact frames themselves, in the arena's frame: two stark frames, then a shockwave.
+  function drawImpact(ctx, F, L, X0, XW) {
+    const t = impact.t;
+    if (t < IMPACT_FRAMES) {
+      const dark = t < IMPACT_FRAMES / 2, bg = dark ? '#0b0b12' : '#fdfbf3', fg = dark ? '#fdfbf3' : '#0b0b12';
+      ctx.fillStyle = bg; ctx.fillRect(X0, -L * 14, XW, L * 22);
+      ctx.strokeStyle = fg; ctx.lineCap = 'round';
+      for (let i = 0; i < 32; i++) { // speed lines bursting out of the blow
+        const a = impact.seed + i * TAU / 32 + (i % 2) * 0.06, r0 = L * (0.28 + 0.12 * (i % 3)), r1 = L * (2.5 + (i % 4) * 0.9);
+        ctx.lineWidth = L * (0.01 + 0.018 * ((i * 7) % 3));
+        ctx.beginPath(); ctx.moveTo(impact.x + Math.cos(a) * r0, impact.y + Math.sin(a) * r0); ctx.lineTo(impact.x + Math.cos(a) * r1, impact.y + Math.sin(a) * r1); ctx.stroke();
+      }
+      for (let s = 0; s < 2; s++) RB.art.drawCreature(ctx, F[s].P, F[s].rag.getPose(), { sil: fg }); // the two fighters as cut-outs
+      ctx.fillStyle = fg; ctx.beginPath(); // a starburst where it landed
+      for (let k = 0; k < 16; k++) { const r = L * (k % 2 ? 0.12 : 0.32), b = impact.seed + k * Math.PI / 8; ctx.lineTo(impact.x + Math.cos(b) * r, impact.y + Math.sin(b) * r); }
+      ctx.closePath(); ctx.fill();
+    } else { // then the shockwave rolls out
+      const u = (t - IMPACT_FRAMES) / (IMPACT_LEN - IMPACT_FRAMES);
+      ctx.strokeStyle = 'rgba(255,255,255,' + (0.85 * (1 - u)).toFixed(2) + ')'; ctx.lineWidth = L * 0.05 * (1 - u) + 0.5;
+      ctx.beginPath(); ctx.arc(impact.x, impact.y, L * (0.3 + 1.6 * u), 0, TAU); ctx.stroke();
+    }
   }
 
   RB.scenes.ring = {
@@ -78,13 +106,14 @@
       const a = mine ? { P: ST.pheno(A.a.c), name: A.a.c.name, auto: false, bond: A.a.c.bond, gear: A.a.c.gear ? { [A.a.c.gear]: true } : {}, hpFrac: A.a.c.hp, fired: A.a.c.buff === 'chili' } : { P: A.a.P, name: A.a.name, gear: A.a.gear || {} };
       const b = { P: A.b.P, name: A.b.name, gear: A.b.gear || {} };
       fight = new RB.fight.Fight({ a, b, mode: card.mode || 'pit', seed: rng.int(1, 2e9), timeLimit: 60 });
-      phase = 'intro'; pt = 0; parts = []; flash = [0, 0]; seen = 0; shake = 0; bubbles = []; settled = false; lines = []; cheer = 0;
+      phase = 'intro'; pt = 0; parts = []; flash = [0, 0]; seen = 0; shake = 0; bubbles = []; settled = false; lines = []; cheer = 0; impact = null;
       speed = RB.game.settings.fast ? 2 : 1;
       cam = { x: 0, z: 0.5 };
       RB.audio.setTune(A.card && A.card.boss ? 'boss' : 'fight');
     },
     update(dt) {
       pt += dt; shake = Math.max(0, shake - dt * 5); cheer = Math.max(0, cheer - dt);
+      if (impact && !impact.pinned) { impact.t += dt; if (impact.t > IMPACT_LEN) impact = null; }
       for (let s = 0; s < 2; s++) flash[s] = Math.max(0, flash[s] - dt * 5);
       if (phase === 'intro') { if (pt > 1.7) { phase = 'fight'; pt = 0; RB.audio.play('bell'); } }
       else if (phase === 'fight') {
@@ -105,7 +134,12 @@
           text(e.x, e.y - 10, String(Math.max(1, Math.round(e.dmg))), e.crit ? pal.coral : pal.ink, e.crit ? 1.5 : 1);
           RB.audio.play(e.crit ? 'crit' : e.weapon === 'beak' ? 'peck' : e.weapon === 'body' || e.weapon === 'wing' ? 'thud' : 'kick');
           cheer = 0.5;
+          if (e.fly) { // a flying kick lands
+            cheer = 1.4; shake = 1; boom(e.x, e.y, 14, pal.white, 'star'); RB.audio.play('crit');
+            if (impactOn()) { impact = { t: 0, x: e.x, y: e.y, seed: rng.next() * TAU }; fight.hitStop = Math.max(fight.hitStop, 0.34); }
+          }
         } else if (e.type === 'down') { const r = F[e.side].rag; boom(r.midX(), 0, 8, '#d9c39a', 'dust'); RB.audio.play('thud'); }
+        else if (e.type === 'flykick') { const r = F[e.side].rag; text(r.head.x, r.head.y - 26, 'FLYING KICK!', pal.coral, 1.5); RB.audio.play('whoosh'); RB.audio.voice(F[e.side].P.voice, 'squawk'); }
         else if (e.type === 'dodge') { const r = F[e.side].rag; text(r.head.x, r.head.y - 20, 'dodge!', pal.teal); RB.audio.play('whoosh'); }
         else if (e.type === 'flee') { const r = F[e.side].rag; text(r.head.x, r.head.y - 24, 'chickens out!', pal.coral, 1.2); RB.audio.voice(F[e.side].P.voice, 'squawk'); }
         else if (e.type === 'cmd') { bubbles.push({ side: e.side, str: e.obey ? CMD.find((c) => c[0] === e.cmd)[1] : '...ignored', t: 1.4, ok: e.obey }); if (e.cmd === 'whistle') RB.audio.play('whistle'); }
@@ -218,6 +252,7 @@
         ctx.restore();
       }
       ctx.globalAlpha = 1;
+      if (impact) drawImpact(ctx, F, L, X0, XW); // over everything in the arena, the flying bits too
       ctx.restore();
 
       // ---- health, wind and nerve for each corner
@@ -278,6 +313,7 @@
       }
       void S; void lerp;
     },
-    debug() { return { fight, phase }; },
+    // (for checks) the bout, its phase, and the impact frames held at a moment (t in seconds; null lets go)
+    debug() { return { fight, phase, impact: () => impact, pin: (t) => { if (impact && t !== null) { impact.t = t; impact.pinned = true; } else if (impact) impact.pinned = false; if (fight) fight.hitStop = t === null ? 0 : 99; } }; },
   };
 })();

@@ -68,10 +68,16 @@
       const wWing = P.wingSharp * BASE.wing;
       const best = Math.max(wPeck, wKick, wPunch, wWing);
       const prefer = best === wKick ? kickR * 0.7 : best === wPunch ? (P.armL + 0.2 * P.TL) * 0.8 : best === wWing ? P.WL * 0.45 : peckR * 0.8;
+      // Long-legged waders and stilt-walkers (herons, flamingos, cranes, storks, spoonbills, ibises,
+      // avocets, the secretary bird...): legs long for the body, and a leap that carries far past a
+      // standing kick. They should not fight by leaping about; they keep a flying kick for when the foe
+      // falls back (see brain).
+      const standR = 0.45 * P.LL + 0.25 * P.TL, leggy = P.legPairs === 1 && P.LLv / P.TL >= 1.25 && kickR / standR >= 3.5;
       return { side, P, rag, name: o.name || '', hp: P.hpMax * (o.hpFrac === undefined ? 1 : o.hpFrac), hpMax: P.hpMax, stam: P.stamMax, stamMax: P.stamMax,
         morale: o.gear && o.gear.scarf ? 100 : 55 + 45 * P.courage, cd: 0.4 + rng.next() * 0.5, think: rng.next() * 0.2, turnT: 0, want: 0, resting: false, flee: false, fleeT: 0,
         frenzy: o.fired ? 6 : 0, backoff: 0, focusNext: false, cmdCd: { sic: 0, back: 0, whistle: 0 }, auto: o.auto !== false, bond: o.bond || 0, gear: o.gear || {},
-        dmg: 0, downs: 0, hits: 0, stag: 0, lastHurt: -9, trainerT: 1 + rng.next(), peckR, kickR, wPeck, wKick, wPunch, wWing, prefer, tg: null };
+        dmg: 0, downs: 0, hits: 0, stag: 0, lastHurt: -9, trainerT: 1 + rng.next(), peckR, kickR, wPeck, wKick, wPunch, wWing, prefer, tg: null,
+        standR, leggy, fly: null, flyCd: 1.5 + 2 * rng.next(), flyKicks: 0 };
     }
     targets(fr) {
       const head = { x: 0, y: 0 }, body = { x: 0, y: 0 };
@@ -141,12 +147,22 @@
           fa.seen = true;
           if (me.stam >= COST.dodge && rng.chance((0.08 + 0.5 * P.cunning * Math.min(1, P.reflex)) * (this.dark > 0.5 ? this.sight(me) : 1))) {
             me.stam -= COST.dodge;
-            if (rng.chance(0.5) && this.roomBehind(me, dir) > P.TL) rag.hop(-dir * P.jumpV * 0.5, -P.jumpV * 0.35); else rag.startDuck(0.3);
+            // long legs leap far: a wader mostly ducks, and when it does hop back it is a short one
+            const hopBack = rng.chance(me.leggy ? 0.2 : 0.5) && this.roomBehind(me, dir) > P.TL, hk = me.leggy ? 0.55 : 1;
+            if (hopBack) rag.hop(-dir * P.jumpV * 0.5 * hk, -P.jumpV * 0.35 * hk); else rag.startDuck(0.3);
             this.events.push({ type: 'dodge', side: me.side });
           }
         }
+        // The flying kick: when the foe falls back, a long-legged bird falls back a step too, then
+        // throws itself at it feet first, with everything it has.
+        const away = (fr.vx() * dir > 40 && fr.state === 'stand') || foe.want < -0.2 || foe.backoff > 0 || foe.flee;
+        if (me.leggy && !me.fly && me.flyCd <= 0 && away && st === 'stand' && !rag.act && !me.resting && !me.flee && me.backoff <= 0 && rag.f === dir
+          && gap > me.standR * 1.6 && gap < me.kickR * 0.8 && me.stam > COST.kick * 3) { // from a few lengths off, not up close
+          me.fly = { t: 0.28 + 0.14 * rng.next() };
+          this.events.push({ type: 'flyready', side: me.side });
+        }
         // attack
-        if (me.cd <= 0 && !rag.act && rag.state === 'stand' && !me.resting && me.backoff <= 0 && !me.flee && rag.f === dir) this.attack(me, foe, gap, dir);
+        if (!me.fly && me.cd <= 0 && !rag.act && rag.state === 'stand' && !me.resting && me.backoff <= 0 && !me.flee && rag.f === dir) this.attack(me, foe, gap, dir);
 
         // movement
         let want;
@@ -160,6 +176,23 @@
         if (g && (me.resting || me.backoff > 0 || me.stam < 0.6 * me.stamMax)) want = Math.sign(g.x - rag.midX()) * dir * 0.9;
         if (want < 0 && this.roomBehind(me, dir) < P.TL * 0.7) want = 0; // back to the wall
         me.want = want;
+      }
+      if (me.fly) { // gathering for the flying kick: a step back, then the leap
+        me.fly.t -= DT;
+        me.want = this.roomBehind(me, dir) > P.TL * 0.7 ? -0.55 : 0;
+        if (st !== 'stand' || me.flee) me.fly = null;
+        else if (me.fly.t <= 0 && !rag.act && rag.planted > 0 && rag.f === dir) {
+          me.fly = null;
+          // aim where the foe is going (it is backing away), and at the body if it is a small one
+          // the leap is judged by eye: a bird with less focus misjudges it more often
+          const err = (rng.next() - 0.5) * foe.P.TL * 2.2 * (1.15 - P.focus);
+          const aim = foe.P.TL < P.TL * 0.6 || rng.chance(0.55) ? me.tg.body : me.tg.head, lead = () => { const q = aim(); return { x: q.x + fr.vx() * 0.3 + err, y: q.y }; };
+          if (rag.startKick(lead, 0.6)) { // a long, low leap rather than a high one
+            rag.act.fly = true; rag.act.v *= 1.3;
+            me.stam -= COST.kick * 1.6; me.flyCd = 5 + 4 * rng.next(); me.cd = Math.max(me.cd, 0.6); me.flyKicks++;
+            this.events.push({ type: 'flykick', side: me.side });
+          }
+        }
       }
       const sp = P.speedMax * (me.stam < 0.1 * me.stamMax ? 0.55 : 1) * (this.inMud(rag) ? 0.55 : 1);
       rag.vxDes = rag.act && rag.act.type === 'shove' ? dir * sp : me.want * dir * sp;
@@ -229,12 +262,19 @@
       const dHead = Math.hypot(fr.head.x - rag.C.x, fr.head.y - rag.C.y), b = me.tg.body(), dBody = Math.hypot(b.x - rag.C.x, b.y - rag.C.y) - foe.P.TD * 0.4;
       const headOk = dHead < me.peckR, bodyOk = dBody < me.peckR;
       if (headOk || bodyOk) opts.push(['peck', me.wPeck]);
-      if (gap < me.kickR * 0.8 && rag.planted > 0) opts.push(['kick', me.wKick * (me.stam > COST.kick * 2 ? 1 : 0.4)]);
+      // A kick reaches as far as a leap carries, and long legs leap a long way (a heron's or a
+      // flamingo's from five body lengths off). From beyond a standing kick, that flying kick is for
+      // birds that fight with their feet; the others mostly close in to peck instead (they used to
+      // leap in from afar again and again, and seldom landed a blow).
+      const standR = me.standR, restrain = me.wKick < me.wPeck || me.leggy; // peckers, and every long-legged wader
+      if (gap < me.kickR * 0.8 && rag.planted > 0) opts.push(['kick', me.wKick * (me.stam > COST.kick * 2 ? 1 : 0.4) * (gap > standR && restrain ? (me.leggy ? 0.3 : 0.45) : 1)]);
+      if (!headOk && !bodyOk && gap > standR && restrain) opts.push(['close', Math.max(me.wPeck, me.wPunch, me.leggy ? me.wKick * 0.7 : 0) * 0.45]);
       if (rag.hands.length && gap < P.armL + 0.2 * P.TL) opts.push(['punch', me.wPunch]);
       if (me.wWing > 0 && gap < P.WL * 0.6) opts.push(['buffet', me.wWing]);
       if (gap < P.TD * 0.6 + 4) opts.push(['shove', 0.6 + 2 * clamp(P.massRel / foe.P.massRel - 1, 0, 1.5) + (this.inMud(fr) ? 1.5 : 0)]);
       if (!opts.length) return;
       const pick = rng.weighted(opts, (o) => o[1] * o[1])[0];
+      if (pick === 'close') { me.cd = 0.2 + 0.2 * rng.next(); return; } // step in, and think again in a moment
       const cost = COST[pick] / Math.pow(P.muscle, 0.3) * (me.frenzy > 0 ? 1.3 : 1);
       if (me.stam < cost) { me.resting = true; return; }
       let ok = false;
@@ -247,7 +287,10 @@
         tHead = off(tHead); tBody = off(tBody);
       }
       if (pick === 'peck') ok = rag.startPeck(headOk && (aimHead || !bodyOk) ? tHead : tBody, me.stam < 0.25 * me.stamMax ? 1.5 : 1);
-      else if (pick === 'kick') ok = rag.startKick(aimHead && P.jumpV > 220 ? tHead : tBody);
+      else if (pick === 'kick') { // a long-legged wader kicks with a little hop, not a great leap
+        ok = rag.startKick(aimHead && P.jumpV > 220 ? tHead : tBody, me.leggy ? 0.45 : undefined);
+        if (ok && me.leggy) rag.act.low = true;
+      }
       else if (pick === 'punch') ok = rag.startPunch(aimHead ? tHead : tBody);
       else if (pick === 'buffet') ok = rag.startBuffet();
       else ok = rag.startShove();
@@ -329,6 +372,9 @@
     onHit(att, def, w, hit, rel, x, y, ux, uy) {
       const A = att.P, D = def.P, rng = this.rng;
       const sharp = w === 'beak' ? A.peckSharp : w === 'foot' ? A.kickSharp : w === 'fist' ? A.punchSharp : w === 'wing' ? A.wingSharp : 0.18;
+      // a flying kick lands with the whole bird behind it, however gently the foot itself comes down
+      const fly = w === 'foot' && !!(att.rag.act && att.rag.act.fly);
+      if (fly) rel = Math.max(rel, REF.foot * 1.5);
       let dmg = BASE[w] * sharp * Math.pow(clamp(rel / REF[w], 0.25, 2.2), 1.1) * Math.pow(A.massRel, 0.38) * LOC[hit.part] * rng.range(0.85, 1.15) / Math.pow(D.hide, 0.6);
       const crit = hit.part === 'head';
       if (att.frenzy > 0) dmg *= 1.15;
@@ -342,10 +388,11 @@
       if (att.gear.wingwax && w === 'wing') dmg *= 1.2;
       if (att.gear.horseshoe && crit) dmg *= 1.15;
       if (def.gear.mail && !crit) dmg *= 0.85;
+      if (fly) dmg *= 1.4;
       def.hp -= dmg; att.dmg += dmg; att.hits++; def.lastHurt = this.t;
       if (this.roundDmg) this.roundDmg[att.side] += dmg / def.hpMax * 100;
       att.rag.act.hit = true;
-      const dv = Math.min(340, Math.pow(A.massRel, 0.9) * rel * KNOCK[w] / D.massRel);
+      const dv = Math.min(fly ? 420 : 340, Math.pow(A.massRel, 0.9) * rel * KNOCK[w] / D.massRel * (fly ? 1.4 : 1));
       def.rag.push(ux * dv, clamp(uy * dv * 0.5 - (w === 'foot' ? dv * 0.12 : 0), -170, 140), crit ? 'head' : 'body');
       if (w === 'beak') { att.rag.head.vx *= -0.2; att.rag.head.vy *= -0.2; }
       def.stag += dv / (420 * D.balance) * (this.inMud(def.rag) ? 1.6 : 1) * (def.gear.springs ? 0.8 : 1); // the mud takes your feet; spring boots keep them
@@ -357,14 +404,14 @@
       }
       const frac = dmg / def.hpMax * 100;
       def.morale -= frac * (1.5 - 1.1 * D.courage); att.morale = Math.min(100, att.morale + frac * 0.35);
-      this.events.push({ type: 'hit', x, y, dmg, weapon: w, part: hit.part, crit, side: att.side });
+      this.events.push({ type: 'hit', x, y, dmg, weapon: w, part: hit.part, crit, side: att.side, fly });
       this.hitStop = clamp(dmg / def.hpMax * 0.6, 0.02, 0.12);
       if (def.hp <= 0) { def.hp = 0; def.rag.ko(); this.finish(att.side, 'ko'); }
     }
 
     upkeep(me) {
       const P = me.P, rag = me.rag;
-      me.cd -= DT; me.frenzy = Math.max(0, me.frenzy - DT); me.backoff = Math.max(0, me.backoff - DT);
+      me.cd -= DT; me.flyCd -= DT; me.frenzy = Math.max(0, me.frenzy - DT); me.backoff = Math.max(0, me.backoff - DT);
       me.cmdCd.sic = Math.max(0, me.cmdCd.sic - DT); me.cmdCd.back = Math.max(0, me.cmdCd.back - DT); me.cmdCd.whistle = Math.max(0, me.cmdCd.whistle - DT);
       me.stag = Math.max(0, me.stag - DT * 0.45);
       const sp = Math.abs(rag.vx()) / Math.max(1, P.speedMax);

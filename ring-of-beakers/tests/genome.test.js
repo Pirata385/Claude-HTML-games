@@ -15,7 +15,7 @@ test('gene layout fills every locus exactly once', () => {
 
 test('trait mapping round-trips', () => {
   for (const def of G.TRAIT_LIST) {
-    if (def.switch) continue;
+    if (def.switch || def.shape) continue; // the bill shape is read letter by letter, not mapped
     for (const v of [0, 0.2, 0.5, 0.8, 1]) {
       const back = G.unmapTrait(def, G.mapTrait(def, v));
       assert.ok(Math.abs(back - v) < 1e-9, def.id + ' ' + v + ' -> ' + back);

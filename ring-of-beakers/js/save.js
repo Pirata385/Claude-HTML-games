@@ -10,9 +10,12 @@
   const set = (k, v) => { mem[k] = v; try { if (store) store.setItem(KEY + k, v); return true; } catch (e) { return false; } };
   const del = (k) => { delete mem[k]; try { if (store) store.removeItem(KEY + k); } catch (e) { /* nothing to remove */ } };
 
+  // Returns whether the browser kept it.
   function save(slot, S) {
-    const meta = { day: S.day, money: S.money, birds: S.birds.length, won: !!S.won, sandbox: !!S.sandbox };
-    return set('slot' + slot, JSON.stringify({ meta, data: RB.state.serialize(S) }));
+    try {
+      const meta = { day: S.day, money: S.money, birds: S.birds.length, won: !!S.won, sandbox: !!S.sandbox };
+      return set('slot' + slot, JSON.stringify({ meta, data: RB.state.serialize(S) }));
+    } catch (e) { return false; }
   }
   function info(slot) { try { const o = JSON.parse(get('slot' + slot) || 'null'); return o ? o.meta : null; } catch (e) { return null; } }
   function load(slot) { try { const o = JSON.parse(get('slot' + slot) || 'null'); return o ? RB.state.deserialize(o.data) : null; } catch (e) { return null; } }
@@ -30,7 +33,8 @@
   // goals: show the next goal as a hint at the top of the yard and the map
   // musicMode: 'always' (one track after another) or 'sometimes' (quiet stretches between the open-air tracks)
   // viewZoom: how far the road map sees, from 1 (the usual view) to 2 (twice as far)
-  const DEFAULTS = { sfx: 0.8, music: 0.5, fast: false, crispr: true, goals: true, musicMode: 'always', viewZoom: 1 };
+  // impactFrames: a flying kick that lands freezes the bout for a moment with two stark black-and-white frames
+  const DEFAULTS = { sfx: 0.8, music: 0.5, fast: false, crispr: true, goals: true, musicMode: 'always', viewZoom: 1, impactFrames: true };
   function settings() { try { return Object.assign({}, DEFAULTS, JSON.parse(get('settings') || '{}')); } catch (e) { return Object.assign({}, DEFAULTS); } }
   const setSettings = (o) => set('settings', JSON.stringify(o));
 

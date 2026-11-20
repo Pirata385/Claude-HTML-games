@@ -1701,3 +1701,172 @@ test('Coronel Galo runs BFC: a rooster-man in a white suit who can be netted ind
   const jr = RB.npc.current(S, base);
   assert.ok(jr.name === 'Coronel Galo Jr.' && RB.pheno.express(jr.g).sw.arms && jr.clothes.cane);
 });
+
+test('cross kinds are named after two kinds at most, so keys, names and saves stay small over the generations', () => {
+  assert.strictEqual(ST.crossKey('chicken', 'duck'), 'chicken*duck');
+  assert.strictEqual(ST.keyName('chicken*duck'), 'Chickuck');
+  assert.strictEqual(ST.crossKey('chicken*duck', 'chicken*duck'), 'chicken*duck', 'a cross breeds true');
+  assert.strictEqual(ST.crossKey('chicken*duck', 'goose'), 'goose*chicken', 'the two kinds that make up most of it');
+  // many generations on an island, three kinds mixing
+  const S = ST.create(251, { sandbox: true }); S.money = 1e6;
+  const I = ST.claimIsle(S, { id: 'gx', name: 'Mix Isle', x: 0, y: 0, R: 2400, main: 'farm', sites: [] });
+  for (const [id, sex] of [['chicken', 'M'], ['duck', 'F'], ['goose', 'M'], ['chicken', 'F'], ['duck', 'M'], ['goose', 'F']]) ST.toIsle(S, I, ST.addBird(S, RB.species.make(id, S._rng, { sex, sport: 0 }), { at: 'home' }));
+  for (let d = 0; d < 70; d++) ST.sleep(S);
+  assert.ok(Math.max(...I.birds.map((c) => c.gen || 0)) >= 8, 'many generations');
+  for (const c of I.birds) {
+    assert.ok(String(ST.kindKey(c)).split('*').length <= 2 && String(c.momKey).split('*').length <= 2, 'short keys');
+    assert.ok(ST.kind(c).length <= 24 && (c.mom || '').length <= 24, 'short names: ' + ST.kind(c));
+  }
+  const size = JSON.stringify(ST.serialize(S)).length;
+  assert.ok(size / (S.birds.length + I.birds.length) < 3000, 'about 1.6K a bird, not hundreds of K');
+  // an older save with keys that already grew: shortened on loading, named again
+  const old = ST.serialize(S), b = old.isles[0].birds[0];
+  b.momKey = Array.from({ length: 3000 }, (_, i) => ['chicken', 'duck', 'chicken', 'goose'][i % 4]).join('*'); b.dadKey = 'duck*' + b.momKey;
+  b.mom = 'Chickuckoosickuckoosickuckoose'; old.released = [{ g: b.g, x: 0, y: 0, day: 1, name: 'X', key: b.momKey, label: 'Xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx', bird: { momKey: b.momKey, dadKey: b.dadKey } }];
+  const L = ST.deserialize(JSON.parse(JSON.stringify(old))), lb = L.isles[0].birds[0];
+  assert.strictEqual(lb.momKey, 'chicken*duck'); assert.strictEqual(lb.mom, 'Chickuck');
+  assert.ok(lb.dadKey.split('*').length <= 2 && L.released[0].key === 'chicken*duck' && L.released[0].label === 'Chickuck');
+  assert.ok(JSON.stringify(ST.serialize(L)).length < size * 1.2);
+});
+
+test('bill shapes and the back sail come from junk DNA: new kinds have them, older kinds never by chance', () => {
+  const G = RB.genome, r = new Rng(261);
+  const want = { spoonbill: 'spoon', ibis: 'down', avocet: 'up', crossbill: 'crossed', hornbill: 'casque', skimmer: 'skimmer', swordbill: 'sword', trex: 'jaws', spino: 'snout', paradise: 'plain', kingparadise: 'plain' };
+  for (const [id, sh] of Object.entries(want)) {
+    const P = RB.pheno.express(RB.species.make(id, r, { sport: 0 }));
+    assert.strictEqual(P.shape, sh, id); assert.strictEqual(P.species.id, id, id + ' looks like itself');
+  }
+  assert.ok(RB.pheno.express(RB.species.make('spino', r, { sport: 0 })).sw.sail, 'the Spinosaurus has its sail');
+  // the kinds from before keep plain bills and no sails (the tyrannosaur aside)
+  const old = RB.species.IDS.slice(0, RB.species.IDS.indexOf('spoonbill')).filter((id) => id !== 'trex' && !RB.species.SPECIES[id].person);
+  for (let i = 0; i < 3000; i++) { const P = RB.pheno.express(RB.species.make(old[i % old.length], r)); assert.ok(P.shape === 'plain' && !P.sw.sail, old[i % old.length]); }
+  // recessive: a spoonbill and a hen have plain-billed young; a quarter of the grandchildren spoon again
+  const spoon = RB.species.make('spoonbill', r, { sex: 'F', sport: 0 }), hen = RB.species.make('chicken', r, { sex: 'M', sport: 0 });
+  const kids = Array.from({ length: 6 }, () => G.breed(spoon, hen, r, { mutRate: 0 }));
+  assert.ok(kids.every((k) => G.billShape(k) === 'plain'));
+  const m = kids.find((k) => k.sex === 'F') || kids[0], f = kids.find((k) => k.sex === 'M') || kids[1];
+  let spoons = 0; for (let i = 0; i < 400; i++) if (G.billShape(G.breed(m, f, r, { mutRate: 0 })) === 'spoon') spoons++;
+  assert.ok(spoons > 50 && spoons < 160, 'about a quarter: ' + spoons);
+  // in the lab: write ACTA into both copies and any bird has a spoon
+  const gi = G.TRAITS.billShape.genes[0];
+  assert.strictEqual(G.GENES[gi].name, 'Bill shape');
+  G.setGeneBases(hen, gi, G.shapeBases('spoon'), 'both');
+  assert.strictEqual(RB.pheno.express(hen).shape, 'spoon');
+  assert.ok(/spoon/.test(RB.lab.describe({}, gi, [0, 1, 3, 0])));
+  // a tyrannosaur's jaws bite harder than the same head with a plain bill
+  const rex = RB.species.make('trex', r, { sport: 0 }), plain = G.clone(rex);
+  G.setGeneBases(plain, gi, G.shapeBases('plain'), 'both');
+  assert.ok(RB.pheno.express(rex).peckSharp > RB.pheno.express(plain).peckSharp * 1.3);
+  // every kind of gene has its entry in the lab's guide, these two included
+  assert.ok(RB.lab.guideEntries().find((e) => e.id === 'billShape').text.includes('ACTA'));
+});
+
+test('tyrannosaurs from older saves grow their jaws; the Spinosaurus is a fossil of the Bone Quarry and desert islands', () => {
+  const G = RB.genome, S = ST.create(262);
+  const old = RB.species.make('trex', S._rng, { sport: 0 });
+  G.setGeneBases(old, G.TRAITS.billShape.genes[0], [1, 1, 1, 1], 'both'); // as it was made before
+  const rex = ST.addBird(S, old, { momKey: 'trex', dadKey: 'trex', mom: 'Tyrannosaurus', dad: 'Tyrannosaurus' });
+  assert.strictEqual(ST.pheno(rex).shape, 'plain');
+  const o = ST.serialize(S); delete o.bills;
+  const L = ST.deserialize(JSON.parse(JSON.stringify(o)));
+  assert.strictEqual(ST.pheno(L.birds.find((c) => c.id === rex.id)).shape, 'jaws');
+  // the fossil
+  assert.strictEqual(RB.items.FOSSILS.spino, 'Spinosaurus');
+  assert.ok(RB.world.QUARRY_SETS.some((e) => e[0] === 'spino'));
+  assert.strictEqual(RB.world.FOSSIL_ALSO.desert, 'spino');
+  S.money = 9999; for (let i = 0; i < RB.lab.FRAGMENTS; i++) RB.lab.addFragment(S, 'spino');
+  assert.strictEqual(RB.lab.rebuild(S, 'spino'), '');
+  assert.ok(S.eggs.some((e) => e.momKey === 'spino'));
+  // dug up under desert islands now and then
+  const w = RB.world.generate(262), desert = RB.sea.islandsNear(w, RB.world.W / 2, RB.world.H / 2, 60000).filter((is) => is.main === 'desert');
+  assert.ok(desert.length, 'there are desert islands');
+  let found = 0;
+  for (const is of desert) for (let k = 0; k < 4000 && !found; k++) {
+    const x = is.x + (k % 63 - 31) * 60, y = is.y + (Math.floor(k / 63) - 31) * 60;
+    if (RB.world.biomeAt(w, x, y) !== 'desert') continue;
+    for (let d = 1; d < 30 && !found; d++) { const l = RB.world.lootAt(w, Math.floor(x / RB.world.CELL), Math.floor(y / RB.world.CELL), d); if (l && l.set === 'spino') found++; }
+  }
+  assert.ok(found, 'a Spinosaurus fragment under a desert island');
+});
+
+test('every bit of a big island is land, even where it reaches over into the next stretch of sea', () => {
+  const w = RB.world.generate(7), r = new Rng(263);
+  const big = RB.sea.islandsNear(w, RB.world.W / 2, RB.world.H / 2, 60000).filter((is) => is.R > 2200);
+  assert.ok(big.length >= 3);
+  for (const is of big) for (let k = 0; k < 400; k++) {
+    const a = r.range(0, Math.PI * 2), d = Math.sqrt(r.next()) * is.R * 1.3, x = is.x + Math.cos(a) * d, y = is.y + Math.sin(a) * d;
+    if (!RB.world.inBlob(is.shape, x, y)) continue;
+    assert.strictEqual(RB.sea.islandAt(w, x, y), is, is.name + ' at ' + Math.round(x) + ',' + Math.round(y));
+    assert.notStrictEqual(RB.world.biomeAt(w, x, y), 'water');
+  }
+});
+
+test('bets pay by the odds: little on the favourite, a lot on the underdog; a lost bet that leaves too little sends you to muck out', () => {
+  const r = new Rng(271), strong = RB.pheno.express(RB.species.make('gamecock', r, { sport: 0 }), { train: { muscle: 0.15, reflex: 0.15, lungs: 0.15, courage: 0.15 } });
+  const weak = RB.pheno.express(RB.species.make('quail', r, { sport: 0 }));
+  const p = EC.winChance(strong, weak);
+  assert.ok(p > 0.8 && EC.winChance(weak, strong) < 0.2, 'the house sees who is stronger');
+  assert.ok(EC.winChance(strong, strong) === 0.5 && EC.winChance(strong, weak, 0.2, 1) < p, 'and who is hurt');
+  assert.ok(EC.betReturn(p) <= 1.5 && EC.betReturn(p) >= 1.2, 'the favourite pays little');
+  assert.strictEqual(EC.betReturn(0.5), 2.4);
+  assert.strictEqual(EC.betReturn(1 - p), 4, 'the underdog pays most, up to four times');
+  assert.ok(EC.betReturn(0.85) < EC.BET_RETURN, 'less than the old flat three times on a favourite');
+  // settling
+  const S = ST.create(271); S.money = 100;
+  assert.strictEqual(EC.settleBet(S, { side: 0, amount: 50, mult: 0.4 }, 0), 70);
+  assert.strictEqual(S.money, 170);
+  S.money = 40; EC.settleBet(S, { side: 1, amount: 30, mult: 1 }, 0);
+  assert.ok(!S.mustMuck, '$40 still buys an entry ($' + EC.minEntry() + ')');
+  S.money = 10; EC.settleBet(S, { side: 1, amount: 30, mult: 1 }, 0);
+  assert.ok(S.mustMuck, 'down to $10 after a lost bet: off to the henhouse');
+  assert.strictEqual(EC.minEntry(), 15);
+});
+
+test('long-legged peckers (herons, flamingos) leap in with flying kicks far less, and land their blows', () => {
+  const Rag = RB.creature.Rag, orig = Rag.prototype.startKick, origP = Rag.prototype.startPeck;
+  const n = { kick: 0, peck: 0 };
+  Rag.prototype.startKick = function (...a) { const ok = orig.apply(this, a); if (ok !== false && this._me) n.kick++; return ok; };
+  Rag.prototype.startPeck = function (...a) { const ok = origP.apply(this, a); if (ok !== false && this._me) n.peck++; return ok; };
+  let hits = 0, swings = 0, decisions = 0;
+  try {
+    for (let s = 1; s <= 10; s++) {
+      const A = RB.pheno.express(RB.species.make('heron', new Rng(s), { sport: 0 })), B = RB.pheno.express(RB.species.make('chicken', new Rng(s + 50), { sport: 0 }));
+      const f = new RB.fight.Fight({ a: { P: A }, b: { P: B }, mode: 'grain', seed: s }); f.fighters[0].rag._me = true;
+      const res = f.run(); if (res.how === 'decision') decisions++;
+      hits += f.events.filter((e) => e.type === 'hit' && e.side === 0).length; swings += f.events.filter((e) => e.type === 'swing' && e.side === 0).length;
+    }
+  } finally { Rag.prototype.startKick = orig; Rag.prototype.startPeck = origP; }
+  assert.ok(n.peck > n.kick, 'more pecks (' + n.peck + ') than flying kicks (' + n.kick + ')');
+  assert.ok(hits / swings > 0.4, 'most swings land: ' + hits + '/' + swings);
+  assert.ok(decisions <= 2, 'bouts are settled, not run out on the clock by a bird hopping about: ' + decisions + ' of 10 went to a decision');
+});
+
+test('long-legged waders are one body type: they rarely leap about, and save a flying kick for a foe that falls back', () => {
+  const r = new Rng(281), fighter = (id, s) => new RB.fight.Fight({ a: { P: RB.pheno.express(RB.species.make(id, new Rng(s), { sport: 0 })) }, b: { P: RB.pheno.express(RB.species.make('chicken', new Rng(s + 500), { sport: 0 })) }, mode: 'grain', seed: s });
+  for (const id of ['heron', 'flamingo', 'crane', 'spoonbill', 'ibis', 'avocet', 'secretary']) assert.ok(fighter(id, 1).fighters[0].leggy, id + ' is long-legged');
+  for (const id of ['ostrich', 'chicken', 'duck', 'cassowary']) assert.ok(!fighter(id, 1).fighters[0].leggy, id + ' is not');
+  // an ordinary kick is a little hop for them (their leaps used to carry them several times their height);
+  // a gamecock still leaps in, as gamecocks do
+  const apex = (id) => {
+    let sum = 0, n = 0;
+    for (let s = 1; s <= 6; s++) {
+      const f = fighter(id, s), rag = f.fighters[0].rag, rest = f.fighters[0].P.rest; let cur = null;
+      while (!f.done && f.t < 60) { f.step(); const a = rag.act; if (a && a.type === 'kick' && !a.fly) { if (!cur || cur.a !== a) cur = { a, top: 0 }; cur.top = Math.max(cur.top, (-rag.C.y - rest) / rest); } else if (cur) { sum += cur.top; n++; cur = null; } }
+    }
+    return sum / Math.max(1, n);
+  };
+  for (const id of ['spoonbill', 'heron', 'crane']) assert.ok(apex(id) < 1, id + ' kicks with a little hop: ' + apex(id).toFixed(2));
+  assert.ok(apex('gamecock') > 2, 'a gamecock still leaps');
+  let fk = 0, landed = 0, flyDmg = 0, footDmg = 0, footN = 0;
+  for (let s = 1; s <= 12; s++) {
+    for (const id of ['spoonbill', 'heron']) {
+      const f = fighter(id, s);
+      f.run();
+      fk += f.events.filter((e) => e.type === 'flykick' && e.side === 0).length;
+      for (const e of f.events) if (e.type === 'hit' && e.side === 0 && e.weapon === 'foot') { if (e.fly) { landed++; flyDmg += e.dmg; } else { footDmg += e.dmg; footN++; } }
+    }
+  }
+  assert.ok(fk >= 12, 'flying kicks happen: ' + fk);
+  assert.ok(landed >= fk / 3, 'and land often enough: ' + landed + ' of ' + fk);
+  assert.ok(flyDmg / landed > 1.3 * footDmg / Math.max(1, footN), 'a flying kick lands much harder than an ordinary kick');
+});

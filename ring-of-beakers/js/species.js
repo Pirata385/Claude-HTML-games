@@ -140,7 +140,7 @@
     // A dinosaur. Tyrannosaurus: a titanic bare-skinned two-legged hunter with a great toothy head,
     // a long stiff tail and comically small arms. Dug up at the Bone Quarry and on volcanic islands.
     trex: { name: 'Tyrannosaurus', short: 'Tyranno', tier: 5, extinct: true, sw: ['teeth', 'tailBone', 'arms', 'bare'],
-      t: { size: 2.7, posture: 0.15, bodyLen: 1.3, bodyDepth: 1.35, neckLen: 0.9, neckThick: 1.7, neckCurve: 0.6, headSize: 1.6, eyeSize: 0.8, beakLen: 1.6, beakDepth: 1.7, beakHook: 0.1, legLen: 2.0, legThick: 1.9, footSize: 1.9, talon: 1, spur: 0, wingSize: 0, tailLen: 2.6, tailFan: 0.05, tailUp: 0.5, comb: 0, wattle: 0, crest: 0, hue: 0.22, sat: 0.35, lit: 0.32, pattern: 0.27, patContrast: 0.3, belly: 0.6, beakTone: 0.22, legTone: 0.3, eyeTone: 0.85, armLen: 0.55, muscle: 1.5, bone: 1.5, hide: 1.4, lungs: 1.3, reflex: 0.9, aggression: 1, courage: 1, focus: 0.8, voicePitch: 0, voiceRasp: 1, voiceLen: 1 } },
+      t: { billShape: 'jaws', size: 2.7, posture: 0.15, bodyLen: 1.3, bodyDepth: 1.35, neckLen: 0.9, neckThick: 1.7, neckCurve: 0.6, headSize: 1.6, eyeSize: 0.8, beakLen: 1.6, beakDepth: 1.7, beakHook: 0.1, legLen: 2.0, legThick: 1.9, footSize: 1.9, talon: 1, spur: 0, wingSize: 0, tailLen: 2.6, tailFan: 0.05, tailUp: 0.5, comb: 0, wattle: 0, crest: 0, hue: 0.22, sat: 0.35, lit: 0.32, pattern: 0.27, patContrast: 0.3, belly: 0.6, beakTone: 0.22, legTone: 0.3, eyeTone: 0.85, armLen: 0.55, muscle: 1.5, bone: 1.5, hide: 1.4, lungs: 1.3, reflex: 0.9, aggression: 1, courage: 1, focus: 0.8, voicePitch: 0, voiceRasp: 1, voiceLen: 1 } },
     // Three more for the night.
     // The tawny frogmouth: a grey, bark-streaked bird with a huge flat head, a bill like a wide frog's
     // mouth and yellow eyes. By day it poses as a broken branch; at night it thumps out low 'oom's.
@@ -194,6 +194,46 @@
     // Dug up on the islands of the open sea.
     pteranodon: { name: 'Pteranodon', short: 'Pterano', tier: 5, extinct: true, sw: ['bare'],
       t: { size: 1.5, posture: 0.5, bodyLen: 0.9, bodyDepth: 0.75, neckLen: 0.9, neckThick: 0.7, headSize: 1.2, eyeSize: 1.0, beakLen: 2.3, beakDepth: 0.7, beakHook: 0, legLen: 0.65, legThick: 0.6, footSize: 0.9, web: 0.3, talon: 0.5, spur: 0, wingSize: 2.3, wingPoint: 1, tailLen: 0.05, tailFan: 0, comb: 0, wattle: 0, crest: 1, hue: 0.05, sat: 0.35, lit: 0.45, beakTone: 0.6, legTone: 0.4, eyeTone: 0.8, reflex: 1.2, cunning: 0.6, aggression: 0.6, courage: 0.7, voicePitch: 0.5, voiceRasp: 0.9, voiceLen: 0.7 } },
+    // Added with the bill shapes (genome.js: billShape), at the end like the others. Birds whose bills
+    // could not be built before: a spoon, a sickle, an upturned awl, crossed tips, a helmet on top, a
+    // lower half longer than the upper, a needle longer than the bird. And two birds-of-paradise.
+    // The roseate spoonbill: a pink wader with a bare greenish head and a long bill ending in a flat
+    // spoon it sweeps from side to side through the shallows.
+    spoonbill: { name: 'Roseate Spoonbill', short: 'Spoonbill', tier: 3,
+      t: { billShape: 'spoon', size: 1.0, posture: 0.5, bodyDepth: 0.95, bodyLen: 1.0, neckLen: 1.4, neckCurve: 0.5, neckThick: 0.8, headSize: 0.95, eyeSize: 0.9, beakLen: 1.7, beakDepth: 0.6, beakHook: 0, beakFlat: 0.4, legLen: 1.9, legThick: 0.6, footSize: 1.1, web: 0.4, talon: 0.1, spur: 0, wingSize: 1.6, tailLen: 0.5, tailFan: 0.3, tailUp: 0.3, comb: 0, wattle: 0, crest: 0, bareHead: 0.4, combHue: 0.25, hue: 0.95, hueHead: 0.12, litHead: 0.1, sat: 0.6, lit: 0.72, litWing: -0.08, belly: 0.2, beakTone: 0.3, legTone: 0.95, eyeTone: 0.75, reflex: 1.1, courage: 0.45, aggression: 0.4, voicePitch: 0.3, voiceRasp: 0.6, voiceLen: 0.3 } },
+    // The scarlet ibis: a wader so red it glows, with a long bill curved down like a sickle.
+    ibis: { name: 'Scarlet Ibis', short: 'Ibis', tier: 3,
+      t: { billShape: 'down', size: 0.85, posture: 0.5, bodyDepth: 0.95, neckLen: 1.2, neckCurve: 0.5, neckThick: 0.75, headSize: 0.9, eyeSize: 0.9, beakLen: 1.9, beakDepth: 0.55, beakHook: 0, legLen: 1.5, legThick: 0.6, footSize: 1.1, web: 0.3, talon: 0.1, spur: 0, wingSize: 1.5, wingPoint: 0.5, tailLen: 0.5, tailFan: 0.2, comb: 0, wattle: 0, crest: 0, bareHead: 0.35, combHue: -0.02, hue: 0.0, sat: 0.9, lit: 0.5, litWing: -0.03, beakTone: 0.15, legTone: 0.95, eyeTone: 0.6, reflex: 1.15, courage: 0.45, aggression: 0.45, voicePitch: 0.45, voiceRasp: 0.7, voiceLen: 0.3 } },
+    // The pied avocet: a black-and-white shorebird on long blue-grey legs, with a fine bill that
+    // curves up at the end, swept through the water like a scythe.
+    avocet: { name: 'Pied Avocet', short: 'Avocet', tier: 2,
+      t: { billShape: 'up', size: 0.6, posture: 0.45, bodyDepth: 0.9, neckLen: 1.1, neckThick: 0.7, headSize: 0.9, eyeSize: 1.0, beakLen: 1.7, beakDepth: 0.45, beakHook: 0, legLen: 1.9, legThick: 0.5, footSize: 1.0, web: 0.6, talon: 0.05, spur: 0, wingSize: 1.4, wingPoint: 0.8, tailLen: 0.5, tailFan: 0.2, comb: 0, wattle: 0, crest: 0, hue: 0.6, sat: 0.03, lit: 0.92, litHead: -0.6, pattern: 0.05, patContrast: 1, belly: 0.9, beakTone: 0, legTone: 0.25, eyeTone: 0.3, reflex: 1.25, courage: 0.55, aggression: 0.55, voicePitch: 0.8, voiceRasp: 0.2, voiceLen: 0.3 } },
+    // The red crossbill: a stocky red finch whose bill tips cross over, for prising seeds out of cones.
+    crossbill: { name: 'Red Crossbill', short: 'Crossbill', tier: 2,
+      t: { billShape: 'crossed', size: 0.32, posture: 0.6, bodyDepth: 1.15, bodyLen: 0.95, neckLen: 0.3, headSize: 1.2, eyeSize: 1.0, beakLen: 0.75, beakDepth: 1.1, beakHook: 0.5, legLen: 0.4, legThick: 0.6, footSize: 0.8, talon: 0.3, spur: 0, wingSize: 1.3, wingPoint: 0.6, tailLen: 0.9, tailFan: 0.2, tailUp: 0.3, comb: 0, wattle: 0, crest: 0, hue: 0.0, sat: 0.7, lit: 0.45, litWing: -0.25, hueWing: 0.05, litTail: -0.2, beakTone: 0.25, legTone: 0.25, eyeTone: 0.1, reflex: 1.3, cunning: 0.7, courage: 0.5, aggression: 0.5, voicePitch: 0.9, voiceRasp: 0.2, voiceLen: 0.2 } },
+    // The great hornbill: black and white, with a huge yellow bill and a hollow helmet (the casque) on top.
+    hornbill: { name: 'Great Hornbill', short: 'Hornbill', tier: 3,
+      t: { billShape: 'casque', size: 1.15, posture: 0.55, bodyDepth: 0.95, bodyLen: 1.05, neckLen: 0.7, neckThick: 0.9, headSize: 1.1, eyeSize: 1.0, beakLen: 1.9, beakDepth: 1.5, beakHook: 0.3, legLen: 0.5, legThick: 0.8, footSize: 1.0, talon: 0.3, spur: 0, wingSize: 1.8, wingPoint: 0.3, tailLen: 1.6, tailFan: 0.3, tailUp: 0.2, comb: 0, wattle: 0, crest: 0, hue: 0.12, sat: 0.1, lit: 0.12, litHead: 0.6, litTail: 0.6, belly: 0.6, beakTone: 0.6, legTone: 0.2, eyeTone: 0.7, bone: 1.15, reflex: 1.05, courage: 0.7, aggression: 0.55, voicePitch: 0.15, voiceRasp: 0.8, voiceLen: 0.6 } },
+    // The black skimmer: a tern-like seabird with a red-and-black bill whose lower half is longer than
+    // the upper, ploughed through the water's surface in flight.
+    skimmer: { name: 'Black Skimmer', short: 'Skimmer', tier: 2,
+      t: { billShape: 'skimmer', size: 0.6, posture: 0.35, bodyDepth: 0.85, bodyLen: 1.05, neckLen: 0.5, headSize: 1.0, eyeSize: 1.0, beakLen: 1.5, beakDepth: 0.9, beakHook: 0, beakFlat: 0, legLen: 0.4, legThick: 0.6, footSize: 1.0, web: 0.8, talon: 0.05, spur: 0, wingSize: 2.0, wingPoint: 1, tailLen: 0.6, tailFan: 0.2, comb: 0, wattle: 0, crest: 0, hue: 0.6, sat: 0.05, lit: 0.1, belly: 1, beakTone: 0.95, legTone: 0.95, eyeTone: 0.1, reflex: 1.3, courage: 0.55, aggression: 0.5, voicePitch: 0.6, voiceRasp: 0.5, voiceLen: 0.4 } },
+    // The sword-billed hummingbird: a little green hummingbird with a bill longer than the rest of it.
+    swordbill: { name: 'Sword-billed Hummingbird', short: 'Swordbill', tier: 3,
+      t: { billShape: 'sword', size: 0.22, posture: 0.5, bodyDepth: 0.9, bodyLen: 0.95, neckLen: 0.25, headSize: 1.0, eyeSize: 1.0, beakLen: 2.4, beakDepth: 0.45, beakHook: 0, legLen: 0.2, legThick: 0.4, footSize: 0.5, talon: 0.1, spur: 0, wingSize: 1.6, wingPoint: 1, tailLen: 1.0, tailFan: 0.4, tailUp: 0.4, comb: 0, wattle: 0, crest: 0, hue: 0.33, sat: 0.6, lit: 0.35, sheen: 0.9, beakTone: 0, legTone: 0, eyeTone: 0.05, reflex: 1.5, cunning: 0.8, courage: 0.5, aggression: 0.55, voicePitch: 1, voiceRasp: 0.1, voiceLen: 0.15 } },
+    // The greater bird-of-paradise: a maroon bird with a yellow head and an emerald throat, whose
+    // golden plumes spill from it in a great fountain when it shows off.
+    paradise: { name: 'Greater Bird-of-paradise', short: 'Paradise', tier: 4,
+      t: { size: 0.65, posture: 0.55, bodyDepth: 1.0, bodyLen: 0.95, neckLen: 0.4, headSize: 1.05, eyeSize: 1.0, beakLen: 0.9, beakDepth: 0.9, beakHook: 0.2, legLen: 0.5, legThick: 0.7, footSize: 0.9, talon: 0.3, spur: 0, wingSize: 1.2, wingPoint: 0.3, tailLen: 2.4, tailFan: 1.0, tailUp: 0.65, comb: 0, wattle: 0, crest: 0, hue: 0.04, sat: 0.5, lit: 0.25, hueHead: 0.1, litHead: 0.35, hueTail: 0.08, litTail: 0.45, sheen: 0.7, beakTone: 0.3, legTone: 0.25, eyeTone: 0.9, reflex: 1.2, cunning: 0.6, courage: 0.5, aggression: 0.45, voicePitch: 0.7, voiceRasp: 0.6, voiceLen: 0.6 } },
+    // The king bird-of-paradise: a tiny crimson bird with a white belly, blue legs and two long tail
+    // wires ending in green coils.
+    kingparadise: { name: 'King Bird-of-paradise', short: 'Kingbird', tier: 4,
+      t: { size: 0.35, posture: 0.6, bodyDepth: 1.1, bodyLen: 0.9, neckLen: 0.3, headSize: 1.1, eyeSize: 1.0, beakLen: 0.75, beakDepth: 0.8, beakHook: 0.15, legLen: 0.4, legThick: 0.6, footSize: 0.8, talon: 0.2, spur: 0, wingSize: 1.1, wingPoint: 0.4, tailLen: 2.2, tailFan: 0, tailUp: 0.4, comb: 0, wattle: 0, crest: 0, hue: 0.98, sat: 0.9, lit: 0.45, belly: 0.85, sheen: 0.6, hueTail: 0.3, beakTone: 0.75, legTone: 0.25, eyeTone: 0.4, reflex: 1.3, cunning: 0.6, courage: 0.5, aggression: 0.5, voicePitch: 0.85, voiceRasp: 0.3, voiceLen: 0.4 } },
+    // A dinosaur. Spinosaurus: the longest hunter there ever was, with a crocodile's long narrow snout
+    // full of cone teeth, a great sail along its back, clawed arms and a paddle of a tail. It fished
+    // the rivers. Dug up at the Bone Quarry and on desert islands.
+    spino: { name: 'Spinosaurus', short: 'Spino', tier: 5, extinct: true, sw: ['teeth', 'tailBone', 'arms', 'bare', 'sail'],
+      t: { billShape: 'snout', size: 2.65, posture: 0.12, bodyLen: 1.5, bodyDepth: 1.15, neckLen: 1.1, neckThick: 1.3, neckCurve: 0.5, headSize: 1.3, eyeSize: 0.7, beakLen: 2.3, beakDepth: 0.8, beakHook: 0, legLen: 1.3, legThick: 1.6, footSize: 1.7, web: 0.7, talon: 1, spur: 0, wingSize: 0, tailLen: 2.6, tailFan: 0.05, tailUp: 0.4, comb: 0, wattle: 0, crest: 0, hue: 0.15, sat: 0.3, lit: 0.35, pattern: 0.27, patContrast: 0.25, belly: 0.6, combHue: 0.0, beakTone: 0.2, legTone: 0.3, eyeTone: 0.85, armLen: 0.9, muscle: 1.4, bone: 1.4, hide: 1.35, lungs: 1.4, reflex: 0.95, aggression: 0.95, courage: 0.95, focus: 0.75, voicePitch: 0.05, voiceRasp: 1, voiceLen: 1 } },
   };
   for (const id of Object.keys(SPECIES)) { const s = SPECIES[id]; s.id = id; s.sw = s.sw || []; }
   const IDS = Object.keys(SPECIES);
@@ -226,6 +266,7 @@
     for (let i = 0; i < v.length; i++) { const d = v[i] - s.vec[i]; sum += d * d; }
     let d = Math.sqrt(sum / v.length);
     for (const sw of SHAPE_SW) if (G.switchOn(g, sw) !== s.sw.includes(sw)) d += 0.12;
+    if (G.billShape(g) !== (s.t.billShape || 'plain')) d += 0.14; // a spoon or a sickle says a lot about a bird
     return d;
   }
   const vowel = (c) => 'aeiouy'.includes(c.toLowerCase());

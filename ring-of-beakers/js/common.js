@@ -67,9 +67,12 @@
   };
 
   // ---- flat broke: off to muck out a henhouse for $50
+  // Off to muck out Dona Cida's henhouse: when not a coin is left, or when a lost bet leaves too
+  // little to enter even the cheapest bout (S.mustMuck, set when the bet is settled).
   common.checkBroke = function (S, back) {
-    if (S.money > 0 || RB.game.pending || ui.modals.length || RB.game.slot === undefined) return false;
-    ui.message('Flat broke', 'Not a coin to your name. Dona Cida at Feed & Seed pays $50 to muck out her henhouse, and she is not fussy about who does it.', () => RB.game.go('chores', { back }), { ok: 'Grab a shovel', head: pal.brick });
+    if ((S.money > 0 && !S.mustMuck) || RB.game.pending || ui.modals.length || RB.game.slot === undefined) return false;
+    const why = S.money > 0 ? 'That bet cost you dear: $' + S.money + ' left, not enough to enter even the cheapest bout ($' + RB.economy.minEntry() + ').' : 'Not a coin to your name.';
+    ui.message('Flat broke', why + ' Dona Cida at Feed & Seed pays $50 to muck out her henhouse, and she is not fussy about who does it.', () => RB.game.go('chores', { back }), { ok: 'Grab a shovel', head: pal.brick });
     return true;
   };
 
@@ -350,31 +353,34 @@
   RB.common.settings = function (inGame) {
     const game = RB.game;
     ui.open({ draw() {
-      const box = ui.window('Settings', 340, inGame ? 520 : 460, {});
+      const box = ui.window('Settings', 340, inGame ? 566 : 506, {});
       if (!box) return;
       const st = game.settings;
       let y = box.y + 4;
+      // seven rows and the full-screen button; on a short screen the rows draw closer together
+      const step = Math.max(38, Math.min(46, (box.h - (inGame ? 46 : 0) - 44) / 7));
       const vol = (label, key, icon) => {
         ui.icon(icon, box.x + 12, y + 18, 18, pal.ink); ui.text(label, box.x + 30, y + 23, { size: 14 });
         if (ui.btn(box.x + box.w - 150, y, 40, 36, '', { icon: 'minus', fill: pal.grey })) { st[key] = Math.max(0, +(st[key] - 0.1).toFixed(1)); game.applySettings(); RB.audio.play('click'); }
         ui.bar(box.x + box.w - 104, y + 13, 58, 10, st[key], pal.teal);
         if (ui.btn(box.x + box.w - 40, y, 40, 36, '', { icon: 'plus', fill: pal.grey })) { st[key] = Math.min(1, +(st[key] + 0.1).toFixed(1)); game.applySettings(); RB.audio.play('click'); }
-        y += 46;
+        y += step;
       };
       vol('Sound', 'sfx', 'sound'); vol('Music', 'music', 'music');
       // the open-air music: one track after another, or now and then with quiet in between
       ui.icon('music', box.x + 12, y + 18, 18, pal.ink); ui.text('Music plays', box.x + 30, y + 23, { size: 14, maxW: box.w - 160 });
       const some = st.musicMode === 'sometimes';
       if (ui.btn(box.x + box.w - 120, y, 120, 36, some ? 'Now and then' : 'Always', { fill: some ? pal.plum : pal.teal, size: 13 })) { st.musicMode = some ? 'always' : 'sometimes'; game.applySettings(); RB.audio.play('click'); if (some) RB.audio.musicSkipQuiet(); }
-      y += 46;
+      y += step;
       // on/off switches (on unless switched off)
       const toggle = (label, key, icon) => {
         ui.icon(icon, box.x + 12, y + 18, 18, pal.ink); ui.text(label, box.x + 30, y + 23, { size: 14, maxW: box.w - 130 });
         if (ui.btn(box.x + box.w - 90, y, 90, 36, st[key] === false ? 'Off' : 'On', { fill: st[key] === false ? pal.grey : pal.teal, size: 13 })) { st[key] = st[key] === false; game.applySettings(); RB.audio.play('click'); }
-        y += 46;
+        y += step;
       };
       toggle('Gene-edit mini-game', 'crispr', 'dna'); // off: gene edits apply at once
       toggle('Goal hints', 'goals', 'target');         // off: no goal line at the top of the screen
+      toggle('Impact frames', 'impactFrames', 'bolt'); // off: a landed flying kick does not freeze and flash
       if (ui.btn(box.x, y, box.w, 38, 'Full screen', { icon: 'full', fill: pal.plum })) game.fullscreen();
       y += 48;
       if (y + 44 < box.y + box.h - (inGame ? 46 : 0)) ui.para('Mouse or touch for everything. On the map: WASD or arrows drive, hold the mouse to aim a net, E enters, Q digs, 1-3 pick a tool.', box.x, y, box.w, { size: 11, color: pal.grey }); // when there is room

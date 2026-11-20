@@ -28,7 +28,7 @@
   function create(seed, opts) {
     const S = {
       v: 1, seed: seed >>> 0, rs: (seed ^ 0x51ab) >>> 0, day: 1, time: 6, money: 150, debt: 15000, heat: 0, heatPeople: 0, heatDays: 0, nextId: 1,
-      birds: [], eggs: [], roost: [], released: [], markers: {}, visited: {}, isles: [], netted: {}, unlocked: {}, fame: [],
+      birds: [], eggs: [], roost: [], released: [], markers: {}, visited: {}, isles: [], netted: {}, unlocked: {}, fame: [], bills: 1,
       inv: { net: 3, shovel: 10, grain: 8 }, equip: {}, up: { cage: 0, engine: 0, tires: 0, coop: 0, nest: 0, incubator: 0, dummy: 0, boat: 0 },
       feeder: 0, pos: null, dug: {}, marksDug: {}, wildGone: null, npc: {}, league: {}, bets: {},
       lab: { power: false, fuses: 0, atlas: {}, vials: [], fossils: {}, seq: {} },
@@ -90,29 +90,75 @@
   }
   const dirty = (c) => { c._P = null; };
 
-  // What kind it is, as a key: a species id, 'human', or for a cross 'dadKey*momKey'. Young of two
-  // parents of the same kind are of that kind; young of two different kinds are a new, mixed kind
-  // that its own young carry on.
+  // ---- kinds as keys: a species id, 'human', or for a cross 'a*b'. Young of two parents of the same
+  // kind are of that kind; young of two different kinds are a mixed kind that its own young carry on.
+  // A cross is known by the two kinds that make up most of it (each parent counts for half), never
+  // more, so keys and names stay short however many generations mix. (They used to be joined whole,
+  // 'dad*mom', doubling every generation: after twenty on an island a single bird carried hundreds of
+  // thousands of letters and the save grew too big for the browser to keep.)
+  function keyWeights(key) {
+    const parts = String(key || '').split('*').filter(Boolean), w = new Map();
+    for (const p of parts) w.set(p, (w.get(p) || 0) + 1 / parts.length);
+    return w;
+  }
+  function topKinds(w) {
+    const order = [...w.keys()];
+    return order.sort((a, b) => w.get(b) - w.get(a) || order.indexOf(a) - order.indexOf(b)).slice(0, 2).join('*');
+  }
+  // A key in its short form (older saves can hold very long ones).
+  function normKey(key) {
+    if (!key) return key;
+    const parts = String(key).split('*');
+    if (parts.length <= 2) return parts.length === 2 && parts[0] === parts[1] ? parts[0] : key;
+    const w = new Map(), first = [];
+    for (const p of parts) { if (!w.has(p)) first.push(p); w.set(p, (w.get(p) || 0) + 1); }
+    return topKinds(new Map(first.map((p) => [p, w.get(p)])));
+  }
+  // The kind of the young of a dad of one kind and a mom of another.
+  function crossKey(dadKey, momKey) {
+    if (!dadKey || !momKey) return normKey(dadKey || momKey);
+    if (dadKey === momKey) return normKey(dadKey);
+    const w = new Map();
+    for (const k of [normKey(dadKey), normKey(momKey)]) for (const [id, x] of keyWeights(k)) w.set(id, (w.get(id) || 0) + x * 0.5);
+    return topKinds(w);
+  }
+  // What to call a kind: a species' own name (by sex, if given), or a cross named after its two kinds.
+  function keyName(key, sex) {
+    const nm = (id, sx) => (RB.species.SPECIES[id] ? (sx ? RB.species.nameOf(RB.species.SPECIES[id], sx) : RB.species.generic(id)) : id.charAt(0).toUpperCase() + id.slice(1));
+    const ids = String(normKey(key) || '').split('*').filter(Boolean);
+    if (!ids.length) return '';
+    return ids.length === 1 ? nm(ids[0], sex) : RB.species.blendNames(nm(ids[0]), nm(ids[1]));
+  }
   function kindKey(c) {
     if (c.person) return 'human';
-    if (c.momKey && c.dadKey) return c.momKey === c.dadKey ? c.momKey : c.dadKey + '*' + c.momKey;
+    if (c.momKey && c.dadKey) return crossKey(c.dadKey, c.momKey);
     return pheno(c).species.id;
   }
   const isCross = (c) => !!(c.momKey && c.dadKey && c.momKey !== c.dadKey);
   // A sex-neutral name for a kind, used to name crosses after both parents.
   function label(c) {
     if (c.person) return c.kindName || 'Person';
-    if (isCross(c)) return RB.species.blendNames(c.dad, c.mom);
-    const id = c.momKey && RB.species.SPECIES[c.momKey] ? c.momKey : c.momKey ? null : pheno(c).species.id;
-    return id ? RB.species.generic(id) : c.mom;
+    const k = c.momKey && c.dadKey ? kindKey(c) : c.momKey;
+    return k ? keyName(k) : RB.species.generic(pheno(c).species.id);
   }
-  // What to call its kind on its card: crosses are named after their parents' kinds.
+  // What to call its kind on its card: crosses are named after their kinds.
   function kind(c) {
     if (c.person) return c.kindName || 'Person'; // a person, or the Coronel's sort of person: a rooster-man
-    if (isCross(c)) return RB.species.blendNames(c.dad, c.mom);
-    if (c.momKey && RB.species.SPECIES[c.momKey]) return RB.species.nameOf(RB.species.SPECIES[c.momKey], c.g.sex);
-    if (c.momKey) return c.mom;
+    const k = c.momKey && c.dadKey ? kindKey(c) : c.momKey;
+    if (k) return keyName(k, c.g.sex);
     return pheno(c).species.name;
+  }
+  // Older saves: shorten every kind key, and name the parents' kinds again from them.
+  const NAME_MAX = 24;
+  const shortName = (s) => (typeof s === 'string' && s.length > NAME_MAX ? s.slice(0, NAME_MAX - 1) + '…' : s);
+  function fixKinds(o) {
+    if (!o) return;
+    for (const k of ['momKey', 'dadKey', 'key']) if (typeof o[k] === 'string') o[k] = normKey(o[k]);
+    if (o.momKey) o.mom = keyName(o.momKey); else o.mom = shortName(o.mom);
+    if (o.dadKey) o.dad = keyName(o.dadKey); else o.dad = shortName(o.dad);
+    if (o.key) o.label = keyName(o.key); else if (o.label) o.label = shortName(o.label);
+    if (o.cross) fixKinds(o.cross);
+    if (o.bird) fixKinds(o.bird);
   }
   const isAdult = (c) => pheno(c).grow >= 1;
   // Past its lifespan a bird does not die: it retires. A retired bird no longer fights, nests,
@@ -877,6 +923,18 @@
     grantUnlocks(S); // feats won before their prizes existed
     for (const c of S.roost) { c.g = GN.deserialize(c.g); c._P = null; }
     for (const e of S.eggs) e.g = GN.deserialize(e.g);
+    // kind keys that grew over the generations (see crossKey), and the names made from them
+    for (const o of S.birds.concat(S.roost, S.eggs, S.released, (S.lab && S.lab.vials) || [], ...S.isles.map((i) => i.birds))) fixKinds(o);
+    for (const e of S.fame) { e.kind = shortName(e.kind); e.mom = shortName(e.mom); e.dad = shortName(e.dad); }
+    for (const st of Object.values(S.npc || {})) if (st && st.sub) fixKinds(st.sub);
+    // the tyrannosaurs you already had grow the toothy jaws they have now (genome.js: billShape)
+    if (!S.bills) {
+      const gi = GN.TRAITS.billShape.genes[0], jaws = GN.shapeBases('jaws');
+      const rex = (o) => (o.momKey ? o.momKey === 'trex' && o.dadKey === 'trex' : !o.person && o.g && RB.species.classify(o.g).id === 'trex');
+      for (const c of S.birds.concat(S.roost, ...S.isles.map((i) => i.birds))) if (rex(c)) { GN.setGeneBases(c.g, gi, jaws, 'both'); c._P = null; }
+      for (const e of S.eggs) if (e.momKey === 'trex' && e.dadKey === 'trex') GN.setGeneBases(e.g, gi, jaws, 'both');
+      S.bills = 1;
+    }
     return S;
   }
 
@@ -884,5 +942,5 @@
     RELEASED_MAX, setFree, recapture, genePool, HEAT_DAYS, caughtPerson, trainPreview, openSea, hasBoat, makeBird,
     wildAge, wildLife, wildAlive, wildNight, note, title, fameOf, fameLeave, fameCheck, fameRank, fameBio, RECORDS, statScore, outstanding, fameEligible, caught, FAME_TABS, fameTabOf, fameIn, QUIRKS, quirkOf, grudgeTarget, slotOf, wornIn, wear, unwear, outfit, grantUnlocks, ENDLESS_KINDS, endless, owned, fmtCount, canSail, serBird, deBird, STAY_MAX, stay, netKeeper, installKeeper, releasePerson, mainlanders, nettedCount, nettedAll, ISLE_EXTRA,
     CLAIM_COST, RAISE_COST, RAISE_R, CLEAN_COST, DOSE, isleOf, isleCap, claimIsle, raiseIsle, toIsle, fromIsle, dose, cleanIsle, colonyNight, byId, at, atHome, cageCap, coopCap, nestCount, count, give, take, move, feed, train, TRAIN,
-    layChance, sleep, serialize, deserialize, freeName, BIRD_NAMES, eat, soldPerson, kindKey, isCross, label };
+    layChance, sleep, serialize, deserialize, crossKey, normKey, keyName, fixKinds, freeName, BIRD_NAMES, eat, soldPerson, kindKey, isCross, label };
 })();

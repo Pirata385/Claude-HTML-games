@@ -25,17 +25,20 @@
   // over (the day birds roost and the night birds come out in their place).
   const FAUNA = {
     farm: { day: [['chicken', 30], ['bantam', 10], ['quail', 12], ['pheasant', 8], ['turkey', 6], ['gamecock', 3], ['raven', 8], ['duck', 5], ['goose', 4], ['kookaburra', 4]], night: [['owl', 14], ['nightjar', 10], ['thickknee', 5], ['frogmouth', 5]] },
-    wetland: { day: [['duck', 25], ['goose', 14], ['swan', 6], ['heron', 14], ['flamingo', 8], ['pelican', 4], ['raven', 3], ['shoebill', 4], ['crane', 5], ['marabou', 3]], night: [['owl', 8], ['kiwi', 6], ['heron', 5], ['nightjar', 4], ['boatbill', 9]] },
-    savanna: { day: [['ostrich', 10], ['emu', 8], ['roadrunner', 14], ['secretary', 5], ['vulture', 10], ['quail', 10], ['turkey', 4], ['crane', 6], ['marabou', 6], ['kookaburra', 5]], night: [['owl', 8], ['nightjar', 12], ['thickknee', 10], ['frogmouth', 6]] },
-    highlands: { day: [['falcon', 12], ['eagle', 7], ['vulture', 10], ['raven', 14], ['pheasant', 8], ['condor', 4]], night: [['owl', 20], ['nightjar', 5], ['kakapo', 4], ['oilbird', 6]] },
-    coast: { day: [['gull', 30], ['pelican', 12], ['penguin', 8], ['flamingo', 8], ['heron', 6], ['cormorant', 10]], night: [['owl', 4], ['penguin', 6], ['kiwi', 3], ['gull', 3], ['thickknee', 6], ['boatbill', 3]] },
-    jungle: { day: [['parrot', 14], ['toucan', 12], ['peafowl', 8], ['cassowary', 4], ['hummingbird', 12], ['pheasant', 4], ['harpy', 3], ['kookaburra', 4]], night: [['kiwi', 16], ['owl', 8], ['potoo', 12], ['kakapo', 6], ['oilbird', 8], ['frogmouth', 6]] },
+    wetland: { day: [['duck', 25], ['goose', 14], ['swan', 6], ['heron', 14], ['flamingo', 8], ['pelican', 4], ['raven', 3], ['shoebill', 4], ['crane', 5], ['marabou', 3], ['spoonbill', 5], ['ibis', 5]], night: [['owl', 8], ['kiwi', 6], ['heron', 5], ['nightjar', 4], ['boatbill', 9]] },
+    savanna: { day: [['ostrich', 10], ['emu', 8], ['roadrunner', 14], ['secretary', 5], ['vulture', 10], ['quail', 10], ['turkey', 4], ['crane', 6], ['marabou', 6], ['kookaburra', 5], ['hornbill', 3]], night: [['owl', 8], ['nightjar', 12], ['thickknee', 10], ['frogmouth', 6]] },
+    highlands: { day: [['falcon', 12], ['eagle', 7], ['vulture', 10], ['raven', 14], ['pheasant', 8], ['condor', 4], ['crossbill', 8], ['swordbill', 5]], night: [['owl', 20], ['nightjar', 5], ['kakapo', 4], ['oilbird', 6]] },
+    coast: { day: [['gull', 30], ['pelican', 12], ['penguin', 8], ['flamingo', 8], ['heron', 6], ['cormorant', 10], ['avocet', 6], ['skimmer', 6], ['ibis', 3]], night: [['owl', 4], ['penguin', 6], ['kiwi', 3], ['gull', 3], ['thickknee', 6], ['boatbill', 3]] },
+    jungle: { day: [['parrot', 14], ['toucan', 12], ['peafowl', 8], ['cassowary', 4], ['hummingbird', 12], ['pheasant', 4], ['harpy', 3], ['kookaburra', 4], ['hornbill', 6], ['paradise', 5], ['kingparadise', 5]], night: [['kiwi', 16], ['owl', 8], ['potoo', 12], ['kakapo', 6], ['oilbird', 8], ['frogmouth', 6]] },
     town: { day: [['chicken', 10], ['raven', 10], ['gull', 4], ['marabou', 2]], night: [['owl', 6], ['nightjar', 4]] },
-    tundra: { day: [['penguin', 20], ['goose', 10], ['swan', 8], ['raven', 8], ['falcon', 6], ['owl', 6], ['gull', 8], ['cormorant', 5]], night: [['owl', 20], ['penguin', 6]] },
+    tundra: { day: [['penguin', 20], ['goose', 10], ['swan', 8], ['raven', 8], ['falcon', 6], ['owl', 6], ['gull', 8], ['cormorant', 5], ['crossbill', 6]], night: [['owl', 20], ['penguin', 6]] },
     volcanic: { day: [['vulture', 12], ['condor', 8], ['raven', 10], ['eagle', 6], ['cassowary', 4], ['gull', 4]], night: [['owl', 10], ['nightjar', 8], ['oilbird', 5]] },
     desert: { day: [['ostrich', 10], ['roadrunner', 16], ['vulture', 10], ['quail', 10], ['falcon', 6], ['emu', 6]], night: [['owl', 10], ['nightjar', 14], ['thickknee', 10]] },
   };
   const FOSSIL_BIOME = { farm: 'gastornis', coast: 'dodo', savanna: 'terror', jungle: 'moa', wetland: 'archaeo', highlands: 'raptor', tundra: 'moa', volcanic: 'trex', desert: 'elephant' };
+  // A second set that also lies under some lands, half the time: the Spinosaurus, under desert islands
+  // (its rivers dried up long ago).
+  const FOSSIL_ALSO = { desert: 'spino' };
 
   function blob(r, x, y, R) {
     const harm = [];
@@ -65,7 +68,7 @@
   // The Bone Quarry's dig: a pit south of the paleontologist's tent where most finds are fossils.
   const QUARRY_R = 560, QUARRY_DY = 430;
   function inQuarry(world, x, y) { const q = world.site && world.site.quarry; return !!q && Math.hypot(x - q.x, y - (q.y + QUARRY_DY)) < QUARRY_R; }
-  const QUARRY_SETS = [['elephant', 30], ['trex', 10], ['gallimimus', 10], ['dodo', 10], ['terror', 10], ['moa', 10], ['archaeo', 10], ['raptor', 10]];
+  const QUARRY_SETS = [['elephant', 28], ['trex', 9], ['gallimimus', 9], ['spino', 9], ['dodo', 9], ['terror', 9], ['moa', 9], ['archaeo', 9], ['raptor', 9]];
   const HOUSES = [[5050, 3700], [4500, 4500], [6400, 5250], [5800, 5600], [6700, 3500], [9700, 2500], [10300, 3500], [2700, 2700], [2900, 5300], [5600, 6700], [8300, 6750], [6900, 1500]];
   const ROADS = [
     ['home', 'feed', 'tools', 'bfc', 'garage', 'hatter', 'vet', 'city'], ['garage', 'bank', 'city'], ['home', 'backyard'], ['bfc', 'county', 'carnival'],
@@ -198,7 +201,7 @@
     if (k < 0.76) return { type: 'item', id: 'shard' };
     if (k < 0.84) {
       // out at sea most fossils are the sea's own: Haast's eagle, the great auk, Pelagornis and Pteranodon
-      if (!inMain(x, y)) { const sv = hash2(cx, cy, ds + 177), F = RB.sea.SEA_FOSSILS; return { type: 'fossil', set: sv < 0.75 ? F[Math.min(F.length - 1, Math.floor(sv / 0.75 * F.length))] : FOSSIL_BIOME[b] || 'pelagornis' }; }
+      if (!inMain(x, y)) { const sv = hash2(cx, cy, ds + 177), F = RB.sea.SEA_FOSSILS; return { type: 'fossil', set: sv < 0.75 ? F[Math.min(F.length - 1, Math.floor(sv / 0.75 * F.length))] : FOSSIL_ALSO[b] && sv > 0.875 ? FOSSIL_ALSO[b] : FOSSIL_BIOME[b] || 'pelagornis' }; }
       return FOSSIL_BIOME[b] ? { type: 'fossil', set: FOSSIL_BIOME[b] } : { type: 'item', id: 'worm', n: 2 };
     }
     if (k < 0.9) return b === 'jungle' || b === 'wetland' ? { type: 'item', id: 'mushroom' } : { type: 'money', money: 20 + Math.floor(v * 40), metal: true };
@@ -295,5 +298,5 @@
     return out;
   }
 
-  RB.world = { FOSSIL_BIOME, QUARRY_SETS, inQuarry, QUARRY_R, QUARRY_DY, faunaAt, blob, shoreW, inMain, W, H, CELL, BIOMES, FAUNA, CROSS_RATE, GENE_FLOW, GENE_REACH, youngOf, generate, biomeAt, seaY, inBlob, blobR, onRoad, nearestSite, spawnSpecies, markAt, lootAt, cellOf, population, decorAt };
+  RB.world = { FOSSIL_BIOME, FOSSIL_ALSO, QUARRY_SETS, inQuarry, QUARRY_R, QUARRY_DY, faunaAt, blob, shoreW, inMain, W, H, CELL, BIOMES, FAUNA, CROSS_RATE, GENE_FLOW, GENE_REACH, youngOf, generate, biomeAt, seaY, inBlob, blobR, onRoad, nearestSite, spawnSpecies, markAt, lootAt, cellOf, population, decorAt };
 })();

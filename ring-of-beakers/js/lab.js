@@ -138,7 +138,8 @@
     ['Four bases', 'Each copy is four bases (A C G T, worth 0 1 2 3). Most genes just add their bases up, so ACGT and TGCA mean the same; colour genes read them in order as one number, so any change of base changes the colour.'],
     ['Copies together', 'The two copies are blended. Each copy also carries its own dominance, so a cross can take a body part wholly after one parent or land between the two. A dominant gene (marked dom) shows with one strong copy.'],
     ['I, II, III', 'Big traits are spread over two or three genes (Muscle I, II and III). The first is the major gene and counts most; they light up green together on the chromosome map.'],
-    ['Switches', 'Oddities are switches: a copy is ON when its bases add up to 9 or more. Most switches are recessive and need both copies ON; Melanism is dominant and needs one copy at 10+. Twin head needs both its genes switched on.'],
+    ['Switches', 'Oddities are switches: a copy is ON when its bases add up to 9 or more. Most switches are recessive and need both copies ON; Melanism is dominant and needs one copy at 10+. Twin head needs both its genes switched on. The Back sail is fussier still: both copies must read TATA exactly.'],
+    ['Bill shapes', 'The Bill shape gene is read letter by letter: a copy ending in TA spells a shape, chosen by its first two letters (spoon, sickle, awl, crossed tips, helmet, skimmer, needle, toothy jaws, long snout; see its entry below). Both copies must spell the same shape. Edit both copies of it at the CRISPR bench to give any bird a spoonbill\'s bill, or a tyrannosaur\'s jaws.'],
     ['In the lab', 'Extract copy A or B into a beaker, edit its bases at the CRISPR bench, and inject it into copy A, copy B or both of another creature or an egg. Junk DNA does nothing at all.'],
   ];
   const GROUP_NAMES = { body: 'Body', head: 'Head and neck', beak: 'Beak', legs: 'Legs and feet', wings: 'Wings and tail', crest: 'Comb and crest', colour: 'Colours', vigour: 'Strength and health', mind: 'Mind', life: 'Life', odd: 'Oddities (switches)' };
@@ -210,6 +211,8 @@
     voiceRasp: 'How rough or clear its call sounds, from a clean whistle to a hoarse croak.',
     voiceLen: 'How long its call lasts, from a short chirp to a long drawn-out cry.',
     armLen: 'Length of the arms, if it has the Arms switch on. Longer arms punch from further away.',
+    billShape: 'The shape of the bill, read letter by letter. A copy spells a shape when it ends in TA, and its first two letters say which: ACTA a spoon (spoonbill; pecks 25% weaker), AGTA a sickle curved down (ibis), ATTA an awl curved up (avocet), CATA crossed tips (crossbill), CCTA a helmet on top (hornbill; 10% harder), CGTA a lower half longer than the upper (skimmer), CTTA a needle longer than the bird (swordbill; 20% harder, and much longer), GATA toothy reptile jaws (tyrannosaur; 45% harder) and GCTA a long toothy snout (spinosaur; 30% harder). Recessive: the bill takes a shape only when both copies spell the same one, so a spoonbill crossed with a hen has a plain bill, and a quarter of their grandchildren a spoon again. Junk almost never spells one by chance.',
+    sail: 'A tall sail of skin on long spines along the back, coloured like a comb (spinosaur). Recessive, and fussy: both copies must read TATA, letter for letter. Looks only, and very striking.',
     teeth: 'Teeth in the beak: every peck hurts 25% more.',
     arms: 'Arms with hands: it punches (sharper with talons). With Bare skin and no beak to speak of, it is a person.',
     bare: 'Bare skin instead of feathers. With Arms and almost no beak, it is a person.',
@@ -228,6 +231,10 @@
     leucistic: 'Leucism (recessive): with both copies on, the bird comes out white.',
   };
   const MODE_NAMES = { add: 'blends', dom: 'dominant', rec: 'recessive' };
+  // The bill shapes in words, and the bases that spell each (genome.js: SHAPE_CODES; a copy ends in TA).
+  const SHAPE_WORDS = { plain: 'a plain bill', spoon: 'a spoon (spoonbill)', down: 'a sickle curved down (ibis)', up: 'an awl curved up (avocet)', crossed: 'crossed tips (crossbill)',
+    casque: 'a helmet on top (hornbill)', skimmer: 'a long lower half (skimmer)', sword: 'a needle longer than the bird (swordbill)', jaws: 'toothy reptile jaws (tyrannosaur)', snout: 'a long toothy snout (spinosaur)' };
+  const shapeSpell = (sh) => GN.SHAPE_CODES.indexOf(sh) >= 0 ? GN.shapeBases(sh).map((b) => GN.BASES[b]).join('') : '';
   // One entry per kind of gene: its name, its genes, how it is inherited and what it does.
   function guideEntries() {
     const out = [];
@@ -235,7 +242,7 @@
       for (const def of GN.TRAIT_LIST.filter((d) => d.group === grp)) {
         const z = def.genes.map((gi, k) => (GN.GENES[gi].chr === GN.Z_CHR ? ['I', 'II', 'III'][k] : null)).filter(Boolean);
         const onZ = !z.length ? '' : def.n === 1 ? ' · on Z' : ' · ' + (z.length > 1 ? 'genes ' : 'gene ') + z.join(' and ') + ' on Z';
-        const how = def.switch ? (def.mode === 'dom' ? 'dominant switch, one copy at ' + def.thr + '+' : 'recessive switch, both copies at ' + def.thr + '+')
+        const how = def.shape ? 'shape gene · recessive' : def.code ? 'recessive switch, both copies ' + def.code.map((b) => GN.BASES[b]).join('') : def.switch ? (def.mode === 'dom' ? 'dominant switch, one copy at ' + def.thr + '+' : 'recessive switch, both copies at ' + def.thr + '+')
           : (def.n > 1 ? def.n + ' genes' : '1 gene') + ' · ' + MODE_NAMES[def.mode] + (def.pos ? ' · read in order' : '');
         out.push({ id: def.id, group: grp, groupName: GROUP_NAMES[grp], label: def.label, genes: def.genes.slice(), how: how + onZ, onZ: z.length > 0, text: GENE_GUIDE[def.id] || '' });
       }
@@ -250,6 +257,15 @@
     if (!g.trait) return 'Does nothing anyone can find.';
     if (!known(S, gi)) return 'Unknown. Sequence more animals to learn what it does.';
     const def = GN.TRAITS[g.trait], sum = bases[0] + bases[1] + bases[2] + bases[3];
+    const letters = bases.map((b) => GN.BASES[b]).join('');
+    if (def.shape) {
+      const sh = bases[2] === 3 && bases[3] === 0 ? GN.SHAPE_CODES[bases[0] * 4 + bases[1]] : '';
+      return sh ? 'Bill shape copy: spells ' + SHAPE_WORDS[sh] + ' (' + letters + '; both copies must spell the same).' : 'Bill shape copy: spells nothing (' + letters + '). A copy spells a shape when it ends in TA.';
+    }
+    if (def.code) {
+      const on = def.code.every((b, i) => bases[i] === b), want = def.code.map((b) => GN.BASES[b]).join('');
+      return on ? def.label + ' copy: ON (' + want + '; needs both copies).' : def.label + ' copy: off (' + letters + '). It must read ' + want + ', in both copies.';
+    }
     if (def.switch) {
       const need = def.mode === 'dom' ? 'one copy is enough' : 'needs both copies';
       return sum >= def.thr ? 'Switch copy: ON (' + need + ').' : 'Switch copy: off. ' + def.thr + '+ turns it on (' + need + ').';
@@ -285,5 +301,5 @@
     return true;
   }
 
-  RB.lab = { changeSex, related, intoCopy, GUIDE_INTRO, GENE_GUIDE, GROUP_NAMES, guideEntries, guideOf, FRAGMENTS, REBUILD_COST, SEQ_FEE, known, knownCount, codingCount, geneLabel, reveal, sequence, extract, vialSum, copyGenome, vialGenome, genomeGene, removeVial, inject, preview, edit, offTarget, guide, describe, fragments, addFragment, rebuild, powerOn };
+  RB.lab = { SHAPE_WORDS, shapeSpell, changeSex, related, intoCopy, GUIDE_INTRO, GENE_GUIDE, GROUP_NAMES, guideEntries, guideOf, FRAGMENTS, REBUILD_COST, SEQ_FEE, known, knownCount, codingCount, geneLabel, reveal, sequence, extract, vialSum, copyGenome, vialGenome, genomeGene, removeVial, inject, preview, edit, offTarget, guide, describe, fragments, addFragment, rebuild, powerOn };
 })();

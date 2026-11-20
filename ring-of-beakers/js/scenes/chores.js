@@ -23,7 +23,7 @@
 
   function finish() {
     done = true;
-    S.money += PAY; S.stats.earned += PAY; S.stats.chores = (S.stats.chores || 0) + 1;
+    S.money += PAY; S.stats.earned += PAY; S.stats.chores = (S.stats.chores || 0) + 1; S.mustMuck = false;
     S.time = Math.min(29.5, S.time + 1.5);
     common.award(S, 'chores');
     RB.game.save();

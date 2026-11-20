@@ -316,6 +316,73 @@
     ctx.restore();
   }
 
+
+  // ---- bills of other shapes (genome.js: billShape), in the head's frame like the plain one:
+  // +x the way the bill points, +y the chin side; x0 where it leaves the face, xt its tip.
+  function drawShapedBill(ctx, P, c, R, x0, xt, BD, gape, headCol) {
+    const L = xt - x0, sh = P.shape, poly = (pts, col) => { ctx.fillStyle = col; ctx.beginPath(); ctx.moveTo(pts[0], pts[1]); for (let i = 2; i < pts.length; i += 2) ctx.lineTo(pts[i], pts[i + 1]); ctx.closePath(); ctx.fill(); };
+    const teeth = (xa, xb, y0, y1, n, up, size) => { ctx.fillStyle = WHITE; for (let i = 0; i < n; i++) { const u = (i + 0.5) / n, x = xa + (xb - xa) * u, y = y0 + (y1 - y0) * u, w = size * (1 - 0.35 * u); tri(ctx, x - w, y, x + w, y, x, y + (up ? -w * 2.2 : w * 2.2)); } };
+    if (sh === 'spoon') { // a long flat bill ending in a round spoon
+      const sR = Math.max(BD * 0.55, L * 0.11), xs = xt - sR * 1.5;
+      poly([x0, BD * 0.1, xs, BD * 0.14 + gape, x0, BD * 0.5 + gape * 0.5], c.beakDark);
+      poly([x0, -BD * 0.5, xs, -BD * 0.22, xs, BD * 0.14, x0, BD * 0.16], c.beak);
+      ctx.fillStyle = c.beak; ell(ctx, xt - sR, 0, sR * 1.15, sR * 0.65, 0);
+      ctx.strokeStyle = c.beakDark; ctx.lineWidth = Math.max(0.4, BD * 0.08); ctx.beginPath(); ctx.ellipse(xt - sR, 0, sR * 1.15, sR * 0.65, 0, 0, TAU); ctx.stroke();
+    } else if (sh === 'down' || sh === 'up') { // a sickle curved down (ibis, curlew) or an awl curved up (avocet)
+      const dn = sh === 'down', ty = dn ? L * 0.42 : -L * 0.3, tx = x0 + L * (dn ? 0.9 : 0.95);
+      const curve = (dy, col, w) => {
+        ctx.fillStyle = col; ctx.beginPath(); ctx.moveTo(x0, -BD * w + dy);
+        ctx.quadraticCurveTo(x0 + L * (dn ? 0.72 : 0.55), (dn ? -BD * 0.45 : ty * 0.2 - BD * 0.4) + dy, tx, ty + dy);
+        ctx.quadraticCurveTo(x0 + L * (dn ? 0.6 : 0.7), (dn ? ty * 0.25 + BD * 0.5 : BD * 0.35) + dy, x0, BD * w + dy); ctx.closePath(); ctx.fill();
+      };
+      curve(gape * 0.6, c.beakDark, 0.42); curve(0, c.beak, 0.5);
+    } else if (sh === 'crossed') { // the tips cross over: the upper hooks down past the lower, the lower turns up
+      poly([x0, BD * 0.15, xt - BD * 0.3, BD * 0.2 + gape * 0.5, xt - BD * 0.05, -BD * 0.5 + gape * 0.5, xt - BD * 0.4, BD * 0.05 + gape * 0.5, x0 - R * 0.05, BD * 0.62 + gape * 0.4], c.beakDark);
+      ctx.fillStyle = c.beak; ctx.beginPath(); ctx.moveTo(x0, -BD * 0.62);
+      ctx.quadraticCurveTo(x0 + L * 0.75, -BD * 0.85, xt, BD * 0.7); ctx.quadraticCurveTo(xt - BD * 0.35, BD * 0.2, x0, BD * 0.18); ctx.closePath(); ctx.fill();
+    } else if (sh === 'casque') { // a big bill with a hollow helmet on top (hornbill)
+      poly([x0, BD * 0.1, x0 + L * 0.85, BD * 0.22 + gape, x0 - R * 0.05, BD * 0.62 + gape * 0.4], c.beakDark);
+      ctx.fillStyle = c.beak; ctx.beginPath(); ctx.moveTo(x0, -BD * 0.62); ctx.quadraticCurveTo(x0 + L * 0.7, -BD * 0.7, xt, BD * 0.25); ctx.lineTo(x0, BD * 0.18); ctx.closePath(); ctx.fill();
+      ctx.fillStyle = c.beak; ctx.beginPath(); ctx.moveTo(x0 - R * 0.12, -BD * 0.6); ctx.quadraticCurveTo(x0 - R * 0.05, -BD * 1.75, x0 + L * 0.3, -BD * 1.55);
+      ctx.quadraticCurveTo(x0 + L * 0.62, -BD * 1.25, x0 + L * 0.66, -BD * 0.68); ctx.closePath(); ctx.fill();
+      ctx.strokeStyle = c.beakDark; ctx.lineWidth = Math.max(0.4, BD * 0.1); ctx.beginPath(); ctx.moveTo(x0 + L * 0.52, -BD * 1.38); ctx.lineTo(x0 + L * 0.6, -BD * 0.7); ctx.stroke();
+    } else if (sh === 'skimmer') { // the lower half longer than the upper, a black tip on each
+      poly([x0, BD * 0.05, xt + L * 0.15, BD * 0.2 + gape, x0, BD * 0.55 + gape * 0.5], c.beak);
+      poly([xt - L * 0.12, BD * 0.12 + gape * 0.8, xt + L * 0.15, BD * 0.2 + gape, xt - L * 0.1, BD * 0.32 + gape * 0.85], INK);
+      poly([x0, -BD * 0.55, xt - L * 0.14, -BD * 0.05, x0, BD * 0.05], c.beak);
+      poly([xt - L * 0.32, -BD * 0.18, xt - L * 0.14, -BD * 0.05, xt - L * 0.3, BD * 0.03], INK);
+    } else if (sh === 'sword') { // a needle, longer than the bird
+      poly([x0, BD * 0.05, xt - BD * 0.4, BD * 0.04 + gape * 0.3, x0, BD * 0.4 + gape * 0.3], c.beakDark);
+      poly([x0, -BD * 0.45, xt, -BD * 0.02, x0, BD * 0.06], c.beak);
+    } else if (sh === 'jaws' || sh === 'snout') {
+      // toothy reptile jaws in the face's own skin: deep and heavy (tyrannosaur), or long and narrow
+      // with a knob at the tip, like a crocodile's (spinosaur)
+      const croc = sh === 'snout', dark = P.sw.bare ? c.skinDark : c.bodyDark, d = croc ? BD * 0.55 : BD * 0.8, jl = BD * (croc ? 0.12 : 0.2);
+      // lower jaw
+      poly([R * 0.25, jl + gape * 0.15, xt - d * (croc ? 0.25 : 0.45), jl + gape, xt - d * (croc ? 0.4 : 0.7), jl + d * (croc ? 0.55 : 0.85) + gape, R * 0.2, R * 0.8], dark);
+      // upper jaw and snout
+      ctx.fillStyle = headCol; ctx.beginPath(); ctx.moveTo(R * 0.15, -R * 0.62);
+      if (croc) { ctx.lineTo(x0 + L * 0.35, -d * 0.55); ctx.lineTo(xt - d * 0.9, -d * 0.45); ctx.quadraticCurveTo(xt + d * 0.15, -d * 0.75, xt, jl * 0.5); }
+      else { ctx.quadraticCurveTo(x0 + L * 0.45, -d * 0.95, xt - d * 0.35, -d * 0.45); ctx.quadraticCurveTo(xt + d * 0.05, -d * 0.2, xt - d * 0.05, jl); }
+      ctx.lineTo(R * 0.35, jl); ctx.closePath(); ctx.fill();
+      // both rows of teeth, over the lips: they interlock when the mouth is shut
+      teeth(R * 0.5, xt - d * (croc ? 0.3 : 0.4), jl, jl, croc ? 10 : 8, false, Math.max(0.5, d * (croc ? 0.17 : 0.17)));
+      teeth(R * 0.6, xt - d * (croc ? 0.45 : 0.6), jl + gape, jl + gape, croc ? 9 : 7, true, Math.max(0.5, d * (croc ? 0.15 : 0.15)));
+      ctx.fillStyle = dark; ell(ctx, xt - d * (croc ? 0.25 : 0.45), -d * (croc ? 0.35 : 0.45), Math.max(0.4, d * 0.1), Math.max(0.3, d * 0.06), 0); // nostril
+      ctx.strokeStyle = dark; ctx.lineWidth = Math.max(0.4, d * 0.06); ctx.beginPath(); ctx.moveTo(R * 0.4, jl); ctx.lineTo(xt - d * 0.1, jl); ctx.stroke(); // the lips
+    }
+  }
+  // A sail along the back (genome.js: sail), in the torso's frame (-y is the back): skin stretched over
+  // long spines, highest in the middle, coloured like a comb.
+  function drawSail(ctx, P, c, rx, ry) {
+    const xa = -rx * 0.8, xb = rx * 0.55, base = -ry * 0.55, H = Math.max(3, P.TD * 1.15), n = 10, tops = [];
+    for (let i = 0; i <= n; i++) { const u = i / n; tops.push([xa + (xb - xa) * u, base - H * Math.pow(Math.sin(Math.PI * u), 0.8) * (0.9 + 0.1 * Math.sin(u * 17))]); }
+    ctx.fillStyle = c.comb; ctx.beginPath(); ctx.moveTo(xa, base);
+    for (const [x, y] of tops) ctx.lineTo(x, y);
+    ctx.lineTo(xb, base); ctx.closePath(); ctx.fill();
+    ctx.strokeStyle = 'rgba(35,49,74,0.32)'; ctx.lineWidth = Math.max(0.5, P.TD * 0.04); ctx.lineCap = 'round';
+    ctx.beginPath(); for (const [x, y] of tops.slice(1, -1)) { ctx.moveTo(x, base); ctx.lineTo(x, y - H * 0.04); } ctx.stroke();
+  }
   // Head in its own frame: +x is the beak direction, +y is the chin side.
   function drawHead(ctx, P, c, o, pose, cl) {
     const R = P.HR, bare = P.sw.bare, eyeState = pose.eye || '', open = (pose.beakOpen || 0);
@@ -361,7 +428,8 @@
     }
     // beak, or a nose and mouth
     const BL = P.BL, BD = P.BD, hk = P.hook, x0 = R * 0.55, xt = R * 0.85 + BL, gape = open * (BL * 0.3 + R * 0.25);
-    if (P.hasBeak) {
+    if (P.hasBeak && P.shape && P.shape !== 'plain') drawShapedBill(ctx, P, c, R, x0, xt, BD, gape, headCol);
+    else if (P.hasBeak) {
       if (P.pouch > 0.4) {
         ctx.fillStyle = c.beakDark; ctx.beginPath(); ctx.moveTo(x0, BD * 0.3);
         ctx.quadraticCurveTo((x0 + xt) / 2, BD * 0.3 + BL * 0.55 * P.pouch, xt - BD * 0.3, BD * 0.25); ctx.closePath(); ctx.fill();
@@ -471,6 +539,7 @@
     ctx.save();
     ctx.translate(mx, my); ctx.rotate(ang); if (f < 0) ctx.scale(1, -1);
     if (acc.back) drawBackAcc(ctx, acc.back, rx, ry, true);
+    if (P.sw.sail && !P.person && !cl) drawSail(ctx, P, c, rx, ry);
     if (cl || P.person) {
       // a person's trunk: rounded at the hips, square at the shoulders, which end where the neck begins
       const hw = TD * 0.475, x0 = -TL / 2 + TD * 0.1 - hw, x1 = TL / 2, rr0 = hw, rr1 = TD * 0.28;

@@ -26,6 +26,8 @@
   const COMBS = ['casque', 'knob', 'single', 'rose', 'pea'];
   const bucket = (v) => (v < 0.18 ? 0 : v < 0.36 ? 1 : v < 0.64 ? 2 : v < 0.82 ? 3 : 4);
   const WEIGHT_CLASSES = [['Gnat', 0.15], ['Fly', 0.5], ['Feather', 1.5], ['Light', 4], ['Middle', 12], ['Heavy', 50], ['Titan', Infinity]];
+  // How high the physical numbers can go in each weight class, Gnat to Titan.
+  const PHYS_CAP = [75, 115, 150, 190, 225, 265, 300];
   function weightClass(kg) { for (let i = 0; i < WEIGHT_CLASSES.length; i++) if (kg < WEIGHT_CLASSES[i][1]) return i; return WEIGHT_CLASSES.length - 1; }
 
   // o: { age (days; default adult), train: { muscle, lungs, reflex, courage } as 0..0.15 bonuses, cond (0..1 condition) }
@@ -150,11 +152,15 @@
     P.balance = Math.sqrt(t.footSize) * Math.pow(t.legThick, 0.3) * (P.legPairs > 1 ? 1.5 : 1) / (1 + 0.25 * Math.max(0, legLen - 1)) * Math.pow(P.reflex, 0.3);
     P.traction = 0.75 + 0.25 * t.footSize + 0.2 * t.talon;
     P.peckReach = P.NL + P.HR + P.BL;
+    // The physical numbers (power, toughness, stamina) go as high as the weight class allows: 75 for a
+    // Gnatweight up to 300 for a Titan. Speed, and the mind (guts, wits, fury), stay within 100 for all.
+    const cap = PHYS_CAP[P.weightClass], phys = (x) => Math.round(Math.min(cap, 100 * Math.max(0, x)));
+    P.rateCap = { power: cap, speed: 100, tough: cap, stamina: cap, guts: 100, wits: 100, fury: 100 };
     P.rate = {
-      power: Math.round(100 * clamp01(Math.max(P.peckSharp, P.kickSharp * 0.9, P.punchSharp, P.wingSharp * 0.8) * P.muscle * Math.pow(P.massRel, 0.2) / 2.6)),
+      power: phys(Math.max(P.peckSharp, P.kickSharp * 0.9, P.punchSharp, P.wingSharp * 0.8) * P.muscle * Math.pow(P.massRel, 0.2) / 2.6),
       speed: Math.round(100 * clamp01(P.speedMax / 620)),
-      tough: Math.round(100 * clamp01(P.hpMax / 330)),
-      stamina: Math.round(100 * clamp01((P.stamMax - 40) / 130)),
+      tough: phys(P.hpMax / 330),
+      stamina: phys((P.stamMax - 40) / 130),
       guts: Math.round(100 * P.courage),
       wits: Math.round(50 * (P.focus + P.cunning)),
       fury: Math.round(100 * P.aggression),
@@ -182,5 +188,5 @@
     return P;
   }
 
-  RB.pheno = { express, weightClass, WEIGHT_CLASSES, PATTERNS, COMBS, ramp, SHAPE_BITE };
+  RB.pheno = { express, weightClass, WEIGHT_CLASSES, PHYS_CAP, PATTERNS, COMBS, ramp, SHAPE_BITE };
 })();

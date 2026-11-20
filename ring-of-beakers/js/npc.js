@@ -115,7 +115,7 @@
     { id: 'tail', text: 'a showy tail', score: (P) => clamp01(P.t.tailLen * (0.4 + P.t.tailFan) / 2.2) },
     { id: 'crest', text: 'a fancy crest', score: (P) => clamp01((P.crest - 0.3) / 0.6) },
     { id: 'fast', text: 'a fast runner', score: (P) => P.rate.speed / 100 },
-    { id: 'tough', text: 'a tough one', score: (P) => P.rate.tough / 100 },
+    { id: 'tough', text: 'a tough one', score: (P) => clamp01(P.rate.tough / 100) },
     { id: 'mean', text: 'a mean fighter', score: (P, c) => clamp01(P.rate.fury / 100 * 0.6 + c.wins * 0.15) },
     { id: 'champ', text: 'a proven winner', score: (P, c) => clamp01(c.wins / 4) },
     { id: 'odd', text: 'something strange', score: (P) => clamp01(P.odd.length / 2 + (P.species.pure ? 0 : 0.4)) },

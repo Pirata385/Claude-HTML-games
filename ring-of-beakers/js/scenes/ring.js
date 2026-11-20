@@ -6,11 +6,11 @@
   const RB = globalThis.RB;
   const { Rng, clamp, lerp, TAU, hashStr } = RB.core;
   const ui = RB.ui, pal = RB.pal, input = RB.input, ST = RB.state, common = RB.common, EC = RB.economy;
-  const HOW = { ko: 'by knockout', fled: 'the other one ran', ringout: 'by ring-out', decision: 'on points', towel: 'the towel came in' };
+  const HOW = { ko: 'by knockout', fled: 'the other one ran', ringout: 'by ring-out', decision: 'on points', towel: 'the towel came in', rounds: 'on rounds' };
   const CMD = [['sic', 'Sic \'em!', 'bolt', pal.coral, 'Digit1'], ['back', 'Back off!', 'shield', pal.teal, 'Digit2'], ['whistle', 'Whistle', 'whistle', pal.mustard, 'Digit3']];
-  const CROWD = ['#e76f51', '#2a9d8f', '#e9b44c', '#6d4c7d', '#7fb069', '#3d6fa5', '#d98cab', '#f2efe6'];
 
-  let A, fight, phase, pt, cam, parts, flash, seen, mine, speed, shake, bubbles, rng, settled, lines, cheer, impact;
+  const CROWD = ['#e76f51', '#2a9d8f', '#e9b44c', '#6d4c7d', '#7fb069', '#3d6fa5', '#d98cab', '#f2efe6'];
+  let A, fight, phase, pt, cam, parts, flash, seen, mine, speed, shake, bubbles, rng, settled, lines, cheer, impact, crowd;
   // Impact frames: when a flying kick lands, the bout freezes for a moment and two stark frames flash
   // up (black with white cut-outs, then white with black), speed lines bursting from the blow.
   // Settings can switch them off.
@@ -107,6 +107,7 @@
       const b = { P: A.b.P, name: A.b.name, gear: A.b.gear || {} };
       fight = new RB.fight.Fight({ a, b, mode: card.mode || 'pit', seed: rng.int(1, 2e9), timeLimit: 60 });
       phase = 'intro'; pt = 0; parts = []; flash = [0, 0]; seen = 0; shake = 0; bubbles = []; settled = false; lines = []; cheer = 0; impact = null;
+      crowd = RB.crowd.make(rng.int(1, 2e9), fight.W, fight.L, S, RB.game.world); // eight neighbours come to watch, four outside each wall
       speed = RB.game.settings.fast ? 2 : 1;
       cam = { x: 0, z: 0.5 };
       RB.audio.setTune(A.card && A.card.boss ? 'boss' : 'fight');
@@ -126,6 +127,7 @@
       // new events from the simulation
       for (; seen < fight.events.length; seen++) {
         const e = fight.events[seen], F = fight.fighters;
+        RB.crowd.react(crowd, e, fight);
         if (e.type === 'hit') {
           const def = F[1 - e.side];
           flash[1 - e.side] = 1; shake = Math.min(1, shake + e.dmg / def.hpMax * 4);
@@ -139,6 +141,10 @@
             if (impactOn()) { impact = { t: 0, x: e.x, y: e.y, seed: rng.next() * TAU }; fight.hitStop = Math.max(fight.hitStop, 0.34); }
           }
         } else if (e.type === 'down') { const r = F[e.side].rag; boom(r.midX(), 0, 8, '#d9c39a', 'dust'); RB.audio.play('thud'); }
+        else if (e.type === 'wall') { // slammed into the wall by a flying kick: the whole place shakes
+          shake = 3; cheer = 1.6; boom(e.x - e.dir * fight.L * 0.05, e.y, 12, '#d9c39a', 'dust'); boom(e.x, e.y, 6, pal.white, 'star');
+          text(e.x - e.dir * fight.L * 0.4, e.y - fight.L * 0.35, 'SLAM!', pal.coral, 1.6); RB.audio.play('thud'); RB.audio.play('crit');
+        }
         else if (e.type === 'flykick') { const r = F[e.side].rag; text(r.head.x, r.head.y - 26, 'FLYING KICK!', pal.coral, 1.5); RB.audio.play('whoosh'); RB.audio.voice(F[e.side].P.voice, 'squawk'); }
         else if (e.type === 'dodge') { const r = F[e.side].rag; text(r.head.x, r.head.y - 20, 'dodge!', pal.teal); RB.audio.play('whoosh'); }
         else if (e.type === 'flee') { const r = F[e.side].rag; text(r.head.x, r.head.y - 24, 'chickens out!', pal.coral, 1.2); RB.audio.voice(F[e.side].P.voice, 'squawk'); }
@@ -149,7 +155,13 @@
         else if (e.type === 'eat') { const r = F[e.side].rag; text(r.head.x, r.head.y - 20, 'munch! wind back', pal.teal); RB.audio.play('good'); }
         else if (e.type === 'gust') { text(-e.dir * fight.W * 0.6, -fight.L * 1.2, e.dir > 0 ? 'gust >>>' : '<<< gust', pal.ink, 1.2); RB.audio.play('whoosh'); }
         else if (e.type === 'dark') { text(0, -fight.L * 1.4, 'lights out!', pal.white, 1.3); RB.audio.play('zap'); }
-        else if (e.type === 'round') { text(0, -fight.L * 1.4, 'Round ' + e.n + (e.winner >= 0 ? ' · ' + F[e.winner].name + ' took the last' : ''), pal.mustard, 1.3); RB.audio.play('bell'); }
+        else if (e.type === 'round') { // the next round, and how the last one went
+          const by = e.how === 'ko' ? ' by KO' : e.how === 'fled' ? ' (ran off)' : ' on points', rw = fight.roundsWon;
+          text(cam.x, -fight.L * 1.4, 'Round ' + e.n + ' · ' + rw[0] + '–' + rw[1], pal.mustard, 1.4);
+          text(cam.x, -fight.L * 1.4 + 24 / cam.z, e.winner >= 0 ? F[e.winner].name + ' took the last' + by : 'the last was a draw', pal.ink, 1);
+          const [t1, t2] = parts.slice(-2); t2.vx = t1.vx = 0; t1.life = t2.life = 2.2; // the banner holds still long enough to read
+          RB.audio.play('bell'); cheer = 1.2;
+        }
         else if (e.type === 'end') { RB.audio.play('bell'); RB.audio.play('cheer'); cheer = 2.5; const w = F[e.winner]; RB.audio.voice(w.P.voice, 'crow'); }
       }
       for (const p of parts) { p.life -= dt; p.x += p.vx * dt; p.y += p.vy * dt; if (p.kind !== 'text') { p.vy += 500 * dt; p.vx *= 0.98; p.rot += p.vr * dt; if (p.y > -2 && p.vy > 0) { p.y = -2; p.vy = 0; p.vx *= 0.8; } } }
@@ -161,17 +173,22 @@
       const cx = (R0.midX() + R1.midX()) / 2, span = Math.abs(R0.midX() - R1.midX()) + fight.L * 2.6;
       const top = -Math.min(R0.head.y, R1.head.y, -fight.L * 1.1) + fight.L * 0.6;
       const zt = clamp(Math.min(v.w / span, (gy - 74) / top), 0.08, 4);
-      cam.z += (zt - cam.z) * Math.min(1, dt * 3); cam.x += (cx - cam.x) * Math.min(1, dt * 4);
-      if (phase === 'intro' && pt < 0.05) { cam.z = zt; cam.x = cx; }
+      // the bout opens on the whole pit and the neighbours on either side of it, then closes in
+      const wide = phase === 'intro' && pt < 0.8, zw = clamp(Math.min(v.w / (crowd.reach * 2 + fight.L * 0.4), (gy - 74) / (fight.L * 2.2)), 0.05, 4);
+      cam.z += ((wide ? zw : zt) - cam.z) * Math.min(1, dt * (wide ? 6 : 3)); cam.x += ((wide ? 0 : cx) - cam.x) * Math.min(1, dt * 4);
+      if (phase === 'intro' && pt < 0.05) { cam.z = zw; cam.x = 0; }
+      RB.crowd.update(crowd, dt, cheer);
     },
 
     draw(ctx) {
       const v = ui.view, S = RB.game.S, F = fight.fighters, L = fight.L, gy = v.h * 0.76, z = cam.z, mode = fight.mode;
       const dark = A.arena && A.arena.id === 'cellar';
       ctx.fillStyle = dark ? '#3a3350' : A.arena && A.arena.id === 'grand' ? '#f3d9a4' : '#cfe8e2'; ctx.fillRect(0, 0, v.w, v.h);
+      const shx = (rng.next() - 0.5) * shake * 6, shy = (rng.next() - 0.5) * shake * 6;
       ctx.save();
-      ctx.translate(v.w / 2 - cam.x * z + (rng.next() - 0.5) * shake * 6, gy + (rng.next() - 0.5) * shake * 6); ctx.scale(z, z);
+      ctx.translate(v.w / 2 - cam.x * z + shx, gy + shy); ctx.scale(z, z);
       const W = fight.W, X0 = -W * 4, XW = W * 8;
+      const vx0 = cam.x - v.w / 2 / z - L, vx1 = cam.x + v.w / 2 / z + L; // what is on screen
       // the crowd
       const cr = L * 0.16, rows = 3;
       for (let row = rows - 1; row >= 0; row--) {
@@ -193,6 +210,7 @@
       ctx.fillStyle = sand; ctx.fillRect(X0, 0, XW, L * 6);
       ctx.fillStyle = sandD; ctx.fillRect(X0, L * 0.12, XW, L * 6);
       ctx.fillStyle = boardD; ctx.fillRect(-W - L * 0.16, -L * 1.5, L * 0.16, L * 1.5); ctx.fillRect(W, -L * 1.5, L * 0.16, L * 1.5);
+      RB.crowd.draw(ctx, crowd, vx0, vx1); // the neighbours, just outside the walls
       // the arena's twist
       if (mode === 'mud') { // a bog in the middle
         const mw = fight.mudW;
@@ -266,7 +284,7 @@
         ui.bar(x + 8, 54, bw - 16, 5, f.morale / 100, pal.mustard);
         for (const b of bubbles) if (b.side === s) { const w = ui.width(b.str, 13) + 20, bx = s ? v.w - 8 - w : 8; ui.rect(bx, 74, w, 26, b.ok ? pal.ink : pal.grey, 13); ui.text(b.str, bx + w / 2, 87.5, { size: 13, color: pal.white, align: 'center', base: 'middle' }); }
       }
-      const left = Math.max(0, Math.ceil(fight.timeLimit - fight.t));
+      const left = Math.ceil(fight.timeLeft());
       ui.rect(v.w / 2 - 26, 8, 52, 30, pal.ink, 10); ui.text(String(left), v.w / 2, 23.5, { size: 17, color: pal.white, align: 'center', base: 'middle' });
       const modeName = mode === 'rounds' ? 'Round ' + Math.min(3, fight.round) + ' of 3' : (RB.fight.TWISTS[mode] || RB.fight.TWISTS.pit)[0];
       ui.text(modeName, v.w / 2, 52, { size: 11, align: 'center', color: dark ? pal.white : pal.ink });
@@ -314,6 +332,6 @@
       void S; void lerp;
     },
     // (for checks) the bout, its phase, and the impact frames held at a moment (t in seconds; null lets go)
-    debug() { return { fight, phase, impact: () => impact, pin: (t) => { if (impact && t !== null) { impact.t = t; impact.pinned = true; } else if (impact) impact.pinned = false; if (fight) fight.hitStop = t === null ? 0 : 99; } }; },
+    debug() { return { fight, phase, crowd, impact: () => impact, pin: (t) => { if (impact && t !== null) { impact.t = t; impact.pinned = true; } else if (impact) impact.pinned = false; if (fight) fight.hitStop = t === null ? 0 : 99; } }; },
   };
 })();

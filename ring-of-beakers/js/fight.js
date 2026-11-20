@@ -13,6 +13,13 @@
   const CMD_CD = { sic: 8, back: 6, whistle: 10 };
   const BASE = { beak: 6, foot: 9, fist: 5, wing: 5, body: 2.5 };
   const REF = { beak: 430, foot: 560, fist: 560, wing: 420, body: 200 }; // a typical landing speed for each weapon
+  // The pace of a bout: one scale on every blow, the same for both birds (so it never changes who is
+  // likelier to win), set per weight class so that a bout lasts about twenty-five seconds on average.
+  // Small birds land light blows on light bodies and big ones hit hard and fast, so each class has its
+  // own (Gnat to Titan); a bout between classes takes the mean of the two. TUNE.damage scales them all.
+  const PACE = [7, 1.5, 0.9, 1.02, 0.64, 0.54, 0.68];
+  const TUNE = { damage: 1 };
+  const paceOf = (P) => PACE[P.weightClass] || 1;
   const KNOCK = { beak: 0.2, foot: 0.45, fist: 0.3, wing: 0.7, body: 0.9 };
   const LOC = { head: 1.7, neck: 1.35, body: 1, leg: 0.7 };
   const COST = { peck: 4.5, kick: 10, punch: 5, buffet: 6, shove: 7, dodge: 5 };
@@ -24,7 +31,7 @@
     mud: ['Mud pit', 'A bog in the middle of the ring: slow going in it, and easy to knock off your feet.'],
     wind: ['Wind tunnel', 'Big fans blow gusts across the ring, one way then the other: light birds get pushed about.'],
     dark: ['Lights out', 'Now and then the lights go out: big eyes and a steady head still find their mark.'],
-    rounds: ['Three rounds', 'Three rounds with a breather between them; each round won counts on points.'],
+    rounds: ['Three rounds', 'Best of three rounds with a breather between them: a knockout (or a bird that runs) takes the round, time decides it on points, and the beaten bird gets up for the next.'],
   };
   const LEGACY = { push: 'mud', aerial: 'wind' }; // the old falling modes
 
@@ -37,6 +44,7 @@
       this.world = new PH.World();
       this.t = 0; this.acc = 0; this.over = false; this.result = null; this.outro = 0; this.done = false;
       this.events = []; this.hitStop = 0; this.timeLimit = o.timeLimit || 60; this.touching = false;
+      this.pace = TUNE.damage * Math.sqrt(paceOf(o.a.P) * paceOf(o.b.P));
       const Pa = o.a.P, Pb = o.b.P;
       const L = (this.L = Math.max(Pa.TL + Pa.NL + Pa.LLv, Pb.TL + Pb.NL + Pb.LLv));
       const W = (this.W = clamp(4.2 * L, 170, 950));
@@ -52,7 +60,7 @@
       else if (this.mode === 'mud') this.mudW = W * 0.34;
       else if (this.mode === 'wind') { this.gust = 0; this.gustDir = this.tr.chance(0.5) ? 1 : -1; this.windT = 4; this.gustOn = false; }
       else if (this.mode === 'dark') { this.dark = 0; this.darkT = 5 + this.tr.next() * 2; this.darkOn = false; }
-      else if (this.mode === 'rounds') { this.round = 1; this.roundLen = this.timeLimit / 3; this.roundDmg = [0, 0]; this.roundsWon = [0, 0]; }
+      else if (this.mode === 'rounds') { this.round = 1; this.roundLen = o.roundLen || 30; this.roundT0 = 0; this.breakUntil = 0; this.roundDmg = [0, 0]; this.roundsWon = [0, 0]; }
       this.fighters = [this.mkFighter(0, o.a, -startX, 1), this.mkFighter(1, o.b, startX, -1)];
       this.fighters[0].tg = this.targets(this.fighters[1].rag); this.fighters[1].tg = this.targets(this.fighters[0].rag);
       w.solvers.push(this);
@@ -155,14 +163,17 @@
         }
         // The flying kick: when the foe falls back, a long-legged bird falls back a step too, then
         // throws itself at it feet first, with everything it has.
+        // A bird that has gone down is given room to get up again: no blows, a step back. Only its
+        // owner's "Sic 'em!" (frenzy) sends the other one in regardless.
+        const sporting = (fr.state === 'down' || fr.state === 'rise' || fr.state === 'ko') && me.frenzy <= 0;
         const away = (fr.vx() * dir > 40 && fr.state === 'stand') || foe.want < -0.2 || foe.backoff > 0 || foe.flee;
-        if (me.leggy && !me.fly && me.flyCd <= 0 && away && st === 'stand' && !rag.act && !me.resting && !me.flee && me.backoff <= 0 && rag.f === dir
+        if (me.leggy && !sporting && !me.fly && me.flyCd <= 0 && away && st === 'stand' && !rag.act && !me.resting && !me.flee && me.backoff <= 0 && rag.f === dir
           && gap > me.standR * 1.6 && gap < me.kickR * 0.8 && me.stam > COST.kick * 3) { // from a few lengths off, not up close
           me.fly = { t: 0.28 + 0.14 * rng.next() };
           this.events.push({ type: 'flyready', side: me.side });
         }
         // attack
-        if (!me.fly && me.cd <= 0 && !rag.act && rag.state === 'stand' && !me.resting && me.backoff <= 0 && !me.flee && rag.f === dir) this.attack(me, foe, gap, dir);
+        if (!sporting && !me.fly && me.cd <= 0 && !rag.act && rag.state === 'stand' && !me.resting && me.backoff <= 0 && !me.flee && rag.f === dir) this.attack(me, foe, gap, dir);
 
         // movement
         let want;
@@ -174,6 +185,7 @@
         // grain on the floor: a tired bird goes for it
         const g = this.grain && !me.flee ? this.nearGrain(rag.midX()) : null;
         if (g && (me.resting || me.backoff > 0 || me.stam < 0.6 * me.stamMax)) want = Math.sign(g.x - rag.midX()) * dir * 0.9;
+        if (sporting && !me.flee) want = gap < me.prefer * 1.5 + foe.P.TL * 0.6 ? -0.5 : 0; // give it room
         if (want < 0 && this.roomBehind(me, dir) < P.TL * 0.7) want = 0; // back to the wall
         me.want = want;
       }
@@ -238,19 +250,35 @@
         if (this.darkT <= 0) { this.darkOn = !this.darkOn; this.darkT = this.darkOn ? tr.range(3, 4.5) : tr.range(5, 7); this.events.push({ type: this.darkOn ? 'dark' : 'light' }); }
         this.dark += ((this.darkOn ? 1 : 0) - this.dark) * Math.min(1, DT * (this.darkOn ? 6 : 3));
       } else if (this.mode === 'rounds') {
-        if (this.round < 3 && this.t >= this.roundLen * this.round) this.endRound();
+        if (this.t >= this.breakUntil && this.t - this.roundT0 >= this.roundLen) this.endRound(); // time: on points
       }
     }
-    // A round ends: whoever did more damage in it takes it; both get a breather.
-    endRound() {
-      const d = this.roundDmg, w = Math.abs(d[0] - d[1]) < 0.5 ? -1 : d[0] > d[1] ? 0 : 1;
+    // Time left on the clock: of this round in a bout of rounds, else of the bout.
+    timeLeft() { return this.roundsWon ? Math.max(0, this.roundLen - Math.max(0, this.t - this.roundT0)) : Math.max(0, this.timeLimit - this.t); }
+    // A round ends (w: who took it, -1 for nobody; how: 'ko', 'fled' or, by default, on points).
+    // Best of three: two rounds won take the bout; otherwise both get a breather, the beaten bird gets
+    // back up with some of its health, and the next round starts.
+    endRound(w, how) {
+      if (w === undefined) { const d = this.roundDmg; w = Math.abs(d[0] - d[1]) < 0.5 ? -1 : d[0] > d[1] ? 0 : 1; how = 'points'; }
       if (w >= 0) this.roundsWon[w]++;
-      this.round++; this.roundDmg = [0, 0];
-      for (const me of this.fighters) {
-        me.backoff = 2.2; me.frenzy = 0; me.flee = false; me.fleeT = 0;
-        me.stam = Math.min(me.stamMax, me.stam + 0.4 * me.stamMax); me.morale = Math.min(100, me.morale + (me.side === w ? 25 : 15));
+      const rw = this.roundsWon;
+      if (rw[0] >= 2 || rw[1] >= 2 || this.round >= 3) {
+        let win = rw[0] !== rw[1] ? (rw[0] > rw[1] ? 0 : 1) : -1;
+        if (win < 0) { const a = this.fighters[0], b = this.fighters[1], sa = a.dmg / b.hpMax, sb = b.dmg / a.hpMax; win = Math.abs(sa - sb) > 1e-3 ? (sa > sb ? 0 : 1) : this.rng.chance(0.5) ? 0 : 1; }
+        this.finish(win, how === 'ko' && win === w ? 'ko' : how === 'fled' && win === w ? 'fled' : 'rounds');
+        return;
       }
-      this.events.push({ type: 'round', n: this.round, winner: w });
+      this.round++; this.roundDmg = [0, 0];
+      const BREAK = 3;
+      this.breakUntil = this.t + BREAK; this.roundT0 = this.t + BREAK;
+      for (const me of this.fighters) {
+        me.backoff = BREAK; me.frenzy = 0; me.flee = false; me.fleeT = 0; me.fly = null;
+        me.stam = Math.min(me.stamMax, me.stam + 0.5 * me.stamMax); me.morale = Math.max(me.morale, 50) + (me.side === w ? 25 : 10); me.morale = Math.min(100, me.morale);
+        me.hp = Math.max(me.hp + 0.15 * me.hpMax, 0.35 * me.hpMax); me.hp = Math.min(me.hp, me.hpMax);
+        const r = me.rag;
+        if (r.state === 'ko') { r.dead = false; r.state = 'down'; r.stateT = 0; r.downDur = BREAK * 0.5; r.eye = 'blink'; } // knocked out: it comes round in the breather
+      }
+      this.events.push({ type: 'round', n: this.round, winner: w, how });
     }
     // Free distance behind or ahead of a fighter before a wall.
     roomBehind(me, dir) { const x = me.rag.midX(); return dir > 0 ? x + this.edge : this.edge - x; }
@@ -308,7 +336,7 @@
       me.trainerT = 0.5 + rng.next() * 0.5;
       const foeDown = foe.rag.state === 'down' || foe.rag.state === 'rise';
       if (me.cmdCd.whistle <= 0 && (me.flee || me.morale < 18)) this.command(me.side, 'whistle');
-      else if (me.cmdCd.sic <= 0 && me.stam > 0.4 * me.stamMax && (foeDown || foe.stam < 0.2 * foe.stamMax || rng.chance(0.08))) this.command(me.side, 'sic');
+      else if (me.cmdCd.sic <= 0 && me.stam > 0.4 * me.stamMax && ((foeDown && rng.chance(0.12)) || foe.stam < 0.2 * foe.stamMax || rng.chance(0.08))) this.command(me.side, 'sic'); // a downed foe: mostly left to get up
       else if (me.cmdCd.back <= 0 && (me.stam < 0.15 * me.stamMax || (me.hp < 0.3 * me.hpMax && rng.chance(0.3)))) this.command(me.side, 'back');
     }
 
@@ -389,6 +417,7 @@
       if (att.gear.horseshoe && crit) dmg *= 1.15;
       if (def.gear.mail && !crit) dmg *= 0.85;
       if (fly) dmg *= 1.4;
+      dmg *= this.pace;
       def.hp -= dmg; att.dmg += dmg; att.hits++; def.lastHurt = this.t;
       if (this.roundDmg) this.roundDmg[att.side] += dmg / def.hpMax * 100;
       att.rag.act.hit = true;
@@ -396,6 +425,16 @@
       def.rag.push(ux * dv, clamp(uy * dv * 0.5 - (w === 'foot' ? dv * 0.12 : 0), -170, 140), crit ? 'head' : 'body');
       if (w === 'beak') { att.rag.head.vx *= -0.2; att.rag.head.vy *= -0.2; }
       def.stag += dv / (420 * D.balance) * (this.inMud(def.rag) ? 1.6 : 1) * (def.gear.springs ? 0.8 : 1); // the mud takes your feet; spring boots keep them
+      // A flying kick sends the foe limp through the air and into the wall behind it (same damage).
+      if (fly) {
+        const dirX = Math.sign(def.rag.midX() - att.rag.midX()) || att.rag.f, g = this.world.g, vy = 280, air = 2 * vy / g; // away from the kicker
+        const dist = Math.max(10, this.edge - dirX * def.rag.midX());
+        const vx = dirX * clamp(dist / (air * 0.55), 450, 1800);
+        if (def.rag.state !== 'down' && def.rag.state !== 'ko') { def.downs++; this.events.push({ type: 'down', side: def.side }); }
+        def.rag.knockdown(1.5 + 0.6 * rng.next()); def.stag = 0;
+        for (const p of def.rag.parts) if (p.im > 0) { p.vx = vx; p.vy = -vy; }
+        def.launch = { dir: dirX, t: 0 };
+      }
       const big = dmg > 0.2 * def.hpMax, st = def.rag.state;
       if ((def.stag >= 1 || big) && st !== 'down' && st !== 'ko' && def.hp > 0) {
         def.stag = 0; def.downs++;
@@ -406,11 +445,17 @@
       def.morale -= frac * (1.5 - 1.1 * D.courage); att.morale = Math.min(100, att.morale + frac * 0.35);
       this.events.push({ type: 'hit', x, y, dmg, weapon: w, part: hit.part, crit, side: att.side, fly });
       this.hitStop = clamp(dmg / def.hpMax * 0.6, 0.02, 0.12);
-      if (def.hp <= 0) { def.hp = 0; def.rag.ko(); this.finish(att.side, 'ko'); }
+      if (def.hp <= 0) { def.hp = 0; def.rag.ko(); if (this.roundsWon) this.endRound(att.side, 'ko'); else this.finish(att.side, 'ko'); }
     }
 
     upkeep(me) {
       const P = me.P, rag = me.rag;
+      if (me.launch) { // flung by a flying kick: does it meet the wall?
+        me.launch.t += DT;
+        const d = me.launch.dir, hitWall = rag.parts.some((p) => p.x * d >= this.edge - (p.r || 2) - 1.5);
+        if (hitWall) { this.events.push({ type: 'wall', side: me.side, x: d * this.edge, y: rag.midY(), dir: d }); me.launch = null; }
+        else if (me.launch.t > 2.2) me.launch = null;
+      }
       me.cd -= DT; me.flyCd -= DT; me.frenzy = Math.max(0, me.frenzy - DT); me.backoff = Math.max(0, me.backoff - DT);
       me.cmdCd.sic = Math.max(0, me.cmdCd.sic - DT); me.cmdCd.back = Math.max(0, me.cmdCd.back - DT); me.cmdCd.whistle = Math.max(0, me.cmdCd.whistle - DT);
       me.stag = Math.max(0, me.stag - DT * 0.45);
@@ -426,9 +471,9 @@
     checkEnd() {
       for (let s = 0; s < 2; s++) {
         const me = this.fighters[s];
-        if (me.fleeT > 2.6) return this.finish(1 - s, 'fled');
+        if (me.fleeT > 2.6) return this.roundsWon ? this.endRound(1 - s, 'fled') : this.finish(1 - s, 'fled');
       }
-      if (this.t >= this.timeLimit) {
+      if (!this.roundsWon && this.t >= this.timeLimit) {
         const a = this.fighters[0], b = this.fighters[1];
         if (this.roundsWon) this.endRound(); // the last round counts too
         const rw = this.roundsWon || [0, 0];
@@ -462,8 +507,9 @@
 
     // Run to the end without rendering. Returns the result.
     run(maxT) {
-      const cap = (maxT || this.timeLimit + 5) / DT;
+      const cap = (maxT || (this.roundsWon ? 3 * (this.roundLen + 3) + 5 : this.timeLimit + 5)) / DT; // three rounds and their breathers
       for (let i = 0; i < cap && !this.over; i++) this.step();
+      while (!this.over && this.roundsWon) this.endRound(); // rounds still to go are scored as they stand
       if (!this.over) this.checkEnd();
       return this.result;
     }
@@ -479,5 +525,5 @@
     return total ? wins / total : 0.5;
   }
 
-  RB.fight = { Fight, estimate, DT, CMD_CD, TWISTS };
+  RB.fight = { Fight, estimate, DT, CMD_CD, TWISTS, TUNE, PACE };
 })();

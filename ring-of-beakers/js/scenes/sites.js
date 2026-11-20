@@ -314,18 +314,19 @@
       y += 5;
       // the numbers: each bar grows out from the middle, longer is better
       const bw = box.w / 2 - 72, fs = Math.min(10, rowH - 2); // room for the numbers at both ends
-      const row = (label, va, vb, col) => {
+      const row = (label, va, vb, col, cap) => { cap = cap || 100; // bars full at the weight class's limit
         const ry = y + 1, bh = Math.max(4, rowH - 5);
         ui.rect(mid - 40 - bw, ry, bw, bh, pal.soft, bh / 2); ui.rect(mid + 40, ry, bw, bh, pal.soft, bh / 2);
-        if (va > 0) ui.rect(mid - 40 - bw * va / 100, ry, bw * va / 100, bh, col, bh / 2);
-        if (vb > 0) ui.rect(mid + 40, ry, bw * vb / 100, bh, col, bh / 2);
+        const fa = Math.min(1, va / cap), fb = Math.min(1, vb / cap);
+        if (va > 0) ui.rect(mid - 40 - bw * fa, ry, bw * fa, bh, col, bh / 2);
+        if (vb > 0) ui.rect(mid + 40, ry, bw * fb, bh, col, bh / 2);
         ui.text(label, mid, ry + bh / 2 + 0.5, { size: fs, align: 'center', base: 'middle', bold: false });
         ui.text(String(va), mid - 44 - bw, ry + bh / 2 + 0.5, { size: fs, align: 'right', base: 'middle' });
         ui.text(String(vb), mid + 44 + bw, ry + bh / 2 + 0.5, { size: fs, align: 'left', base: 'middle' });
         y += rowH;
       };
       const cols = [pal.coral, pal.teal, pal.brick, pal.leaf, pal.mustard, pal.plum, '#d7372f'];
-      STATS.forEach((st, i) => row(st[1], A.P.rate[st[0]], B.P.rate[st[0]], cols[i]));
+      STATS.forEach((st, i) => row(st[1], A.P.rate[st[0]], B.P.rate[st[0]], cols[i], Math.max((A.P.rateCap || {})[st[0]] || 100, (B.P.rateCap || {})[st[0]] || 100)));
       row('Health', Math.round(A.hp * 100), Math.round(B.hp * 100), pal.coral);
       y += 4;
       if (exhibit) {

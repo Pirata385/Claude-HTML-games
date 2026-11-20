@@ -188,10 +188,10 @@
       y += 8;
       // the numbers: now, a bar for after, after, and the change
       for (const st of STATS) {
-        const a = A.rate[st[0]], b = B.rate[st[0]], d = b - a;
+        const a = A.rate[st[0]], b = B.rate[st[0]], d = b - a, cap = Math.max((A.rateCap || {})[st[0]] || 100, (B.rateCap || {})[st[0]] || 100);
         ui.text(st[1], box.x, y + 11, { size: 11, bold: false });
         ui.text(String(a), box.x + 104, y + 11, { size: 11, align: 'right', color: pal.grey });
-        ui.bar(box.x + 112, y + 4, box.w - 112 - 84, 8, b / 100, d > 0 ? pal.teal : d < 0 ? pal.coral : pal.grey);
+        ui.bar(box.x + 112, y + 4, box.w - 112 - 84, 8, b / cap, d > 0 ? pal.teal : d < 0 ? pal.coral : pal.grey);
         ui.text(String(b), box.x + box.w - 44, y + 11, { size: 11, align: 'right' });
         if (d) ui.text((d > 0 ? '+' : '') + d, box.x + box.w, y + 11, { size: 11, align: 'right', color: d > 0 ? pal.teal : pal.coral });
         y += 15;

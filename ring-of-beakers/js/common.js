@@ -177,7 +177,7 @@
       ty += 19;
       const stage = c.person ? 'not amused' : c.eternal === 2 ? 'in its prime for ever, day ' + c.age : ST.isRetired(c) ? 'retired at ' + c.age + ' days' + (c.at === 'roost' ? ', at Sunset Roost since day ' + c.since : '') : P.stage + ', day ' + c.age + ' of about ' + P.lifespan;
       ui.text(stage, tx, ty, { size: 12, bold: false, maxW: tw }); ty += 16;
-      ui.text(common.fmtKg(P.weightKg) + ' · ' + RB.pheno.WEIGHT_CLASSES[P.weightClass][0] + 'weight', tx, ty, { size: 12, bold: false, maxW: tw }); ty += 16;
+      ui.text(common.fmtKg(P.weightKg) + ' · ' + RB.pheno.WEIGHT_CLASSES[P.weightClass][0] + 'weight · cap ' + RB.pheno.PHYS_CAP[P.weightClass], tx, ty, { size: 12, bold: false, maxW: tw }); ty += 16;
       ui.text('Record ' + c.wins + '–' + c.losses + (c.person ? '' : ' · worth about $' + RB.economy.value(c)), tx, ty, { size: 12, bold: false, maxW: tw }); ty += 14;
       ui.text('Trust', tx, ty + 9, { size: 11, bold: false }); ui.bar(tx + 34, ty + 2, tw - 40, 7, c.bond, pal.coral); ty += 18;
       let cx = tx;
@@ -187,12 +187,12 @@
         if (cx + w > tx + tw) { cx = tx; ty += 18; }
         ui.rect(cx, ty, w, 15, s[1], 7); ui.text(s[0], cx + 6, ty + 11, { size: 10, color: pal.white }); cx += w + 4;
       }
-      // stat bars
-      const by = wide ? box.y + pw + 10 : box.y + pw + 12, cols = wide ? 2 : 1, bw = (box.w - (cols - 1) * 16) / cols;
+      // stat bars, below the picture and the last row of tags
+      const by = Math.max(wide ? box.y + pw + 10 : box.y + pw + 12, ty + 23), cols = wide ? 2 : 1, bw = (box.w - (cols - 1) * 16) / cols;
       BARS.forEach((b, i) => {
         const col = i % cols, row = Math.floor(i / cols), x = box.x + col * (bw + 16), y = by + row * 19;
         ui.text(b[1], x, y + 10, { size: 11, bold: false });
-        ui.bar(x + 68, y + 2, bw - 100, 9, P.rate[b[0]] / 100, b[2]);
+        ui.bar(x + 68, y + 2, bw - 100, 9, P.rate[b[0]] / ((P.rateCap && P.rateCap[b[0]]) || 100), b[2]); // full at the weight class's limit
         ui.text(String(P.rate[b[0]]), x + bw, y + 10, { size: 11, align: 'right' });
       });
       // actions

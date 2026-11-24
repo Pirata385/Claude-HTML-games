@@ -266,7 +266,7 @@
     if (c.at === 'home') a.push({ label: 'To truck', icon: 'truck', fn: () => place(c, 'cage') });
     else a.push({ label: 'To yard', icon: 'home', fn: () => place(c, 'home') });
     a.push({ label: 'Wear', icon: 'hat', fill: pal.plum, fn: () => wear(c) });
-    if (S.up.dummy) a.push({ label: 'Train', icon: 'weight', fill: pal.mustard, disabled: c.trained || ST.isRetired(c), fn: () => trainPick(c) });
+    if (S.up.dummy) a.push({ label: 'Train', icon: 'weight', fill: pal.mustard, disabled: !ST.sessionsLeft(S, c) || ST.isRetired(c), fn: () => trainPick(c) });
     a.push({ label: c.person ? 'Let go' : 'Set free', icon: 'feather', fill: pal.grey, fn: () => release(c) });
     return a;
   }
@@ -303,18 +303,19 @@
   const RATE_NAMES = { power: 'Power', speed: 'Speed', tough: 'Toughness', stamina: 'Stamina', guts: 'Guts', wits: 'Wits', fury: 'Fury' };
   function trainPick(c) {
     const labels = { muscle: 'Strength', reflex: 'Reflexes', lungs: 'Wind', courage: 'Nerve' };
-    const pct = (x) => Math.round(x * 100) + '%';
+    const pct = (x) => Math.round(x * 1000) / 10 + '%';
     ui.open({ draw() {
-      const box = ui.window('Train ' + c.name, 380, 330, {});
+      const box = ui.window('Train ' + c.name, 380, 346, {});
       if (!box) return;
-      ui.para('One session a day. Each adds a little to one kind of training, up to 15%.', box.x, box.y, box.w, { size: 12 });
+      const left = ST.sessionsLeft(S, c), cap = pct(ST.TRAIN_MAX), weights = c.gear === 'anklets';
+      ui.para('One session a day (a tonic adds two more, once a day). Each session adds ' + pct(ST.TRAIN_STEP * (weights ? 1.5 : 1)) + (weights ? ' (training weights: half again as much)' : '') + ' to one kind of training, up to ' + cap + '. Sessions left today: ' + left + '.', box.x, box.y, box.w, { size: 12 });
       ST.TRAIN.forEach((stat, i) => {
-        const y = box.y + 36 + i * 60, pv = ST.trainPreview(c, stat), maxed = pv.gain <= 0, tx = box.x + 132, tw = box.w - 132;
-        ui.text(maxed ? labels[stat] + ' maxed out (15%)' : '+' + pct(pv.gain) + ' ' + labels[stat].toLowerCase() + ' (now ' + pct(pv.from) + ')', tx, y + 14, { size: 12, maxW: tw });
+        const y = box.y + 52 + i * 60, pv = ST.trainPreview(c, stat), maxed = pv.gain <= 0, tx = box.x + 132, tw = box.w - 132;
+        ui.text(maxed ? labels[stat] + ' maxed out (' + cap + ')' : '+' + pct(pv.gain) + ' ' + labels[stat].toLowerCase() + ' (now ' + pct(pv.from) + ')', tx, y + 14, { size: 12, maxW: tw });
         const shown = new Set(pv.rates.map((r) => r[0]));
         const parts = pv.rates.map((r) => RATE_NAMES[r[0]] + ' +' + r[1]).concat(pv.affects.filter((k) => !shown.has(k)).map((k) => RATE_NAMES[k] + ' +<1'));
         ui.text(maxed ? 'Nothing more to gain here.' : parts.length ? parts.join(' · ') : 'Too small to show in the numbers yet.', tx, y + 30, { size: 11, bold: false, color: maxed ? pal.grey : pal.teal, maxW: tw });
-        ui.bar(tx, y + 38, tw, 6, c.train[stat] / 0.15, pal.mustard);
+        ui.bar(tx, y + 38, tw, 6, c.train[stat] / ST.TRAIN_MAX, pal.mustard);
         if (ui.btn(box.x, y, 122, 46, labels[stat], { fill: pal.mustard, color: pal.ink, size: 13, disabled: maxed })) {
           const msg = ST.train(S, c, stat);
           if (msg) ui.toast(msg, pal.coral); else { hit = 1; RB.audio.play('kick'); ui.toast(c.name + ' trained ' + labels[stat].toLowerCase() + '.', pal.teal); const e = birds.find((b) => b.c === c); if (e) { const x = e.rag.midX(); dropRag(e); mkRag(c, x); } }

@@ -31,7 +31,7 @@
       birds: [], eggs: [], roost: [], released: [], markers: {}, visited: {}, isles: [], netted: {}, unlocked: {}, fame: [], bills: 1,
       inv: { net: 3, shovel: 10, grain: 8 }, equip: {}, up: { cage: 0, engine: 0, tires: 0, coop: 0, nest: 0, incubator: 0, dummy: 0, boat: 0 },
       feeder: 0, pos: null, dug: {}, marksDug: {}, wildGone: null, npc: {}, league: {}, bets: {},
-      lab: { power: false, fuses: 0, atlas: {}, vials: [], fossils: {}, seq: {} },
+      lab: { power: false, fuses: 0, atlas: {}, vials: [], fossils: {}, seq: {}, feesV: 1 },
       codex: { species: {}, ach: {} }, bfc: { stamps: 0, sold: 0 },
       stats: { fights: 0, wins: 0, caught: 0, dug: 0, bred: 0, sold: 0, earned: 0, kidnapped: 0 },
       goal: 0, won: false,
@@ -60,18 +60,29 @@
     return r.pick(BIRD_NAMES) + ' ' + (2 + r.int(0, 97));
   }
 
-  // o: { name, age, bond, origin, at, person (npc id), clothes, mom, dad (species labels of the parents) }
+  // o: { name, age, bond, origin, at, person (npc id), clothes, mom, dad (species labels of the parents),
+  //      ma, pa (who the parents were: { id, name, sex }) }
   // A new creature, not yet anywhere (addBird puts it in your flock).
   function makeBird(S, genome, o) {
     o = o || {};
     const c = { id: S.nextId++, name: o.name || freeName(S, S._rng), g: genome, age: 0, bond: o.bond === undefined ? 0.1 : o.bond, at: o.at || 'home', origin: o.origin || 'wild',
       train: { muscle: 0, lungs: 0, reflex: 0, courage: 0 }, cond: 1, hp: 1, rest: 0, tired: false, fed: false, hungry: 0, bouts: 0, trained: false, wins: 0, losses: 0,
-      hat: null, gear: null, buff: null, love: false, person: o.person || null, clothes: o.clothes || null, mom: o.mom || null, dad: o.dad || null, momKey: o.momKey || null, dadKey: o.dadKey || null, inj: 0 };
+      hat: null, gear: null, buff: null, love: false, person: o.person || null, clothes: o.clothes || null, mom: o.mom || null, dad: o.dad || null, momKey: o.momKey || null, dadKey: o.dadKey || null, ma: o.ma || null, pa: o.pa || null, inj: 0 };
     c.age = o.age === undefined ? pheno(c).growDays + 1 : o.age;
     c._P = null;
     return c;
   }
   function addBird(S, genome, o) { const c = makeBird(S, genome, o); S.birds.push(c); return c; }
+  // Who a parent was, as a young bird remembers it.
+  const parentOf = (c) => ({ id: c.id, name: c.name, sex: c.g.sex });
+  // A bird's family, for its card: each parent as { who, kind, c (the bird, if you still have it), e (its
+  // Hall of Fame entry, if it has one) }, and the young it has had that are still with you or on your islands.
+  function family(S, c) {
+    const all = S.birds.concat(S.roost || [], ...(S.isles || []).map((i) => i.birds)), find = (id) => all.find((b) => b.id === id) || null;
+    const one = (who, kind) => (who || kind ? { who: who || null, kind: kind || null, c: who ? find(who.id) : null, e: who ? fameOf(S, who.id) : null } : null);
+    const young = all.filter((b) => (b.ma && b.ma.id === c.id) || (b.pa && b.pa.id === c.id));
+    return { mother: one(c.ma, c.mom), father: one(c.pa, c.dad), young };
+  }
 
   // The tonic of eternal vigor (c.eternal): 1 in a normal game, the bird never dies (unless it goes to
   // BFC) and can breed for ever, but still retires from the ring and the sideshow; 2 in a sandbox
@@ -84,8 +95,8 @@
   }
   // Phenotype of a creature, cached until something that shapes it changes.
   function pheno(c) {
-    const age = bodyAge(c), key = age + '|' + c.train.muscle + c.train.lungs + c.train.reflex + c.train.courage + '|' + c.cond;
-    if (!c._P || c._Pk !== key) { c._P = RB.pheno.express(c.g, { age, train: c.train, cond: c.cond }); c._Pk = key; }
+    const age = bodyAge(c), key = age + '|' + c.train.muscle + c.train.lungs + c.train.reflex + c.train.courage + '|' + c.cond + (c.edit ? '|' + JSON.stringify(c.edit) : '');
+    if (!c._P || c._Pk !== key) { c._P = RB.pheno.override(RB.pheno.express(c.g, { age, train: c.train, cond: c.cond }), c.edit); c._Pk = key; } // c.edit: numbers set by hand (sandbox)
     return c._P;
   }
   const dirty = (c) => { c._P = null; };
@@ -286,6 +297,13 @@
       origin: c.origin, mom: c.mom, dad: c.dad, gen: c.gen || 0, taken: c.taken || 0, retired: isRetired(c), quirk: quirkOf(S, c),
       hat: c.hat || null, acc: c.acc ? Object.assign({}, c.acc) : null, odd: P.odd.slice(), log: (c.log || []).slice(), status: where, gone: false, day: S.day };
   }
+  // Where one of your creatures is now, in words.
+  function whereOf(S, c) {
+    if (S.birds.includes(c)) return c.at === 'cage' ? 'In the truck.' : c.at.startsWith('nest') ? 'Nesting at home.' : c.at === 'crate' ? 'Waiting for the BFC van.' : 'In your yard.';
+    if ((S.roost || []).includes(c)) return 'Retired at Sunset Roost.';
+    const isle = (S.isles || []).find((i) => i.birds.includes(c));
+    return isle ? 'Living on ' + isle.name + '.' : '';
+  }
   // Every bird you have now, and where it is.
   function everyone(S) {
     const out = [];
@@ -297,7 +315,7 @@
   const RECORDS = [['wins', 'Record: most wins', 5], ['showWins', 'Record: most sideshow wins', 3], ['kg', 'Record: heaviest', 8], ['age', 'Record: oldest', 12], ['speed', 'Record: fastest', 60]];
   // A bird's all-round fighting numbers, 0..100.
   const STAT_KEYS = ['power', 'speed', 'tough', 'stamina', 'guts', 'wits', 'fury'];
-  const statScore = (P) => STAT_KEYS.reduce((sum, k) => sum + P.rate[k], 0) / STAT_KEYS.length;
+  const statScore = (P) => STAT_KEYS.reduce((sum, k) => sum + P.base[k], 0) / STAT_KEYS.length; // on the even scale (phenotype.js), the same for every class
   // What is ordinary for a kind: the spread of those numbers over forty of its wild members.
   const NORMS = new Map();
   function kindNorm(id) {
@@ -437,7 +455,12 @@
     if (item === 'grain') { c.bond = Math.min(1, c.bond + 0.02); return c.name + ' pecks it up and is full.'; }
     if (item === 'worm') { c.bond = Math.min(1, c.bond + 0.08); return c.name + ' loves worms.'; }
     if (item === 'chili') { c.buff = 'chili'; return c.name + ' is fired up for the next bout.'; }
-    if (item === 'tonic') { const was = c.tired || c.rest > 0; c.tired = false; c.rest = 0; return was ? c.name + ' is full of beans again and can fight today.' : c.name + ' was not tired, but enjoys it.'; }
+    if (item === 'tonic') {
+      const was = c.tired || c.rest > 0, first = c.tonicDay !== S.day; c.tired = false; c.rest = 0;
+      if (first) { c.tonicDay = S.day; c.trained = false; } // two more training sessions today (once a day)
+      const more = first ? ' Two more training sessions today.' : ' (No more extra training today: one tonic a day does that.)';
+      return (was ? c.name + ' is full of beans again and can fight today.' : c.name + ' was not tired, but enjoys it.') + more;
+    }
     if (item === 'gromash') { if (P.grow < 1) { c.age++; dirty(c); return c.name + ' shoots up overnight. Well, right now.'; } return c.name + ' enjoys it, but is done growing.'; }
     if (item === 'loveseed') { c.love = true; return c.name + ' is feeling romantic.'; }
     if (item === 'mushroom') { GN.mutate(c.g, r, 4); dirty(c); return c.name + ' feels... different.'; }
@@ -454,14 +477,20 @@
   }
 
   const TRAIN = ['muscle', 'reflex', 'lungs', 'courage'];
+  // Training: each kind goes up to TRAIN_MAX (35%), TRAIN_STEP a session (half again as much in
+  // training weights). One session a day; a tonic adds two more that day, once a day.
+  const TRAIN_MAX = 0.35, TRAIN_STEP = 0.03;
+  const sessionsToday = (S, c) => 1 + (c.tonicDay === S.day ? 2 : 0);
+  const sessionsLeft = (S, c) => Math.max(0, sessionsToday(S, c) - (c.trainedN || 0));
   function train(S, c, stat) {
     if (isRetired(c)) return c.name + ' is retired: no more training.';
-    if (c.trained) return c.name + ' has trained enough for today.';
+    if (!sessionsLeft(S, c)) return c.name + ' has trained enough for today.' + (c.tonicDay === S.day ? '' : ' A tonic would give it two more sessions.');
     if (!isAdult(c)) return c.name + ' is too young to train.';
-    if (c.train[stat] >= 0.15) return c.name + ' cannot improve that any further.';
-    c.trained = true;
-    c.train[stat] = Math.min(0.15, +(c.train[stat] + trainStep(c)).toFixed(3));
-    c.bond = Math.min(1, c.bond + 0.03);
+    if (c.train[stat] >= TRAIN_MAX) return c.name + ' cannot improve that any further.';
+    c.trainedN = (c.trainedN || 0) + 1;
+    c.trained = !sessionsLeft(S, c);
+    c.train[stat] = Math.min(TRAIN_MAX, +(c.train[stat] + trainStep(c)).toFixed(3));
+    c.bond = Math.min(1, c.bond + 0.03); dirty(c);
     return '';
   }
 
@@ -470,6 +499,32 @@
   function layChance(mom, dad) {
     const dist = GN.distance(mom.g, dad.g), fert = (pheno(mom).t.fertility + pheno(dad).t.fertility) / 2;
     return clamp(fert * (1.15 - 0.8 * dist) * (mom.love || dad.love ? 1.5 : 1), 0.45, 0.97);
+  }
+
+  // ---- the BFC contract: the van calls at your islands too. Every night, birds on the islands you put
+  // on the contract that are at least the age you set go to BFC, paid like the pick-up box (people stay
+  // put: the contract is for birds). Unless you say otherwise, the last grown male and the last grown
+  // female of an island are left, so the colony goes on.
+  const CONTRACT_AGE = [1, 99];
+  function contract(S) { return (S.bfcDeal = S.bfcDeal || { on: false, minAge: 12, keepPair: true, isles: {} }); }
+  function contractNight(S, lines) {
+    const k = S.bfcDeal;
+    if (!k || !k.on) return;
+    for (const isle of S.isles || []) {
+      if (!k.isles[isle.id]) continue;
+      const ripe = isle.birds.filter((c) => !c.person && c.age >= k.minAge).sort((a, b) => b.age - a.age); // the oldest first
+      let n = 0, pay = 0;
+      for (const c of ripe) {
+        if (k.keepPair && isAdult(c) && isle.birds.filter((o) => !o.person && o.g.sex === c.g.sex && isAdult(o)).length <= 1) continue; // the last of its sex stays
+        const price = RB.economy.bfcPrice(S, c, true);
+        isle.birds.splice(isle.birds.indexOf(c), 1);
+        fameLeave(S, c, 'Went off in the BFC van from ' + isle.name);
+        S.money += price; S.stats.earned += price; S.bfc.sold++; S.bfc.stamps++; S.stats.sold++;
+        n++; pay += price;
+      }
+      if (n) lines.push('The BFC van called at ' + isle.name + ' and took ' + n + ' bird' + (n === 1 ? '' : 's') + ' aged ' + k.minAge + ' days or more. $' + pay + '.');
+    }
+    if (S.bfc.stamps >= 10) { S.bfc.stamps -= 10; give(S, 'bucket'); lines.push('Your BFC card is full: a free bucket hat!'); }
   }
 
   // Night falls. Returns { lines: [...] } describing what happened.
@@ -507,7 +562,7 @@
       if (r.chance(p)) {
         const g = GN.breed(mom.g, dad.g, r);
         const Pm = pheno(mom), Pd = pheno(dad);
-        S.eggs.push({ id: S.nextId++, g, nest: n, hatch: S.day + 1 + (S.up.incubator ? 1 : 2), mom: label(mom), dad: label(dad), momKey: kindKey(mom), dadKey: kindKey(dad), col: Pm.css.belly, spot: Pd.css.body });
+        S.eggs.push({ id: S.nextId++, g, nest: n, hatch: S.day + 1 + (S.up.incubator ? 1 : 2), mom: label(mom), dad: label(dad), momKey: kindKey(mom), dadKey: kindKey(dad), ma: parentOf(mom), pa: parentOf(dad), col: Pm.css.belly, spot: Pd.css.body });
         lines.push(mom.name + ' laid an egg.');
       } else lines.push(mom.name + ' and ' + dad.name + ' did not manage an egg' + (p < 0.4 ? ' (they are very different animals).' : '.'));
     }
@@ -517,7 +572,7 @@
       if (S.day < e.hatch) continue;
       if (atHome(S).length >= coopCap(S)) { lines.push('An egg is ready to hatch, but the coop is full.'); continue; }
       S.eggs.splice(S.eggs.indexOf(e), 1);
-      const chick = addBird(S, e.g, { age: 0, bond: 0.35, origin: 'born', mom: e.mom, dad: e.dad, momKey: e.momKey, dadKey: e.dadKey });
+      const chick = addBird(S, e.g, { age: 0, bond: 0.35, origin: 'born', mom: e.mom, dad: e.dad, momKey: e.momKey, dadKey: e.dadKey, ma: e.ma, pa: e.pa });
       chick.hatched = S.day;
       if (e.fossil) { note(S, chick, 'hatched from an egg rebuilt from fossil fragments'); title(chick, 'Back from extinction'); }
       S.stats.bred++;
@@ -525,7 +580,7 @@
     }
     // a day older
     for (const c of S.birds.slice()) {
-      c.fed = false; c.bouts = 0; c.trained = false; c.tired = false;
+      c.fed = false; c.bouts = 0; c.trained = false; c.trainedN = 0; c.tired = false;
       if (c.rest > 0) c.rest--;
       // wounds do not heal on their own: that is the vet's job
       if (c.person) continue;
@@ -534,7 +589,7 @@
       const was = pheno(c).stage;
       c.age++; dirty(c);
       const P = pheno(c);
-      if (c.age >= P.lifespan) {
+      if (c.age >= P.lifespan && c.eternal !== 2) { // (a sandbox eternal goes on counting its days, but never retires)
         if (c.at.startsWith('nest')) c.at = 'home';
         lines.push(c.name + ' is too old for the ring now and has retired. Sunset Roost will take them in, or BFC will.');
         note(S, c, 'retired after ' + c.age + ' days, with ' + c.wins + ' win' + (c.wins === 1 ? '' : 's'));
@@ -546,6 +601,7 @@
     for (const c of S.roost || []) { c.fed = true; c.hungry = 0; c.tired = false; c.rest = 0; c.bouts = 0; c.love = false; if (c.hp < 1) c.hp = Math.min(1, c.hp + 0.25); if (c.cond < 1) { c.cond = Math.min(1, c.cond + 0.25); dirty(c); } }
     // your islands: the colonies there live their own lives
     for (const isle of S.isles || []) { const ln = colonyNight(S, isle, r); if (ln) lines.push(ln); }
+    if (!bfcShut) contractNight(S, lines); // the BFC van calls at the islands on your contract
     wildNight(S, lines); // the birds you set free grow old out there too
     championsNight(S, lines);
     // the heat dies down: back to nothing after one night for each person netted (three at most)
@@ -586,15 +642,15 @@
   }
 
   // ---- training: what a session would add, so the dummy can say so before you choose
-  const trainStep = (c) => 0.02 * (c.gear === 'anklets' ? 1.5 : 1);
+  const trainStep = (c) => TRAIN_STEP * (c.gear === 'anklets' ? 1.5 : 1); // training weights: half again as much
   // { gain (to the training bonus, 0 when maxed), from, to, rates: [[rate, +n], ...] }
   function trainPreview(c, stat) {
-    const from = c.train[stat], to = Math.min(0.15, +(from + trainStep(c)).toFixed(3));
+    const from = c.train[stat], to = Math.min(TRAIN_MAX, +(from + trainStep(c)).toFixed(3));
     const opts = { age: bodyAge(c), cond: c.cond };
     const A = RB.pheno.express(c.g, Object.assign({ train: c.train }, opts));
     const B = RB.pheno.express(c.g, Object.assign({ train: Object.assign({}, c.train, { [stat]: to }) }, opts));
     // which numbers this kind of training moves at all (some steps are too small to show yet)
-    const Z = RB.pheno.express(c.g, Object.assign({ train: Object.assign({}, c.train, { [stat]: 0.15 }) }, opts));
+    const Z = RB.pheno.express(c.g, Object.assign({ train: Object.assign({}, c.train, { [stat]: TRAIN_MAX }) }, opts));
     const Y = RB.pheno.express(c.g, Object.assign({ train: Object.assign({}, c.train, { [stat]: 0 }) }, opts));
     const rates = [], affects = [];
     for (const k of Object.keys(A.rate)) {
@@ -778,7 +834,7 @@
       if (!r.chance(layChance(mom, dad) * 0.7)) continue;
       const g = GN.breed(mom.g, dad.g, r, { mutRate: 0.003 + isle.rad * 0.02 });
       mutateYoung(g, isle.rad, r);
-      const chick = makeBird(S, g, { age: 0, bond: 0.05, origin: 'born', at: 'isle', mom: label(mom), dad: label(dad), momKey: kindKey(mom), dadKey: kindKey(dad) });
+      const chick = makeBird(S, g, { age: 0, bond: 0.05, origin: 'born', at: 'isle', mom: label(mom), dad: label(dad), momKey: kindKey(mom), dadKey: kindKey(dad), ma: parentOf(mom), pa: parentOf(dad) });
       chick.isle = isle.id; chick.hatched = S.day; chick.fed = true; chick.gen = Math.max(mom.gen || 0, dad.gen || 0) + 1;
       isle.birds.push(chick); isle.gen = Math.max(isle.gen, chick.gen); born++;
       if (pheno(chick).odd.length) odd++;
@@ -862,6 +918,8 @@
   const mainlanders = (world) => world.npcs.filter((n) => { const s = world.site[n.site]; return s && !s.island; });
   const nettedCount = (S, world) => mainlanders(world).filter((n) => S.netted && S.netted[n.id]).length;
   const nettedAll = (S, world) => { const m = mainlanders(world); return m.length > 0 && nettedCount(S, world) === m.length; };
+  // How many places on the mainland a bird runs now (a sentient bird you put in charge, not a person).
+  const birdTown = (S, world) => mainlanders(world).filter((n) => { const st = S.npc && S.npc[n.id]; return !!(st && st.sub && !st.sub.person); }).length;
 
   // ---- Sunset Roost: a home for retired birds, looked after by Dona Nina
   // Check a retired bird in (it leaves your flock and lives at the roost). Returns '' or why not.
@@ -921,6 +979,13 @@
       if (e.retired === undefined) e.retired = (e.titles || []).some((t) => /^Retired/.test(t)) || /^Retired/.test(e.status || '');
     }
     grantUnlocks(S); // feats won before their prizes existed
+    // the lab charges again for reading genomes: everyone you already had was read when it was free
+    if (S.lab && !S.lab.feesV) { S.lab.feesV = 1; for (const c of S.birds.concat(S.roost, ...S.isles.map((i) => i.birds))) S.lab.seq[c.id] = true; }
+    // a sandbox bird on eternal vigor used to 'retire' again every night: keep only a retirement it
+    // really had, before it drank the tonic, in its story and in the Hall's
+    const oneRetirement = (log) => { const k = log.findIndex((n) => /^drank the tonic of eternal vigor/.test(n.t)); return k < 0 ? log : log.filter((n, i) => i <= k || !/^retired after /.test(n.t)); };
+    for (const c of S.birds.concat(S.roost, ...S.isles.map((i) => i.birds))) if (c.eternal === 2 && c.log) c.log = oneRetirement(c.log);
+    for (const e of S.fame) if (e.log) e.log = oneRetirement(e.log);
     for (const c of S.roost) { c.g = GN.deserialize(c.g); c._P = null; }
     for (const e of S.eggs) e.g = GN.deserialize(e.g);
     // kind keys that grew over the generations (see crossKey), and the names made from them
@@ -939,8 +1004,8 @@
   }
 
   RB.state = { create, addBird, removeBird, pheno, bodyAge, canBreed, dirty, kind, isAdult, isRetired, checkIn, checkOut, BOSS_PRIZES, bossPrizes, GOLD_DIGS, goldLeft, digsLeft, useDig, useNet,
-    RELEASED_MAX, setFree, recapture, genePool, HEAT_DAYS, caughtPerson, trainPreview, openSea, hasBoat, makeBird,
-    wildAge, wildLife, wildAlive, wildNight, note, title, fameOf, fameLeave, fameCheck, fameRank, fameBio, RECORDS, statScore, outstanding, fameEligible, caught, FAME_TABS, fameTabOf, fameIn, QUIRKS, quirkOf, grudgeTarget, slotOf, wornIn, wear, unwear, outfit, grantUnlocks, ENDLESS_KINDS, endless, owned, fmtCount, canSail, serBird, deBird, STAY_MAX, stay, netKeeper, installKeeper, releasePerson, mainlanders, nettedCount, nettedAll, ISLE_EXTRA,
+    RELEASED_MAX, setFree, recapture, genePool, HEAT_DAYS, caughtPerson, trainPreview, TRAIN_MAX, TRAIN_STEP, sessionsLeft, sessionsToday, family, parentOf, whereOf, contract, contractNight, CONTRACT_AGE, openSea, hasBoat, makeBird,
+    wildAge, wildLife, wildAlive, wildNight, note, title, fameOf, fameLeave, fameCheck, fameRank, fameBio, RECORDS, statScore, outstanding, fameEligible, caught, FAME_TABS, fameTabOf, fameIn, QUIRKS, quirkOf, grudgeTarget, slotOf, wornIn, wear, unwear, outfit, grantUnlocks, ENDLESS_KINDS, endless, owned, fmtCount, canSail, serBird, deBird, STAY_MAX, stay, netKeeper, installKeeper, releasePerson, mainlanders, nettedCount, nettedAll, birdTown, ISLE_EXTRA,
     CLAIM_COST, RAISE_COST, RAISE_R, CLEAN_COST, DOSE, isleOf, isleCap, claimIsle, raiseIsle, toIsle, fromIsle, dose, cleanIsle, colonyNight, byId, at, atHome, cageCap, coopCap, nestCount, count, give, take, move, feed, train, TRAIN,
     layChance, sleep, serialize, deserialize, crossKey, normKey, keyName, fixKinds, freeName, BIRD_NAMES, eat, soldPerson, kindKey, isCross, label };
 })();

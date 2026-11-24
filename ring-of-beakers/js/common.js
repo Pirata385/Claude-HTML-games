@@ -121,6 +121,8 @@
     kidnap: ['Finders keepers', 'Net a person.', (S) => S.stats.kidnapped >= 1],
     sweep: ['Ghost town', 'Net every single person on the mainland, shopkeepers and all.', (S) => !!(RB.game && RB.game.world) && ST.nettedAll(S, RB.game.world),
       (S) => (RB.game && RB.game.world ? ST.nettedCount(S, RB.game.world) + ' of ' + ST.mainlanders(RB.game.world).length + ' so far' : '')],
+    birdtown: ['Bird town', 'Put a bird in charge of every house and business on the mainland, in place of the people.', (S) => !!(RB.game && RB.game.world) && ST.birdTown(S, RB.game.world) === ST.mainlanders(RB.game.world).length,
+      (S) => (RB.game && RB.game.world ? ST.birdTown(S, RB.game.world) + ' of ' + ST.mainlanders(RB.game.world).length + ' places run by birds' : '')],
     rich: ['Feathered nest', 'Hold $5000 at once.', (S) => S.money >= 5000],
     clone: ['Send in the clones', 'Turn a creature into a clone with a whole-genome copy.', null],
     roost: ['Golden years', 'Retire a bird to Sunset Roost.', (S) => (S.roost || []).length >= 1],
@@ -158,16 +160,33 @@
     return out;
   };
   // o.has(c): whether the creature is still there to show (default: it is one of your birds)
+  // Tabs across the top of a window: returns the index picked (st.tab) and the height they take.
+  common.tabs = function (st, names, x, y, w) {
+    const tw = Math.min(120, (w - (names.length - 1) * 6) / names.length);
+    names.forEach((n, i) => { if (ui.btn(x + i * (tw + 6), y, tw, 32, n, { fill: st.tab === i ? pal.ink : pal.soft, color: st.tab === i ? pal.white : pal.ink, size: 13, flat: true })) { st.tab = i; RB.audio.play('click'); } });
+    return 40;
+  };
+  // A bird's card: the bird (Card), who its parents are and the young it has had (Family), and in a
+  // sandbox game its numbers, set by hand (Edit).
   common.card = function (c, actions, o) {
-    const S = RB.game.S;
+    const S = RB.game.S, st = { tab: 0 };
     ui.open({ draw() {
       if (!(o && o.has ? o.has(c) : S.birds.includes(c))) { ui.close(); return; }
       const P = ST.pheno(c), v = ui.view, wide = v.w >= 560;
       const acts = actions ? actions(c) : [];
       const rows = Math.ceil(acts.length / (wide ? 4 : 2));
-      const box = ui.window(c.name, wide ? 540 : 340, (wide ? 300 : 430) + rows * 46, {});
-      if (!box) return;
-      if (ui.tapIn(box.x, box.y - 46, box.w - 44, 38)) { const n = window.prompt('Name', c.name); if (n && n.trim()) c.name = n.trim().slice(0, 16); }
+      const box0 = ui.window(c.name, wide ? 540 : 340, (wide ? 340 : 470) + rows * 46, {});
+      if (!box0) return;
+      if (ui.tapIn(box0.x, box0.y - 46, box0.w - 44, 38)) { const n = window.prompt('Name', c.name); if (n && n.trim()) c.name = n.trim().slice(0, 16); }
+      const names = c.person ? ['Card'] : ['Card', 'Family'].concat(S.sandbox ? ['Edit'] : []);
+      const th = names.length > 1 ? common.tabs(st, names, box0.x, box0.y, box0.w) : 0;
+      const box = { x: box0.x, y: box0.y + th, w: box0.w, h: box0.h - th };
+      const per = wide ? 4 : 2, aw = (box.w - (per - 1) * 8) / per, ay0 = box.y + box.h - rows * 46 + 4;
+      const actionRow = () => acts.forEach((a, i) => {
+        if (ui.btn(box.x + (i % per) * (aw + 8), ay0 + Math.floor(i / per) * 46, aw, 38, a.label, { icon: a.icon, fill: a.fill, disabled: a.disabled, size: 13 })) { RB.audio.play('click'); a.fn(c); }
+      });
+      if (st.tab === 1 && names[1]) { common.familyTab(c, box, wide, actions); actionRow(); return; }
+      if (st.tab === 2 && names[2]) { common.editTab(c, box, wide); return; } // (the actions stay on the other tabs: the numbers need the room)
       const pw = wide ? 150 : 118;
       common.portrait(c, box.x, box.y, pw, pw);
       let tx = box.x + pw + 12, ty = box.y + 14;
@@ -195,12 +214,62 @@
         ui.bar(x + 68, y + 2, bw - 100, 9, P.rate[b[0]] / ((P.rateCap && P.rateCap[b[0]]) || 100), b[2]); // full at the weight class's limit
         ui.text(String(P.rate[b[0]]), x + bw, y + 10, { size: 11, align: 'right' });
       });
-      // actions
-      const per = wide ? 4 : 2, aw = (box.w - (per - 1) * 8) / per, ay0 = box.y + box.h - rows * 46 + 4;
-      acts.forEach((a, i) => {
-        if (ui.btn(box.x + (i % per) * (aw + 8), ay0 + Math.floor(i / per) * 46, aw, 38, a.label, { icon: a.icon, fill: a.fill, disabled: a.disabled, size: 13 })) { RB.audio.play('click'); a.fn(c); }
-      });
+      if (c.edit && S.sandbox) ui.text('Numbers set by hand (Edit tab)', box.x, by + Math.ceil(BARS.length / cols) * 19 + 8, { size: 10, bold: false, color: pal.plum });
+      actionRow();
     } });
+  };
+
+  // ---- Family: the mother and the father (drawn if you still have them, or if the Hall of Fame
+  // remembers them), and the young the bird has had that are still with you or on your islands.
+  const famePs = new Map();
+  const famePheno = (e) => { const k = e.id + ':' + e.age; let P = famePs.get(k); if (!P) { P = RB.pheno.express(RB.genome.deserialize(e.g), { age: e.age }); famePs.set(k, P); } return P; };
+  common.familyTab = function (c, box, wide, actions) {
+    const S = RB.game.S, fam = ST.family(S, c), pw = wide ? 96 : 76;
+    const unknown = c.origin === 'start' ? 'One of the two chickens Aunt Dalva left you: nobody knows its parents.'
+      : c.origin === 'wild' ? 'Caught in the wild: its parents are out there somewhere.'
+        : c.origin === 'born' ? ((c.log || []).some((n) => /fossil/.test(n.t)) ? 'Hatched from an egg rebuilt from fossil fragments: its parents lived long ago.' : 'Its parents were not written down.')
+          : 'Bought or traded: its parents were never known.';
+    if (!fam.mother && !fam.father) ui.para(unknown, box.x, box.y + 4, box.w, { size: 13, bold: false });
+    const one = (label, f, x, y, w) => {
+      ui.text(label, x, y + 12, { size: 12, color: pal.grey });
+      if (!f) { ui.para('Unknown.', x, y + 22, w, { size: 12, bold: false }); return; }
+      const has = f.c || f.e, px = x, py = y + 20;
+      if (f.c) common.portrait(f.c, px, py, pw, pw); else if (f.e) common.portrait({ P: famePheno(f.e) }, px, py, pw, pw); else { ui.rect(px, py, pw, pw, pal.soft, 10); ui.text('?', px + pw / 2, py + pw / 2 + 12, { size: 34, align: 'center', color: pal.grey }); }
+      const tx = px + pw + 10, tw = w - pw - 10;
+      const where = f.c ? ST.whereOf(S, f.c) : f.e ? (f.e.gone ? f.e.status || 'Gone' : 'In the Hall of Fame') : f.who ? 'No longer with you.' : '';
+      ui.text(f.who ? f.who.name : 'Not recorded', tx, py + 14, { size: 14, maxW: tw });
+      ui.para((f.c ? ST.kind(f.c) : f.kind || '?') + (where ? '. ' + where : '') + (!f.who ? ' (hatched before families were written down)' : ''), tx, py + 22, tw, { size: 11, bold: false });
+      if (f.c && ui.btn(tx, py + pw - 30, Math.min(110, tw), 30, 'Open card', { size: 12, fill: pal.teal })) common.card(f.c, S.birds.includes(f.c) ? actions : null, { has: () => true });
+      return has;
+    };
+    const y0 = box.y + (fam.mother || fam.father ? 0 : 40);
+    if (wide) { one('Mother', fam.mother, box.x, y0, box.w / 2 - 8); one('Father', fam.father, box.x + box.w / 2 + 8, y0, box.w / 2 - 8); }
+    else { one('Mother', fam.mother, box.x, y0, box.w); one('Father', fam.father, box.x, y0 + pw + 34, box.w); }
+    const yy = y0 + (wide ? pw + 34 : 2 * (pw + 34)) + 6;
+    const young = fam.young;
+    ui.text('Young' + (young.length ? ' (' + young.length + ')' : ''), box.x, yy + 12, { size: 12, color: pal.grey });
+    ui.para(young.length ? young.slice(0, 24).map((b) => b.name).join(', ') + (young.length > 24 ? '...' : '') : 'None yet (or none still with you).', box.x, yy + 20, box.w, { size: 12, bold: false });
+  };
+
+  // ---- Edit (sandbox): every number set by hand, up to the weight class's cap (100 for the others).
+  // Drag along a bar or use - and +. The change is real: it moves the body behind the number.
+  common.editTab = function (c, box, wide) {
+    const P = ST.pheno(c), lw = 78, vw = 40, bw = box.w - lw - vw - 76;
+    ui.para('Sandbox: set any number as you like. It changes the bird for real, in bouts too. Reset gives it back the numbers its genes and training give.', box.x, box.y, box.w, { size: 11, bold: false });
+    const set = (k, v) => { c.edit = Object.assign({}, c.edit || {}, { [k]: Math.round(clamp(v, 0, P.rateCap[k])) }); c._P = null; };
+    BARS.forEach((b, i) => {
+      const k = b[0], y = box.y + (wide ? 38 : 52) + i * 30, cap = P.rateCap[k], bx = box.x + lw;
+      ui.text(b[1], box.x, y + 16, { size: 12, bold: false, color: c.edit && c.edit[k] !== undefined ? pal.plum : pal.ink });
+      ui.bar(bx, y + 8, bw, 12, P.rate[k] / cap, b[2]);
+      const p = ui.downIn(bx - 4, y, bw + 8, 28);
+      if (p) set(k, (p.x - bx) / bw * cap);
+      ui.text(String(P.rate[k]), bx + bw + vw, y + 16, { size: 12, align: 'right' });
+      if (ui.btn(bx + bw + vw + 6, y + 2, 32, 26, '-', { size: 14, fill: pal.soft, color: pal.ink })) set(k, P.rate[k] - 5);
+      if (ui.btn(bx + bw + vw + 42, y + 2, 32, 26, '+', { size: 14, fill: pal.soft, color: pal.ink })) set(k, P.rate[k] + 5);
+    });
+    const yb = box.y + (wide ? 38 : 52) + BARS.length * 30 + 6;
+    if (ui.btn(box.x, yb, 150, 34, 'Reset to its genes', { size: 12, fill: pal.grey, disabled: !c.edit })) { delete c.edit; c._P = null; }
+    if (ui.btn(box.x + 158, yb, 120, 34, 'All to the cap', { size: 12, fill: pal.plum })) { const e = {}; for (const b of BARS) e[b[0]] = P.rateCap[b[0]]; c.edit = e; c._P = null; }
   };
 
   // ---- the wardrobe: one thing per place (head, face, neck, back, feet, tail) and one piece of

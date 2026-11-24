@@ -13,7 +13,7 @@
     const P = ST().pheno(c);
     const sp = RB.species.SPECIES, t1 = sp[P.species.id].tier, t2 = sp[P.species.second].tier;
     const base = P.species.pure ? TIER_VALUE[t1] : (TIER_VALUE[t1] + TIER_VALUE[t2]) / 2 * 1.25;
-    const r = P.rate, c100 = (v) => Math.min(100, v), stat = (c100(r.power) + r.speed + c100(r.tough) + c100(r.stamina) + r.guts) / 500; // the price reads the numbers up to 100 in every class
+    const r = P.base, stat = (r.power + r.speed + r.tough + r.stamina + r.guts) / 500; // (the old even scale: phenotype.js)
     const ageF = P.stage === 'chick' ? 0.5 : P.stage === 'young' ? 0.8 : P.stage === 'elder' ? 0.4 : 1;
     const v = base * (0.6 + 0.9 * stat) * (1 + 0.35 * P.odd.length) * Math.min(2.5, 1 + 0.08 * c.wins) * ageF * (c.hp < 1 ? 0.8 : 1);
     return Math.max(3, Math.round(v));
@@ -91,7 +91,7 @@
   }
 
   // A rough fighting score, used to pick the better of a few random opponents.
-  function fightScore(P) { const r = P.rate; return r.power * 1.4 + r.tough + r.speed * 0.5 + r.stamina * 0.6 + r.guts * 0.8 + r.fury * 0.5; }
+  function fightScore(P) { const r = P.base; return r.power * 1.4 + r.tough + r.speed * 0.5 + r.stamina * 0.6 + r.guts * 0.8 + r.fury * 0.5; }
   function bestOf(n, make) {
     let best = null, bs = -1;
     for (let i = 0; i < n; i++) { const P = make(); const s = fightScore(P); if (s > bs) { bs = s; best = P; } }
@@ -204,8 +204,7 @@
   // The house's guess at the chance that A beats B (hpA, hpB: health left, 0..1).
   function winChance(PA, PB, hpA, hpB) {
     const sa = fightScore(PA) * (0.6 + 0.4 * (hpA === undefined ? 1 : hpA)), sb = fightScore(PB) * (0.6 + 0.4 * (hpB === undefined ? 1 : hpB));
-    const cap = Math.max((PA.rateCap || {}).power || 100, (PB.rateCap || {}).power || 100); // heavier classes run to bigger numbers
-    return 1 / (1 + Math.exp(-(sa - sb) / (BET_SPREAD * (0.4 + 0.6 * cap / 100))));
+    return 1 / (1 + Math.exp(-(sa - sb) / BET_SPREAD));
   }
   // What a winning bet on a side with chance p pays back, stake included (to one decimal).
   const betReturn = (p) => Math.round(clamp(BET_EDGE / Math.max(0.01, p), BET_MIN, BET_MAX) * 10) / 10;

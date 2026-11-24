@@ -28,9 +28,55 @@
   const WEIGHT_CLASSES = [['Gnat', 0.15], ['Fly', 0.5], ['Feather', 1.5], ['Light', 4], ['Middle', 12], ['Heavy', 50], ['Titan', Infinity]];
   // How high the physical numbers can go in each weight class, Gnat to Titan.
   const PHYS_CAP = [75, 115, 150, 190, 225, 265, 300];
+  // How the physical numbers are read in each class, so that an ordinary wild bird shows about 45% of
+  // its class's cap and the best bred and trained ones reach it: [the class's typical weight in kg,
+  // then the scale for power, toughness and stamina]. Between two classes the scale follows the
+  // weight smoothly, so a bird that grows into the next class keeps its numbers (only the cap moves).
+  const CLASS_SCALE = [[0.07, 190, 324, 73], [0.35, 217, 296, 111], [0.85, 236, 285, 143], [2.21, 212, 275, 182], [6.59, 195, 204, 213], [26.9, 188, 156, 249], [106, 144, 84, 225]];
+  function classScale(kg) {
+    const x = Math.log(Math.max(1e-4, kg)), T = CLASS_SCALE;
+    if (x <= Math.log(T[0][0])) return T[0];
+    for (let i = 1; i < T.length; i++) {
+      const a = Math.log(T[i - 1][0]), b = Math.log(T[i][0]);
+      if (x <= b) { const f = (x - a) / (b - a); return T[i].map((v, j) => T[i - 1][j] + (v - T[i - 1][j]) * f); }
+    }
+    return T[T.length - 1];
+  }
+  const SPEED_REF = 520; // a run this fast (px/s) reads 100
   function weightClass(kg) { for (let i = 0; i < WEIGHT_CLASSES.length; i++) if (kg < WEIGHT_CLASSES[i][1]) return i; return WEIGHT_CLASSES.length - 1; }
 
-  // o: { age (days; default adult), train: { muscle, lungs, reflex, courage } as 0..0.15 bonuses, cond (0..1 condition) }
+  // The numbers on a creature's card, from its body.
+  function rerate(P) {
+    const cap = PHYS_CAP[P.weightClass], sc = classScale(P.weightKg), phys = (x) => Math.round(Math.min(cap, Math.max(0, x)));
+    const raw = { power: Math.max(P.peckSharp, P.kickSharp * 0.9, P.punchSharp, P.wingSharp * 0.8) * P.muscle * Math.pow(P.massRel, 0.2) / 2.6, tough: P.hpMax / 330, stamina: (P.stamMax - 40) / 130 };
+    const mind = { guts: Math.round(100 * clamp01(P.courage)), wits: Math.round(50 * (P.focus + P.cunning)), fury: Math.round(100 * clamp01(P.aggression)) };
+    P.rateCap = { power: cap, speed: 100, tough: cap, stamina: cap, guts: 100, wits: 100, fury: 100 };
+    P.rate = Object.assign({ power: phys(raw.power * sc[1]), speed: Math.round(100 * clamp01(P.speedMax / SPEED_REF)), tough: phys(raw.tough * sc[2]), stamina: phys(raw.stamina * sc[3]) }, mind);
+    // the same numbers on the old even scale, 0 to 100 for every class: prices, the betting odds and
+    // what people wish for were set on these, and read them still
+    P.base = Object.assign({ power: Math.round(100 * clamp01(raw.power)), speed: Math.round(100 * clamp01(P.speedMax / 620)), tough: Math.round(100 * clamp01(raw.tough)), stamina: Math.round(100 * clamp01(raw.stamina)) }, mind);
+    return P;
+  }
+  // Sandbox: set a creature's numbers outright (state.js keeps them as c.edit, { power: 120, ... }).
+  // Each number moves the body behind it, so the change is real in a bout: power scales the weapons,
+  // toughness the health, stamina the wind, speed the running, and guts, wits and fury the nerve,
+  // the head and the temper. Physical numbers stay within the weight class's cap, the rest within 100.
+  const EDITABLE = ['power', 'speed', 'tough', 'stamina', 'guts', 'wits', 'fury'];
+  function override(P, edit) {
+    if (!edit) return P;
+    const r = P.rate, want = (k) => (edit[k] === undefined || edit[k] === null ? null : clamp(+edit[k], 0, P.rateCap[k]));
+    let v;
+    if ((v = want('power')) !== null && r.power > 0) { const f = v / r.power; P.peckSharp *= f; P.kickSharp *= f; P.punchSharp *= f; P.wingSharp *= f; }
+    if ((v = want('tough')) !== null && r.tough > 0) P.hpMax *= Math.max(0.05, v) / r.tough;
+    if ((v = want('stamina')) !== null) P.stamMax = 40 + 130 * v / classScale(P.weightKg)[3];
+    if ((v = want('speed')) !== null && r.speed > 0) P.speedMax *= Math.max(1, v) / r.speed;
+    if ((v = want('guts')) !== null) P.courage = v / 100;
+    if ((v = want('fury')) !== null) P.aggression = v / 100;
+    if ((v = want('wits')) !== null) { const sum = P.focus + P.cunning; if (sum > 0) { P.focus *= v / 50 / sum; P.cunning *= v / 50 / sum; } else { P.focus = P.cunning = v / 100; } }
+    return rerate(P);
+  }
+
+  // o: { age (days; default adult), train: { muscle, lungs, reflex, courage } as 0..0.35 bonuses, cond (0..1 condition) }
   function express(g, o) {
     o = o || {};
     const t = {}, sw = {};
@@ -154,17 +200,7 @@
     P.peckReach = P.NL + P.HR + P.BL;
     // The physical numbers (power, toughness, stamina) go as high as the weight class allows: 75 for a
     // Gnatweight up to 300 for a Titan. Speed, and the mind (guts, wits, fury), stay within 100 for all.
-    const cap = PHYS_CAP[P.weightClass], phys = (x) => Math.round(Math.min(cap, 100 * Math.max(0, x)));
-    P.rateCap = { power: cap, speed: 100, tough: cap, stamina: cap, guts: 100, wits: 100, fury: 100 };
-    P.rate = {
-      power: phys(Math.max(P.peckSharp, P.kickSharp * 0.9, P.punchSharp, P.wingSharp * 0.8) * P.muscle * Math.pow(P.massRel, 0.2) / 2.6),
-      speed: Math.round(100 * clamp01(P.speedMax / 620)),
-      tough: phys(P.hpMax / 330),
-      stamina: phys((P.stamMax - 40) / 130),
-      guts: Math.round(100 * P.courage),
-      wits: Math.round(50 * (P.focus + P.cunning)),
-      fury: Math.round(100 * P.aggression),
-    };
+    rerate(P);
     P.voice = { pitch: clamp(520 / Math.pow(S, 0.9), 90, 2600) * Math.pow(2, (t.voicePitch - 0.5) * 1.2), rasp: t.voiceRasp, len: t.voiceLen };
     P.species = RB.species ? RB.species.classify(g) : null;
     // what kind of call it makes (the audio picks the sound): a cross has the calls of both kinds
@@ -188,5 +224,5 @@
     return P;
   }
 
-  RB.pheno = { express, weightClass, WEIGHT_CLASSES, PHYS_CAP, PATTERNS, COMBS, ramp, SHAPE_BITE };
+  RB.pheno = { express, rerate, override, EDITABLE, weightClass, WEIGHT_CLASSES, PHYS_CAP, classScale, PATTERNS, COMBS, ramp, SHAPE_BITE };
 })();

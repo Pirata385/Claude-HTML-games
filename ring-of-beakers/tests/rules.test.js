@@ -298,7 +298,12 @@ test('the lab: sequence, extract, edit, inject, rebuild, power', () => {
   assert.strictEqual(L.knownCount(S), G.N_GENES);
   for (let gi = 0; gi < G.N_GENES; gi++) assert.ok(L.known(S, gi));
   assert.strictEqual(L.geneLabel(S, G.TRAITS.legLen.genes[0]), 'Leg length I');
-  assert.deepStrictEqual(L.sequence(S, donor), []);
+  // reading a genome costs $40 once in a normal game (and nothing more after that)
+  assert.ok(!L.sequenced(S, donor));
+  const m0 = S.money;
+  assert.strictEqual(L.sequence(S, donor), '');
+  assert.ok(L.sequenced(S, donor) && S.money === m0 - 40);
+  assert.strictEqual(L.sequence(S, donor), ''); assert.strictEqual(S.money, m0 - 40);
   const gi = G.TRAITS.legLen.genes[0];
   // beakers are free, and giving a sample tires the donor without hurting it
   assert.strictEqual(ST.count(S, 'beaker'), 0);
@@ -617,7 +622,7 @@ test('the heat clears in one night per person netted, three nights at most', () 
 test('training says which numbers go up and by how much, and does exactly that', () => {
   const S = ST.create(103), c = S.birds[0];
   const pv = ST.trainPreview(c, 'muscle');
-  assert.strictEqual(pv.gain, 0.02);
+  assert.strictEqual(pv.gain, 0.03);
   assert.ok(pv.rates.some((r) => r[0] === 'power' && r[1] > 0), JSON.stringify(pv.rates));
   const before = Object.assign({}, ST.pheno(c).rate);
   assert.strictEqual(ST.train(S, c, 'muscle'), '');
@@ -625,8 +630,8 @@ test('training says which numbers go up and by how much, and does exactly that',
   for (const [k, d] of pv.rates) assert.strictEqual(after[k] - before[k], d, k);
   assert.ok(ST.trainPreview(c, 'courage').rates.some((r) => r[0] === 'guts'));
   c.gear = 'anklets';
-  assert.strictEqual(ST.trainPreview(c, 'lungs').gain, 0.03);
-  c.train.reflex = 0.15;
+  assert.strictEqual(ST.trainPreview(c, 'lungs').gain, 0.045); // training weights: half again as much
+  c.train.reflex = ST.TRAIN_MAX;
   assert.strictEqual(ST.trainPreview(c, 'reflex').gain, 0);
 });
 

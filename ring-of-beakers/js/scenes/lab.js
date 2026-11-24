@@ -1,6 +1,7 @@
-// scenes/lab.js — the genetics lab. See any creature's fourteen chromosome pairs (every gene is mapped),
-// pull a gene into a (free) beaker, edit its bases at the (free) CRISPR bench (a timing game on a ring of
-// bases), inject it into another creature or an egg, and rebuild extinct birds from fossils.
+// scenes/lab.js — the genetics lab. Sequence a creature to see its fourteen chromosome pairs (every gene
+// is mapped), pull a gene into a (free) beaker, edit its bases at the CRISPR bench (a timing game on a
+// ring of bases), inject it into another creature or an egg, and rebuild extinct birds from fossils.
+// In a normal game sequencing, each edit and each injection cost money (lab.js: FEES); a sandbox is free.
 (function () {
   'use strict';
   const RB = globalThis.RB;
@@ -48,7 +49,7 @@
       common.portrait(c, x + 3, b.y + 3, 42, 42, { fill: pal.paper });
       if (ui.tapIn(x, b.y, 48, 48)) { subject = c; gene = -1; RB.audio.play('click'); }
     });
-    if (ui.btn(b.x + b.w - cbw, b.y + 2, cbw, 44, b.w > 520 ? 'Copy whole genome' : 'Copy genome', { icon: 'dna', fill: pal.plum, size: 12 })) {
+    if (ui.btn(b.x + b.w - cbw, b.y + 2, cbw, 44, b.w > 520 ? 'Copy whole genome' : 'Copy genome', { icon: 'dna', fill: pal.plum, size: 12, disabled: !L.sequenced(S, subject) })) {
       L.copyGenome(S, subject); RB.audio.play('zap');
       ui.toast('All of ' + subject.name + '\'s genes are in one beaker. ' + subject.name + ' is worn out for today, not hurt.', pal.plum);
     }
@@ -61,6 +62,14 @@
       }, { fill: pal.plum });
     }
     const y0 = b.y + 56, g = subject.g, wide = b.w > 520, detailH = 94;
+    if (!L.sequenced(S, subject)) { // a creature's genome has to be read first (once)
+      ui.para(subject.name + '\'s genome has not been read yet. Sequencing reads all of it, once, for $' + L.feeOf(S, 'sequence') + '. Then you can study its genes, take them out and copy them.', b.x + 4, y0 + 6, b.w - 8, { size: 13 });
+      if (ui.btn(b.x + 4, y0 + 70, 240, 44, 'Sequence · $' + L.feeOf(S, 'sequence'), { icon: 'dna', fill: pal.teal, disabled: S.money < L.feeOf(S, 'sequence') })) {
+        const why = L.sequence(S, subject);
+        if (why) ui.toast(why, pal.coral); else { RB.audio.play('zap'); ui.toast(subject.name + '\'s genome is read.', pal.teal); RB.game.save(); }
+      }
+      return;
+    }
     genomeGrid(g, b.x, y0, b.w, b.h - 56 - detailH - 6, gene, (gi) => { gene = gi; });
     // the chosen gene
     const dy = b.y + b.h - detailH;
@@ -80,7 +89,7 @@
 
   function beakers(b) {
     const vials = S.lab.vials;
-    ui.text('Beakers and edits are free. Whole genomes stay in their beaker after an injection.', b.x + 4, b.y + 14, { size: 12, bold: false, maxW: b.w - 8 });
+    ui.text((S.sandbox ? 'Sandbox: everything in the lab is free.' : 'Beakers are free; each edit costs $' + L.EDIT_FEE + ', each injection $' + L.INJECT_FEE + ' (a clone $' + L.CLONE_FEE + ').') + ' Whole genomes stay in their beaker after an injection.', b.x + 4, b.y + 14, { size: 12, bold: false, maxW: b.w - 8 });
     if (!vials.length) { ui.para('No beakers yet. In the Genome tab, tap a gene and extract a copy, or copy a creature\'s whole genome.', b.x + 4, b.y + 30, b.w - 8, { size: 13 }); return; }
     const narrow = b.w < 520, bw = narrow ? 60 : 76, gap = 6, tx = narrow ? 64 : 116, tw = b.w - tx - 3 * bw - 3 * gap - 16;
     ui.list('vials', b.x, b.y + 24, b.w, b.h - 24, vials.length, 66, (i, x, y, w) => {
@@ -201,7 +210,10 @@
       ui.text(isEgg ? 'The egg takes the ' + (pv.full ? 'genome' : 'gene') + ' and hatches as usual.' : tg.c.name + ' will be worn out for today, but not hurt.' + (pv.full ? ' The beaker is kept.' : ''), box.x, y + 13, { size: 11, bold: false, color: pal.grey, maxW: box.w });
       const by = box.y + box.h - 42, half = (box.w - 8) / 2;
       if (ui.btn(box.x, by, half, 40, 'Back', { fill: pal.grey, key: 'Escape' })) { ui.close(); return; }
-      if (ui.btn(box.x + half + 8, by, half, 40, pv.full ? 'Make the clone' : 'Inject', { icon: 'beaker', fill: pal.coral, key: 'Enter' })) {
+      const fee = L.feeOf(S, pv.full ? 'clone' : 'inject');
+      if (ui.btn(box.x + half + 8, by, half, 40, (pv.full ? 'Make the clone' : 'Inject') + (fee ? ' · $' + fee : ''), { icon: 'beaker', fill: pal.coral, key: 'Enter', disabled: S.money < fee })) {
+        const why = L.pay(S, pv.full ? 'clone' : 'inject');
+        if (why) { ui.toast(why, pal.coral); return; }
         L.inject(S, v, target, isEgg, into);
         common.award(S, 'inject'); if (pv.full) common.award(S, 'clone'); common.checkAch(S); RB.audio.play('poof');
         ui.closeAll();
@@ -237,6 +249,8 @@
   // With the mini-game switched off (Settings), an edit applies at once and the bench stays open.
   const miniGame = () => RB.game.settings.crispr !== false;
   function editNow(v, pos, to) {
+    const why = L.pay(S, 'edit');
+    if (why) { ui.toast(why, pal.coral); return; }
     L.edit(v, pos, to); if (v.commit) v.commit();
     common.award(S, 'crispr'); RB.audio.play('good'); RB.game.save();
   }
@@ -263,11 +277,12 @@
       }
       const after = v.bases.slice(); after[pos] = to;
       ui.text('After: ' + L.describe(S, v.gi, after), box.x, box.y + 184, { size: 11, bold: false, maxW: box.w });
-      ui.text('A is worth 0, C 1, G 2, T 3; in colour genes the first letter weighs most. Cuts are free.', box.x, box.y + 202, { size: 10, bold: false, maxW: box.w, color: pal.grey });
+      const ef = L.feeOf(S, 'edit');
+      ui.text('A is worth 0, C 1, G 2, T 3; in colour genes the first letter weighs most. ' + (ef ? 'Each cut costs $' + ef + '.' : 'Cuts are free.'), box.x, box.y + 202, { size: 10, bold: false, maxW: box.w, color: pal.grey });
       const game = miniGame();
       ui.text(game ? 'Each cut is a small mini-game. You can switch it off in Settings.' : 'Mini-game off (Settings): edits apply at once.', box.x, box.y + 218, { size: 10, bold: false, maxW: box.w, color: pal.plum });
-      if (ui.btn(box.x, box.y + box.h - 46, box.w, 44, game ? 'Cut' : 'Edit', { icon: 'dna', fill: pal.plum, disabled: to === v.bases[pos] })) {
-        if (game) { ui.close(); cutGame(v, pos, to); }
+      if (ui.btn(box.x, box.y + box.h - 46, box.w, 44, (game ? 'Cut' : 'Edit') + (ef ? ' · $' + ef : ''), { icon: 'dna', fill: pal.plum, disabled: to === v.bases[pos] || S.money < ef })) {
+        if (game) { const why = L.pay(S, 'edit'); if (why) ui.toast(why, pal.coral); else { ui.close(); cutGame(v, pos, to); } } // paid when the cut starts
         else { editNow(v, pos, to); to = (v.bases[pos] + 1) % 4; ui.toast('Base ' + (pos + 1) + ' is now ' + BASES[v.bases[pos]] + '.', pal.teal); }
       }
     } });

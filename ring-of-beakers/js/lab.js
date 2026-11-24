@@ -6,7 +6,23 @@
   'use strict';
   const RB = globalThis.RB;
   const GN = RB.genome;
-  const FRAGMENTS = 4, REBUILD_COST = 600, SEQ_FEE = 0;
+  const FRAGMENTS = 4, REBUILD_COST = 600;
+  // What the lab charges in a normal game (a sandbox game pays nothing): reading a creature's genome
+  // once, each base changed at the CRISPR bench, and each injection (a clone costs more). Taking
+  // genes out, copying a whole genome into a beaker and changing sex stay free.
+  const SEQ_FEE = 40, EDIT_FEE = 15, INJECT_FEE = 50, CLONE_FEE = 250;
+  const FEES = { sequence: SEQ_FEE, edit: EDIT_FEE, inject: INJECT_FEE, clone: CLONE_FEE };
+  const feeOf = (S, what) => (S.sandbox ? 0 : FEES[what] || 0);
+  // Pay for something: '' when paid (or free), or why not.
+  function pay(S, what) {
+    const f = feeOf(S, what);
+    if (!f) return '';
+    if (S.money < f) return 'That costs $' + f + '. You have $' + S.money + '.';
+    S.money -= f; S.lab.spent = (S.lab.spent || 0) + f;
+    return '';
+  }
+  // A creature's genome can be read once it has been sequenced (always, in a sandbox game).
+  const sequenced = (S, c) => !!(S.sandbox || S.lab.seq[c.id]);
 
   // Every gene is mapped from the start: nothing has to be sequenced to learn what it does.
   const known = () => true;
@@ -26,7 +42,7 @@
     return out;
   }
   // Sequencing is no longer needed (the atlas is complete); kept so older saves and callers work.
-  function sequence(S, c) { S.lab.seq[c.id] = true; return []; }
+  function sequence(S, c) { if (sequenced(S, c)) return ''; const why = pay(S, 'sequence'); if (why) return why; S.lab.seq[c.id] = true; return ''; }
 
   // Pull one copy of a gene into a beaker. Returns the vial, or a string saying why not.
   // The beaker remembers which copy it holds (A or B), and goes back into that copy when injected.
@@ -301,5 +317,5 @@
     return true;
   }
 
-  RB.lab = { SHAPE_WORDS, shapeSpell, changeSex, related, intoCopy, GUIDE_INTRO, GENE_GUIDE, GROUP_NAMES, guideEntries, guideOf, FRAGMENTS, REBUILD_COST, SEQ_FEE, known, knownCount, codingCount, geneLabel, reveal, sequence, extract, vialSum, copyGenome, vialGenome, genomeGene, removeVial, inject, preview, edit, offTarget, guide, describe, fragments, addFragment, rebuild, powerOn };
+  RB.lab = { EDIT_FEE, INJECT_FEE, CLONE_FEE, FEES, feeOf, pay, sequenced, SHAPE_WORDS, shapeSpell, changeSex, related, intoCopy, GUIDE_INTRO, GENE_GUIDE, GROUP_NAMES, guideEntries, guideOf, FRAGMENTS, REBUILD_COST, SEQ_FEE, known, knownCount, codingCount, geneLabel, reveal, sequence, extract, vialSum, copyGenome, vialGenome, genomeGene, removeVial, inject, preview, edit, offTarget, guide, describe, fragments, addFragment, rebuild, powerOn };
 })();

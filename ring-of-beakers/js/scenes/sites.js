@@ -101,13 +101,15 @@
     RB.props.coronel(ctx, b.x + 34, b.y + 56, 0.72);
     ui.text('Today\'s special: ' + sp.label, b.x + 70, b.y + 24, { size: 15, color: pal.white, maxW: b.w - 80 });
     ui.text('Double pay for those. Everything else by the kilo.', b.x + 70, b.y + 42, { size: 11, color: pal.white, bold: false, maxW: b.w - 80 });
+    // the counter, or the contract for your islands
+    const y1 = b.y + 64 + tabs(['Counter', 'Island contract'], b.x, b.y + 64, b.w);
+    if (tab === 1) { bfcContract(b, y1); return; }
     // loyalty card
-    const y1 = b.y + 64;
     ui.text('Loyalty card', b.x + 4, y1 + 15, { size: 12 });
     for (let i = 0; i < 10; i++) { const cx = b.x + 96 + i * 21; ui.rect(cx - 8, y1 + 2, 16, 16, i < S.bfc.stamps ? '#d7372f' : pal.soft, 8); if (i < S.bfc.stamps) ui.icon('check', cx, y1 + 10, 9, pal.white); }
     const list = caged();
     if (!list.length) { ui.para('Nothing in the cage. Bring the birds you are done with, or use the pick-up box in your yard.', b.x + 4, y1 + 30, b.w - 8, { size: 13 }); return; }
-    ui.list('bfc', b.x, y1 + 26, b.w, b.h - 90, list.length, 60, (i, x, y, w) => {
+    ui.list('bfc', b.x, y1 + 26, b.w, b.h - (y1 - b.y) - 26, list.length, 60, (i, x, y, w) => {
       const c = list[i], P = ST.pheno(c), price = EC.bfcPrice(S, c), special = !c.person && EC.bfcIsSpecial(S, c);
       if (row(x, y, w, { c, title: c.name, sub: ST.kind(c) + ' · ' + common.fmtKg(P.weightKg) + (special ? ' · special!' : ''), subCol: special ? '#d7372f' : undefined, price, btn: 'Sell', fill: '#d7372f' })) {
         ui.confirm('Sell ' + c.name + '?', c.name + ' goes through the kitchen door and does not come back. $' + price + '.', 'Sell', () => {
@@ -119,6 +121,32 @@
           common.checkAch(S);
         }, { fill: '#d7372f' });
       }
+    });
+  }
+
+  // The island contract: the BFC van calls at your islands every night and takes the birds that are
+  // old enough, from the islands you tick, at the pick-up box's price.
+  function bfcContract(b, y0) {
+    const k = ST.contract(S), isles = S.isles || [], [lo, hi] = ST.CONTRACT_AGE, wide = b.w > 520;
+    ui.para('The van calls at your islands every night and takes the birds at least the age you set (never people), from the islands on the list, at the pick-up box\'s price.', b.x + 4, y0, b.w - 8, { size: 12, bold: false });
+    let y = y0 + (wide ? 36 : 54);
+    const w1 = wide ? 190 : b.w - 8, w2 = wide ? Math.min(300, b.w - 210) : b.w - 8;
+    if (ui.btn(b.x + 4, y, w1, 36, k.on ? 'Contract: signed' : 'Contract: not signed', { fill: k.on ? '#d7372f' : pal.grey, size: 13 })) { k.on = !k.on; RB.audio.play('click'); RB.game.save(); }
+    if (!wide) y += 42;
+    if (ui.btn(wide ? b.x + 4 + w1 + 8 : b.x + 4, y, w2, 36, (k.keepPair ? 'Keeps' : 'Does not keep') + ' a breeding pair', { fill: k.keepPair ? pal.teal : pal.soft, color: k.keepPair ? pal.white : pal.ink, size: 12 })) { k.keepPair = !k.keepPair; RB.audio.play('click'); }
+    y += 44;
+    ui.text('Takes birds from day ' + k.minAge + ' of age', b.x + 4, y + 20, { size: 13 });
+    const bx = b.x + Math.min(260, b.w - 96);
+    if (ui.btn(bx, y, 40, 32, '-', { fill: pal.soft, color: pal.ink, size: 15, disabled: k.minAge <= lo })) k.minAge = Math.max(lo, k.minAge - (k.minAge > 20 ? 5 : 1));
+    if (ui.btn(bx + 46, y, 40, 32, '+', { fill: pal.soft, color: pal.ink, size: 15, disabled: k.minAge >= hi })) k.minAge = Math.min(hi, k.minAge + (k.minAge >= 20 ? 5 : 1));
+    y += 40;
+    if (!isles.length) { ui.para('You have no islands yet. Claim or raise one out at sea.', b.x + 4, y, b.w - 8, { size: 13 }); return; }
+    ui.text('Islands on the contract', b.x + 4, y + 12, { size: 12, color: pal.grey });
+    ui.list('bfcIsles', b.x, y + 20, b.w, b.y + b.h - y - 20, isles.length, 46, (i, x, yy, w) => {
+      const I = isles[i], on = !!k.isles[I.id], ripe = I.birds.filter((c) => !c.person && c.age >= k.minAge).length;
+      ui.text(I.name, x + 8, yy + 18, { size: 13, maxW: w - 140 });
+      ui.text(I.birds.length + ' living there · ' + ripe + ' old enough', x + 8, yy + 34, { size: 11, bold: false, color: pal.grey, maxW: w - 140 });
+      if (ui.btn(x + w - 120, yy + 4, 116, 36, on ? 'On the list' : 'Add', { fill: on ? '#d7372f' : pal.soft, color: on ? pal.white : pal.ink, size: 12 })) { if (on) delete k.isles[I.id]; else k.isles[I.id] = 1; RB.audio.play('click'); RB.game.save(); }
     });
   }
 
@@ -208,6 +236,24 @@
   }
 
   // ---- your island's field station: the colony, bringing birds, and the radiation
+  // How the colony can be sorted: [key, label, value (P, c), what the row shows]
+  const statOf = (k, name) => [k, name, (P) => P.rate[k], (P) => name + ' ' + P.rate[k] + (P.rateCap[k] !== 100 ? '/' + P.rateCap[k] : '')];
+  const ISLE_SORTS = [
+    ['gen', 'Generation', (P, c) => (c.gen || 0) * 1000 - c.age, null],
+    statOf('power', 'Power'), statOf('tough', 'Toughness'), statOf('guts', 'Guts'), statOf('fury', 'Fury'), statOf('speed', 'Speed'), statOf('stamina', 'Stamina'), statOf('wits', 'Wits'),
+    ['stats', 'All the numbers', (P) => Object.values(P.rate).reduce((a, x) => a + x, 0), (P) => 'all ' + Object.values(P.rate).reduce((a, x) => a + x, 0)],
+    ['age', 'Age', (P, c) => c.age, null],
+    ['kg', 'Weight', (P) => P.weightKg, (P) => common.fmtKg(P.weightKg)],
+    ['size', 'Size', (P) => P.TL + P.NL + P.LLv, (P) => 'size ' + Math.round(P.TL + P.NL + P.LLv)],
+  ];
+  function isleSortPick(so) {
+    ui.open({ draw() {
+      const box = ui.window('Sort the colony by', 360, 70 + Math.ceil(ISLE_SORTS.length / 2) * 44, {});
+      if (!box) return;
+      const bw = (box.w - 8) / 2;
+      ISLE_SORTS.forEach((k, i) => { if (ui.btn(box.x + (i % 2) * (bw + 8), box.y + Math.floor(i / 2) * 44, bw, 38, k[1], { size: 13, fill: so.key === k[0] ? pal.ink : pal.soft, color: so.key === k[0] ? pal.white : pal.ink })) { so.key = k[0]; RB.audio.play('click'); ui.close(); } });
+    } });
+  }
   function isle(b) {
     const I = ST.isleOf(S, site.isle);
     if (!I) { ui.para('This station is not yours.', b.x + 4, b.y + 6, b.w, { size: 13 }); return; }
@@ -215,10 +261,14 @@
     if (tab === 0) {
       ui.text(I.birds.length + ' of ' + ST.isleCap(I) + ' living here · ' + (I.gen ? 'generation ' + I.gen : 'the founders') + (I.born ? ' · ' + I.born + ' hatched so far' : '') + (I.rad > 0.05 ? ' · radioactive' : ''), b.x + 4, y0 + 12, { size: 12, color: pal.plum, maxW: b.w - 8 });
       if (!I.birds.length) { ui.para('Nobody lives here yet. Bring birds (or people you netted) in the truck and leave them here (Bring): pairs raise young every so often, and generation follows generation. Stay a while to watch it happen.', b.x + 4, y0 + 26, b.w - 8, { size: 13 }); return; }
-      const list = I.birds.slice().sort((a, c) => (c.gen || 0) - (a.gen || 0) || a.age - c.age);
-      ui.list('isle' + I.id, b.x, y0 + 20, b.w, h - 20, list.length, 60, (i, x, y, w) => {
-        const c = list[i], P = ST.pheno(c);
-        if (row(x, y, w, { c, title: c.name + ' · gen ' + (c.gen || 0), sub: ST.kind(c) + ' · ' + P.stage + ', day ' + c.age + (P.odd.length ? ' · ' + P.odd.join(', ') : ''), subCol: P.odd.length ? pal.plum : undefined, btn: 'Take', fill: pal.mustard, color: pal.ink })) {
+      // sort by any number, highest or lowest first (kept for the next visit)
+      const so = S.isleSort || (S.isleSort = { key: 'gen', up: false }), K = ISLE_SORTS.find((k) => k[0] === so.key) || ISLE_SORTS[0];
+      if (ui.btn(b.x + 4, y0 + 22, Math.min(220, b.w / 2 - 8), 32, 'Sort: ' + K[1], { size: 12, fill: pal.soft, color: pal.ink })) isleSortPick(so);
+      if (ui.btn(b.x + 4 + Math.min(220, b.w / 2 - 8) + 8, y0 + 22, Math.min(150, b.w / 2 - 8), 32, so.up ? 'Lowest first' : 'Highest first', { size: 12, fill: pal.soft, color: pal.ink })) { so.up = !so.up; RB.audio.play('click'); }
+      const val = (c) => K[2](ST.pheno(c), c), list = I.birds.slice().sort((a, c) => (so.up ? val(a) - val(c) : val(c) - val(a)) || (c.gen || 0) - (a.gen || 0) || a.age - c.age);
+      ui.list('isle' + I.id, b.x, y0 + 62, b.w, h - 62, list.length, 60, (i, x, y, w) => {
+        const c = list[i], P = ST.pheno(c), shown = K[3] ? ' · ' + K[3](P, c) : '';
+        if (row(x, y, w, { c, title: c.name + ' · gen ' + (c.gen || 0), sub: ST.kind(c) + ' · ' + P.stage + ', day ' + c.age + shown + (P.odd.length ? ' · ' + P.odd.join(', ') : ''), subCol: P.odd.length ? pal.plum : undefined, btn: 'Take', fill: pal.mustard, color: pal.ink })) {
           ST.fromIsle(S, I, c); say = c.name + ' hops into the truck.'; RB.audio.play('click'); RB.game.save();
         }
       });
@@ -445,6 +495,7 @@
       RB.audio.setTune(site.id === 'cellar' || site.id === 'market' ? 'nightshop' : site.kind === 'arena' ? 'arena' : S.time >= 19 ? 'night' : 'day');
     },
     update(dt) { if (common.checkBroke(S, 'map')) return; t += dt; },
+    debug() { return { setTab: (i) => { tab = i; }, sortPick: () => isleSortPick(S.isleSort || (S.isleSort = { key: 'gen', up: false })) }; },
     draw(ctx) {
       const v = ui.view;
       ctx.fillStyle = site.id === 'cellar' ? '#4a4460' : site.id === 'bfc' ? '#f7e3de' : site.kind === 'exotic' ? '#efe2f2' : pal.cream; ctx.fillRect(0, 0, v.w, v.h);

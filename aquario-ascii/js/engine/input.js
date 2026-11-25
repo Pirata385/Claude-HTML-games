@@ -1,6 +1,7 @@
 // Água-Tinta — input (owner A): pointer (canvas), keyboard, gamepad, virtual (E's HTML touch controls).
-// Raw canvas events: 'down','move','up','tap','hold','drag','wheel' — payload {x,y,dx,dy,startX,startY,dur,source}
-// (CSS px relative to the stage). Actions: 'action:primary' {phase,source}, 'action:back', 'action:pause',
+// Raw canvas events: 'down','move','up','tap','hold','drag','wheel','swipe' — payload
+// {x,y,dx,dy,startX,startY,dur,source, mx,my (movement since the previous event: relative drag), button, dir (swipe)}
+// (CSS px relative to the stage; dx/dy are relative to the press point). The payload object is reused. Actions: 'action:primary' {phase,source}, 'action:back', 'action:pause',
 // 'action:prev', 'action:next', 'action:bait', 'action:retrieve', 'action:feed', 'action:nav' {dx,dy},
 // 'action:confirm'. Pointer presses on the canvas are NOT 'primary' (scenes read pointer events directly).
 // While blocked (a modal is open) raw canvas events, primary, bait, retrieve and feed are suppressed and
@@ -9,14 +10,15 @@
   'use strict';
 
   var U = AQ.util;
-  var TAP_MS = 300, TAP_MOVE = 10, DRAG_MOVE = 8, HOLD_MS = 350;
+  var TAP_MS = 300, TAP_MOVE = 10, DRAG_MOVE = 8, HOLD_MS = 350, SWIPE_MIN = 50, SWIPE_MS = 450;
   var listeners = Object.create(null);
   var stage = null, gestured = false;
   var blockers = Object.create(null), blockCount = 0;
   var keys = Object.create(null);       // logical action → pressed by keyboard
   var vpress = Object.create(null);     // virtual
   var vaxis = Object.create(null);
-  var pad = { primary: false, left: false, right: false, up: false, down: false, ax: 0, ay: 0, prev: [] };
+  var pad = { primary: false, left: false, right: false, up: false, down: false, ax: 0, ay: 0, rx: 0, trigger: 0, prev: [] };
+  var lastX = 0, lastY = 0;
   var holdTimer = 0, holdFired = false;
   var GAMEPLAY = { primary: 1, bait: 1, retrieve: 1, feed: 1 };
 
@@ -40,7 +42,11 @@
       // Any first gesture anywhere (incl. the HTML UI) unlocks audio.
       window.addEventListener('pointerdown', gesture, true);
       window.addEventListener('gamepadconnected', function () { /* polled each frame */ });
+      blockBrowserGestures();
     },
+
+    // Dominant hand from settings ('right' | 'left'): E places the reel button and fishing HUD with it.
+    handedness: function () { return AQ.settings.get('handedness') === 'left' ? 'left' : 'right'; },
 
     on: function (type, fn) {
       (listeners[type] || (listeners[type] = [])).push(fn);
@@ -61,6 +67,8 @@
         if (k) return k;
         return pad.ax;
       }
+      if (name === 'trigger' || name === 'reel') return vaxis[name] || pad.trigger;
+      if (name === 'rodX') return pad.rx || pad.ax;
       if (name === 'aimY' || name === 'navY') {
         var ky = (keys.down ? 1 : 0) - (keys.up ? 1 : 0);
         if (ky) return ky;
@@ -130,9 +138,10 @@
   }
 
   // ---------------------------------------------------------------- pointer
-  var payload = { x: 0, y: 0, dx: 0, dy: 0, startX: 0, startY: 0, dur: 0, source: 'mouse', button: 0 };
+  var payload = { x: 0, y: 0, dx: 0, dy: 0, mx: 0, my: 0, startX: 0, startY: 0, dur: 0, source: 'mouse', button: 0, dir: '' };
   function fill(p, e) {
     payload.x = p.x; payload.y = p.y; payload.dx = p.dx; payload.dy = p.dy;
+    payload.mx = p.x - lastX; payload.my = p.y - lastY; payload.dir = '';
     payload.startX = p.startX; payload.startY = p.startY;
     payload.dur = (performance.now() - p.downAt) / 1000;
     payload.source = p.type;
@@ -155,6 +164,7 @@
     p.down = true; p.id = e.pointerId; p.type = ptype(e);
     p.x = p.startX = q.x; p.y = p.startY = q.y; p.dx = 0; p.dy = 0;
     p.downAt = performance.now(); p.moved = false;
+    lastX = q.x; lastY = q.y;
     holdFired = false;
     try { stage.setPointerCapture(e.pointerId); } catch (err) { /* ignore */ }
     if (I.blocked) return;
@@ -169,15 +179,20 @@
     var q = localXY(e);
     if (!p.down) {
       // hover (mouse): keep position fresh for aiming/rod
-      if (e.pointerType === 'mouse') { p.x = q.x; p.y = q.y; if (!I.blocked) emit('move', fill(p, e)); }
+      if (e.pointerType === 'mouse') {
+        p.x = q.x; p.y = q.y;
+        if (!I.blocked) emit('move', fill(p, e));
+        lastX = q.x; lastY = q.y;
+      }
       return;
     }
     if (e.pointerId !== p.id) return;
     p.x = q.x; p.y = q.y; p.dx = q.x - p.startX; p.dy = q.y - p.startY;
     if (!p.moved && Math.hypot(p.dx, p.dy) > DRAG_MOVE) p.moved = true;
-    if (I.blocked) return;
+    if (I.blocked) { lastX = q.x; lastY = q.y; return; }
     emit('move', fill(p, e));
     if (p.moved) emit('drag', fill(p, e));
+    lastX = q.x; lastY = q.y;
   }
   function onUp(e) {
     var p = I.pointer;
@@ -190,7 +205,13 @@
     if (I.blocked) return;
     var pl = fill(p, e);
     emit('up', pl);
-    if (!holdFired && pl.dur * 1000 < TAP_MS && Math.hypot(p.dx, p.dy) < TAP_MOVE) emit('tap', pl);
+    var dist = Math.hypot(p.dx, p.dy);
+    if (!holdFired && pl.dur * 1000 < TAP_MS && dist < TAP_MOVE) emit('tap', pl);
+    else if (dist >= SWIPE_MIN && pl.dur * 1000 < SWIPE_MS) {
+      pl.dir = Math.abs(p.dx) > Math.abs(p.dy) ? (p.dx > 0 ? 'right' : 'left') : (p.dy > 0 ? 'down' : 'up');
+      emit('swipe', pl);
+    }
+    lastX = q.x; lastY = q.y;
   }
   function cancelPointer() {
     var p = I.pointer;
@@ -286,9 +307,12 @@
     for (var j = 0; j < b.length; j++) now[j] = pressed(j);
     function edge(n) { return now[n] && !prev[n]; }
     var any = now.some(function (x) { return x; });
-    var ax = gp.axes[0] || 0, ay = gp.axes[1] || 0;
+    var ax = gp.axes[0] || 0, ay = gp.axes[1] || 0, rx = gp.axes[2] || 0;
     if (Math.abs(ax) < 0.25) ax = 0;
     if (Math.abs(ay) < 0.25) ay = 0;
+    if (Math.abs(rx) < 0.25) rx = 0;
+    pad.rx = rx;
+    pad.trigger = b[7] ? (b[7].value || (b[7].pressed ? 1 : 0)) : 0;
     if (any || ax || ay) { setMode('gamepad'); gesture(); }
 
     var prim = now[0] || now[7];
@@ -310,5 +334,23 @@
     if (ny !== navLatchY && ny) emit('action:nav', { dx: 0, dy: ny, source: 'gamepad' });
     navLatchX = nx; navLatchY = ny;
     pad.prev = now;
+  }
+
+  // ---------------------------------------------------------------- browser gestures
+  // No pinch / double-tap zoom, pull-to-refresh, context menu, text selection or long-press callouts.
+  // Scrollable UI panels keep working: single-finger pans are only blocked on the stage (CSS touch-action).
+  function blockBrowserGestures() {
+    var opt = { passive: false };
+    ['gesturestart', 'gesturechange', 'gestureend'].forEach(function (t) {
+      document.addEventListener(t, function (e) { e.preventDefault(); }, opt);
+    });
+    document.addEventListener('touchmove', function (e) {
+      if (e.touches && e.touches.length > 1) e.preventDefault(); // pinch
+    }, opt);
+    stage.addEventListener('touchmove', function (e) { e.preventDefault(); }, opt);
+    stage.addEventListener('dblclick', function (e) { e.preventDefault(); });
+    document.addEventListener('contextmenu', function (e) { if (!editable(e.target)) e.preventDefault(); });
+    document.addEventListener('selectstart', function (e) { if (!editable(e.target)) e.preventDefault(); });
+    window.addEventListener('wheel', function (e) { if (e.ctrlKey) e.preventDefault(); }, opt); // trackpad pinch-zoom
   }
 })(window.AQ);

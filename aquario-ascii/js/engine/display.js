@@ -17,8 +17,10 @@
     orientation: 'landscape',
     isTouch: false,
     safe: { top: 0, right: 0, bottom: 0, left: 0 },
+    worldW: 0, worldH: 0,   // visible grid in world units (cols, rows·ASPECT)
     canvases: { bg: null, main: null, top: null },
     ctx: { bg: null, main: null, top: null },
+    isFullscreen: false,
 
     // init(stageEl) → Promise. Waits for the webfont (≤ 1500 ms), sizes canvases, builds the atlas.
     init: function (stageEl) {
@@ -44,6 +46,10 @@
         if (p.key === 'glyphSize') D.refresh();
       });
       AQ.events.on('quality:changed', function () { if (D.ready) D.refresh(); });
+      document.addEventListener('fullscreenchange', function () {
+        D.isFullscreen = !!document.fullscreenElement;
+        AQ.events.emit('display:fullscreen', { on: D.isFullscreen });
+      });
 
       return waitFont().then(function () {
         D.refresh();
@@ -57,11 +63,27 @@
       });
     },
 
+    // fullscreen(on?) → Promise<bool> (toggles when on is omitted). Resolves false when unsupported or refused.
+    fullscreen: function (on) {
+      var el = document.documentElement;
+      var want = on === undefined ? !document.fullscreenElement : !!on;
+      try {
+        if (want && !document.fullscreenElement && el.requestFullscreen) {
+          return el.requestFullscreen({ navigationUI: 'hide' }).then(function () { return true; }, function () { return false; });
+        }
+        if (!want && document.fullscreenElement && document.exitFullscreen) {
+          return document.exitFullscreen().then(function () { return true; }, function () { return false; });
+        }
+      } catch (e) { /* unsupported */ }
+      return Promise.resolve(false);
+    },
+    canFullscreen: function () { return !!(document.documentElement.requestFullscreen && document.fullscreenEnabled !== false); },
+
     metrics: function () {
       return {
         cols: D.cols, rows: D.rows, cellW: D.cellW, cellH: D.cellH, cellWd: D.cellWd, cellHd: D.cellHd,
         dpr: D.dpr, fontPx: D.fontPx, originX: D.originX, originY: D.originY, width: D.width, height: D.height,
-        orientation: D.orientation, isTouch: D.isTouch,
+        orientation: D.orientation, isTouch: D.isTouch, worldW: D.worldW, worldH: D.worldH,
         safe: { top: D.safe.top, right: D.safe.right, bottom: D.safe.bottom, left: D.safe.left }
       };
     },
@@ -73,6 +95,7 @@
       var W = Math.max(1, Math.round(stage.clientWidth || window.innerWidth));
       var H = Math.max(1, Math.round(stage.clientHeight || window.innerHeight));
       var params = (AQ.perf && AQ.perf.params) || { dprCap: 2, densityBias: 1 };
+      var fontChanged = force === true;
       var dpr = Math.min(window.devicePixelRatio || 1, params.dprCap || 2);
       var Wd = Math.round(W * dpr), Hd = Math.round(H * dpr);
 
@@ -100,6 +123,8 @@
       D.originYd = Math.floor((Hd - rows * cellHd) / 2);
       D.originX = D.originXd / dpr; D.originY = D.originYd / dpr;
       D.orientation = W >= H ? 'landscape' : 'portrait';
+      D.worldW = cols;
+      D.worldH = rows * AQ.ASPECT;
       readSafe();
 
       sizeCanvas(D.canvases.main, Wd, Hd, dpr);
@@ -107,12 +132,13 @@
       sizeCanvas(D.canvases.bg, Wd, Hd + 2 * cellHd, dpr); // 2 rows taller for the sub-row scroll
       [D.ctx.bg, D.ctx.main, D.ctx.top].forEach(function (c) { c.imageSmoothingEnabled = false; });
 
-      if (AQ.atlas) AQ.atlas.build(fontPx, dpr, AQ.theme.ink, FAMILY, { w: cellWd, h: cellHd });
+      if (AQ.atlas) AQ.atlas.build(fontPx, dpr, AQ.theme.ink, FAMILY, { w: cellWd, h: cellHd }, fontChanged);
       if (AQ.render && AQ.render.resize) AQ.render.resize();
 
       var now = D.cols + 'x' + D.rows + '@' + D.cellWd + 'x' + D.cellHd + ':' + D.width + 'x' + D.height + ':' + D.dpr;
       if (force || now !== prev) {
         var m = D.metrics();
+        if (AQ.perf && AQ.perf.grace) AQ.perf.grace(1.5);
         if (AQ.scenes && AQ.scenes.resizeCurrent) AQ.scenes.resizeCurrent(m);
         AQ.events.emit('display:resize', m);
       }

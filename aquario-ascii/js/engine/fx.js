@@ -198,7 +198,7 @@
           }
           R.knock(px, py, cw, chh, Math.min(0.96, dens * 1.2));
           var code = SEQ.ink[Math.min(SEQ.ink.length - 1, Math.floor(dens * (SEQ.ink.length - 1)))];
-          if (code) R.glyph(code, px, py, Math.max(1, Math.round(2 + dens * 4)));
+          if (code) R.glyph(code, px, py, dens > 0.8 ? 2 : Math.max(1, Math.round(1 + dens * 4)));
         }
       }
     }
@@ -420,7 +420,7 @@
         var cols = Math.max(1, D.cols), offs = new Float32Array(cols), rows = new Float32Array(Math.max(1, D.rows + 2));
         for (var c = 0; c < cols; c++) {
           var lr = c / cols;
-          offs[c] = (d === 'out' ? lr : 1 - lr) * 0.55 + rnd.next() * 0.12;
+          offs[c] = (d === 'out' ? lr : 1 - lr) * (SPREAD - 0.1) + rnd.next() * 0.1;
         }
         for (var r = 0; r < rows.length; r++) rows[r] = (rnd.next() - 0.5) * 0.16;
         wipe = { dir: d, t: 0, dur: fade ? 0.2 : (sec || 0.4), resolve: resolve, fade: fade, offs: offs, rowJ: rows };
@@ -469,6 +469,7 @@
 
   // Ink wipe (§12): columns sweep the density ramp; behind the edge the page is solid bg.
   var RAMP_D = codes(R.RAMPS.density);
+  var SPREAD = 0.62, BAND = 0.3; // column offsets span SPREAD; each column takes BAND of the wipe
   function drawCover(ctx, cover, w) {
     var Wd = D.canvases.top.width, Hd = D.canvases.top.height;
     if (w.fade || !D.cols) {
@@ -481,19 +482,19 @@
     var n = RAMP_D.length;
     ctx.fillStyle = AQ.theme.bg;
     for (var c = 0; c < cols; c++) {
-      var local = cover * 1.67 - w.offs[c];
+      var local = (cover * (SPREAD + BAND) - w.offs[c]) / BAND; // 0 → 1 across the column's transition
       if (local <= 0) continue;
       var x0 = oxd + c * cwd, x1 = x0 + cwd;
       if (c === 0) x0 = 0;
       if (c === cols - 1) x1 = Wd;
-      if (local >= 1.08) {
+      if (local >= 1.1) {
         ctx.globalAlpha = 1;
         ctx.fillStyle = AQ.theme.bg;
         ctx.fillRect(x0, 0, x1 - x0, Hd);
         continue;
       }
       for (var r = -1; r <= rows; r++) {
-        var lr = U.clamp(local + (w.rowJ[(r + 1) % w.rowJ.length] || 0), 0, 1);
+        var lr = U.clamp(local + (w.rowJ[(r + 1) % w.rowJ.length] || 0) * 2, 0, 1);
         if (lr <= 0) continue;
         var y0 = r < 0 ? 0 : D.originYd + r * D.cellHd, y1 = r < 0 ? D.originYd : (r === rows ? Hd : y0 + D.cellHd);
         if (r === rows) y0 = D.originYd + rows * D.cellHd;

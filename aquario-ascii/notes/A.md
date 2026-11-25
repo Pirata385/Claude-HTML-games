@@ -104,3 +104,71 @@ wave row on the bg grid as an engine smoke test — E replaces it.
 `fonts/JetBrainsMonoNL-{Regular,Bold}.woff2` from `jetbrains-mono@1.0.6`. `fonts/LICENSE-JetBrainsMono.txt` holds the
 typeface's SIL OFL 1.1 text (the npm package only ships its own MIT LICENSE for the packaging, also included).
 CSS family name: `ATMono`.
+
+---
+
+# Phase 1 additions (engine finished)
+
+All additive; nothing from phase 0 changed meaning.
+
+## Render
+- **Atlas:** one canvas per weight; alpha is **not** baked per level (§15.6 rationale: 16× memory). Levels are applied
+  with `globalAlpha` from the 16-level table. Rebuilt only when fontPx, dpr, theme or cell size change, and on late
+  webfont load. A bg-coloured twin is built lazily for inverted text (`atlas.drawInv`).
+- `sprite()` new opts: **`dense`** (densified glyphs + bold, cached per frame), **`shimmer`** (one glyph shows `*` for
+  0.1 s every ~0.6–1.2 s; ~2 s with reduced motion), **`halo`** (`true` = `.` ring at level 2, or a level), `seed`
+  (varies shimmer/halo/dissolve per creature), `time` (default `AQ.loop.time`). It returns the CSS-px box
+  `{x,y,w,h}` (shared object) or `null` when culled off-screen.
+- `text(...)` / `textW(...)` opt **`invert`**: ink fill at the level's alpha with bg-coloured glyphs (the only highlight).
+- New helpers: `shade(ramp, v, base)` → `{code, level}` per §2.4 (level = base·(0.75+0.25·frac)); `rect/rectC(…, level)`
+  ink fills (meters); `screenToCell(px, py)`; `view()` → visible world rect; `grid.blit(frame, c0, r0, level)`;
+  `stats()` → {glyphs, bgChanged, atlas}; `hash01(a,b,c)`.
+- `AQ.render.highContrast` and **`AQ.render.decorTextures`** (false in high contrast): **C/D skip pure-decoration
+  layers (rays, snow) when it is false** (§2.2).
+- bg grid: when the camera crosses a row the loop commits at once (not only at bgHz) and the canvas is self-blitted
+  by whole rows, so only new cells redraw; the CSS translate then only carries the fraction. Scenes that scroll should
+  draw the bg grid in camera-relative rows (`worldToCell`), as before.
+
+## fx
+- Kinds: `splash` (8–20 foam particles by `power`, plus a `( )` ring and a surface impulse when within 2.5 u of
+  `opts.surfaceY` (default 0); `impulse:false` to skip), `drop`, `bubble` (wobble, grows `·°oO`, pops `*` + tiny ripple
+  when it reaches `surfaceY`; count × `perf.params.bubbles`), `spark`, `ink`, `coin` (`n > 1` = shower), `flake`, `dust`,
+  `pop`, `ripple`, `text` (`{text, bold}`), **`bloom`** (radial `*` → `.`, the "NOVO!" ink bloom).
+- **`ink`** creates an ink cloud (max 6): `{radius=8, life=2.5 (Infinity = until clearInk()), glow}`; `glow` =
+  vampira sparkles. `fx.inkAt(wx, wy)` → 0..1 density; `fx.clearInk()`, `fx.inkCount()`.
+- `fx.emitS(kind, px, py, opts)` (CSS px, e.g. from a DOM button) and `fx.emitC(kind, c, r, opts)` (screen cell).
+- **`fx.surface`** — the 1D surface field (3 sines + impulse waves, damping .985; reduced: × .4, no impulses):
+  `reset(widthU)` (call on scene enter), `impulse(wx, power)`, `height(wx)` (world-unit y offset, mean 0),
+  `slope(wx)`, `cell(wx, out)` → `{y, row, ch, code}` (world row + `wave` ramp glyph by sub-row position), `amp`
+  (multiplier: set 2 in storms), `base` (calm amplitude, .45 u). Updated by `fx.update`.
+- `fx.lightning()` → level-3 veil 120 ms, at most every 4 s (reduced: level-1 pulse); returns whether it fired.
+- `fx.clear()` (on every scene change) also clears ink clouds and shake.
+
+## Input
+- Pointer payload adds **`mx, my`** (movement since the previous event: use them for relative rod drag) and `dir` on
+  the new **`swipe`** event (`'left'|'right'|'up'|'down'`, ≥ 50 px in < 450 ms).
+- `axis('trigger')` (gamepad RT analog or a virtual axis), `axis('rodX')` (right stick, else left stick).
+- `AQ.input.handedness()` → `'right'|'left'` from settings.
+- Browser gestures blocked: iOS `gesture*`, multi-touch pinch, ctrl+wheel zoom, stage touchmove/double-click,
+  context menu and text selection (except inputs). **E:** give scrollable panels `overflow:auto` and
+  `touch-action: pan-x pan-y` (body is `touch-action:none`).
+
+## Perf / loop
+- Auto quality: > 20 ms average for 3 s → one step down; < 12 ms for 20 s → one step up (≤ 1 per 60 s, never above
+  the initial preset). `quality:changed {preset, auto:true}` → **E toasts**. `perf.grace(sec)` suppresses samples
+  (boot, scene change, resize, tab return). Verified: CPU throttle ×20 steps medium → low.
+- `perf.jsMs` (EMA of JS time per frame), `perf.budgetMs` (6 touch / 3 desktop), `perf.overBudget`, `perf.steps`.
+  `#fps` shows fps, preset, frame and JS ms (`showFps`; in debug the backquote key adds scene/grid/particles/clock).
+- 60 fps cap uses a target-time scheduler (correct on 75/90/120/144 Hz). `AQ.loop.step(ms)` runs one frame
+  manually (debug); `AQ.loop.dt`, `AQ.loop.realTime`.
+
+## Display
+- `display.fullscreen(on?)` → Promise<bool>, `canFullscreen()`, `isFullscreen`, event `display:fullscreen {on}`.
+- `worldW`, `worldH` (visible grid in world units) also in `metrics()`.
+
+## Debug (`?debug=1`, `AQ.debug.help()`)
+`go, zone(id), give, giveItem(id, n)` (bait / lure / decor / `"rod:3"`), `gear(tier|{...})`, `unlockAll, setTime,
+setWeather, spawn, land, catchAll({viaScene, choice, skip, fight})` (autopilot fight + `resolveCatch` per species,
+tinteira last with `release`), `spawnStats(zone, n)` (every phase × weather × bait, plus `legendaryReady` combos;
+one row per zone species), `checkContracts, fight(id, tier), fx(kind), quality(p), motion(v), grid(), pause(),
+step(n), resume(), reset(), overlay()`.

@@ -291,7 +291,7 @@
         if (f.tank !== tank.id || !isAdult(f)) continue;
         var sp = species(f.sp), pr = sp && sp.produces;
         if (!pr || !pr.item || !(pr.everyMin > 0) || m % pr.everyMin !== 0) continue;
-        if (happyIn(f, tank, c) < K.PRODUCE_HAPPY) continue;
+        if (happyIn(f, tank, c) < (pr.minHappy || K.PRODUCE_HAPPY)) continue;
         var baits = state.player.baits;
         if (baits[pr.item] !== -1) baits[pr.item] = (baits[pr.item] || 0) + (pr.qty || 1);
         events.push({ type: 'produced', tankId: tank.id, item: pr.item, qty: pr.qty || 1, uid: f.uid });

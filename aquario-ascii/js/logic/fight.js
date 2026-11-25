@@ -22,7 +22,10 @@
     T_MAX: 1.6,          // hard ceiling for T (§15.11: T stays in [0, 1.6])
     JUMP_HEIGHT: 4,      // airborne arc height (u above the surface)
     LAND_Y: 3,           // depth after a jump splash-down
-    PHASE_HI: 0.66, PHASE_LO: 0.33, BOSS_TELL_MUL: 0.85
+    PHASE_HI: 0.66, PHASE_LO: 0.33, BOSS_TELL_MUL: 0.85,
+    BURROW_ARRIVE: 8,    // a burrowing fish slows down as it reaches its cover: speed × min(1, d / 8)
+    SOFT_DRAG: 0.7,      // soft bodies (special.tear): reeling itself adds SOFT_DRAG × gain to the target tension
+    BOSS_HOLD: 12        // bosses cannot be reeled closer than ~12 u before their last phase
   };
 
   // shake adds .35·sin(2π·5t) at run time.
@@ -368,7 +371,10 @@
       case 'pull': vx = ux * 0.6 * v; vy = uy * 0.6 * v; break;
       case 'burrow': {
         var bdx = fs.coverX - fs.x, bdy = fs.coverY - fs.y, bd = Math.sqrt(bdx * bdx + bdy * bdy);
-        if (bd > 1e-6) { vx = bdx / bd * 0.6 * v; vy = bdy / bd * 0.6 * v; }
+        if (bd > 1e-6) {
+          var arrive = Math.min(1, bd / CONST.BURROW_ARRIVE);
+          vx = bdx / bd * 0.6 * v * arrive; vy = bdy / bd * 0.6 * v * arrive;
+        }
         break;
       }
       case 'rest': case 'tell': vx = ux * 0.15 * v; vy = uy * 0.15 * v; break;
@@ -394,11 +400,12 @@
     var counter = clamp(-rod * steerDir, -1, 1);
     fs.counter = counter;
     var steerMul = 1 - C.STEER_T * counter * g.St;
-    var targetT = F * (reel ? 1 : C.IDLE_LOAD) * steerMul / g.Ls;
+    var gain = reel ? clamp(1 - F / (g.Ls * C.GAIN_DIV), C.GAIN_MIN, 1) * (C.FRESH_GAIN + (1 - C.FRESH_GAIN) * (1 - S)) : 0;
+    if (fs.boss && fs.phase < 2) gain *= clamp((fs.L - C.BOSS_HOLD) / 10, 0, 1);
+    var targetT = F * (reel ? 1 : C.IDLE_LOAD) * steerMul / g.Ls + (fs.tear ? C.SOFT_DRAG * gain : 0);
     var rate = targetT > fs.T ? fs.riseRate : C.FALL_RATE;
     fs.T += (targetT - fs.T) * (1 - Math.exp(-dt * rate));
     if (fs.T < 0) fs.T = 0; else if (fs.T > C.T_MAX) fs.T = C.T_MAX;
-    var gain = reel ? clamp(1 - F / (g.Ls * C.GAIN_DIV), C.GAIN_MIN, 1) * (C.FRESH_GAIN + (1 - C.FRESH_GAIN) * (1 - S)) : 0;
     if (!reel && F < 0.2) {
       var vr = vx * ux + vy * uy;
       if (vr > 0) { vx -= ux * vr; vy -= uy * vr; }

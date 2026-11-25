@@ -45,13 +45,14 @@
     var q = typeof o.q === 'number' && isFinite(o.q) ? AQ.util.clamp(o.q, 0, 1) : 0.5;
     return sp.value * (0.7 + 0.6 * q) * (o.dense ? 4 : 1) * (o.trophy ? 1.25 : 1) * (o.bred ? K.BRED_SELL : 1);
   }
-  function specimenValue(specimen) { return Math.round(rawValue(specimen)); }
+  function rnd(v) { return Math.round(v + 1e-7); } // guards float noise (162.49999… → 163)
+  function specimenValue(specimen) { return rnd(rawValue(specimen)); }
   function juvFactor(fish) {
     var g = fish && typeof fish.growth === 'number' ? fish.growth : 1;
     return g >= 1 ? 1 : K.JUV_MIN + (1 - K.JUV_MIN) * Math.max(0, g);
   }
   // Fish in a tank: as specimenValue (bred × .6) and juveniles scaled by growth.
-  function fishSellValue(fish) { return Math.round(rawValue(fish) * juvFactor(fish)); }
+  function fishSellValue(fish) { return rnd(rawValue(fish) * juvFactor(fish)); }
 
   // ---------------------------------------------------------------- shop
   function findTank(state, id) {

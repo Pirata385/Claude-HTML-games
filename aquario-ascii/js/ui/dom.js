@@ -281,22 +281,16 @@
     zoneShort: function (id) { return tFirst(['zone.' + id + '.short', 'zone.' + id + '.name', 'zone.' + id], null, prettify(id)); },
     phase: function (p) { return tFirst(['phase.' + p + '.name', 'phase.' + p], null, prettify(p)); },
     weather: function (w) { return tFirst(['weather.' + w + '.name', 'weather.' + w], null, prettify(w)); },
-    bait: function (id) {
-      return tFirst(['item.bait.' + id, 'item.bait_' + id + '.short', 'bait.' + id, 'fish.bait.' + id, 'item.' + id + '.name',
-        'item.lure_' + id + '.name', 'item.bait_' + id + '.name', 'ui.bait.name.' + id], null, prettify(id));
-    },
+    bait: function (id) { return tFirst(['hud.baitName.' + id, 'item.bait.' + id], null, prettify(id)); },
     item: function (id, tier) {
       var c = [];
       if (tier !== undefined && tier !== null) {
-        c.push('item.' + id + '.' + tier + '.name', 'item.' + id + '.t' + tier, 'item.' + id + '.' + tier, 'item.' + id + '.name.' + tier,
-          'item.gear.' + id + '.' + tier);
+        var g = AQ.items && AQ.items.gearAt ? safe(function () { return AQ.items.gearAt(id, tier); }, null) : null;
+        if (g && g.name) c.push(g.name);
+        c.push('item.' + id + '.' + tier, 'item.' + id + '.' + tier + '.name');
       }
       c.push('item.' + id + '.name', 'item.' + id);
-      var fb;
-      var G = AQ.items && AQ.items.GEAR && AQ.items.GEAR[id];
-      if (G && tier !== undefined && G[tier - (G.length > 5 ? 0 : 1)] && G[tier - (G.length > 5 ? 0 : 1)].name) fb = G[tier - (G.length > 5 ? 0 : 1)].name;
-      if (fb && has(fb)) return t(fb);
-      return tFirst(c, null, fb || prettify(id));
+      return tFirst(c, null, prettify(id));
     },
     itemDesc: function (id, tier) {
       var c = [];

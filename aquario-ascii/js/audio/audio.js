@@ -140,6 +140,7 @@
   A.init = function () {
     var E = AQ.events;
     E.on('app:gesture', function () { A.unlock(); });
+    armUnlock();
     E.on('app:hidden', function () { A.suspend(); });
     E.on('app:visible', function () { A.resume(); });
     E.on('settings:changed', function (p) { if (p && /^vol/.test(p.key)) A.applyVolumes(); });
@@ -151,18 +152,49 @@
     onScene((AQ.scenes && AQ.scenes.current) || 'title', {});
   };
 
+  // Mobile browsers (iOS/WebKit above all) only let audio start inside touchend / click / keydown — not
+  // inside a touch pointerdown, which is where the first app:gesture fires. So keep a set of capture
+  // listeners for activation-type events and retry unlock() on each until the context really runs; re-arm
+  // when the system interrupts or suspends it (phone call, Siri, other app took the audio).
+  var UNLOCK_EVENTS = ['pointerup', 'touchend', 'click', 'keydown', 'mousedown'];
+  var armed = false;
+  function tryUnlock() {
+    A.unlock().then(function () { if (A.ctx && A.ctx.state === 'running') disarmUnlock(); });
+  }
+  function armUnlock() {
+    if (armed || typeof window === 'undefined' || !window.addEventListener) return;
+    armed = true;
+    for (var i = 0; i < UNLOCK_EVENTS.length; i++) window.addEventListener(UNLOCK_EVENTS[i], tryUnlock, true);
+  }
+  function disarmUnlock() {
+    if (!armed) return;
+    armed = false;
+    for (var i = 0; i < UNLOCK_EVENTS.length; i++) window.removeEventListener(UNLOCK_EVENTS[i], tryUnlock, true);
+  }
+
   // unlock() → Promise. Creates/resumes the context; must run inside a user gesture the first time.
   A.unlock = function () {
     if (!Ctor) return Promise.resolve(false);
     try {
       if (!A.ctx) {
+        // iOS 16.4+: play through the silent switch, like a game should (Web Audio is muted by it otherwise).
+        try { if (typeof navigator !== 'undefined' && navigator.audioSession) navigator.audioSession.type = 'playback'; } catch (e0) { /* optional */ }
         A.ctx = new Ctor({ latencyHint: 'interactive' });
+        A.ctx.onstatechange = function () {
+          if (A.ctx.state !== 'running' && A.ctx.state !== 'closed' && !(typeof document !== 'undefined' && document.hidden)) armUnlock();
+        };
         build();
         A.ready = true;
         if (A.music && A.music.start) A.music.start();
         A.applyVolumes(true);
       }
-      var p = A.ctx.state === 'suspended' && !(typeof document !== 'undefined' && document.hidden) ? A.ctx.resume() : Promise.resolve();
+      var hidden = typeof document !== 'undefined' && document.hidden;
+      // 'interrupted' is WebKit's state after a call/Siri; it needs resume() just like 'suspended'
+      var p = A.ctx.state !== 'running' && A.ctx.state !== 'closed' && !hidden ? A.ctx.resume() : Promise.resolve();
+      if (!hidden) {
+        // classic iOS kick: a 1-sample silent buffer started inside the gesture opens the output
+        try { var kick = A.ctx.createBufferSource(); kick.buffer = A.ctx.createBuffer(1, 1, 22050); kick.connect(A.ctx.destination); kick.start(0); } catch (e1) { /* ignore */ }
+      }
       return Promise.resolve(p).then(function () { return true; }, function () { return false; });
     } catch (e) {
       console.warn('[AQ.audio] unlock failed:', e);
@@ -188,7 +220,7 @@
   };
   A.resume = function () {
     if (!A.ctx) return;
-    A.ctx.resume().then(function () { A.applyVolumes(true); }, function () {});
+    A.ctx.resume().then(function () { A.applyVolumes(true); }, function () { armUnlock(); });
   };
 
   // sfx(name, opts?{vol, pitch, pan})

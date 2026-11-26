@@ -24,7 +24,10 @@
   var st = {
     zone: null, zoneId: 'baia', depth: 70, cols: 80, t: 0, rng: null, fx: null,
     phase: 'idle', phaseT: 0,
-    boat: { x: 24, y: 0 }, tip: { x: 27, y: -6 }, dir: 1,
+    boat: { x: 0, y: 0 }, tip: { x: 3, y: -6 }, dir: 1,
+    // sailing: the boat moves along an endless, world-deterministic coast (AQ.sail kinematics, world x)
+    sail: null, sailBtn: { l: false, r: false }, sailKeyPrev: 0, sailLatch: false, sailQueue: 0, fastRetrieve: false,
+    wake: [], wakeT: 0, rippleT: 0, waitT: 0,
     hook: { x: 27, y: -5, bait: 'massa', moving: false, active: false, engagedUid: 0 },
     hookV: 0, sinkT: 0, lineShortShown: false,
     rope: null, cells: [], ropeLen: 0,
@@ -36,7 +39,7 @@
     fs: null, fish: null, fightAcc: { t: 0 }, fightT0: 0, specimen: null, species: null, tellVis: { kind: null, t: 0 },
     rod: 0, rodKey: 0, autoRod: 0, reel: false, inkOn: false,
     landing: null, escape: null, cardOpen: false,
-    cam: { y: 0, vy: 0 }, skyRows: 4,
+    cam: { x: 0, vx: 0, dirS: 1, y: 0, vy: 0 }, skyRows: 4,
     frenzy: { on: false, t: 0, next: 0, x: 0 },
     bottle: { on: false, x: 0, vx: 0, next: 0, coinT: -1e9, held: false, snagged: false },
     sights: [], sightNext: 0,
@@ -74,16 +77,19 @@
   }
 
   // ---------------------------------------------------------------- geometry
-  function layoutBoat(scaleFrom) {
+  // The view is one screen wide; the camera follows the boat horizontally (world x is endless).
+  function layoutBoat() {
     var D = AQ.display;
-    var cols = Math.max(20, D.cols || 80);
-    var k = scaleFrom ? cols / scaleFrom : 1;
-    st.cols = cols;
-    st.boat.x = Math.round(cols * (D.orientation === 'portrait' ? 0.5 : 0.3));
+    st.cols = Math.max(20, D.cols || 80);
     var lay = HUD.layout(true);
     st.skyRows = Math.max(5, Math.min(12, (lay.insetT || 0) + (D.orientation === 'portrait' ? 8 : 7)));
-    return k;
   }
+  function viewX0() { return st.cam.x; }
+  function viewX1() { return st.cam.x + st.cols; }
+  // where the boat sits on screen (fraction of the width) when it faces dir: landscape keeps room ahead of the bow
+  function anchorFrac(dir) { return AQ.display.orientation === 'portrait' ? 0.5 - 0.08 * dir : 0.5 - 0.2 * dir; }
+  // the camera x it settles at for the boat facing dir (cast clamps use it so the landing ends up on screen)
+  function camTargetFor(dir) { return st.boat.x - anchorFrac(dir) * st.cols; }
   function floorY(x) { return BG.floorY(x); }
   function surfY(x) { return AQ.fx.surface.height(x); }
   // ---- boat + angler geometry (B's art: AQ.art.boats[tier] and AQ.art.angler poses with `tip`)
@@ -120,7 +126,8 @@
     var lines = bfr.lines || bfr;
     geo.boat = bfr; geo.bh = lines.length; geo.deck = deckRow(lines);
     var dl = String(lines[geo.deck] || ''); geo.bw = dl.replace(/\s+$/, '').length || 14;
-    var bob = AQ.fx.motion() < 1 ? 0 : Math.sin((t || 0) * 1.4) * 0.3;
+    var sf = st.sail ? AQ.sail.speedFrac(st.sail) : 0;
+    var bob = AQ.fx.motion() < 1 ? 0 : Math.sin((t || 0) * 1.4) * 0.3 + Math.sin((t || 0) * (3 + 3 * sf)) * 0.22 * sf;
     geo.by = st.boat.y + bob - geo.bh * ASPECT / 2 + 1;
     var tip = anglerPose();
     var ah = geo.pose.length, aw = 9;
@@ -195,8 +202,10 @@
     var now = worldNow();
     var g = st.gear || gear();
     return { phase: now.phase, weather: now.weather, bait: bait(), luck: safe(function () { return AQ.game.luck(st.zoneId); }, 0),
-      lantern: (S().player.gear && S().player.gear.lantern) || 0, frenzy: st.frenzy.on, zone: st.zoneId, lanternR: g.lantern };
+      lantern: (S().player.gear && S().player.gear.lantern) || 0, frenzy: frenzyHere(), zone: st.zoneId, lanternR: g.lantern };
   }
+  // the frenzy happens at a world x: it counts while the boat is in that stretch of water
+  function frenzyHere() { return st.frenzy.on && Math.abs(st.boat.x - st.frenzy.x) < Math.max(30, st.cols * 0.9); }
 
   // ---------------------------------------------------------------- creatures: spawning, fallback behaviour
   function targetPop() {
@@ -224,8 +233,12 @@
     var rng = st.rng;
     var n = nForce || safe(function () { return AQ.spawn.schoolSize(sp, rng); }, 1) || 1;
     if (!nForce && n > 1) n = Math.min(n, Math.max(3, Math.floor(st.cols / 9)));
-    var dir = rng.next() < 0.5 ? 1 : -1;
-    var x = xAt !== undefined ? xAt : onScreen ? rng.range(3, st.cols - 3) : (dir > 0 ? -8 - rng.next() * 6 : st.cols + 8 + rng.next() * 6);
+    // off-screen spawns come in from a view edge, mostly the one ahead while sailing (despawns happen far behind)
+    var v = st.sail ? st.sail.vx : 0, ahead = Math.abs(v) > 1.5 ? (v > 0 ? 1 : -1) : 0;
+    var side = ahead && rng.next() < 0.8 ? ahead : (rng.next() < 0.5 ? 1 : -1);
+    var dir = ahead && rng.next() < 0.35 ? side : -side;
+    var lead = 8 + rng.next() * 6 + Math.abs(v) * 0.5;
+    var x = xAt !== undefined ? xAt : onScreen ? viewX0() + rng.range(3, st.cols - 3) : (side < 0 ? viewX0() - lead : viewX1() + lead);
     var y = bandY(sp, rng);
     if (n > 1 && sp.behavior === 'school' && AQ.creatures.createSchool && !st.stubCreatures) {
       var yy0 = U.clamp(y, 1.5, floorY(x) - 1.5);
@@ -252,7 +265,7 @@
   function spawnTick(dt, initial) {
     st.spawnT -= dt;
     if (!initial && st.spawnT > 0) return;
-    st.spawnT = st.rng.range(1, 3);
+    st.spawnT = st.rng.range(1, 3) * (st.sail && Math.abs(st.sail.vx) > 2 ? 0.35 : 1);
     if (st.list.length >= targetPop()) return;
     var ctx = ctxSpawn(), id = null;
     for (var k = 0; k < 4 && !id; k++) {
@@ -260,14 +273,28 @@
       var sp = id && spDef(id);
       if (sp && sp.behavior === 'school' && schoolCount() >= Math.ceil(st.cols / 45) + 1) id = null;
     }
-    // initial population is spread over three view widths so it does not all start on screen
-    if (id) spawnGroup(id, false, initial ? st.rng.range(-st.cols, 2 * st.cols) : undefined);
+    // initial population is spread a little beyond the view so it does not all start on screen
+    if (id) spawnGroup(id, false, initial ? viewX0() + st.rng.range(-0.3 * st.cols, 1.3 * st.cols) : undefined);
+  }
+  function despawnMargin() { return Math.max(30, st.cols * 0.5); }
+  // Creatures patrol / hover / lurk inside env.bounds (B turns them at its edges and clamps hover homes into it).
+  // At rest the bounds are the view ± 12. While sailing they stretch: ahead over the water being reached (spawns
+  // there are at home), and they keep the water behind until it is out of reach — so the fish left behind stay
+  // where they live (and despawn far behind) instead of being dragged along with the camera.
+  function territory(dt) {
+    var B = env.bounds, moving = st.sail && Math.abs(st.sail.vx) > 0.5, m = despawnMargin();
+    st.restT = moving ? 0 : (st.restT || 0) + dt;
+    if (st.restT > 0.8 || !(B.x1 > B.x0)) { B.x0 = viewX0() - 12; B.x1 = viewX1() + 12; return; }
+    B.x0 = Math.max(Math.min(B.x0, viewX0() - 12), viewX0() - m - 24);
+    B.x1 = Math.min(Math.max(B.x1, viewX1() + 36), viewX1() + m + 24);
+    if (st.sail.vx > 0) B.x1 = viewX1() + 36; else if (st.sail.vx < 0) B.x0 = viewX0() - 36;
   }
   function despawn() {
+    var m = despawnMargin(), x0 = viewX0() - m, x1 = viewX1() + m;
     for (var i = st.list.length - 1; i >= 0; i--) {
       var c = st.list[i];
       if (c === st.engaged || c.hooked) continue;
-      if (c.x < -24 || c.x > st.cols + 24 || c.y > st.depth + 10 || c._gone) {
+      if (c.x < x0 || c.x > x1 || c.y > st.depth + 10 || c._gone) {
         if (c.data && c.data.legend && st.legend.state === 'spawned') { st.legend.state = 'none'; st.legend.returnAt = st.t + 60; }
         st.list.splice(i, 1);
       }
@@ -334,7 +361,7 @@
     }
   }
   function updCreatures(dt) {
-    env.t = st.t; env.hook = st.hook.active ? st.hook : null; env.frenzy = st.frenzy.on;
+    env.t = st.t; env.hook = st.hook.active ? st.hook : null; env.frenzy = frenzyHere();
     env.minNibbles = (st.script && st.script.nibbles) || 0;
     if (st.stubCreatures) fbUpdate(st.list, dt, env);
     else safe(function () { AQ.creatures.update(st.list, dt, env); });
@@ -395,6 +422,96 @@
     disengage(r);
   }
 
+  // ---------------------------------------------------------------- sailing
+  // The boat sails while the line is in (idle). Asking to sail with the line out (no fish hooked) reels it in fast
+  // first, then sails. Never during the fight, the landing or a card; not during the scripted tutorial catch.
+  var LINE_OUT = { flying: 1, sinking: 1, waiting: 1, nibble: 1, bite: 1, retrieve: 1 };
+  function sailLocked() {
+    var T = AQ.tutorial;
+    if (T && T.active && T.step < 8) return true; // first (scripted) catch of the tutorial
+    return !!(st.tutorial && st.scripted);
+  }
+  // 'on' sail now · 'line' a press reels in first · 'off' not now
+  function sailMode() {
+    if (!st.sail || st.cardOpen || sailLocked()) return 'off';
+    if (st.phase === 'idle') return 'on';
+    if (LINE_OUT[st.phase]) return 'line';
+    return 'off';
+  }
+  // a press (button, key, d-pad, bumper): nudge now, or reel in fast and sail when the line is in
+  function sailEdge(dir) {
+    var mode = sailMode();
+    if (mode === 'off') return false;
+    if (mode === 'line') {
+      st.sailQueue = dir; st.fastRetrieve = true;
+      if (st.phase === 'flying') { st.hook.active = false; setPhase('retrieve'); }
+      else if (st.phase !== 'retrieve') retrieve();
+      return true;
+    }
+    st.dir = dir;
+    AQ.sail.nudge(st.sail, dir);
+    st.sailUsed = true;
+    return true;
+  }
+  function sailHeld(dir) {
+    return dir > 0 ? (st.sailBtn.r || (!st.sailLatch && AQ.input.isDown('right'))) : (st.sailBtn.l || (!st.sailLatch && AQ.input.isDown('left')));
+  }
+  function sailTick(dt) {
+    var mode = sailMode();
+    var kx = (AQ.input.isDown('right') ? 1 : 0) - (AQ.input.isDown('left') ? 1 : 0);
+    // fight steering (A/D, arrows, d-pad) must not turn into sailing once the fish is in: wait for a release
+    if (st.phase === 'fight' || st.phase === 'landing') { if (kx) st.sailLatch = true; }
+    else if (st.sailLatch && !kx) st.sailLatch = false;
+    var keyDir = st.sailLatch ? 0 : kx;
+    // key edges act like a button press (while aiming with the keyboard, ←/→ still pick the side)
+    if (keyDir && keyDir !== st.sailKeyPrev && st.phase !== 'aiming') sailEdge(keyDir);
+    st.sailKeyPrev = keyDir;
+    var u = 0;
+    if (mode === 'on') {
+      u = (st.sailBtn.r ? 1 : 0) - (st.sailBtn.l ? 1 : 0) || keyDir;
+      if (!u && !st.sailLatch && AQ.input.mode === 'gamepad') {
+        var ax = AQ.input.axis('steer');
+        if (Math.abs(ax) > 0.3) u = U.clamp(ax, -1, 1);
+      }
+      if (u) { st.dir = u > 0 ? 1 : -1; st.sailUsed = true; }
+      else if (st.sail.nudge > 0) st.dir = st.sail.nudgeDir;
+    }
+    // the boat drifts to a stop while aiming and drops anchor (strong drag) once the line is out
+    AQ.sail.step(st.sail, u, dt, { anchor: st.phase !== 'idle' && st.phase !== 'aiming' });
+    st.boat.x = st.sail.x;
+    wakeTick(dt);
+  }
+  // wake: ~ - . , glyphs left on the water behind the stern, and a ripple at the stern (toned down: reduced motion)
+  function wakeTick(dt) {
+    var w = st.wake, i;
+    for (i = w.length - 1; i >= 0; i--) { var p = w[i]; p.t += dt; p.x += p.vx * dt; if (p.t >= p.life) w.splice(i, 1); }
+    var sf = AQ.sail.speedFrac(st.sail), red = AQ.fx.motion() < 1;
+    if (sf < 0.06) { st.wakeT = 0; return; }
+    var sd = st.sail.vx > 0 ? 1 : -1, g = AQ.rng.global;
+    var stern = st.boat.x - sd * (geo.bw / 2 + 0.5);
+    st.wakeT -= dt * (red ? 4 : 16) * sf;
+    while (st.wakeT <= 0) {
+      st.wakeT += 1;
+      if (w.length >= (red ? 16 : 56)) continue;
+      w.push({ x: stern - sd * g.next() * 1.5, vx: -sd * (0.4 + g.next() * 0.9), t: 0, life: (red ? 0.6 : 1.1) + g.next() * (0.4 + 0.8 * sf),
+        row: g.next() < (red ? 0 : 0.3) ? 1 : 0 });
+    }
+    st.rippleT -= dt;
+    if (!red && st.rippleT <= 0) {
+      st.rippleT = 0.75 - 0.4 * sf;
+      AQ.fx.emit('ripple', stern, surfY(stern) + 1, { n: 1, level: 6 + Math.round(3 * sf), impulse: false });
+      AQ.fx.surface.impulse(stern, 0.05 + 0.1 * sf);
+    }
+  }
+  // the tip toast for players who wait a long time without a bite (once per session, hints on)
+  function sailTipTick(dt) {
+    if (st.phase === 'waiting' && !st.engaged) st.waitT += dt; else if (st.phase !== 'waiting') st.waitT = 0;
+    if (st.waitT < 25 || st.tipsShown.sail || st.sailUsed || setting('hints') === false || sailMode() === 'off') return;
+    st.tipsShown.sail = true;
+    var m = AQ.input.mode;
+    toast('fish.sail.tip.' + (m === 'keyboard' || m === 'gamepad' || m === 'touch' ? m : 'mouse'), null, 'info');
+  }
+
   // ---------------------------------------------------------------- cast, sink, wait
   function beginAim(px, py, keyboard) {
     setPhase('aiming');
@@ -415,7 +532,8 @@
   }
   function trajFor(power, dir) {
     updateTip();
-    return AQ.line.trajectory(st.tip, power, dir, st.gear.cast || 26, { minX: 3, maxX: st.cols - 3, out: st.traj });
+    var cx = camTargetFor(dir); // the view the camera settles on for this side
+    return AQ.line.trajectory(st.tip, power, dir, st.gear.cast || 26, { minX: cx + 3, maxX: cx + st.cols - 3, out: st.traj });
   }
   function cast() {
     var power = aimPower(), dir = aimDir();
@@ -689,10 +807,15 @@
   function backToIdle() {
     st.fs = null; st.fish = null; st.escape = null; st.landing = null;
     st.hook.active = false; st.engaged = null; st.bs = null;
+    st.fastRetrieve = false;
+    var q = st.sailQueue;
+    st.sailQueue = 0;
+    if (q && !st.cardOpen && !sailLocked()) st.dir = q; // the line is in: now sail where the player asked
     updateTip();
     st.hook.x = st.tip.x; st.hook.y = st.tip.y + 2;
     AQ.line.resetRope(st.rope, st.tip, st.hook);
     setPhase('idle');
+    if (q && sailMode() === 'on' && !sailHeld(q)) AQ.sail.nudge(st.sail, q); // a tap while the line was out
   }
 
   // ---------------------------------------------------------------- special events
@@ -705,7 +828,7 @@
       return;
     }
     if (st.t >= fz.next && st.phase !== 'fight' && st.phase !== 'landing' && !st.tutorial) {
-      fz.on = true; fz.t = 30; fz.x = st.rng.range(0.2, 0.8) * st.cols;
+      fz.on = true; fz.t = 30; fz.x = viewX0() + st.rng.range(0.2, 0.8) * st.cols; // a place: sail away and it stays there
       var id = safe(function () { return AQ.spawn.pick(st.zoneId, ctxSpawn(), st.rng); }, null);
       if (id) {
         var sp = spDef(id);
@@ -724,7 +847,7 @@
     if (b.on) {
       if (b.held) return;
       b.x += b.vx * dt;
-      if (b.x < -6 || b.x > st.cols + 6) { b.on = false; b.next = st.t + st.rng.range(300, 480); }
+      if (b.x < viewX0() - 30 || b.x > viewX1() + 30) { b.on = false; b.next = st.t + st.rng.range(300, 480); }
       // a shallow hook touching it snags it
       if (st.hook.active && st.hook.y < 2 && Math.abs(st.hook.x - b.x) < 1.5 && (st.phase === 'sinking' || st.phase === 'waiting' || st.phase === 'retrieve')) snagBottle();
       return;
@@ -734,7 +857,7 @@
     if (all && st.t - b.coinT < 900) { b.next = st.t + 60; return; }
     b.on = true; b.held = false;
     b.vx = (st.rng.next() < 0.5 ? 1 : -1) * st.rng.range(1.2, 2);
-    b.x = b.vx > 0 ? -4 : st.cols + 4;
+    b.x = b.vx > 0 ? viewX0() - 4 : viewX1() + 4;
     b.coins = all;
   }
   function snagBottle() {
@@ -773,7 +896,7 @@
         var count = s.count || 1;
         var y = st.depth * st.rng.range((s.depth && s.depth[0]) || 0.3, (s.depth && s.depth[1]) || 0.5);
         for (var k = 0; k < count; k++) {
-          st.sights.push({ id: s.id, key: s.sprite || s.id, x: dir > 0 ? -30 - k * 9 : st.cols + 30 + k * 9, y: y, y0: y, dir: dir,
+          st.sights.push({ id: s.id, key: s.sprite || s.id, x: dir > 0 ? viewX0() - 30 - k * 9 : viewX1() + 30 + k * 9, y: y, y0: y, dir: dir,
             v: s.speed || 3, t: k * 0.7, seenT: 0, leap: s.path === 'leap' });
         }
       }
@@ -783,12 +906,12 @@
       o.t += dt; o.x += o.dir * o.v * dt;
       if (o.leap) o.y = o.y0 - Math.max(0, Math.sin(o.t * 1.6)) * (o.y0 + 4);
       var sd = AQ.sprites.get(o.key), w = sd.frames[0][0].length;
-      var on = o.x - w / 2 > 0 && o.x + w / 2 < st.cols && o.y > R0.cam.y && o.y < R0.cam.y + viewH();
+      var on = o.x - w / 2 > viewX0() && o.x + w / 2 < viewX1() && o.y > R0.cam.y && o.y < R0.cam.y + viewH();
       if (on) {
         o.seenT += dt;
         if (o.seenT >= 2 && !o.counted) { o.counted = true; safe(function () { AQ.game.markSighting(o.id); }); }
       }
-      if ((o.dir > 0 && o.x > st.cols + 40) || (o.dir < 0 && o.x < -40)) st.sights.splice(j, 1);
+      if ((o.dir > 0 && o.x > viewX1() + 40) || (o.dir < 0 && o.x < viewX0() - 40) || o.x < viewX0() - st.cols - 80 || o.x > viewX1() + st.cols + 80) st.sights.splice(j, 1);
     }
   }
 
@@ -810,15 +933,16 @@
         var sp = spDef(L.id);
         L.state = 'near'; L.t = 0; L.dir = st.rng.next() < 0.5 ? 1 : -1;
         L.y = U.clamp(bandY(sp, st.rng), 4, st.depth - 4);
-        L.x = L.dir > 0 ? -30 : st.cols + 30;
+        L.x = L.dir > 0 ? viewX0() - 30 : viewX1() + 30;
         emit('legendary:near', { sp: L.id });
       }
     } else if (L.state === 'near') {
       L.t += dt; L.x += L.dir * 4 * dt;
       if (L.t > 9) { // the silhouette has passed: the legendary itself arrives near the hook
         var spd = spDef(L.id);
-        var x = st.hook.active ? U.clamp(st.hook.x + st.rng.range(-14, 14), 4, st.cols - 4) : st.rng.range(6, st.cols - 6);
-        var c = makeCreature(L.id, x < st.cols / 2 ? -10 : st.cols + 10, U.clamp(bandY(spd, st.rng), 3, floorY(x) - 3), x < st.cols / 2 ? 1 : -1, { legend: true });
+        var x = st.hook.active ? U.clamp(st.hook.x + st.rng.range(-14, 14), viewX0() + 4, viewX1() - 4) : viewX0() + st.rng.range(6, st.cols - 6);
+        var left = x < viewX0() + st.cols / 2;
+        var c = makeCreature(L.id, left ? viewX0() - 10 : viewX1() + 10, U.clamp(bandY(spd, st.rng), 3, floorY(x) - 3), left ? 1 : -1, { legend: true });
         L.state = c ? 'spawned' : 'none';
       }
     } else if (L.state === 'spawned') {
@@ -840,9 +964,11 @@
     var now = worldNow();
     env.phase = now.phase; env.zone = st.zoneId; env.lantern = st.gear.lantern;
     env.luck = safe(function () { return AQ.game.luck(st.zoneId); }, 0);
-    env.bounds.x1 = st.cols; env.bounds.y1 = st.depth; env.depth = st.depth;
+    territory(dt);
+    env.bounds.y1 = st.depth; env.depth = st.depth;
     AQ.fx.surface.amp = now.weather === 'tempestade' ? 2 : now.weather === 'chuva' ? 1.3 : (st.zone && st.zone.id === 'mar' ? 1.4 : 1);
     if (now.weather === 'tempestade' && AQ.rng.global.next() < dt * 0.12) AQ.fx.lightning();
+    sailTick(dt);
     st.boat.y = surfY(st.boat.x) * (AQ.fx.motion() < 1 ? 0 : 0.8);
     updateTip();
 
@@ -850,7 +976,7 @@
       case 'idle':
         st.hook.active = false;
         st.hook.x = st.tip.x; st.hook.y = st.tip.y + 2 + Math.sin(st.t * 1.5) * 0.3;
-        keyAim(dt);
+        if (sailMode() !== 'on') keyAim(dt); // tutorial: ←/→ only pick the side (otherwise they sail)
         break;
       case 'aiming':
         // a modal (note, hint card, pause) swallows the release: drop the aim instead of sticking in 'aiming'
@@ -934,7 +1060,7 @@
           if (e.t < 1.2 && e.breaks) break; // the slack line drifts before the reel-in
         }
         var rdx = st.tip.x - st.hook.x, rdy = st.tip.y + 2 - st.hook.y, rd = Math.sqrt(rdx * rdx + rdy * rdy);
-        var rv = st.gear.reelSpeed * 3;
+        var rv = st.gear.reelSpeed * (st.fastRetrieve ? 5 : 3);
         st.hook.moving = true;
         if (rd < 1.5 || (e && e.breaks)) {
           if (st.bottle.held) openBottle();
@@ -958,6 +1084,7 @@
     sightTick(dt);
     legendTick(dt);
     ventBubbles(dt);
+    sailTipTick(dt);
 
     // rope
     stepLine(dt);
@@ -973,7 +1100,7 @@
   }
 
   function keyAim(dt) {
-    // keyboard / gamepad aim: ←/→ (or stick) pick the side in idle
+    // keyboard / gamepad aim while sailing is locked (tutorial): ←/→ (or stick) pick the side in idle
     var kx = (AQ.input.isDown('right') ? 1 : 0) - (AQ.input.isDown('left') ? 1 : 0);
     if (kx) st.dir = kx;
   }
@@ -983,7 +1110,7 @@
     for (var i = 0; i < st.list.length; i++) {
       var c = st.list[i];
       if (st.seen[c.sp]) continue;
-      if (c.x < 0 || c.x > st.cols || c.y < top || c.y > bot) continue;
+      if (c.x < viewX0() || c.x > viewX1() || c.y < top || c.y > bot) continue;
       if (env.visibility(c.x, c.y, c) < 0.5) continue;
       c.data._seenT = (c.data._seenT || 0) + dt;
       if (c.data._seenT >= 1) { st.seen[c.sp] = true; safe(function () { AQ.game.markSeen(c.sp); }); }
@@ -1033,7 +1160,28 @@
     st.cam.vy += (k * (target - st.cam.y) - c * st.cam.vy) * dt;
     st.cam.y += st.cam.vy * dt;
     st.cam.y = U.clamp(st.cam.y, lo - 2, hi + 2);
-    R0.cam.set(0, st.cam.y);
+    // horizontal: the same spring follows the boat, leads the bow (or the side being aimed at), keeps the hook on screen
+    var dirT = st.phase === 'aiming' ? aimDir() : st.dir;
+    st.cam.dirS += (dirT - st.cam.dirS) * Math.min(1, dt * 2.5);
+    var tx = camTargetX();
+    st.cam.vx += (k * (tx - st.cam.x) - c * st.cam.vx) * dt;
+    st.cam.x += st.cam.vx * dt;
+    syncView();
+  }
+  function camTargetX() {
+    var look = U.clamp((st.sail ? st.sail.vx : 0) * 0.45, -0.12 * st.cols, 0.12 * st.cols);
+    var tx = st.boat.x - anchorFrac(st.cam.dirS) * st.cols + look;
+    var fx = null;
+    if (st.phase === 'fight' && st.fish) fx = st.fish.x;
+    else if (st.phase !== 'landing' && (st.hook.active || st.phase === 'flying' || st.phase === 'retrieve')) fx = st.hook.x;
+    if (fx !== null) tx = U.clamp(tx, fx - st.cols + 6, fx - 6);
+    return tx;
+  }
+  // camera → renderer, terrain chunks around the view, surface ripple window
+  function syncView() {
+    R0.cam.set(st.cam.x, st.cam.y);
+    BG.ensure(st.cam.x, st.cam.x + st.cols);
+    AQ.fx.surface.follow(Math.floor(st.cam.x) - 12);
   }
 
   // ---------------------------------------------------------------- draw
@@ -1067,7 +1215,7 @@
     var SZ = AQ.ENUM.SIZE || [];
     for (var i = 0; i < st.list.length; i++) {
       var c = st.list[i];
-      if (c === st.engaged || c.hooked || c.y <= st.cam.y + viewH() + 1 || c.x < 2 || c.x > st.cols - 2) continue;
+      if (c === st.engaged || c.hooked || c.y <= st.cam.y + viewH() + 1 || c.x < viewX0() + 2 || c.x > viewX1() - 2) continue;
       if (darkAt(U.clamp(c.y / st.depth, 0, 1))) continue;
       var sp = spDef(c.sp || c.id), si = sp ? Math.max(0, SZ.indexOf(sp.size)) : 1;
       var lvl = Math.min(7, 3 + Math.floor(si / 2)) + (Math.sin(t * 1.6 + i * 1.7) > 0.6 ? 1 : 0);
@@ -1078,7 +1226,7 @@
     if (codeCache) return codeCache;
     var C = function (ch, b) { return R0.code(ch, b); };
     codeCache = { J: C('J'), JB: C('J', true), bang: C('!', true), x: C('x', true), dot: C('.'), mid: C('·'), q: C("'"), tilde: C('~'),
-      comma: C(','), lt: C('<', true), gt: C('>', true), paren: C(')'), lparen: C('('), caret: C('^', true), hash: C('#'), v: C('v') };
+      comma: C(','), dash: C('-'), lt: C('<', true), gt: C('>', true), paren: C(')'), lparen: C('('), caret: C('^', true), hash: C('#'), v: C('v') };
     return codeCache;
   }
 
@@ -1110,7 +1258,8 @@
     if (st.bottle.on) drawBottle(t);
     // frenzy birds
     if (st.frenzy.on) drawBirds(t);
-    // 3. boat and angler
+    // 3. wake, boat and angler
+    drawWake(t);
     drawBoat(t);
     // 4. line
     drawLine(t);
@@ -1212,6 +1361,23 @@
       var x = U.lerp(hx, st.tip.x, k), y = U.lerp(hy, st.tip.y, k) + (st.fs ? Math.sin(k * Math.PI) * st.fs.T * 0.8 : 0);
       var dx = st.tip.x - hx, dy = st.tip.y - hy;
       R.glyphW(R.code(AQ.line.glyphFor(dx, dy, 1), st.fs && st.fs.T > 0.85), x, y, 12);
+    }
+  }
+
+  function drawWake() {
+    var w = st.wake;
+    if (!w.length) return;
+    var cd = codes(), red = AQ.fx.motion() < 1, D = AQ.display;
+    for (var i = 0; i < w.length; i++) {
+      var p = w[i], k = p.t / p.life;
+      var code = p.row ? (k < 0.5 ? cd.dot : cd.comma) : k < 0.25 ? cd.tilde : k < 0.5 ? cd.dash : k < 0.75 ? cd.dot : cd.comma;
+      var y = surfY(p.x) + 1 + p.row * ASPECT;
+      var lvl = Math.max(2, Math.round((red ? 6 : 11) * (1 - 0.75 * k) - p.row * 3));
+      if (!p.row) { // replaces the wave glyph under it
+        R0.worldToScreen(p.x, y, tmpP);
+        R0.knock(tmpP.x - D.cellW / 2, tmpP.y - D.cellH / 2, D.cellW, D.cellH, 0.7);
+      }
+      R0.glyphW(code, p.x, y, lvl);
     }
   }
 
@@ -1359,6 +1525,9 @@
   AQ.input.on('up', onUp);
   AQ.input.on('action:primary', onPrimary);
   AQ.input.on('action:retrieve', function () { if (inScene()) retrieve(); });
+  // LB / RB (and Q / E): a sailing nudge
+  AQ.input.on('action:prev', function () { if (inScene() && !AQ.input.blocked) sailEdge(-1); });
+  AQ.input.on('action:next', function () { if (inScene() && !AQ.input.blocked) sailEdge(1); });
 
   // ---------------------------------------------------------------- lifecycle
   function enter(params) {
@@ -1378,12 +1547,20 @@
     st.legend.state = 'none'; st.legend.returnAt = 0; st.legend.checkT = 3; st.sightNext = 30;
     st.stubCreatures = /^function\s*\([^)]*\)\s*\{\s*\}$/.test(String(AQ.creatures.update).trim());
     st.rope = st.rope || AQ.line.createRope(24);
-    layoutBoat(0);
-    BG.setup(st.zone, st.cols, seed);
+    layoutBoat();
+    // the boat starts where it was left in this zone (this session), facing the open water
+    st.sail = AQ.sail.create(F._pos && typeof F._pos[st.zoneId] === 'number' ? F._pos[st.zoneId] : 0);
+    st.boat.x = st.sail.x;
+    st.sailBtn.l = st.sailBtn.r = false; st.sailKeyPrev = 0; st.sailLatch = true; st.sailQueue = 0; st.fastRetrieve = false;
+    st.wake = []; st.wakeT = 0; st.rippleT = 0; st.waitT = 0; st.sailUsed = false;
+    st.cam.dirS = st.dir; st.cam.vx = 0; st.hook.active = false; st.phase = 'idle';
+    st.cam.x = camTargetX();
+    env.bounds.x0 = st.cam.x - 12; env.bounds.x1 = st.cam.x + st.cols + 12; st.restT = 1;
+    st.cam.y = -st.skyRows * ASPECT; st.cam.vy = 0;
+    BG.setup(st.zone, st.cols, seed, st.cam.x);
     env.covers = BG.covers();
     AQ.fx.surface.reset(st.cols);
-    st.cam.y = -st.skyRows * ASPECT; st.cam.vy = 0;
-    R0.cam.set(0, st.cam.y);
+    syncView();
     st.tutorial = !!p.tutorial;
     if (st.tutorial && !st.scripted) F.script(defaultTutorialScript());
     backToIdle();
@@ -1392,28 +1569,27 @@
     st.audioT = 0; st.ambT = 0;
   }
   function exit() {
+    if (st.sail) { F._pos = F._pos || {}; F._pos[st.zoneId] = Math.round(st.sail.x); }
+    st.sailBtn.l = st.sailBtn.r = false; st.wake = [];
     safe(function () { AQ.audio.setTension(null); AQ.audio.reel(false, 0); });
     if (st.frenzy.on) { st.frenzy.on = false; emit('frenzy:end', { zone: st.zoneId }); }
     st.list = []; st.fs = null; st.fish = null; st.engaged = null;
     F.phase = 'idle'; st.phase = 'idle';
     if (st.debugResolve) { var d = st.debugResolve; st.debugResolve = null; d(null); }
   }
+  // The world is in world columns (the seabed does not depend on the view width): a resize only re-frames the view.
   function resize(m) {
     var old = st.cols;
-    var k = layoutBoat(old);
+    layoutBoat();
     if (!old || !st.rope) return;
-    if (k !== 1) {
-      for (var i = 0; i < st.list.length; i++) st.list[i].x *= k;
-      st.hook.x *= k; st.bottle.x *= k; st.frenzy.x *= k;
-      if (st.fs) { st.fs.origin.x *= k; st.fs.x *= k; st.fs.viewCols = st.cols; }
-      if (st.fish) st.fish.x *= k;
-      for (var j = 0; j < st.sights.length; j++) st.sights[j].x *= k;
-      AQ.line.resetRope(st.rope, st.tip, st.hook);
+    if (st.fs) st.fs.viewCols = st.cols;
+    if (old !== st.cols) {
+      st.cam.x = camTargetX(); st.cam.vx = 0;
+      AQ.fx.surface.reset(st.cols);
     }
-    BG.setup(st.zone, st.cols, ((S() && S().meta && S().meta.seed) || 1) ^ AQ.rng.hash(st.zoneId));
+    syncView();
     env.covers = BG.covers();
     if (st.fs) st.fs.covers = env.covers;
-    AQ.fx.surface.reset(st.cols);
   }
 
   function defaultTutorialScript() {
@@ -1474,7 +1650,7 @@
       if (st.engaged) disengage(null);
       st.hook.active = true;
       if (st.phase === 'idle' || st.phase === 'aiming' || st.phase === 'flying') {
-        st.hook.x = U.clamp(st.boat.x + st.dir * 14, 3, st.cols - 3);
+        st.hook.x = U.clamp(st.boat.x + st.dir * 14, viewX0() + 3, viewX1() - 3);
         st.hook.y = Math.min(floorY(st.hook.x) - 2, st.depth * (spDef(id).depth[0] + spDef(id).depth[1]) / 2);
         setPhase('waiting');
       }
@@ -1483,10 +1659,27 @@
       startFight(c);
     });
   };
+  // Sail buttons (E's HUD): press/release a direction (−1 left, +1 right); release(0) lets go of both.
+  // A press is a nudge, a hold sails; with the line out it reels in fast first. → whether the press did something.
+  F.sailPress = function (dir) {
+    if (!inScene() || !st.rope) return false;
+    var d = dir < 0 ? -1 : 1;
+    if (d < 0) st.sailBtn.l = true; else st.sailBtn.r = true;
+    return sailEdge(d);
+  };
+  F.sailRelease = function (dir) {
+    if (!dir || dir < 0) st.sailBtn.l = false;
+    if (!dir || dir > 0) st.sailBtn.r = false;
+  };
+  // whether the sail buttons should show: not in the fight, landing or a card, nor during the tutorial's first catch
+  F.sailShown = function () {
+    if (AQ.scenes.current !== 'fishing' || !st.rope || st.cardOpen || sailLocked()) return false;
+    return st.phase !== 'fight' && st.phase !== 'landing';
+  };
   F.state = st; // read-only view for debugging
 
   AQ.scenes.register('fishing', {
     enter: enter, exit: exit, update: update, drawBg: drawBg, draw: draw, resize: resize,
-    onPause: function () { safe(function () { AQ.audio.reel(false, 0); }); st.press.on = false; }
+    onPause: function () { safe(function () { AQ.audio.reel(false, 0); }); st.press.on = false; st.sailBtn.l = st.sailBtn.r = false; }
   });
 })(window.AQ);

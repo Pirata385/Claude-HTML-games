@@ -98,6 +98,10 @@
   };
   function camRow() { return Math.floor(R.cam.y / ASPECT); }
   R.camRow = camRow;
+  // Column-snapped camera (horizontal scroll, e.g. the sailing boat): the bg canvas carries the fractional column
+  // as a CSS translate, exactly like the fractional row.
+  function camCol() { return Math.floor(R.cam.x); }
+  R.camCol = camCol;
 
   // ================================================================ coordinates
   R.worldToScreen = function (wx, wy, out) {
@@ -112,10 +116,10 @@
     o.y = (py - D.originY - shake.y) / D.cellH * ASPECT + R.cam.y;
     return o;
   };
-  // World → bg grid cell, using the row-snapped camera (the bg canvas carries the fractional row as a CSS translate).
+  // World → bg grid cell, using the row/column-snapped camera (the bg canvas carries the fractions as a CSS translate).
   R.worldToCell = function (wx, wy, out) {
     var o = out || {};
-    o.c = Math.floor(wx - R.cam.x);
+    o.c = Math.floor(wx) - camCol();
     o.r = Math.floor(wy / ASPECT) - camRow();
     return o;
   };
@@ -147,10 +151,10 @@
   var BLANK = 0xffff;
   var byLevelCount = new Int32Array(16), byLevelStart = new Int32Array(16), byLevelFill = new Int32Array(16);
   var bucket = new Int32Array(0);
-  var committedRow = null;
+  var committedRow = null, committedCol = null;
 
   var grid = R.grid = {
-    cols: 0, rows: 0, viewRows: 0,
+    cols: 0, rows: 0, viewRows: 0, viewCols: 0, // cols = view cols + 1 (room for the sub-column scroll)
     code: new Uint16Array(0), level: new Uint8Array(0),
     _fcode: new Uint16Array(0), _flevel: new Uint8Array(0),
     _full: true,
@@ -205,7 +209,7 @@
     },
     invalidate: function () { this._full = true; },
     // True when the row-snapped camera moved since the last commit (the loop then commits this frame).
-    camMoved: function () { return committedRow !== null && committedRow !== camRow(); },
+    camMoved: function () { return committedRow !== null && (committedRow !== camRow() || committedCol !== camCol()); },
 
     // Draws changed cells onto the bg canvas: row-scroll blit when the camera moved by whole rows, one clear pass
     // (merged runs), then glyphs grouped by level (one globalAlpha per level). → number of changed cells
@@ -215,14 +219,19 @@
       var cols = this.cols, rows = this.rows, n = cols * rows;
       var code = this.code, level = this.level, fc = this._fcode, fl = this._flevel;
       var cw = D.cellWd, chh = D.cellHd, ox = D.originXd, oy = D.originYd;
-      var cr = camRow();
+      var cr = camRow(), cc = camCol();
       ctx.globalAlpha = 1;
       if (!this._full && committedRow !== null && cr !== committedRow) {
         var k = cr - committedRow;
         if (Math.abs(k) < rows - 1) scrollRows(ctx, k, cols, rows, fc, fl);
         else this._full = true;
       }
-      committedRow = cr;
+      if (!this._full && committedCol !== null && cc !== committedCol) {
+        var kc = cc - committedCol;
+        if (Math.abs(kc) < cols - 1) scrollCols(ctx, kc, cols, rows, fc, fl);
+        else this._full = true;
+      }
+      committedRow = cr; committedCol = cc;
       ctx.fillStyle = AQ.theme.bg;
       if (this._full) {
         ctx.fillRect(0, 0, D.canvases.bg.width, D.canvases.bg.height);
@@ -291,6 +300,27 @@
     }
   }
 
+  // Same by k columns (horizontal camera): only the newly exposed columns redraw.
+  function scrollCols(ctx, k, cols, rows, fc, fl) {
+    var cv = D.canvases.bg, H = cv.height, cw = D.cellWd, ox = D.originXd;
+    var m = Math.abs(k), keep = cols - m, r, base;
+    if (k > 0) { // camera moved right: content moves left
+      ctx.drawImage(cv, ox + m * cw, 0, keep * cw, H, ox, 0, keep * cw, H);
+      for (r = 0; r < rows; r++) {
+        base = r * cols;
+        fc.copyWithin(base, base + m, base + cols); fl.copyWithin(base, base + m, base + cols);
+        fc.fill(BLANK, base + keep, base + cols);
+      }
+    } else {
+      ctx.drawImage(cv, ox, 0, keep * cw, H, ox + m * cw, 0, keep * cw, H);
+      for (r = 0; r < rows; r++) {
+        base = r * cols;
+        fc.copyWithin(base + m, base, base + keep); fl.copyWithin(base + m, base, base + keep);
+        fc.fill(BLANK, base, base + m);
+      }
+    }
+  }
+
   // ================================================================ layers / frame
   var target = 'main';
   function ctxOf() { return D.ctx[target]; }
@@ -304,8 +334,10 @@
     var cv = D.canvases.bg;
     if (!cv) return;
     var row = committedRow === null ? camRow() : committedRow;
+    var col = committedCol === null ? camCol() : committedCol;
     var frac = U.clamp(R.cam.y / ASPECT - row, -1, 2);
-    var tx = Math.round(shake.x * D.dpr) / D.dpr;
+    var fracX = U.clamp(R.cam.x - col, -1, 2);
+    var tx = Math.round((-fracX * D.cellW + shake.x) * D.dpr) / D.dpr;
     var ty = Math.round((-frac * D.cellH + shake.y) * D.dpr) / D.dpr;
     var t = 'translate3d(' + tx + 'px,' + ty + 'px,0)';
     if (t !== lastBgTransform) { cv.style.transform = t; lastBgTransform = t; }
@@ -329,14 +361,14 @@
 
   // Called by AQ.display.refresh(): (re)allocates the grid (view rows + 2) and invalidates every layer.
   R.resize = function () {
-    var cols = D.cols, rows = D.rows + 2, n = cols * rows;
-    grid.cols = cols; grid.rows = rows; grid.viewRows = D.rows;
+    var cols = D.cols + 1, rows = D.rows + 2, n = cols * rows;
+    grid.cols = cols; grid.rows = rows; grid.viewRows = D.rows; grid.viewCols = D.cols;
     if (grid.code.length !== n) {
       grid.code = new Uint16Array(n); grid.level = new Uint8Array(n);
       grid._fcode = new Uint16Array(n); grid._flevel = new Uint8Array(n);
       bucket = new Int32Array(n);
     }
-    committedRow = null;
+    committedRow = null; committedCol = null;
     lastBgTransform = '';
     R.invalidate();
   };
@@ -370,7 +402,7 @@
   function snapWorld(wx, wy) { // grid style: world point → top-left CSS px of its bg cell
     R.worldToCell(wx, wy, tmpC);
     var fr = R.cam.y / ASPECT - camRow();
-    tmp.x = D.originX + tmpC.c * D.cellW + shake.x;
+    tmp.x = D.originX + (tmpC.c - (R.cam.x - camCol())) * D.cellW + shake.x;
     tmp.y = D.originY + (tmpC.r - fr) * D.cellH + shake.y;
     return tmp;
   }
@@ -586,7 +618,7 @@
     var x0 = wx - w / 2, y0 = wy - h * ASPECT / 2, sx, sy;
     if (gridStyle) {
       var cr = camRow(), fr = R.cam.y / ASPECT - cr;
-      sx = D.originX + Math.round(x0 - R.cam.x) * cw + shake.x;
+      sx = D.originX + (Math.round(x0) - R.cam.x) * cw + shake.x;
       sy = D.originY + (Math.round(y0 / ASPECT) - cr - fr) * chh + shake.y;
     } else {
       sx = D.originX + (x0 - R.cam.x) * cw + shake.x;

@@ -142,6 +142,7 @@
     spawn: { pure: true, api: 'conditionsMet weightOf table pick legendaryReady schoolSize rollSpecimen' },
     creatures: { pure: true, api: 'create update draw drawList hitTest bounds setHooked spook remove' },
     line: { pure: true, api: 'createRope stepRope rasterize glyphFor trajectory' },
+    sail: { pure: true, api: 'create nudge step moving speedFrac CONST:object' },
     bite: { pure: true, api: 'window create nibble open strike expired' },
     fight: { pure: true, api: 'CONST:object STYLES:object PULL_MUL:object create step autopilot' },
     items: { pure: true, api: 'list:array get byCat GEAR:object BAITS:object DECOR:object' },
@@ -163,6 +164,6 @@
     audio: { pure: false, api: 'init unlock ready:boolean sfx setMood setAmbience setTension reel applyVolumes suspend resume' },
     haptics: { pure: false, api: 'pulse tension' },
     tutorial: { pure: false, api: 'start step:number active:boolean skip next' },
-    fishing: { pure: false, api: 'phase:any script anchor debugSpawn debugLand' }
+    fishing: { pure: false, api: 'phase:any script anchor debugSpawn debugLand sailPress sailRelease sailShown' }
   });
 })(window);

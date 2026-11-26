@@ -11,6 +11,8 @@ the story). It runs offline from `file://`, on desktop and on phones (portrait o
 ## How to play
 
 1. **Cast.** Drag back from anywhere and let go (slingshot), or hold Space and release. The bait arcs out and sinks.
+   No fish around? **Sail** along the coast with the **[<] [>]** buttons (or A / D, ← / →) — the seabed and its
+   fish go on in both directions, and the same place always has the same rocks.
 2. **Stop the bait** at the depth of the fish you can see: click, tap or press Space while it sinks.
 3. **Wait.** Fish notice the bait, circle, and **nibble** (the line twitches) — do not strike yet.
 4. **Strike** when the big **`!`** appears over the hook: click, tap or Space. Too early or too late and it flees.
@@ -31,7 +33,8 @@ Time of day and weather change what bites. On the map, *Wait until…* skips to 
 
 | Action | Mouse | Touch | Keyboard | Gamepad |
 |---|---|---|---|---|
-| Aim and cast | press, drag back, release | same | ← → side, hold **Space**, release | stick + hold A |
+| Sail (move the boat) | hold **[<]** / **[>]** (click = nudge) | hold **[<]** / **[>]** (tap = nudge) | A / D or ← / → | d-pad or left stick; LB / RB nudge |
+| Aim and cast | press, drag back, release | same | hold **Space** (← → pick the side), release — it goes where the boat faces | stick + hold A |
 | Stop the sinking bait | click | tap | Space | A |
 | Move a lure / resume sinking | hold to reel slowly / click | hold (@) / tap | hold Space / S or ↓ | RT / A |
 | Strike | click | tap | Space | A |
@@ -46,7 +49,10 @@ Time of day and weather change what bites. On the map, *Wait until…* skips to 
 | Menus | click | tap | arrows, Enter, Esc | d-pad, A, B |
 | Pause | [ ‖ ] | [ ‖ ] | Esc or P | Start |
 
-The reel button sits on your dominant-hand side (Settings → Hand).
+The reel button sits on your dominant-hand side (Settings → Hand); the sail buttons sit in the opposite corner.
+You can sail while the line is in. With the line out and nothing hooked, a sail press reels in fast first, then
+sails. No sailing during a fight, the landing or the catch card, nor before the tutorial's first catch (there,
+← / → only pick the casting side).
 
 ## Settings
 
@@ -54,7 +60,7 @@ All settings apply immediately and are saved in the browser.
 
 - **Sound:** master, music, effects and ambience volumes; **Sound engine** (Auto / Web Audio / Compatible —
   Compatible plays through the browser's media player, for devices where Web Audio stays silent; Auto switches
-  to it by itself when the Web Audio clock does not move); **Sound check** with test beeps and a live status.
+  to it by itself when the Web Audio clock does not move).
 - **Display:** quality (auto / high / medium / low — auto steps down on slow devices), motion (fluid or classic
   grid), reduce motion, glyph size, interface scale, theme (Paper unlocks when you finish the story), high
   contrast, show FPS, fullscreen (also a **Fullscreen** button on the title screen, hidden where the browser

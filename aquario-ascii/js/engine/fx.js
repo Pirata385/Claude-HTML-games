@@ -101,6 +101,18 @@
       else { this.h.fill(0); this.v.fill(0); }
       this.x0 = -12;
     },
+    // follow(x0): slides the impulse window so it starts at world column x0 (scrolling scenes keep it on the view;
+    // ripples keep their world position, cells that enter the window start calm).
+    follow: function (x0) {
+      if (!this.n) this.reset();
+      var k = Math.round(x0) - this.x0;
+      if (!k) return;
+      var n = this.n, h = this.h, v = this.v;
+      if (Math.abs(k) >= n) { h.fill(0); v.fill(0); }
+      else if (k > 0) { h.copyWithin(0, k); v.copyWithin(0, k); h.fill(0, n - k); v.fill(0, n - k); }
+      else { h.copyWithin(-k, 0, n + k); v.copyWithin(-k, 0, n + k); h.fill(0, 0, -k); v.fill(0, 0, -k); }
+      this.x0 += k;
+    },
     // impulse(wx, power=1): pushes the surface down at wx (splashes, jumps). Ignored with reduced motion.
     impulse: function (wx, power) {
       if (reduced()) return;
@@ -172,7 +184,7 @@
   }
   var tmpCell = { c: 0, r: 0 };
   function drawClouds() {
-    var cw = D.cellW, chh = D.cellH, fr = R.cam.y / ASPECT - R.camRow();
+    var cw = D.cellW, chh = D.cellH, fr = R.cam.y / ASPECT - R.camRow(), cc = R.camCol(), frx = R.cam.x - cc;
     for (var k = 0; k < MAX_CLOUDS; k++) {
       var c = clouds[k];
       if (!c.alive || c.r <= 0.2) continue;
@@ -187,10 +199,10 @@
         var wy = (r + R.camRow()) * ASPECT + 1;
         var py = D.originY + (r - fr) * chh + R.cam.shake.y;
         for (var col = c0; col <= c1; col++) {
-          var wx = col + R.cam.x + 0.5;
+          var wx = col + cc + 0.5;
           var dens = cloudDensity(c, wx, wy);
           if (dens <= 0.02) continue;
-          var px = D.originX + col * cw + R.cam.shake.x;
+          var px = D.originX + (col - frx) * cw + R.cam.shake.x;
           if (c.glow) { // vampira: sparkles instead of a dark cloud
             if (R.hash01(col, r, tick + c.seed) < dens * 0.35) R.glyph(SEQ.star[0], px, py, 11);
             else if (dens > 0.5 && R.hash01(r, col, tick) < 0.2) R.glyph(SEQ.ink[1], px, py, 4);

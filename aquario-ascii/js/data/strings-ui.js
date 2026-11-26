@@ -480,14 +480,6 @@
         controls: "Controls",
         game: "Game"
       },
-      soundCheck: {
-        title: "Sound check — if you hear nothing, try each test and note which ones you hear:",
-        direct: "Beep (direct)",
-        playback: "Beep (playback)",
-        rb: "Beep (32 kHz)",
-        mix: "Beep (game mix)",
-        file: "Sound file"
-      },
       audioEngine: "Sound engine",
       ae: { auto: "Auto", webaudio: "Web Audio", compat: "Compatible" },
       aeHint: "No sound on this device? Choose Compatible: it plays through the browser's media player (simpler mix). The game reloads.",

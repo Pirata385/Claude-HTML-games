@@ -172,9 +172,11 @@
 
   // load(onProgress) → Promise<{total, ok, failed}>. onProgress({done, total, ok, failed}) after each file.
   // Fetches every file (decoding the short ones and the title theme) in web audio mode; preloads elements in html mode.
+  A.loadStats = { total: 0, ok: 0, failed: 0, firstError: '' };
   A.load = function (onProgress) {
     if (loadPromise) return loadPromise;
     var list = fileEntries(), total = list.length, ok = 0, failed = 0, next = 0;
+    A.loadStats.total = total;
     function report() { if (onProgress) { try { onProgress({ done: ok + failed, total: total, ok: ok, failed: failed }); } catch (e) { /* ui */ } } }
     loadPromise = new Promise(function (resolve) {
       if (A.mode === 'none' || !total) { failed = total; report(); resolve({ total: total, ok: 0, failed: total }); return; }
@@ -188,8 +190,10 @@
             : it.eager ? decodeFile(it.file, isLong(it.entry)) : fetchBytes(it.file);
           p.then(function () { ok++; }, function (err) {
             failed++;
-            if (W.console) console.warn('[AQ.audio] ' + (err && err.message ? err.message : err));
-          }).then(function () { running--; report(); pump(); });
+            var msg = (err && err.message ? err.message : String(err));
+            if (!A.loadStats.firstError) A.loadStats.firstError = msg;
+            if (W.console) console.warn('[AQ.audio] ' + msg);
+          }).then(function () { running--; A.loadStats.ok = ok; A.loadStats.failed = failed; report(); pump(); });
         }
       }
       report();
@@ -513,6 +517,65 @@
   };
 
   // ================================================================ public API (§15.5)
+  // ---------------------------------------------------------------- sound check (Settings → Sound check)
+  // Evidence for "I hear nothing" on a device we cannot reproduce on: a state snapshot, a live output
+  // meter at the node that feeds the speakers, and three tests that isolate each layer.
+  var meter = null, meterBuf = null;
+  A.diag = function () {
+    var c = A.ctx, d = {
+      mode: A.mode, state: c ? c.state : 'none', sampleRate: c ? c.sampleRate : 0,
+      latency: c ? Math.round(((c.baseLatency || 0) + (c.outputLatency || 0)) * 1000) : 0,
+      vol: { master: vol('volMaster'), music: vol('volMusic'), sfx: vol('volSfx'), amb: vol('volAmbience') },
+      bus: null, load: A.loadStats, outDb: null, mood: A.state.mood,
+      ua: (typeof navigator !== 'undefined' && navigator.userAgent) || ''
+    };
+    if (c && A.bus) {
+      d.bus = { master: +A.bus.master.gain.value.toFixed(3), music: +A.bus.music.gain.value.toFixed(3), sfx: +A.bus.sfx.gain.value.toFixed(3) };
+      try {
+        if (!meter) { meter = c.createAnalyser(); meter.fftSize = 2048; meterBuf = new Float32Array(meter.fftSize); A.bus.out.connect(meter); }
+        meter.getFloatTimeDomainData(meterBuf);
+        var sum = 0, nan = 0;
+        for (var i = 0; i < meterBuf.length; i++) { var v = meterBuf[i]; if (v !== v) nan++; else sum += v * v; }
+        d.outDb = nan ? 'NaN' : Math.max(-99, Math.round(10 * Math.log10(sum / meterBuf.length + 1e-12)));
+      } catch (e) { d.outDb = 'err'; }
+    }
+    return d;
+  };
+  // testBeep('direct' | 'mix') → Promise<string>. 'direct' = an oscillator straight into the speakers in a
+  // brand-new plain AudioContext (the Ring of Beakers way, nothing of ours in the path); 'mix' = through the
+  // game's own context and master chain. Call from a click so the browser allows it.
+  A.testBeep = function (route) {
+    var Ctor2 = (typeof window !== 'undefined') && (window.AudioContext || window.webkitAudioContext);
+    if (!Ctor2) return Promise.resolve('no Web Audio in this browser');
+    try {
+      var c = route === 'mix' ? A.ctx : new Ctor2();
+      if (!c) return Promise.resolve('game audio not started yet');
+      var dest = route === 'mix' ? (A.bus && A.bus.sfx) : c.destination;
+      if (!dest) return Promise.resolve('no mix bus');
+      var go = function () {
+        var t = c.currentTime + 0.03, o = c.createOscillator(), g = c.createGain();
+        o.type = 'square'; o.frequency.setValueAtTime(660, t); o.frequency.setValueAtTime(880, t + 0.18);
+        g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(0.25, t + 0.02); g.gain.setValueAtTime(0.25, t + 0.32); g.gain.linearRampToValueAtTime(0.0001, t + 0.4);
+        o.connect(g); g.connect(dest); o.start(t); o.stop(t + 0.45);
+        if (route !== 'mix') setTimeout(function () { try { c.close(); } catch (e) { /* ignore */ } }, 900);
+        return c.state + ' @ ' + c.sampleRate + ' Hz';
+      };
+      var r = c.state === 'running' ? null : c.resume();
+      return Promise.resolve(r).then(go, function (e) { return 'resume refused: ' + (e && e.name || e); });
+    } catch (e) { return Promise.resolve('error: ' + (e && e.message || e)); }
+  };
+  // testFile() → Promise<string>: a sound file through a plain <audio> element (no Web Audio at all).
+  A.testFile = function () {
+    try {
+      var M = A.manifest || {}, file = M.bite && M.bite.file;
+      if (!file) for (var k in M) { if (M[k] && M[k].kind === 'sfx' && M[k].file) { file = M[k].file; break; } }
+      if (!file) return Promise.resolve('no file in the manifest');
+      var el = new Audio(file); el.volume = 0.9;
+      var p = el.play();
+      return Promise.resolve(p).then(function () { return 'playing ' + file; }, function (e) { return 'play refused: ' + (e && e.name || e) + ' (' + file + ')'; });
+    } catch (e) { return Promise.resolve('error: ' + (e && e.message || e)); }
+  };
+
   A.init = function () {
     var E = AQ.events;
     E.on('app:gesture', function () { if (A.started) A.unlock(); });

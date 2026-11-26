@@ -1,6 +1,8 @@
 # ÁGUA-TINTA — Design Document (`aquario-ascii/DESIGN.md`)
 
 > Folder: `aquario-ascii/` · Title: **Água-Tinta** · Subtitle: *pesca e aquário em ASCII* · Design v1.0 · UI language: pt-BR by default, English as an option.
+
+> **Scope change (binding, overrides everything below): the game is ENGLISH ONLY.** All UI text is English, registered with `AQ.i18n.add('en', …)`. There are no pt-BR tables, no language setting, and test-i18n checks only the English table. pt-BR strings quoted in this document are examples to render in English. The title *Água-Tinta* is kept as a proper name.
 > Audience: the build team (agents A–E, QA, critic). Everything here is binding unless marked *(tunable)*. If you change a contract, update this file in the same commit and tell the other agents.
 
 ---

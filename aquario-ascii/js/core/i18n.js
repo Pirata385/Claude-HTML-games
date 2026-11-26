@@ -1,11 +1,11 @@
-// Água-Tinta — i18n (owner A). Pure. pt-BR is the default and the fallback language.
+// Água-Tinta — i18n (owner A). Pure. The game is English only: 'en' is the default and the fallback language.
 // Change the language through AQ.settings.set('lang', ...) so it persists; that calls setLang().
 (function (AQ) {
   'use strict';
 
-  var LANGS = ['pt-BR', 'en'];
-  var FALLBACK = 'pt-BR';
-  var dicts = { 'pt-BR': Object.create(null), en: Object.create(null) };
+  var LANGS = ['en'];
+  var FALLBACK = 'en';
+  var dicts = { en: Object.create(null) };
   var pluralCache = {};
   var dateCache = {};
 
@@ -29,7 +29,7 @@
     });
   }
 
-  // Missing key → pt-BR → '[key]'.
+  // Missing key → fallback ('en') → '[key]'.
   function t(key, vars) {
     var s = dicts[i18n.lang] ? dicts[i18n.lang][key] : undefined;
     if (s === undefined) s = dicts[FALLBACK][key];

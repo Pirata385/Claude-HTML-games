@@ -117,7 +117,7 @@
     SCREENS: ['title', 'pause', 'settings', 'saveIO', 'credits', 'shop', 'bestiary', 'goals', 'zoneCard', 'catchCard',
       'fishCard', 'decorPicker', 'tankPicker', 'baitPicker', 'offline', 'note', 'confirm'],
     THEMES: ['noite', 'papel'],
-    LANGS: ['pt-BR', 'en'],
+    LANGS: ['en'],
     ANGLER: ['idle', 'windup', 'cast', 'reel', 'cheer']
   });
 

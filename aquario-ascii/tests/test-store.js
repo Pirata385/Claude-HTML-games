@@ -178,7 +178,7 @@ module.exports = function (T) {
   T.test('settings defaults (§14)', () => {
     const { AQ } = fresh();
     T.eq(AQ.settings.all(), {
-      lang: 'pt-BR', volMaster: 0.8, volMusic: 0.55, volSfx: 0.8, volAmbience: 0.6, quality: 'auto', reducedMotion: 'auto',
+      lang: 'en', volMaster: 0.8, volMusic: 0.55, volSfx: 0.8, volAmbience: 0.6, quality: 'auto', reducedMotion: 'auto',
       motionStyle: 'fluid', glyphSize: 'auto', uiScale: 1, highContrast: false, theme: 'noite', haptics: true, showFps: false,
       hints: true, handedness: 'right', autoSteer: false, wideWindows: false,
     });
@@ -194,7 +194,8 @@ module.exports = function (T) {
     T.eq(AQ.settings.set('volMaster', -2), 0);
     T.eq(AQ.settings.set('volMaster', 'abc'), 0, 'invalid keeps current');
     T.eq(AQ.settings.set('volSfx', '0.25'), 0.25);
-    T.eq(AQ.settings.set('lang', 'fr'), 'pt-BR');
+    T.eq(AQ.settings.set('lang', 'fr'), 'en');
+    T.eq(AQ.settings.set('lang', 'pt-BR'), 'en', 'English only');
     T.eq(AQ.settings.set('lang', 'en'), 'en');
     T.eq(AQ.i18n.lang, 'en', 'lang applies to i18n');
     T.eq(AQ.settings.set('glyphSize', '14'), 14);
@@ -228,7 +229,7 @@ module.exports = function (T) {
     T.eq(s.glyphSize, 16); T.eq(s.hints, false);
     T.ok(!('extra' in s) && !('v' in s));
     window.localStorage.setItem(KEYS.settings, '{garbage');
-    T.eq(AQ.settings.load().lang, 'pt-BR');
+    T.eq(AQ.settings.load().lang, 'en');
     AQ.settings.set('hints', false);
     AQ.settings.reset();
     T.eq(AQ.settings.get('hints'), true);

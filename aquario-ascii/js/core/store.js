@@ -270,7 +270,7 @@
 
   // ================================================================ settings (§14)
   var DEFAULTS = {
-    lang: 'pt-BR',
+    lang: 'en',
     volMaster: 0.8, volMusic: 0.55, volSfx: 0.8, volAmbience: 0.6,
     quality: 'auto',
     reducedMotion: 'auto',
@@ -288,7 +288,7 @@
   };
   Object.freeze(DEFAULTS);
   var SCHEMA = {
-    lang: { e: ['pt-BR', 'en'] },
+    lang: { e: ['en'] },
     volMaster: { n: [0, 1] }, volMusic: { n: [0, 1] }, volSfx: { n: [0, 1] }, volAmbience: { n: [0, 1] },
     quality: { e: ['auto', 'high', 'medium', 'low'] },
     reducedMotion: { e: ['auto', 'on', 'off'] },

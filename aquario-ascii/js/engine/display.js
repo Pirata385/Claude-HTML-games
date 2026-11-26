@@ -129,7 +129,7 @@
 
       sizeCanvas(D.canvases.main, Wd, Hd, dpr);
       sizeCanvas(D.canvases.top, Wd, Hd, dpr);
-      sizeCanvas(D.canvases.bg, Wd, Hd + 2 * cellHd, dpr); // 2 rows taller for the sub-row scroll
+      sizeCanvas(D.canvases.bg, Wd + cellWd, Hd + 2 * cellHd, dpr); // 1 col wider / 2 rows taller for the sub-cell scroll
       [D.ctx.bg, D.ctx.main, D.ctx.top].forEach(function (c) { c.imageSmoothingEnabled = false; });
 
       if (AQ.atlas) AQ.atlas.build(fontPx, dpr, AQ.theme.ink, FAMILY, { w: cellWd, h: cellHd }, fontChanged);

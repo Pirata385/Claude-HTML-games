@@ -54,6 +54,17 @@
         near: 'Something huge passes far below…',
         back: 'The shadow is circling your bait again.'
       },
+      sail: {
+        group: 'Sail',
+        left: 'Sail left',
+        right: 'Sail right',
+        tip: {
+          touch: 'No bites? Sail to new water: hold < or >.',
+          mouse: 'No bites? Sail to new water: hold [<] or [>] (or A / D).',
+          keyboard: 'No bites? Sail to new water: hold A / D or ← →.',
+          gamepad: 'No bites? Sail to new water: d-pad, left stick or LB / RB.'
+        }
+      },
       tinteira: {
         tentacles: 'Tentacles grip the line!',
         rises: 'She is rising…'

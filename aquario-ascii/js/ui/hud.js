@@ -1,5 +1,5 @@
 // Água-Tinta — HUD (owner E): top bar (wallet, clock, zone, pause), bottom navigation, aquarium toolbar,
-// fishing controls (reel (@) button, bait, retrieve). Modes: none | hub | fishing | aquarium (from scene:changed).
+// fishing controls (reel (@) button, bait, retrieve, sail < >). Modes: none | hub | fishing | aquarium (from scene:changed).
 // DOM text is set only on change; update() runs at 10 Hz.
 (function (AQ) {
   'use strict';
@@ -14,6 +14,7 @@
   var timer = 0;
   var contemplating = false;
   var reelHeld = false;
+  var sailRelease = [];
 
 
   function st() { return AQ.state; }
@@ -131,7 +132,8 @@
     nodes.retrieve = D.btn(t('hud.retrieve'), function () {
       if (AQ.input && AQ.input.virtual) { AQ.input.virtual.press('retrieve'); AQ.input.virtual.release('retrieve'); }
     }, { cls: 'aq-fish-retrieve', anchor: 'retrieve' });
-    nodes.fishRow = el('div.aq-fishrow', { 'data-inset': 'bottom' }, [nodes.bait, nodes.retrieve]);
+    nodes.sail = buildSail();
+    nodes.fishRow = el('div.aq-fishrow', { 'data-inset': 'bottom' }, [nodes.sail, nodes.bait, nodes.retrieve]);
     L.appendChild(nodes.fishRow);
     nodes.reel = buildReel();
     L.appendChild(nodes.reel);
@@ -163,6 +165,47 @@
     b.addEventListener('keyup', function (e) { if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); release(); } });
     b.addEventListener('blur', release);
     return b;
+  }
+
+  // Sail buttons [<] [>] (C's AQ.fishing.sailPress/sailRelease): hold to sail, tap for a short nudge. They talk to
+  // the scene directly (not through virtual input) so a mouse click does not flip the input mode to touch.
+  function buildSail() {
+    var wrap = el('div.aq-sail', { role: 'group', 'aria-label': t('fish.sail.group'), 'data-i18n-aria': 'fish.sail.group' });
+    [-1, 1].forEach(function (dir) {
+      var key = dir < 0 ? 'fish.sail.left' : 'fish.sail.right';
+      var b = el('button.aq-btn.aq-sail-b', { type: 'button', 'aria-label': t(key), 'data-i18n-aria': key, 'data-anchor': dir < 0 ? 'sail:left' : 'sail:right' });
+      b.appendChild(el('span.aq-btn-l', { text: dir < 0 ? '<' : '>', 'aria-hidden': 'true' }));
+      var held = false;
+      function press(e) {
+        if (e) {
+          if (e.button > 0) return;
+          e.preventDefault();
+          try { b.setPointerCapture(e.pointerId); } catch (err) { /* ignore */ }
+        }
+        if (held) return;
+        held = true;
+        b.classList.add('is-held');
+        var did = D.safe(function () { return AQ.fishing && AQ.fishing.sailPress(dir); }, false);
+        if (did && AQ.haptics) D.safe(function () { AQ.haptics.pulse('tap'); });
+      }
+      function release() {
+        if (!held) return;
+        held = false;
+        b.classList.remove('is-held');
+        D.safe(function () { if (AQ.fishing) AQ.fishing.sailRelease(dir); });
+      }
+      b.addEventListener('pointerdown', press);
+      b.addEventListener('pointerup', release);
+      b.addEventListener('pointercancel', release);
+      b.addEventListener('lostpointercapture', release);
+      b.addEventListener('contextmenu', function (e) { e.preventDefault(); });
+      b.addEventListener('keydown', function (e) { if ((e.key === ' ' || e.key === 'Enter') && !e.repeat) { e.preventDefault(); e.stopPropagation(); press(); } });
+      b.addEventListener('keyup', function (e) { if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); release(); } });
+      b.addEventListener('blur', release);
+      sailRelease.push(release);
+      wrap.appendChild(b);
+    });
+    return wrap;
   }
 
   function goScene(name) {
@@ -221,6 +264,7 @@
     show(nodes.reel, m === 'fishing');
     show(nodes.contExit, false);
     if (m !== 'fishing' && reelHeld) { reelHeld = false; nodes.reel.classList.remove('is-held'); if (AQ.input) AQ.input.virtual.release('primary'); }
+    if (m !== 'fishing') sailRelease.forEach(function (fn) { fn(); });
     cache = {};
     update(true);
   }
@@ -336,6 +380,13 @@
     }
     var fight = phase === 'fight';
     if (cache.fight !== fight) { cache.fight = fight; nodes.reel.classList.toggle('is-fight', fight); }
+    // sail buttons: hidden in the fight, landing and cards, and during the tutorial's first catch
+    var sail = !!D.safe(function () { return AQ.fishing && AQ.fishing.sailShown && AQ.fishing.sailShown(); }, false) && !ui.isModal();
+    if (cache.sail !== sail) {
+      cache.sail = sail;
+      show(nodes.sail, sail);
+      if (!sail) sailRelease.forEach(function (fn) { fn(); });
+    }
   }
 
   ui.hud = {

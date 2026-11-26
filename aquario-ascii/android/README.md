@@ -6,7 +6,7 @@ No Gradle and no extra libraries; the game files in `../` are copied in at build
 matches the web version.
 
 What the wrapper adds:
-- immersive full screen (system bars hidden, swipe to peek), screen kept on, any orientation;
+- immersive full screen (system bars hidden, swipe to peek), screen kept on, locked to landscape (either side, follows the sensor);
 - sound starts without an extra tap; vibration permission for haptics;
 - the game is saved when the app goes to the background or Back is pressed (Back sends the app to the
   background instead of closing it);

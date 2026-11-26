@@ -144,6 +144,7 @@
         copyFail: "Could not copy — select the text and copy it by hand.",
         reset: "Save erased. A fresh start.",
         fullscreenFail: "Fullscreen is not available in this browser.",
+        audioCompat: "Web Audio is silent here: switching to the compatible sound engine…",
         noFit: "No tank has room for it.",
         moved: "{name} moved to {tank}",
         renamed: "Now called {name}.",
@@ -482,9 +483,14 @@
       soundCheck: {
         title: "Sound check — if you hear nothing, try each test and note which ones you hear:",
         direct: "Beep (direct)",
+        playback: "Beep (playback)",
+        rb: "Beep (32 kHz)",
         mix: "Beep (game mix)",
         file: "Sound file"
       },
+      audioEngine: "Sound engine",
+      ae: { auto: "Auto", webaudio: "Web Audio", compat: "Compatible" },
+      aeHint: "No sound on this device? Choose Compatible: it plays through the browser's media player (simpler mix). The game reloads.",
       volMaster: "Master volume",
       volMusic: "Music",
       volSfx: "Effects",

@@ -178,7 +178,7 @@ module.exports = function (T) {
   T.test('settings defaults (§14)', () => {
     const { AQ } = fresh();
     T.eq(AQ.settings.all(), {
-      lang: 'en', volMaster: 0.8, volMusic: 0.55, volSfx: 0.8, volAmbience: 0.6, quality: 'auto', reducedMotion: 'auto',
+      lang: 'en', volMaster: 0.8, volMusic: 0.55, volSfx: 0.8, volAmbience: 0.6, quality: 'auto', audioEngine: 'auto', reducedMotion: 'auto',
       motionStyle: 'fluid', glyphSize: 'auto', uiScale: 1, highContrast: false, theme: 'noite', haptics: true, showFps: false,
       hints: true, handedness: 'right', autoSteer: false, wideWindows: false,
     });

@@ -139,6 +139,45 @@
     return r;
   }
   function section(title) { return el('h3.aq-sec', { text: title }); }
+  // Settings → Sound check: live audio state + three tests that isolate each layer (see AQ.audio.diag).
+  function soundCheck() {
+    var A = AQ.audio || {};
+    var box = el('div.aq-soundcheck');
+    box.appendChild(el('p.aq-dim', { text: t('settings.soundCheck.title') }));
+    var pre = el('pre.aq-soundcheck-st', { text: '' });
+    var res = el('p.aq-soundcheck-res', { text: '' });
+    function fmt() {
+      if (!A.diag) return 'audio module missing';
+      var d = A.diag(), L = d.load || {};
+      return 'mode ' + d.mode + ' · context ' + d.state + (d.sampleRate ? ' · ' + d.sampleRate + ' Hz' : '') + (d.latency ? ' · ' + d.latency + ' ms' : '') +
+        '\nfiles ' + (L.ok || 0) + '/' + (L.total || 0) + (L.failed ? ' · failed ' + L.failed + (L.firstError ? ' (' + L.firstError + ')' : '') : '') +
+        '\nvolume ' + Math.round(d.vol.master * 100) + '% · music ' + Math.round(d.vol.music * 100) + '% · fx ' + Math.round(d.vol.sfx * 100) + '%' +
+        (d.bus ? '\nlive gain ' + d.bus.master + ' / ' + d.bus.music + ' / ' + d.bus.sfx : '') +
+        '\noutput ' + (d.outDb === null ? '-' : d.outDb + ' dB') + ' · mood ' + d.mood +
+        '\n' + d.ua;
+    }
+    function tick() {
+      if (!document.body.contains(pre)) { clearInterval(timer); return; }
+      pre.textContent = fmt();
+    }
+    var timer = setInterval(tick, 500);
+    setTimeout(tick, 0);
+    function test(key, fn) {
+      return D.btn(t('settings.soundCheck.' + key), function () {
+        res.textContent = t('settings.soundCheck.' + key) + ': …';
+        Promise.resolve(fn ? fn() : 'n/a').then(function (r) { res.textContent = t('settings.soundCheck.' + key) + ': ' + r; tick(); });
+      }, { fid: 'sc-' + key });
+    }
+    var btns = el('div.aq-soundcheck-b', null, [
+      test('direct', function () { return A.testBeep && A.testBeep('direct'); }),
+      test('mix', function () { return A.testBeep && A.testBeep('mix'); }),
+      test('file', function () { return A.testFile && A.testFile(); })
+    ]);
+    box.appendChild(btns);
+    box.appendChild(res);
+    box.appendChild(pre);
+    return box;
+  }
   function fsSupported() { return !!(document.documentElement.requestFullscreen || document.documentElement.webkitRequestFullscreen); }
   function fsActive() { return !!(document.fullscreenElement || document.webkitFullscreenElement); }
   function toggleFullscreen(inst) {
@@ -166,6 +205,7 @@
       ['volMaster', 'volMusic', 'volSfx', 'volAmbience'].forEach(function (k) {
         b.appendChild(row(t('settings.' + k), D.slider(t('settings.' + k), g(k), function (v) { setS(k, v); }, { fid: k })));
       });
+      b.appendChild(soundCheck());
 
       b.appendChild(section(t('settings.sec.video')));
       b.appendChild(row(t('settings.quality'), D.seg(['auto', 'high', 'medium', 'low'].map(function (v) { return { value: v, label: t('settings.q.' + v) }; }),

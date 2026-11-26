@@ -479,6 +479,12 @@
         controls: "Controls",
         game: "Game"
       },
+      soundCheck: {
+        title: "Sound check — if you hear nothing, try each test and note which ones you hear:",
+        direct: "Beep (direct)",
+        mix: "Beep (game mix)",
+        file: "Sound file"
+      },
       volMaster: "Master volume",
       volMusic: "Music",
       volSfx: "Effects",

@@ -48,3 +48,34 @@ The spec formulas are implemented verbatim. Three behaviours had to be added so 
 All 42 land ≥ 93 %; medians C 12.7 s, U 19.7 s, R 24.5 s, L 53.6 s. One tier below spools deep species (isopode,
 celacanto, tinteira 0 %). **tipografo** (L, shaker) lands in ~12 s — far from a legendary feel; consider P/stamina up
 or boss style. arraia has gearTier 1 but hookMin 2 (tests use an adequate hook).
+
+## Sailing — the fishing scene scrolls horizontally (owner request)
+- World x is endless. `AQ.sail` (pure, `js/logic/sail.js`, `tests/test-sail.js`): `create/nudge/step/moving/speedFrac`,
+  `CONST` (MAX 12 col/s, spool-up ease-in, drag + friction ease-out, NUDGE .3 s ≈ 2 cols, `anchor` drag when not allowed).
+- Sailing only in `idle`. A press with the line out and nothing hooked (flying…bite, retrieve) queues the sail and
+  reels in ×5 (`st.fastRetrieve`); `backToIdle` then turns the boat and nudges (or the held input takes over). Off in
+  fight / landing / card, and while `AQ.tutorial.active && step < 8` (or `st.tutorial && st.scripted`): there ←/→ only
+  pick the side as before. Fight steering keys latch (`st.sailLatch`) until released, so they never become sailing.
+- Inputs: A/D, ←/→, d-pad, left stick (analog 0.3–0.5) held; LB/RB (and Q/E: `action:prev/next`) nudge; E's HUD
+  buttons call `AQ.fishing.sailPress(dir)` / `sailRelease(dir|0)` directly (no virtual input → no input-mode flip);
+  `sailShown()` drives their visibility. The cast goes where the boat faces (keyboard aim still picks the side).
+- Camera: `st.cam.x` uses the same critically damped spring as y; it leads the bow (`anchorFrac`: landscape .3/.7,
+  portrait .42/.58, following the aimed side while aiming) plus a speed look-ahead, and keeps the hook / fighting fish
+  on screen. Cast clamps use the view the camera settles on for that side (`camTargetFor(dir)`).
+- Terrain (`fishing-bg.js`): chunks of 32 columns from `rng('terrain:zone:seed:k')`, built on demand around the view
+  (`BG.ensure(x0, x1)`, dropped beyond 2 chunks). `floorAt` interpolates integer samples whether or not they are in the
+  sliding cache, so placement never depends on the camera. `covers()` is one array updated in place (fight + B keep
+  the reference). The abyss "cliffs" became rock spires per chunk (walls at the view edges made no sense any more).
+  Feature densities are per column (old counts per view width). Water texture, snow, glints, surface hashes use
+  world columns; clouds have a .25 parallax. `BG.columnAt(x)` (debug/tests) returns a column's glyphs.
+- Creatures: spawns come from the edge ahead while sailing (80 %), faster (×.35 interval); despawn beyond
+  max(30, .5·cols) off-view. `env.bounds` = "territory": view ± 12 at rest; while sailing it stretches ahead and keeps
+  the water behind (≤ despawn distance), so B's edge turns / hover clamps do not drag fish along with the camera.
+- Frenzy, bottle, sightings, legendary silhouette/arrival use world x relative to the view; a frenzy is a place
+  (`frenzyHere()`: within max(30, .9·cols) of the boat). Positions are remembered per zone for the session (`F._pos`).
+- Wake: `~ - . ,` glyphs behind the stern (knock out the wave glyph) + a ripple / small surface impulse; reduced
+  motion: few, faint, no ripple. Bob grows a little with speed.
+- Engine (A's files, additive): `R.camCol()`; `worldToCell` is column-snapped; the bg grid is `D.cols + 1` wide
+  (`grid.viewCols` = view) and carries the fractional column as a CSS translate; `commit()` self-blits by whole
+  columns (`scrollCols`); `camMoved()` also fires on a column change. `fx.surface.follow(x0)` slides the ripple
+  window; ink clouds draw on the snapped columns. Other scenes keep integer `cam.x`, so nothing changes for them.

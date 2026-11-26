@@ -27,6 +27,8 @@
     var forced = '';
     try { forced = (/[?&]audio=(html|webaudio|off)\b/.exec(W.location.search) || [])[1] || ''; } catch (e) { forced = ''; }
     if (forced === 'off') return 'none';
+    // Settings → Sound engine: 'compat' plays through <audio> elements (for devices where Web Audio is silent)
+    if (!forced && engine() === 'compat') forced = 'html';
     var file = false;
     try { file = W.location.protocol === 'file:'; } catch (e) { file = false; }
     if (forced !== 'html' && !file && Ctor && OffCtor && W.fetch) return 'webaudio';
@@ -34,6 +36,30 @@
     return Ctor && OffCtor && W.fetch ? 'webaudio' : 'none';
   }
   function vol(k) { var v = AQ.settings && AQ.settings.get(k); return typeof v === 'number' ? v : 0.6; }
+  function engine() { try { return (AQ.settings && AQ.settings.get && AQ.settings.get('audioEngine')) || 'auto'; } catch (e) { return 'auto'; } }
+
+  // Auto engine: on some devices the Web Audio output never renders (the context says 'running' but its clock
+  // does not move). Check the clock once it runs; if it is stuck, switch to the compatible <audio> engine.
+  var clockWatch = false;
+  function watchClock() {
+    var c = A.ctx;
+    if (clockWatch || !c || c.state !== 'running') return;
+    clockWatch = true;
+    var t0 = c.currentTime, w0 = Date.now();
+    setTimeout(function () {
+      if (A.ctx !== c) return;
+      if (c.state !== 'running') { clockWatch = false; return; }
+      var adv = c.currentTime - t0, wall = (Date.now() - w0) / 1000;
+      A.clockOk = adv > wall * 0.5;
+      if (!A.clockOk && engine() === 'auto') fallbackToCompat();
+    }, 1200);
+  }
+  function fallbackToCompat() {
+    try { AQ.settings.set('audioEngine', 'compat'); } catch (e) { /* ignore */ }
+    try { if (AQ.ui && AQ.ui.toast) AQ.ui.toast({ key: 'ui.toast.audioCompat' }, { kind: 'warn' }); } catch (e2) { /* ignore */ }
+    try { if (AQ.store && AQ.store.flush) AQ.store.flush('audio-engine'); } catch (e3) { /* ignore */ }
+    setTimeout(function () { try { W.location.reload(); } catch (e4) { /* ignore */ } }, 1800);
+  }
   function clamp(x, a, b) { return x < a ? a : x > b ? b : x; }
   A.now = function () { return A.ctx ? A.ctx.currentTime : Date.now() / 1000; };
   A.webaudio = function () { return A.mode === 'webaudio' && !!A.ctx && !!A.bus; };
@@ -172,9 +198,11 @@
 
   // load(onProgress) → Promise<{total, ok, failed}>. onProgress({done, total, ok, failed}) after each file.
   // Fetches every file (decoding the short ones and the title theme) in web audio mode; preloads elements in html mode.
+  A.loadStats = { total: 0, ok: 0, failed: 0, firstError: '' };
   A.load = function (onProgress) {
     if (loadPromise) return loadPromise;
     var list = fileEntries(), total = list.length, ok = 0, failed = 0, next = 0;
+    A.loadStats.total = total;
     function report() { if (onProgress) { try { onProgress({ done: ok + failed, total: total, ok: ok, failed: failed }); } catch (e) { /* ui */ } } }
     loadPromise = new Promise(function (resolve) {
       if (A.mode === 'none' || !total) { failed = total; report(); resolve({ total: total, ok: 0, failed: total }); return; }
@@ -188,8 +216,10 @@
             : it.eager ? decodeFile(it.file, isLong(it.entry)) : fetchBytes(it.file);
           p.then(function () { ok++; }, function (err) {
             failed++;
-            if (W.console) console.warn('[AQ.audio] ' + (err && err.message ? err.message : err));
-          }).then(function () { running--; report(); pump(); });
+            var msg = (err && err.message ? err.message : String(err));
+            if (!A.loadStats.firstError) A.loadStats.firstError = msg;
+            if (W.console) console.warn('[AQ.audio] ' + msg);
+          }).then(function () { running--; A.loadStats.ok = ok; A.loadStats.failed = failed; report(); pump(); });
         }
       }
       report();
@@ -457,11 +487,13 @@
       if (!A.ctx) {
         A.ctx = new Ctor({ latencyHint: 'interactive' });
         A.ctx.onstatechange = function () {
+          if (A.ctx.state === 'running') watchClock();
           if (A.ctx.state !== 'running' && A.ctx.state !== 'closed' && !(typeof document !== 'undefined' && document.hidden)) armUnlock();
         };
         build();
         A.ready = true;
         A.applyVolumes(true);
+        setTimeout(watchClock, 50);
         if (A.music && A.music.start) A.music.start();
       }
       var hidden = typeof document !== 'undefined' && document.hidden;
@@ -514,6 +546,7 @@
 
   // ================================================================ public API (§15.5)
   A.init = function () {
+    A.mode = pickMode();
     var E = AQ.events;
     E.on('app:gesture', function () { if (A.started) A.unlock(); });
     E.on('app:hidden', function () { A.suspend(); });

@@ -166,6 +166,14 @@
       ['volMaster', 'volMusic', 'volSfx', 'volAmbience'].forEach(function (k) {
         b.appendChild(row(t('settings.' + k), D.slider(t('settings.' + k), g(k), function (v) { setS(k, v); }, { fid: k })));
       });
+      b.appendChild(row(t('settings.audioEngine'), D.seg(['auto', 'webaudio', 'compat'].map(function (v) { return { value: v, label: t('settings.ae.' + v) }; }),
+        g('audioEngine'), function (v) {
+          if (v === g('audioEngine')) return;
+          setS('audioEngine', v);
+          D.safe(function () { AQ.store.flush('audio-engine'); });
+          setTimeout(function () { location.reload(); }, 150);   // the engine is chosen at load
+        }, { fid: 'audioEngine' })));
+      b.appendChild(el('p.aq-dim', { text: t('settings.aeHint') }));
 
       b.appendChild(section(t('settings.sec.video')));
       b.appendChild(row(t('settings.quality'), D.seg(['auto', 'high', 'medium', 'low'].map(function (v) { return { value: v, label: t('settings.q.' + v) }; }),

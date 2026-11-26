@@ -785,7 +785,7 @@
   }
   // engaged(list) → the creature nibbling/biting the hook, or null
   function engaged(list) {
-    for (var i = 0; i < list.length; i++) if (list[i].state === 'nibble' || list[i].state === 'bite') return list[i];
+    for (var i = 0; i < list.length; i++) if (list[i].hooked || list[i].state === 'nibble' || list[i].state === 'bite') return list[i];
     return null;
   }
 

@@ -15,10 +15,10 @@ extensions.
 - **`AQ.zones`** extras: `maxM`, `req` (informative unlock requirements; D's `progress` is the authority),
   `floorY(zoneOrId, x)` (= `depth·(base + amp·fbm2(x·freq, order·7.31+.5))`, use it so creatures and terrain agree),
   `depthM(zoneOrId, y)`, `name(id)`.
-- **Strings** (`strings-world.js`): `sp.<id>.name|flavor|pt` (`.pt` = pt-BR name in both languages, for the bestiary's
-  small print in English), `sighting.<id>.name|flavor|pt`, `zone.<id>.name|short|desc`,
-  `zone.depth.surface|mid|bottom|deep` (bestiary hints), `phase.*` (+ `phase.any`), `weather.*` (+ `weather.any`),
-  `kind.*`, `behavior.*`, and `sp.habitat.*`, `sp.light.*`, `sp.diet.*` (fish card "Gosta de: …").
+- **Strings** (`strings-world.js`, **English only** per the owner's scope change): `sp.<id>.name|flavor`,
+  `sighting.<id>.name|flavor`, `zone.<id>.name|short|desc`, `zone.depth.surface|mid|bottom|deep` (bestiary hints),
+  `phase.*` (+ `phase.any`), `weather.*` (+ `weather.any`), `kind.*`, `behavior.*`, and `sp.habitat.*`,
+  `sp.light.*`, `sp.diet.*` (fish card "Likes: …").
 
 ## World (`AQ.world`)
 - `state.world.minutes` is **absolute** game minutes. `now(state).minutes` is the **minute of the day** (0..1439);
@@ -74,3 +74,18 @@ extensions.
 ## Sprites (`AQ.sprites`)
 - Helpers (non-enumerable): `get`, `keys()`. Each SpriteDef also has `key`, `extraMasks`, `buried` (cells drawn
   while buried), `lure` (diabo's light cell).
+
+## Art (`AQ.art`)
+- Every item is a SpriteDef (`frames`, …) except `logo.wide` / `logo.tall[0|1]` (line arrays, 64 / 27 / 32 wide),
+  `angler` poses, `icons` and `baitGlyph`. No text inside art: scenes draw labels from string tables.
+- `boat` = canoe; extra **`boats[1..5]`** (Canoa, Jangada, Bote a motor, Saveiro, Traineira) by boat tier; row 0 is
+  the deck.
+- `angler`: `idle`, `windup`, `cast`, `reel[0..2]`, `cheer` — all 9×4 on one canvas (head at col 3, row 2; the
+  hull hides the legs), plus `angler.tip` = rod-tip cell `[c, r]` per pose (right-facing; mirror for left casts).
+- `decor.<id>` (12, ≤ 10×6; algas/kelp/anemona sway), `decor.ostra` = `oyster` (frame 0 closed, frame 1 open with
+  the pearl), `visitors[4]`, `map.{aquarium,shop,lighthouse,pier}`, `lamp`, `filter`, `tentacle`, `bottle`, `birds`
+  (`extra.dive`), extras `terrain.{seagrass[], rock[], coralHead[], kelp, boulder, cave, vent}`, `icons.*`, `hook`.
+
+## Status
+- `tests/test-species|sprites|spawn|world.js`: 36/36 pass (creature behaviour tests live in test-spawn).
+- Sprite review sheet / in-engine check were done in my scratch folder (not in the repo).

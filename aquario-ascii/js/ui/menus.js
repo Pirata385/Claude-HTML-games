@@ -37,6 +37,7 @@
       if (hasSave) menu.appendChild(D.btn(t('ui.title.continue'), continueGame, { cls: 'aq-title-b', fid: 'continue', def: true, sfx: 'uiOpen' }));
       menu.appendChild(D.btn(t('ui.title.newGame'), newGame, { cls: 'aq-title-b', fid: 'new', def: !hasSave, sfx: 'uiOpen' }));
       menu.appendChild(D.btn(t('ui.title.settings'), function () { ui.show('settings'); }, { cls: 'aq-title-b', fid: 'settings' }));
+      if (fsSupported()) menu.appendChild(D.btn(t(fsActive() ? 'ui.title.fullscreenExit' : 'ui.title.fullscreen'), function () { toggleFullscreen(null); }, { cls: 'aq-title-b', fid: 'fullscreen' }));
       menu.appendChild(D.btn(t('ui.title.credits'), function () { ui.show('credits'); }, { cls: 'aq-title-b', fid: 'credits' }));
       wrap.appendChild(menu);
       var back = el('a.aq-btn.aq-link', { href: GAMES_MENU, 'data-fid': 'games' }, [el('span.aq-back-arrow', { text: '<', 'aria-hidden': 'true' }), el('span.aq-btn-l', { text: t('ui.title.gamesMenu') })]);
@@ -147,7 +148,7 @@
       if (fsActive()) p = (document.exitFullscreen || document.webkitExitFullscreen).call(document);
       else p = (de.requestFullscreen || de.webkitRequestFullscreen).call(de, { navigationUI: 'hide' });
     } catch (e) { p = Promise.reject(e); }
-    Promise.resolve(p).then(function () { setTimeout(function () { inst.rerender(); }, 120); },
+    Promise.resolve(p).then(function () { if (inst) setTimeout(function () { inst.rerender(); }, 120); },
       function () { ui.toast({ key: 'ui.toast.fullscreenFail' }, { kind: 'warn' }); });
   }
 
@@ -398,9 +399,11 @@
     E.on('settings:changed', function (p) {
       if (p.key === 'showFps' || p.key === 'theme' || p.key === 'highContrast') { var s = document.querySelector('[data-screen="settings"]'); void s; }
     });
-    document.addEventListener('fullscreenchange', function () {
-      var inst = document.querySelector('[data-screen="settings"]');
-      if (inst) ui.rerenderAll();
-    });
+    // keep the Settings row and the title menu's Fullscreen label in sync (also when leaving with Esc / F11)
+    function onFsChange() {
+      if (document.querySelector('[data-screen="settings"], [data-screen="title"]')) ui.rerenderAll();
+    }
+    document.addEventListener('fullscreenchange', onFsChange);
+    document.addEventListener('webkitfullscreenchange', onFsChange);
   });
 })(window.AQ);

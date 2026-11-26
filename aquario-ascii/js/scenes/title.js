@@ -17,6 +17,12 @@
     var lg = AQ.art && AQ.art.logo;
     var wide = lg && Array.isArray(lg.wide) && lg.wide.length ? lg.wide : null;
     var tall = lg && Array.isArray(lg.tall) && lg.tall.length ? lg.tall : null;
+    if (tall && Array.isArray(tall[0])) { // stacked blocks ([[ÁGUA], [TINTA]]) → one list with a gap row
+      var flat = [];
+      tall.forEach(function (blk, i) { if (i) flat.push(''); blk.forEach(function (ln) { flat.push(String(ln)); }); });
+      tall = flat;
+    }
+    if (wide && Array.isArray(wide[0])) wide = [].concat.apply([], wide).map(String);
     var w = function (ls) { return ls ? ls.reduce(function (m, s) { return Math.max(m, s.length); }, 0) : 0; };
     if (wide && L.cols >= 70 && w(wide) <= L.cols - 4) return { lines: wide, kind: 'wide' };
     if (tall && w(tall) <= L.cols - 2) return { lines: tall, kind: 'tall' };
@@ -39,7 +45,7 @@
     L.logo = lg.lines;
     L.logoKind = lg.kind;
     L.logoW = L.logo.reduce(function (m, s) { return Math.max(m, s.length); }, 0);
-    L.logoRows = L.logo.map(function (s) { return [s]; }); // stable arrays → compile cache
+    L.logoRows = L.logo.map(function (s) { return [s.length < L.logoW ? s + new Array(L.logoW - s.length + 1).join(' ') : s]; }); // equal widths keep rows aligned
     var footPx = 56;
     L.footRows = Math.ceil(footPx / Math.max(1, D.cellH));
     L.sandRow = L.rows - L.footRows - 1;

@@ -115,7 +115,10 @@
     nodes.till = D.btn(t('hud.till'), onTill, { anchor: 'till', cls: 'aq-tool aq-tool-till' });
     nodes.tillAmt = el('span.aq-btn-sub');
     nodes.till.appendChild(nodes.tillAmt);
-    nodes.tool = el('div.aq-toolbar', { 'data-inset': 'bottom' }, [nodes.feed, nodes.decor, nodes.light, nodes.contemplate, nodes.till]);
+    nodes.prevTankS = D.btn('<', function () { switchTank(-1); }, { cls: 'aq-tool aq-tank-arrow-s', aria: t('hud.prevTank') });
+    nodes.nextTankS = D.btn('>', function () { switchTank(1); }, { cls: 'aq-tool aq-tank-arrow-s', aria: t('hud.nextTank') });
+    nodes.tool = el('div.aq-toolbar', { 'data-inset': 'bottom' }, [nodes.feed, nodes.decor, nodes.light, nodes.contemplate,
+      el('span.aq-toolbar-break'), nodes.prevTankS, nodes.till, nodes.nextTankS]);
     L.appendChild(nodes.tool);
     nodes.prevTank = D.btn('<', function () { switchTank(-1); }, { cls: 'aq-tank-arrow is-prev', aria: t('hud.prevTank') });
     nodes.nextTank = D.btn('>', function () { switchTank(1); }, { cls: 'aq-tank-arrow is-next', aria: t('hud.nextTank') });
@@ -291,8 +294,11 @@
   function updateTools(s) {
     var tk = currentTank();
     var list = tanks();
-    nodes.prevTank.disabled = list.length < 2;
-    nodes.nextTank.disabled = list.length < 2;
+    var multi = list.length > 1;
+    if (cache.multi !== multi) {
+      cache.multi = multi;
+      [nodes.prevTank, nodes.nextTank, nodes.prevTankS, nodes.nextTankS].forEach(function (n) { n.classList.toggle('is-single', !multi); });
+    }
     if (!tk) return;
     var cost = D.safe(function () { return AQ.economy.feedCost(tk, s); }, 0) || 0;
     var free = !!(AQ.tutorial && AQ.tutorial.active && (s.stats && !s.stats.fed));

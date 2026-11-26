@@ -497,7 +497,7 @@
     });
     E.on('aquarium:warning', function (p) {
       if (!p) return;
-      var vars = { tank: tk(p.tankId), predator: p.predator ? N.species(p.predator) : '', prey: p.sp ? N.species(p.sp) : (p.prey ? N.species(p.prey) : ''), sp: p.sp ? N.species(p.sp) : '' };
+      var vars = { tank: tk(p.tankId), pred: p.predator ? N.species(p.predator) : (p.pred ? N.species(p.pred) : ''), predator: p.predator ? N.species(p.predator) : '', prey: p.sp ? N.species(p.sp) : (p.prey ? N.species(p.prey) : ''), sp: p.sp ? N.species(p.sp) : '' };
       var k = p.kind || 'hungry';
       toastKey(['aq.warning.' + k, 'aq.warn.' + k, k === 'predator' || k === 'predation' ? 'ui.toast.predatorWarn' : 'ui.toast.hungry'], vars, 'warn', 4200);
     });
@@ -518,8 +518,9 @@
       var sp = p.sp && D.safe(function () { return AQ.species.get(p.sp); }, null);
       if (sp && sp.rarity === 'L') setTimeout(function () { ui.toast({ key: 'ui.toast.legendaryEscaped' }, { ms: 3000 }); }, 1200);
     });
-    E.on('inventory:changed', function () {
+    E.on('inventory:changed', function (p) {
       var b = AQ.state.player && AQ.state.player.bait;
+      if (p && p.reason === 'empty') { ui.toast({ key: 'ui.toast.baitOut', vars: { name: N.bait(p.id || 'massa') } }, { kind: 'warn' }); lastBait = b; return; }
       if (lastBait && b !== lastBait && b === 'massa') {
         var n = AQ.state.player.baits ? AQ.state.player.baits[lastBait] : 1;
         if (n === 0) ui.toast({ key: 'ui.toast.baitOut', vars: { name: N.bait('massa') } }, { kind: 'warn' });

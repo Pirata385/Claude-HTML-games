@@ -429,11 +429,16 @@
 .aq-tank-arrow.is-prev { left: calc(var(--sl) + 4px); }
 .aq-tank-arrow.is-next { right: calc(var(--sr) + 4px); }
 .aq-tank-arrow:disabled { opacity: .3; }
+.aq-ui .aq-tank-arrow.is-single, .aq-ui .aq-tank-arrow-s.is-single { display: none; }
+.aq-tank-arrow-s, .aq-toolbar-break { display: none; }
 @media (max-width: 760px) {
   .aq-toolbar { bottom: calc(var(--sb) + 64px); gap: 0; }
   .aq-tool { font-size: var(--fs-s); padding: 0 .1em; min-width: 0; }
   .aq-tool .aq-btn-sub { display: block; }
   .aq-tool-cont { display: none; }
+  .aq-tank-arrow { display: none; }
+  .aq-toolbar-break { display: block; flex-basis: 100%; height: 0; }
+  .aq-tank-arrow-s { display: inline-flex; min-width: 56px; font-size: var(--fs); }
 }
 .aq-contemplate-exit {
   position: absolute; inset: 0; border: 0; background: transparent; color: var(--dim); font: inherit; font-size: var(--fs-s);

@@ -70,8 +70,15 @@
   function spDef(id) { return safe(function () { return AQ.species.get(id); }, null); }
   function toast(key, vars, kind, later) { safe(function () { AQ.ui.toast({ key: key, vars: vars }, { kind: kind || 'info', now: !later }); }); }
 
+  // Reel sound while the lure is reeled in during 'waiting' (the fight drives its own reel sound each frame).
+  // Remember whether it is on, so letting go, going back to idle or any phase change turns it off.
+  function reelSound(on, v) {
+    if (on) { st.reelSnd = true; safe(function () { AQ.audio.reel(true, v); }); }
+    else if (st.reelSnd) { st.reelSnd = false; safe(function () { AQ.audio.reel(false, 0); }); }
+  }
   function setPhase(p) {
     if (st.phase === p) return;
+    if (p !== 'fight') reelSound(false);
     st.phase = p; st.phaseT = 0;
     F.phase = p;
   }
@@ -1021,10 +1028,11 @@
           var dx = st.tip.x - st.hook.x, dy = st.tip.y - st.hook.y, d = Math.sqrt(dx * dx + dy * dy);
           var v = st.gear.reelSpeed * 0.35;
           st.hook.x += dx / d * v * dt; st.hook.y += dy / d * v * dt;
-          if (st.hook.y < 0.5 || d < 3) { if (st.engaged) disengage(null); backToIdle(); break; }
-          safe(function () { AQ.audio.reel(true, v); });
-        } else if (st.phase === 'waiting' && AQ.input.isDown('down')) {
-          setPhase('sinking'); st.sinkT = 0.5;
+          if (st.hook.y < 0.5 || d < 3) { if (st.engaged) disengage(null); reelSound(false); backToIdle(); break; }
+          reelSound(true, v);
+        } else {
+          reelSound(false);   // the player let go: the reel stops turning
+          if (st.phase === 'waiting' && AQ.input.isDown('down')) { setPhase('sinking'); st.sinkT = 0.5; }
         }
         if (st.nibbleT > 0) st.nibbleT -= dt;
         if (st.twitchT > 0) st.twitchT -= dt;

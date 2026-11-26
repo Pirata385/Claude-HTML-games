@@ -59,8 +59,9 @@ sails. No sailing during a fight, the landing or the catch card, nor before the 
 All settings apply immediately and are saved in the browser.
 
 - **Sound:** master, music, effects and ambience volumes; **Sound engine** (Auto / Web Audio / Compatible —
-  Compatible plays through the browser's media player, for devices where Web Audio stays silent; Auto switches
-  to it by itself when the Web Audio clock does not move).
+  Auto plays the sound as game audio through Web Audio at 32 kHz, mixing with other apps' music; Compatible
+  uses the browser's media player as a last resort and can pause other apps' music; Auto switches to it by
+  itself only if the Web Audio clock does not move).
 - **Display:** quality (auto / high / medium / low — auto steps down on slow devices), motion (fluid or classic
   grid), reduce motion, glyph size, interface scale, theme (Paper unlocks when you finish the story), high
   contrast, show FPS, fullscreen (also a **Fullscreen** button on the title screen, hidden where the browser

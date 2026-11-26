@@ -482,7 +482,7 @@
       },
       audioEngine: "Sound engine",
       ae: { auto: "Auto", webaudio: "Web Audio", compat: "Compatible" },
-      aeHint: "No sound on this device? Choose Compatible: it plays through the browser's media player (simpler mix). The game reloads.",
+      aeHint: "Auto plays the sound as part of the game and mixes with music from other apps. Compatible is a last resort if you hear nothing: it uses the browser's media player, which can pause other apps' music. The game reloads.",
       volMaster: "Master volume",
       volMusic: "Music",
       volSfx: "Effects",

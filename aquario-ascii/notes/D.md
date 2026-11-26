@@ -65,8 +65,35 @@ extensions** (nothing removed or renamed). Tests: `test-economy`, `test-aquarium
   tillCollects, legendaries` (existing), `jelliesClean` (landed jellies). Achievements give pearls (`reward.pearls`).
 - Extras: `achProgress(ach, state)`, `nextZone(state)`, `ZONE_REQ`, `AQ.goals.get/ach/msg(id)`.
 
-## Strings (strings-economy.js) for E
+## Strings (strings-economy.js, English only since the scope change) for E
 `item.<id>.name/.desc`, `item.<slot>.<tier>`, `item.stat.*`, `item.hookClass.<n>`, `item.req.*`, `item.tag.<habitat>`,
 `goal.<id>` (vars = goal params, e.g. `{n}`), `goal.reward.*`, `ach.<id>.name/.desc`, `msg.<id>.title/.body`,
 `aq.*` (scene labels, `aq.factor.*` for the fish-card breakdown, `aq.pref` + `item.tag.*` + `aq.prefLight.*` for
 "Gosta de", `aq.warn.predator {pred, prey, tank}`, `aq.predation`, `aq.bredToast {sp, tank}`, `aq.produced`, `aq.pearl`…).
+
+## Aquarium scene (`js/scenes/aquarium.js`) ↔ E
+- The scene definition exposes **`tankId`** (string, kept current), `tank`, **`setTank(id)`**, **`next()`**, **`prev()`**;
+  `AQ.aquariumView = {tankId, index}` mirrors it. Switching (E's arrows, Q/E, or a canvas swipe) emits
+  **`aquarium:view` {tankId, index, total}** (new event). `enter({tankId})` opens a given tank.
+- Canvas taps open `AQ.ui.fishCard(uid)` (generous hit box, ≥ 16 px); tapping water startles nearby fish. Taps are
+  ignored while contemplating (`ui:contemplate`) and for 0.3 s after it ends.
+- Layout reads `AQ.ui.hudInsets()` every 0.5 s (ignores absurd insets), so contemplate mode enlarges the tank.
+- Visuals listen to `aquarium:fed` (flakes sink, fish rise to eat, `<3`), `aquarium:collected` (`$` fountains),
+  `aquarium:bred` (juvenile appears by a parent, bloom), `aquarium:predation`, `stars:changed` (blooms).
+- Uses `AQ.art.decor/lamp/filter/visitors` when present (fallback art inside the scene otherwise).
+- Suggestion for E: in portrait the tank arrows sit over the glass; hide them with one tank or move them to the
+  toolbar row on narrow screens.
+
+## Pacing (tests/balance-pacing.js) — tuning applied
+Bot: one attempt / 45 s in the newest water, aims at an undiscovered fish among 5 in view (else value-weighted),
+landing odds from the gear-tier gap, keeps one of each species (+ rares/dense, pairs when roomy, tanks ≤ 75% full),
+feeds, collects, sets each tank's light to the majority preference, buys zone gear → next boat → aquarium capacity →
+matching decor. Changes vs §8 (all in `items.js` / `economy.js K`):
+- `INCOME_K` .06 → **.12**.
+- Boats 400/1600/5000/12000 → **300/1200/3500/5000**; rod III–V → 600/2000/8000; line III–V → 450/1800/6500;
+  reel III–V → 700/2200/8000; hook III–IV → 500/2000; lantern I–III → 1000/4000/10000.
+- Tank 2nd/3rd/4th → 500/2500/8000; capacity → 250/1200/4500; filter → 300/2000.
+Result (5 bots, median): Recife 0:12 (target 0:12), Kelp 0:37 (0:35), Linha III 0:44 (0:50), Mar 1:15 (1:10),
+★3 1:47 (1:30), Abismo 2:22 (1:55), ★4 ~2:50 (2:20); till share 9% first 30 min (≈15%), 30% last hour (30–45%).
+The late game stays ~25 min behind with this conservative bot (55–85% landing, no frenzies); the ending is not
+reached by the bot in 3 h (needs ★4 + storm night + tier-5 gear). Re-run after C's fight tuning.

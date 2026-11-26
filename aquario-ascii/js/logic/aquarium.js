@@ -243,13 +243,16 @@
 
   // ---------------------------------------------------------------- breeding helpers (§6.7, §7.6)
   function makeJuvenile(sp, a, b, tank, state, rng) {
-    var lo = sp.len[0], hi = sp.len[1];
-    var len = U.round1(U.clamp((a.len + b.len) / 2 * rng.normal(1, 0.08), lo, hi));
-    var q = hi > lo ? U.clamp((len - lo) / (hi - lo), 0, 1) : 0.5;
+    var lo = sp.len[0], hi = sp.len[1], len, q, kg = null;
+    var bs = AQ.spawn && AQ.spawn.bredSpecimen ? AQ.spawn.bredSpecimen(sp.id, a, b, rng) : null; // B's §6.7 roll
+    if (bs) { len = bs.len; q = bs.q; kg = bs.kg; } else {
+      len = U.round1(U.clamp((a.len + b.len) / 2 * rng.normal(1, 0.08), lo, hi));
+      q = hi > lo ? U.clamp((len - lo) / (hi - lo), 0, 1) : 0.5;
+    }
     var dense = rng.chance(a.dense || b.dense ? K.BREED_DENSE_PARENT : K.BREED_DENSE);
     var aq = state.aquarium;
     var fish = {
-      uid: 'f' + (aq.nextUid++), sp: sp.id, len: len, kg: U.round2(sp.kgMax * Math.pow(len / hi, 3)), q: U.round2(q),
+      uid: 'f' + (aq.nextUid++), sp: sp.id, len: len, kg: kg !== null ? kg : U.round2(sp.kgMax * Math.pow(len / hi, 3)), q: U.round2(q),
       dense: dense, trophy: q >= 0.9, bred: true, growth: K.JUV_GROWTH, tank: tank.id, name: null,
       at: U.now(), zone: a.zone || (sp.zones && sp.zones[0]) || null
     };

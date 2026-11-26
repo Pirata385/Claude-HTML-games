@@ -368,7 +368,16 @@
     var alive = 0, i;
     for (i = 0; i < VIS_MAX; i++) if (visitors[i].alive && !visitors[i].leaving) alive++;
     if (alive < visTarget) {
-      for (i = 0; i < VIS_MAX && alive < visTarget; i++) if (!visitors[i].alive) { spawnVisitor(visitors[i], !initial); alive++; if (!initial) break; }
+      for (i = 0; i < VIS_MAX && alive < visTarget; i++) {
+        if (visitors[i].alive) continue;
+        spawnVisitor(visitors[i], !initial);
+        if (initial) { // spread the first crowd evenly along the glass
+          var span = D.cols + 6;
+          visitors[i].x = -L.c0 - 3 + span * (alive + 0.3 + 0.4 * rng.next()) / Math.max(1, visTarget);
+        }
+        alive++;
+        if (!initial) break;
+      }
     } else if (alive > visTarget) {
       for (i = 0; i < VIS_MAX && alive > visTarget; i++) if (visitors[i].alive && !visitors[i].leaving) { visitors[i].leaving = true; alive--; }
     }
@@ -403,7 +412,7 @@
   function crowded(v) {
     for (var i = 0; i < VIS_MAX; i++) {
       var o = visitors[i];
-      if (o !== v && o.alive && Math.abs(o.x - v.x) < 6) return true;
+      if (o !== v && o.alive && Math.abs(o.x - v.x) < 8) return true;
     }
     return false;
   }

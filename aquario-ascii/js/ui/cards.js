@@ -430,3 +430,109 @@
     onOpen: function () { sfx('coin'); }
   });
 })(window.AQ);
+
+// Água-Tinta — gameplay feedback (owner E): toasts and story notes driven by C/D events (§15.9).
+(function (AQ) {
+  'use strict';
+
+  var ui = AQ.ui;
+  var D = ui.dom, N = ui.names, F = ui.fmt;
+  var lastBait = null;
+
+  function tk(id) { return N.tank(id); }
+  function toastKey(cands, vars, kind, ms) {
+    for (var i = 0; i < cands.length; i++) {
+      if (D.has(cands[i])) { ui.toast({ key: cands[i], vars: vars }, { kind: kind, ms: ms }); return; }
+    }
+  }
+
+  ui.onInit(function () {
+    var E = AQ.events;
+    E.on('catch:resolved', function (p) {
+      if (!p || !p.specimen) return;
+      var name = N.species(p.specimen.sp);
+      if (p.choice === 'sell') ui.toast({ key: 'ui.toast.sold', vars: { name: name, amount: AQ.i18n.money(p.value || 0) } }, { kind: 'good' });
+      else if (p.choice === 'keep') {
+        var fish = p.fish || (p.result && p.result.fish);
+        ui.toast({ key: 'ui.toast.kept', vars: { name: name, tank: fish ? tk(fish.tank) : N.tank((AQ.state.aquarium.tanks[0] || {}).id) } }, { kind: 'good' });
+      } else if (p.choice === 'release' && p.specimen.sp !== 'tinteira') ui.toast({ key: 'ui.toast.released', vars: { name: name } }, { kind: 'good' });
+      if (p.isRecord && !p.isNew) ui.toast({ key: 'ui.toast.record', vars: { name: name, len: F.len(p.specimen.len) } }, { kind: 'rare' });
+    });
+    E.on('species:new', function (p) {
+      if (!p) return;
+      ui.toast({ key: 'ui.toast.newSpecies', vars: { name: N.species(p.sp) } }, { kind: 'rare', ms: 3200 });
+    });
+    E.on('species:seen', function (p) {
+      if (!p) return;
+      ui.toast({ key: 'ui.toast.seen', vars: { name: N.species(p.sp) } }, { kind: 'info', ms: 2200 });
+    });
+    E.on('sighting:new', function (p) { if (p) ui.toast({ key: 'ui.toast.sighting', vars: { name: N.sighting(p.id) } }, { kind: 'rare', ms: 3600 }); });
+    E.on('message:found', function (p) {
+      if (!p || !p.id) return;
+      setTimeout(function () { ui.note('msg:' + p.id); }, 500);
+    });
+    E.on('frenzy:start', function () { ui.toast({ key: 'ui.toast.frenzy' }, { kind: 'rare', ms: 3000 }); });
+    E.on('frenzy:end', function () { ui.toast({ key: 'ui.toast.frenzyEnd' }, { ms: 2000 }); });
+    E.on('legendary:near', function () { ui.toast({ key: 'ui.toast.legendary' }, { kind: 'rare', ms: 4200 }); });
+    E.on('zone:unlocked', function (p) {
+      if (!p) return;
+      ui.toast({ key: 'ui.toast.zoneUnlocked', vars: { zone: N.zone(p.zone) } }, { kind: 'rare', ms: 3600 });
+      if (AQ.audio) AQ.audio.sfx('goal');
+    });
+    E.on('stars:changed', function (p) {
+      if (!p || !(p.stars > p.prev)) return;
+      ui.toast({ key: 'ui.toast.stars', vars: { stars: new Array(p.stars + 1).join('*') } }, { kind: 'rare', ms: 3600 });
+      if (AQ.audio) AQ.audio.sfx('goal');
+      if (p.stars >= 4 && p.prev < 4 && !ui.noteSeen('stars4')) setTimeout(function () { ui.note('stars4'); }, 1200);
+    });
+    E.on('aquarium:collected', function (p) {
+      if (p && p.amount > 0) ui.toast({ key: 'ui.toast.collected', vars: { amount: AQ.i18n.money(p.amount) } }, { kind: 'good' });
+    });
+    E.on('aquarium:fed', function (p) { if (p) ui.toast({ key: 'ui.toast.fed', vars: { tank: tk(p.tankId) } }, { kind: 'good', ms: 1600 }); });
+    E.on('aquarium:bred', function (p) { if (p) ui.toast({ key: 'ui.toast.bred', vars: { name: N.species(p.sp) } }, { kind: 'rare', ms: 3200 }); });
+    E.on('aquarium:produced', function (p) {
+      if (!p) return;
+      if (p.item === 'pearl' || p.item === 'pearls' || p.item === 'perola') ui.toast({ key: 'ui.toast.producedPearl', vars: { n: p.qty || 1 } }, { kind: 'good' });
+      else ui.toast({ key: 'ui.toast.producedBait', vars: { n: p.qty || 1 } }, { kind: 'good' });
+    });
+    E.on('aquarium:warning', function (p) {
+      if (!p) return;
+      var vars = { tank: tk(p.tankId), predator: p.predator ? N.species(p.predator) : '', prey: p.sp ? N.species(p.sp) : (p.prey ? N.species(p.prey) : ''), sp: p.sp ? N.species(p.sp) : '' };
+      var k = p.kind || 'hungry';
+      toastKey(['aq.warning.' + k, 'aq.warn.' + k, k === 'predator' || k === 'predation' ? 'ui.toast.predatorWarn' : 'ui.toast.hungry'], vars, 'warn', 4200);
+    });
+    E.on('aquarium:predation', function (p) {
+      if (!p) return;
+      ui.toast({ key: 'ui.toast.predation', vars: { tank: tk(p.tankId), predator: N.species(p.predator && p.predator.sp || p.predator), prey: N.species(p.prey && p.prey.sp || p.prey) } }, { kind: 'warn', ms: 5000 });
+    });
+    E.on('bite:miss', function (p) {
+      if (!p || (AQ.tutorial && AQ.tutorial.active && AQ.tutorial.step < 8)) return;
+      ui.toast({ key: p.reason === 'early' ? 'ui.toast.early' : 'ui.toast.late' }, { kind: 'warn', ms: 2000 });
+    });
+    E.on('fight:end', function (p) {
+      if (!p || !p.result || p.result === 'landed') return;
+      var cands = ['fish.escape.' + p.result, 'fish.escape.' + p.result + '.text'];
+      var shown = false;
+      for (var i = 0; i < cands.length; i++) if (D.has(cands[i])) { ui.toast({ key: cands[i] }, { kind: 'warn', ms: 4200 }); shown = true; break; }
+      if (!shown) ui.toast({ key: 'ui.toast.escape' }, { kind: 'warn' });
+      var sp = p.sp && D.safe(function () { return AQ.species.get(p.sp); }, null);
+      if (sp && sp.rarity === 'L') setTimeout(function () { ui.toast({ key: 'ui.toast.legendaryEscaped' }, { ms: 3000 }); }, 1200);
+    });
+    E.on('inventory:changed', function () {
+      var b = AQ.state.player && AQ.state.player.bait;
+      if (lastBait && b !== lastBait && b === 'massa') {
+        var n = AQ.state.player.baits ? AQ.state.player.baits[lastBait] : 1;
+        if (n === 0) ui.toast({ key: 'ui.toast.baitOut', vars: { name: N.bait('massa') } }, { kind: 'warn' });
+      }
+      lastBait = b;
+    });
+    E.on('scene:changed', function (p) {
+      lastBait = AQ.state.player && AQ.state.player.bait;
+      if (p.to !== 'fishing') return;
+      var z = (p.params && p.params.zone) || (AQ.state.player && AQ.state.player.zone);
+      if (['recife', 'kelp', 'mar', 'abismo'].indexOf(z) >= 0 && !ui.noteSeen(z) && !(AQ.tutorial && AQ.tutorial.active && AQ.tutorial.step < 8)) {
+        setTimeout(function () { if (AQ.scenes.current === 'fishing') ui.note(z); }, 1600);
+      }
+    });
+  });
+})(window.AQ);

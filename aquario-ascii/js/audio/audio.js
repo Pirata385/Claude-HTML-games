@@ -1,17 +1,309 @@
-// STUB created by A (phase 0). Owner E replaces this file entirely. Neutral returns only (§15.3 stub rule).
+// Água-Tinta — audio hub (owner E), §13. Web Audio only, no files.
+// Graph: buses music / sfx / ambience → master → DynamicsCompressor → destination. The context is created on the
+// first gesture (app:gesture), suspended on app:hidden, resumed on app:visible. Every gain change is ramped
+// (setTargetAtTime) so nothing clicks. Recipes live in sfx.js, music + ambience in music.js.
 (function (AQ) {
   'use strict';
-  AQ.audio = {
-    ready: false,
-    init: function () {},
-    unlock: function () { return Promise.resolve(); },
-    sfx: function (name, opts) {},
-    setMood: function (mood) {},
-    setAmbience: function (opts) {},
-    setTension: function (v) {},
-    reel: function (on, speed) {},
-    applyVolumes: function () {},
-    suspend: function () {},
-    resume: function () {}
+
+  var Ctor = (typeof window !== 'undefined') && (window.AudioContext || window.webkitAudioContext);
+  var duckOn = false;
+  var lastSfx = Object.create(null);
+
+  var A = AQ.audio = AQ.audio || {};
+  A.ready = false;
+  A.ctx = null;
+  A.bus = null;
+  A.recipes = A.recipes || {};
+  A.buffers = {};
+  A.state = { mood: 'title', amb: { zone: 'baia', underwater: 0, weather: 'limpo', phase: 'dia', scene: 'title' }, tension: null, reel: false, reelSpeed: 0 };
+
+  function vol(k) { var v = AQ.settings && AQ.settings.get(k); return typeof v === 'number' ? v : 0.6; }
+  function now() { return A.ctx ? A.ctx.currentTime : 0; }
+
+  // ---------------------------------------------------------------- shared helpers (used by sfx.js / music.js)
+  A.ramp = function (param, value, tc, at) {
+    if (!param || !A.ctx) return;
+    var t0 = at || A.ctx.currentTime;
+    try {
+      param.cancelScheduledValues(t0);
+      param.setValueAtTime(param.value, t0);
+      param.setTargetAtTime(value, t0, tc || 0.05);
+    } catch (e) { param.value = value; }
   };
+  // Percussive envelope on a GainNode's gain: 0 → peak in a, exponential decay to silence over d.
+  A.env = function (g, t0, a, d, peak) {
+    var p = g.gain;
+    p.cancelScheduledValues(t0);
+    p.setValueAtTime(0.0001, t0);
+    p.linearRampToValueAtTime(Math.max(0.0002, peak), t0 + Math.max(0.002, a));
+    p.exponentialRampToValueAtTime(0.0001, t0 + a + Math.max(0.01, d));
+    return t0 + a + d;
+  };
+  A.gain = function (v, dest) {
+    var g = A.ctx.createGain();
+    g.gain.value = v === undefined ? 1 : v;
+    if (dest) g.connect(dest);
+    return g;
+  };
+  A.osc = function (type, freq, dest) {
+    var o = A.ctx.createOscillator();
+    o.type = type || 'sine';
+    o.frequency.value = freq || 440;
+    if (dest) o.connect(dest);
+    return o;
+  };
+  A.filter = function (type, freq, q, dest) {
+    var f = A.ctx.createBiquadFilter();
+    f.type = type;
+    f.frequency.value = freq;
+    if (q !== undefined) f.Q.value = q;
+    if (dest) f.connect(dest);
+    return f;
+  };
+  A.noise = function (kind, dest, loop) {
+    var src = A.ctx.createBufferSource();
+    src.buffer = A.buffers[kind] || A.buffers.white;
+    src.loop = !!loop;
+    if (loop) src.loopStart = 0;
+    if (dest) src.connect(dest);
+    return src;
+  };
+  A.stopAt = function (node, t) { try { node.stop(t); } catch (e) { /* ignore */ } };
+  A.mtof = function (m) { return 440 * Math.pow(2, (m - 69) / 12); };
+
+  function makeBuffers() {
+    var sr = A.ctx.sampleRate;
+    function buf(sec, fill) {
+      var b = A.ctx.createBuffer(1, Math.floor(sr * sec), sr);
+      fill(b.getChannelData(0), sr);
+      return b;
+    }
+    var seed = 22222;
+    function rnd() { seed = (seed * 16807) % 2147483647; return seed / 2147483647 * 2 - 1; }
+    A.buffers.white = buf(2, function (d) { for (var i = 0; i < d.length; i++) d[i] = rnd(); });
+    A.buffers.brown = buf(4, function (d) {
+      var last = 0;
+      for (var i = 0; i < d.length; i++) { last = (last + 0.02 * rnd()) / 1.02; d[i] = last * 3.5; }
+      // smooth the loop seam
+      var n = Math.floor(sr * 0.05);
+      for (var j = 0; j < n; j++) { var k = j / n; d[d.length - n + j] = d[d.length - n + j] * (1 - k) + d[j] * k; }
+    });
+    A.buffers.pink = buf(3, function (d) {
+      var b0 = 0, b1 = 0, b2 = 0, b3 = 0, b4 = 0, b5 = 0, b6 = 0;
+      for (var i = 0; i < d.length; i++) {
+        var w = rnd();
+        b0 = 0.99886 * b0 + w * 0.0555179; b1 = 0.99332 * b1 + w * 0.0750759; b2 = 0.96900 * b2 + w * 0.1538520;
+        b3 = 0.86650 * b3 + w * 0.3104856; b4 = 0.55000 * b4 + w * 0.5329522; b5 = -0.7616 * b5 - w * 0.0168980;
+        d[i] = (b0 + b1 + b2 + b3 + b4 + b5 + b6 + w * 0.5362) * 0.11;
+        b6 = w * 0.115926;
+      }
+    });
+    // Karplus-Strong plucks (precomputed): 220 Hz twang for 'hook', 165 Hz for 'snap'.
+    function ks(freq, sec, damp) {
+      return buf(sec, function (d, rate) {
+        var N = Math.max(2, Math.round(rate / freq));
+        var ring = new Float32Array(N);
+        for (var i = 0; i < N; i++) ring[i] = rnd() * 0.8;
+        var idx = 0;
+        for (var j = 0; j < d.length; j++) {
+          var nx = (idx + 1) % N;
+          var v = (ring[idx] + ring[nx]) * 0.5 * damp;
+          d[j] = ring[idx];
+          ring[idx] = v;
+          idx = nx;
+        }
+        var fade = Math.floor(rate * 0.02);
+        for (var k = 0; k < fade; k++) d[d.length - 1 - k] *= k / fade;
+      });
+    }
+    A.buffers.ks220 = ks(220, 1.2, 0.996);
+    A.buffers.ks165 = ks(165, 0.9, 0.993);
+  }
+
+  function build() {
+    var ctx = A.ctx;
+    var comp = ctx.createDynamicsCompressor();
+    comp.threshold.value = -18; comp.knee.value = 12; comp.ratio.value = 3.5; comp.attack.value = 0.006; comp.release.value = 0.25;
+    comp.connect(ctx.destination);
+    var master = A.gain(0.0001, comp);
+    A.bus = {
+      master: master,
+      comp: comp,
+      music: A.gain(0, master),
+      sfx: A.gain(0, master),
+      ambience: A.gain(0, master)
+    };
+    makeBuffers();
+  }
+
+  // ---------------------------------------------------------------- public API (§15.5)
+  A.init = function () {
+    var E = AQ.events;
+    E.on('app:gesture', function () { A.unlock(); });
+    E.on('app:hidden', function () { A.suspend(); });
+    E.on('app:visible', function () { A.resume(); });
+    E.on('settings:changed', function (p) { if (p && /^vol/.test(p.key)) A.applyVolumes(); });
+    E.on('pause:changed', function (p) { A.duck(!!(p && p.paused)); });
+    E.on('scene:changed', function (p) { onScene(p.to, p.params || {}); });
+    E.on('world:phase', function () { refreshWorld(); });
+    E.on('world:weather', function () { refreshWorld(); });
+    wireSfx(E);
+    onScene((AQ.scenes && AQ.scenes.current) || 'title', {});
+  };
+
+  // unlock() → Promise. Creates/resumes the context; must run inside a user gesture the first time.
+  A.unlock = function () {
+    if (!Ctor) return Promise.resolve(false);
+    try {
+      if (!A.ctx) {
+        A.ctx = new Ctor({ latencyHint: 'interactive' });
+        build();
+        A.ready = true;
+        if (A.music && A.music.start) A.music.start();
+        A.applyVolumes(true);
+      }
+      var p = A.ctx.state === 'suspended' && !(typeof document !== 'undefined' && document.hidden) ? A.ctx.resume() : Promise.resolve();
+      return Promise.resolve(p).then(function () { return true; }, function () { return false; });
+    } catch (e) {
+      console.warn('[AQ.audio] unlock failed:', e);
+      return Promise.resolve(false);
+    }
+  };
+
+  A.applyVolumes = function (fadeIn) {
+    if (!A.ready) return;
+    var d = duckOn ? 0.35 : 1;
+    A.ramp(A.bus.master.gain, Math.max(0.0001, vol('volMaster')), fadeIn ? 0.6 : 0.05);
+    A.ramp(A.bus.music.gain, vol('volMusic') * 0.8 * d, 0.15);
+    A.ramp(A.bus.sfx.gain, vol('volSfx'), 0.05);
+    A.ramp(A.bus.ambience.gain, vol('volAmbience') * 0.9 * (duckOn ? 0.5 : 1), 0.15);
+  };
+  A.duck = function (on) { duckOn = !!on; A.applyVolumes(); };
+
+  A.suspend = function () {
+    if (!A.ctx || A.ctx.state !== 'running') return;
+    A.ramp(A.bus.master.gain, 0.0001, 0.02);
+    var c = A.ctx;
+    setTimeout(function () { if (typeof document === 'undefined' || document.hidden) c.suspend().catch(function () {}); }, 90);
+  };
+  A.resume = function () {
+    if (!A.ctx) return;
+    A.ctx.resume().then(function () { A.applyVolumes(true); }, function () {});
+  };
+
+  // sfx(name, opts?{vol, pitch, pan})
+  A.sfx = function (name, opts) {
+    if (!A.ready || !A.ctx || A.ctx.state !== 'running') return;
+    var r = A.recipes[name];
+    if (!r) return;
+    var t = A.ctx.currentTime;
+    var minGap = name === 'uiTap' ? 0.03 : name === 'coin' ? 0.07 : 0.04;
+    if (lastSfx[name] && t - lastSfx[name] < minGap) return;
+    lastSfx[name] = t;
+    var o = opts || {};
+    try {
+      var out = A.gain(o.vol === undefined ? 1 : o.vol, A.bus.sfx);
+      var dest = out;
+      if (o.pan && A.ctx.createStereoPanner) {
+        var pn = A.ctx.createStereoPanner();
+        pn.pan.value = Math.max(-1, Math.min(1, o.pan));
+        pn.connect(out);
+        dest = pn;
+      }
+      var end = r(A.ctx, dest, o, t + 0.005) || (t + 1);
+      setTimeout(function () { try { out.disconnect(); } catch (e) { /* ignore */ } }, Math.max(200, (end - t + 0.3) * 1000));
+    } catch (e) { /* never throw from audio */ }
+  };
+
+  A.setMood = function (mood) {
+    A.state.mood = mood || 'title';
+    if (A.music && A.music.setMood) A.music.setMood(A.state.mood);
+  };
+  // setAmbience({zone, underwater, weather, phase}) — partial updates allowed.
+  A.setAmbience = function (o) {
+    if (!o) return;
+    var a = A.state.amb;
+    for (var k in o) if (o[k] !== undefined) a[k] = o[k];
+    if (A.music && A.music.setAmbience) A.music.setAmbience(a);
+  };
+  A.setTension = function (v) {
+    A.state.tension = (v === null || v === undefined) ? null : Math.max(0, Math.min(1.6, +v || 0));
+    if (A.music && A.music.setTension) A.music.setTension(A.state.tension);
+  };
+  // reel(on, speed 0..1): ticks at a rate ∝ speed.
+  A.reel = function (on, speed) {
+    A.state.reel = !!on;
+    A.state.reelSpeed = Math.max(0, Math.min(1, speed === undefined ? 0.6 : +speed || 0));
+    if (A.music && A.music.setReel) A.music.setReel(A.state.reel, A.state.reelSpeed);
+  };
+
+  // ---------------------------------------------------------------- scene / world → mood + ambience
+  function worldBits() {
+    var n = AQ.ui && AQ.ui.dom ? AQ.ui.dom.worldNow() : { phase: 'dia', weather: 'limpo' };
+    return { phase: n.phase, weather: n.weather };
+  }
+  function onScene(scene, params) {
+    var w = worldBits();
+    var zone = params.zone || (AQ.state && AQ.state.player && AQ.state.player.zone) || 'baia';
+    if (scene === 'fishing') { A.setMood(zone); A.setAmbience({ scene: scene, zone: zone, underwater: 0, weather: w.weather, phase: w.phase }); }
+    else if (scene === 'map') { A.setMood('map'); A.setAmbience({ scene: scene, zone: 'baia', underwater: 0, weather: w.weather, phase: w.phase }); }
+    else if (scene === 'aquarium') { A.setMood('aquarium'); A.setAmbience({ scene: scene, zone: 'aquarium', underwater: 0.55, weather: 'limpo', phase: w.phase }); }
+    else if (scene === 'ending') { A.setMood('ending'); A.setAmbience({ scene: scene, zone: 'abismo', underwater: 0.2, weather: 'limpo', phase: 'noite' }); }
+    else { A.setMood('title'); A.setAmbience({ scene: 'title', zone: 'baia', underwater: 0, weather: 'limpo', phase: 'dia' }); }
+    if (scene !== 'fishing') { A.setTension(null); A.reel(false); }
+  }
+  function refreshWorld() {
+    var w = worldBits();
+    var sc = AQ.scenes && AQ.scenes.current;
+    if (sc === 'aquarium') A.setAmbience({ phase: w.phase });
+    else if (sc === 'fishing' || sc === 'map') A.setAmbience({ phase: w.phase, weather: w.weather });
+    if (A.music && A.music.refresh) A.music.refresh();
+  }
+
+  // ---------------------------------------------------------------- gameplay events → sfx (§15.9)
+  var TELL_SFX = { run: 'tellRun', dive: 'tellDive', jump: 'tellJump', shake: 'tellShake', burrow: 'tellBurrow', grip: 'tellGrip', ink: 'tellInk' };
+  function wireSfx(E) {
+    E.on('fish:cast', function () { A.sfx('cast'); });
+    E.on('fish:splash', function (p) {
+      var pan = 0;
+      if (p && typeof p.wx === 'number' && AQ.display && AQ.display.cols) pan = (p.wx / AQ.display.cols) * 2 - 1;
+      A.sfx(p && p.big ? 'splashBig' : 'splashSmall', { pan: pan * 0.6 });
+    });
+    E.on('bite:nibble', function () { A.sfx('nibble'); });
+    E.on('bite:strike', function () { A.sfx('bite'); });
+    E.on('fight:start', function (p) {
+      A.sfx('hook');
+      if (A.music && A.music.fight) A.music.fight(true, p && p.rarity === 'L');
+    });
+    E.on('fight:tell', function (p) { if (p && TELL_SFX[p.kind]) A.sfx(TELL_SFX[p.kind]); });
+    E.on('fight:phase', function () { A.sfx('tellDive', { vol: 0.8 }); });
+    E.on('fight:end', function (p) {
+      if (A.music && A.music.fight) A.music.fight(false);
+      A.setTension(null);
+      A.reel(false);
+      if (!p || p.result === 'landed') return;
+      A.sfx(p.result === 'snap' || p.result === 'fray' ? 'snap' : 'escape');
+    });
+    E.on('catch:landed', function (p) {
+      var sp = p && p.specimen && AQ.species && AQ.species.get ? AQ.species.get(p.specimen.sp) : null;
+      A.sfx('catch');
+      if (sp && sp.rarity === 'L') setTimeout(function () { A.sfx('legendary'); }, 350);
+      else if ((sp && sp.rarity === 'R') || (p && p.specimen && p.specimen.dense)) setTimeout(function () { A.sfx('rare'); }, 350);
+    });
+    E.on('species:new', function () { setTimeout(function () { A.sfx('newSpecies'); }, 200); });
+    E.on('sighting:new', function () { A.sfx('rare'); });
+    E.on('legendary:near', function () { A.sfx('legendary', { vol: 0.7 }); if (A.music && A.music.omen) A.music.omen(); });
+    E.on('message:found', function () { A.sfx('pearl'); });
+    E.on('wallet:changed', function (p) {
+      if (!p) return;
+      if (p.dCoins > 0 && p.reason !== 'buy' && p.reason !== 'debug') A.sfx('coin');
+      if (p.dPearls > 0) setTimeout(function () { A.sfx('pearl'); }, 90);
+    });
+    E.on('aquarium:fed', function () { A.sfx('feed'); });
+    E.on('aquarium:bred', function () { A.sfx('bubble'); setTimeout(function () { A.sfx('bubble', { pitch: 1.3 }); }, 120); });
+    E.on('achievement:unlocked', function () { /* goals.js plays 'rare' */ });
+    E.on('frenzy:start', function () { A.sfx('splashBig', { vol: 0.6 }); if (A.music && A.music.frenzy) A.music.frenzy(true); });
+    E.on('frenzy:end', function () { if (A.music && A.music.frenzy) A.music.frenzy(false); });
+    E.on('shop:denied', function () { if (!(AQ.ui && AQ.ui.isOpen && AQ.ui.isOpen('shop'))) A.sfx('error'); });
+  }
 })(window.AQ);

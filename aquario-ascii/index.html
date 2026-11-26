@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#0e0d0b">
+<title>Água-Tinta — ASCII Aquarium</title>
+<link rel="stylesheet" href="css/style.css">
+<link rel="stylesheet" href="css/ui.css">
+</head>
+<body>
+<div id="app">
+  <div id="stage"><canvas id="cv-bg"></canvas><canvas id="cv-main"></canvas><canvas id="cv-top"></canvas></div>
+  <div id="ui"></div>
+  <div id="boot">Água-Tinta · loading…</div>
+  <div id="fps" hidden></div>
+</div>
+<noscript>This game needs JavaScript.</noscript>
+<!-- core -->
+<script src="js/core/ns.js"></script>
+<script src="js/core/util.js"></script>
+<script src="js/core/rng.js"></script>
+<script src="js/core/events.js"></script>
+<script src="js/core/i18n.js"></script>
+<script src="js/core/store.js"></script>
+<!-- data -->
+<script src="js/data/strings-ui.js"></script>
+<script src="js/data/strings-world.js"></script>
+<script src="js/data/strings-fishing.js"></script>
+<script src="js/data/strings-economy.js"></script>
+<script src="js/data/sprites.js"></script>
+<script src="js/data/art.js"></script>
+<script src="js/data/species.js"></script>
+<script src="js/data/zones.js"></script>
+<script src="js/data/items.js"></script>
+<script src="js/data/goals.js"></script>
+<!-- logic (pure) -->
+<script src="js/logic/world.js"></script>
+<script src="js/logic/spawn.js"></script>
+<script src="js/logic/creatures.js"></script>
+<script src="js/logic/line.js"></script>
+<script src="js/logic/bite.js"></script>
+<script src="js/logic/fight.js"></script>
+<script src="js/logic/economy.js"></script>
+<script src="js/logic/aquarium.js"></script>
+<script src="js/logic/progress.js"></script>
+<script src="js/logic/game.js"></script>
+<!-- engine -->
+<script src="js/engine/theme.js"></script>
+<script src="js/engine/display.js"></script>
+<script src="js/engine/atlas.js"></script>
+<script src="js/engine/render.js"></script>
+<script src="js/engine/fx.js"></script>
+<script src="js/engine/input.js"></script>
+<script src="js/engine/scenes.js"></script>
+<script src="js/engine/perf.js"></script>
+<script src="js/engine/loop.js"></script>
+<script src="js/engine/debug.js"></script>
+<!-- audio / platform -->
+<script src="js/audio/audio.js"></script>
+<script src="js/audio/sfx.js"></script>
+<script src="js/audio/music.js"></script>
+<script src="js/platform/haptics.js"></script>
+<!-- ui -->
+<script src="js/ui/dom.js"></script>
+<script src="js/ui/hud.js"></script>
+<script src="js/ui/modals.js"></script>
+<script src="js/ui/menus.js"></script>
+<script src="js/ui/shop.js"></script>
+<script src="js/ui/bestiary.js"></script>
+<script src="js/ui/cards.js"></script>
+<script src="js/ui/goals.js"></script>
+<script src="js/ui/tutorial.js"></script>
+<!-- scenes -->
+<script src="js/scenes/title.js"></script>
+<script src="js/scenes/map.js"></script>
+<script src="js/scenes/fishing-bg.js"></script>
+<script src="js/scenes/fishing-hud.js"></script>
+<script src="js/scenes/fishing.js"></script>
+<script src="js/scenes/aquarium.js"></script>
+<script src="js/scenes/ending.js"></script>
+<!-- boot -->
+<script src="js/main.js"></script>
+</body>
+</html>

@@ -77,6 +77,9 @@ Open `index.html` in a browser (Chrome, Firefox or Safari). It works offline fro
 step. The game saves to `localStorage` automatically. Add `?debug=1` to the URL for the `AQ.debug` console helpers
 (`AQ.debug.help()`).
 
+**Android:** `android/` builds an installable APK of the game (`ANDROID_HOME=… android/build.sh`); see
+`android/README.md`.
+
 ## Tests
 
 ```sh
@@ -104,6 +107,7 @@ order of `index.html`.
 | `js/ui/` | DOM overlay: HUD, modals, menus, shop, notebook, cards, goals, tutorial |
 | `js/scenes/` | title, map, fishing, aquarium, ending |
 | `tests/` | Node test runner, tests and balance tools |
+| `android/` | Android wrapper (WebView app) and its build script for the APK |
 | `DESIGN.md` | the full design document |
 
 ## Credits

@@ -325,7 +325,7 @@
   pointer-events: none; white-space: normal;
 }
 .aq-hint.is-in { opacity: 1; }
-.aq-hint.is-out { opacity: 0; }
+.aq-hint.is-out { opacity: 0; transition-duration: .08s; }
 .aq-hint.is-big { background: var(--ink); color: var(--bg); font-weight: 700; font-size: var(--fs-l); padding: .5em 1em; border-color: var(--ink); }
 .aq-hint-caret { position: absolute; bottom: -1.15em; transform: translateX(-50%); color: var(--ink); line-height: 1; font-weight: 700; }
 .aq-hint.is-below .aq-hint-caret { bottom: auto; top: -1.15em; transform: translateX(-50%) rotate(180deg); }

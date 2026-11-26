@@ -86,15 +86,70 @@
   }
   function floorY(x) { return BG.floorY(x); }
   function surfY(x) { return AQ.fx.surface.height(x); }
-  function rodHand() { tmpQ.x = st.boat.x + st.dir * 1; tmpQ.y = st.boat.y - 4; return tmpQ; }
-  function updateTip() {
-    // rod tip: bends toward the line with tension
-    var T = st.fs ? st.fs.T : 0;
-    var bend = st.phase === 'fight' ? U.clamp(T, 0, 1.2) : 0;
-    var aimLift = st.phase === 'aiming' ? -1 : 0;
-    st.tip.x = st.boat.x + st.dir * (4 - bend * 1.2);
-    st.tip.y = st.boat.y - 7 + bend * 2.2 + aimLift;
+  // ---- boat + angler geometry (B's art: AQ.art.boats[tier] and AQ.art.angler poses with `tip`)
+  var geo = { boat: null, bh: 2, bw: 14, deck: 0, by: 0, pose: null, poseKey: 'idle', ax: 0, ay: 0, art: false };
+  function boatArt() {
+    var tier = (st.gear && st.gear.tiers && st.gear.tiers.boat) || safe(function () { return S().player.gear.boat; }, 1) || 1;
+    var a = AQ.art && ((AQ.art.boats && AQ.art.boats[tier]) || AQ.art.boat);
+    return a && a.frames ? a : null;
   }
+  function deckRow(fr) {
+    for (var r = 0; r < fr.length; r++) if (String(fr[r]).indexOf('._') >= 0) return r;
+    return 0;
+  }
+  function anglerPose() {
+    var an = AQ.art && AQ.art.angler;
+    var fsT = st.fs ? st.fs.T : 0, key = 'idle', idx = -1, src;
+    if (st.phase === 'landing') key = 'cheer';
+    else if (st.phase === 'aiming') key = 'windup';
+    else if (st.phase === 'flying' && st.flyT < 0.3) key = 'cast';
+    else if (st.phase === 'fight') key = 'reel';
+    src = (an && an[key]) || ANGLER_ART[key];
+    if (key === 'reel') { idx = Math.min(src.length - 1, Math.floor(U.clamp(fsT, 0, 1.2) * src.length / 1.1)); src = src[idx]; }
+    if (src && src.frames) src = src.frames[0];
+    geo.pose = src; geo.poseKey = key;
+    geo.art = !!(an && an.tip && an[key]);
+    var tip = null;
+    if (geo.art) { tip = an.tip[key]; if (idx >= 0 && tip) tip = tip[idx]; }
+    return tip;
+  }
+  // computes geo (boat box, angler box) and st.tip; called every update and before drawing
+  function placeBoat(t) {
+    var a = boatArt();
+    var bfr = a ? a.frames[Math.floor((t || 0) * (a.fps || 1)) % a.frames.length] : BOAT_ART;
+    var lines = bfr.lines || bfr;
+    geo.boat = bfr; geo.bh = lines.length; geo.deck = deckRow(lines);
+    var dl = String(lines[geo.deck] || ''); geo.bw = dl.replace(/\s+$/, '').length || 14;
+    var bob = AQ.fx.motion() < 1 ? 0 : Math.sin((t || 0) * 1.4) * 0.3;
+    geo.by = st.boat.y + bob - geo.bh * ASPECT / 2 + 1;
+    var tip = anglerPose();
+    var ah = geo.pose.length, aw = 9;
+    var deckTop = geo.by - geo.bh * ASPECT / 2 + geo.deck * ASPECT;
+    // stand toward the bow (the side we cast to) so cabins and sails stay clear
+    var off = geo.art ? Math.max(1, geo.bw / 2 - 3.5) : 1;
+    geo.ax = st.boat.x + st.dir * off;
+    geo.ay = deckTop - ah * ASPECT / 2 + 0.5;
+    if (geo.art) {
+      if (!tip) tip = geo.lastTip || AQ.art.angler.tip.idle;
+      geo.lastTip = tip;
+      var c = tip[0], r = tip[1];
+      var cx = st.dir < 0 ? (aw - 1 - c) : c;
+      st.tip.x = geo.ax - aw / 2 + cx + 0.5;
+      st.tip.y = geo.ay - ah * ASPECT / 2 + (r + 0.5) * ASPECT;
+    } else {
+      var T = st.fs ? st.fs.T : 0;
+      var bend = st.phase === 'fight' ? U.clamp(T, 0, 1.2) : 0;
+      var aimLift = st.phase === 'aiming' ? -1 : 0;
+      st.tip.x = st.boat.x + st.dir * (4 - bend * 1.2);
+      st.tip.y = st.boat.y - 7 + bend * 2.2 + aimLift;
+    }
+  }
+  function rodHand() {
+    tmpQ.x = geo.art ? geo.ax - st.dir * 0.5 : st.boat.x + st.dir * 1;
+    tmpQ.y = geo.art ? geo.ay + 1 : st.boat.y - 4;
+    return tmpQ;
+  }
+  function updateTip() { placeBoat(st.t); }
   function viewH() { return AQ.display.rows * ASPECT; }
 
   // ---------------------------------------------------------------- environment for B's creatures
@@ -797,6 +852,9 @@
         keyAim(dt);
         break;
       case 'aiming':
+        // a modal (note, hint card, pause) swallows the release: drop the aim instead of sticking in 'aiming'
+        if (AQ.input.blocked || !inScene()) { st.aim.on = false; st.press.on = false; setPhase('idle'); break; }
+        if (st.aim.key && !AQ.input.isDown('primary')) { cast(); break; }
         if (st.aim.key) {
           st.aim.power = Math.min(1, st.aim.power + dt / 1.2);
           var kx = (AQ.input.isDown('right') ? 1 : 0) - (AQ.input.isDown('left') ? 1 : 0);
@@ -1119,26 +1177,12 @@
 
   function drawBoat(t) {
     var R = R0;
-    var art = AQ.art && AQ.art.boat;
-    var bob = AQ.fx.motion() < 1 ? 0 : Math.sin(t * 1.4) * 0.3;
-    var bfr = art && art.frames ? art.frames[Math.floor(t * 1.2) % art.frames.length] : BOAT_ART;
-    var bh = bfr.length;
-    var by = st.boat.y + bob - bh * ASPECT / 2 + 1;
-    R.sprite(bfr, st.boat.x, by, { level: 12, flip: st.dir < 0, knock: true });
-    // angler
-    var an = AQ.art && AQ.art.angler, pose;
-    var fsT = st.fs ? st.fs.T : 0;
-    if (st.phase === 'landing') pose = (an && an.cheer) || ANGLER_ART.cheer;
-    else if (st.phase === 'aiming') pose = (an && an.windup) || ANGLER_ART.windup;
-    else if (st.phase === 'flying' && st.flyT < 0.3) pose = (an && an.cast) || ANGLER_ART.cast;
-    else if (st.phase === 'fight') { var rf = (an && an.reel) || ANGLER_ART.reel; pose = rf[Math.min(rf.length - 1, Math.floor(fsT * rf.length / 1.1))]; }
-    else pose = (an && an.idle) || ANGLER_ART.idle;
-    if (pose && pose.frames) pose = pose.frames[0];
-    var ah = pose.length;
-    R.sprite(pose, st.boat.x - st.dir * 1, by - (bh * ASPECT) / 2 - ah * ASPECT / 2 + 0.5, { level: 13, flip: st.dir < 0, knock: true });
-    // rod: from the hand to the tip
-    var hand = rodHand();
-    var hx = hand.x, hy = by - bh * ASPECT / 2 - ah + 0.5;
+    placeBoat(t);
+    R.sprite(geo.boat, st.boat.x, geo.by, { level: 12, flip: st.dir < 0, knock: true });
+    R.sprite(geo.pose, geo.ax, geo.ay, { level: 13, flip: st.dir < 0, knock: true });
+    if (geo.art) return; // B's poses already include the rod (it bends across the reel frames)
+    // fallback figure: rod from the hand to the tip, bending with tension
+    var hx = st.boat.x + st.dir * 1, hy = geo.ay - geo.pose.length * ASPECT / 2 + 1;
     var n = 4;
     for (var i = 1; i <= n; i++) {
       var k = i / n;

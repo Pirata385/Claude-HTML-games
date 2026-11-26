@@ -14,9 +14,9 @@ KS_PASS="${AGUATINTA_KS_PASS:-aguatinta}"
 OUT="$HERE/build"
 rm -rf "$OUT" && mkdir -p "$OUT"/{res,gen,classes,assets/game,dex}
 
-# 1. game files -> assets/game (code, styles, fonts, licence only)
+# 1. game files -> assets/game (code, styles, fonts + licence, sound files)
 cp "$GAME/index.html" "$OUT/assets/game/"
-cp -r "$GAME/css" "$GAME/js" "$GAME/fonts" "$OUT/assets/game/"
+cp -r "$GAME/css" "$GAME/js" "$GAME/fonts" "$GAME/audio" "$OUT/assets/game/"
 
 # 2. resources + manifest
 "$BT/aapt2" compile --dir "$HERE/res" -o "$OUT/res/res.zip"

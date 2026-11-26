@@ -110,6 +110,39 @@ input, textarea { -webkit-user-select: text; user-select: text; }
 }
 #boot.done { opacity: 0; pointer-events: none; }
 
+/* loading screen (js/ui/loading.js): logo, progress, [ Tap to start ] — theme colours + alpha only */
+#boot.aq-load {
+  flex-direction: column;
+  gap: .55em;
+  padding: calc(var(--safe-top) + 12px) calc(var(--safe-right) + 16px) calc(var(--safe-bottom) + 12px) calc(var(--safe-left) + 16px);
+  letter-spacing: 0;
+  text-align: center;
+  overflow: hidden;
+  -webkit-user-select: none;
+  user-select: none;
+}
+.aq-load-logo { margin: 0; font: inherit; line-height: 1.12; white-space: pre; color: var(--ink); }
+.aq-load-wave { margin: .15em 0 .9em; white-space: pre; color: rgb(var(--ink-rgb) / .35); }
+.aq-load-msg { color: rgb(var(--ink-rgb) / .7); }
+.aq-load-bar { margin: 0; font: inherit; white-space: pre; color: rgb(var(--ink-rgb) / .9); }
+.aq-load-go {
+  margin-top: .7em;
+  padding: .75em 1.2em;
+  font: inherit;
+  font-weight: 700;
+  color: var(--ink);
+  background: transparent;
+  border: 0;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  animation: aq-load-blink 1.6s ease-in-out infinite;
+}
+.aq-load-go:focus { outline: none; }
+.aq-load-go:focus-visible { outline: 1px dashed rgb(var(--ink-rgb) / .5); outline-offset: 2px; }
+.aq-load-note { min-height: 2.6em; max-width: 32em; font-size: .8em; line-height: 1.35; color: rgb(var(--ink-rgb) / .5); }
+@keyframes aq-load-blink { 50% { opacity: .45; } }
+@media (prefers-reduced-motion: reduce) { .aq-load-go { animation: none; } }
+
 #fps {
   position: absolute;
   z-index: 90;

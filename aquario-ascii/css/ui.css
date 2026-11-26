@@ -706,10 +706,3 @@
 
 /* focus ring for anything else focusable */
 .aq-ui [tabindex]:focus-visible:not(.aq-slider) { outline: 1px solid var(--ink); outline-offset: 2px; }
-
-/* Settings → Sound check */
-.aq-soundcheck { margin: 6px 0 14px; display: flex; flex-direction: column; gap: 8px; }
-.aq-soundcheck-b { display: flex; flex-wrap: wrap; gap: 8px; }
-.aq-soundcheck-res { margin: 0; min-height: 1.4em; word-break: break-word; }
-.aq-soundcheck-st { margin: 0; padding: 8px; font: inherit; font-size: 0.78em; line-height: 1.4; white-space: pre-wrap; word-break: break-word;
-  border: 1px dashed rgb(var(--ink-rgb) / .3); color: rgb(var(--ink-rgb) / .75); }

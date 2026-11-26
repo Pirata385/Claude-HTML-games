@@ -27,6 +27,8 @@
     var forced = '';
     try { forced = (/[?&]audio=(html|webaudio|off)\b/.exec(W.location.search) || [])[1] || ''; } catch (e) { forced = ''; }
     if (forced === 'off') return 'none';
+    // Settings → Sound engine: 'compat' plays through <audio> elements (for devices where Web Audio is silent)
+    if (!forced && engine() === 'compat') forced = 'html';
     var file = false;
     try { file = W.location.protocol === 'file:'; } catch (e) { file = false; }
     if (forced !== 'html' && !file && Ctor && OffCtor && W.fetch) return 'webaudio';
@@ -34,6 +36,30 @@
     return Ctor && OffCtor && W.fetch ? 'webaudio' : 'none';
   }
   function vol(k) { var v = AQ.settings && AQ.settings.get(k); return typeof v === 'number' ? v : 0.6; }
+  function engine() { try { return (AQ.settings && AQ.settings.get && AQ.settings.get('audioEngine')) || 'auto'; } catch (e) { return 'auto'; } }
+
+  // Auto engine: on some devices the Web Audio output never renders (the context says 'running' but its clock
+  // does not move). Check the clock once it runs; if it is stuck, switch to the compatible <audio> engine.
+  var clockWatch = false;
+  function watchClock() {
+    var c = A.ctx;
+    if (clockWatch || !c || c.state !== 'running') return;
+    clockWatch = true;
+    var t0 = c.currentTime, w0 = Date.now();
+    setTimeout(function () {
+      if (A.ctx !== c) return;
+      if (c.state !== 'running') { clockWatch = false; return; }
+      var adv = c.currentTime - t0, wall = (Date.now() - w0) / 1000;
+      A.clockOk = adv > wall * 0.5;
+      if (!A.clockOk && engine() === 'auto') fallbackToCompat();
+    }, 1200);
+  }
+  function fallbackToCompat() {
+    try { AQ.settings.set('audioEngine', 'compat'); } catch (e) { /* ignore */ }
+    try { if (AQ.ui && AQ.ui.toast) AQ.ui.toast({ key: 'ui.toast.audioCompat' }, { kind: 'warn' }); } catch (e2) { /* ignore */ }
+    try { if (AQ.store && AQ.store.flush) AQ.store.flush('audio-engine'); } catch (e3) { /* ignore */ }
+    setTimeout(function () { try { W.location.reload(); } catch (e4) { /* ignore */ } }, 1800);
+  }
   function clamp(x, a, b) { return x < a ? a : x > b ? b : x; }
   A.now = function () { return A.ctx ? A.ctx.currentTime : Date.now() / 1000; };
   A.webaudio = function () { return A.mode === 'webaudio' && !!A.ctx && !!A.bus; };
@@ -461,11 +487,13 @@
       if (!A.ctx) {
         A.ctx = new Ctor({ latencyHint: 'interactive' });
         A.ctx.onstatechange = function () {
+          if (A.ctx.state === 'running') watchClock();
           if (A.ctx.state !== 'running' && A.ctx.state !== 'closed' && !(typeof document !== 'undefined' && document.hidden)) armUnlock();
         };
         build();
         A.ready = true;
         A.applyVolumes(true);
+        setTimeout(watchClock, 50);
         if (A.music && A.music.start) A.music.start();
       }
       var hidden = typeof document !== 'undefined' && document.hidden;
@@ -541,24 +569,34 @@
     }
     return d;
   };
-  // testBeep('direct' | 'mix') → Promise<string>. 'direct' = an oscillator straight into the speakers in a
-  // brand-new plain AudioContext (the Ring of Beakers way, nothing of ours in the path); 'mix' = through the
-  // game's own context and master chain. Call from a click so the browser allows it.
+  // testBeep(route) → Promise<string>, from a click. route: 'direct' = a fresh plain AudioContext straight to
+  // the speakers (default options); 'playback' = the same with latencyHint 'playback'; 'rb' = 32 kHz +
+  // 'playback' (Ring of Beakers' music context); 'mix' = through the game's own context and master chain.
+  // The result also says whether the context's clock moved (a stuck clock means nothing is rendered).
+  var BEEP_OPTS = { direct: null, playback: { latencyHint: 'playback' }, rb: { sampleRate: 32000, latencyHint: 'playback' } };
   A.testBeep = function (route) {
     var Ctor2 = (typeof window !== 'undefined') && (window.AudioContext || window.webkitAudioContext);
     if (!Ctor2) return Promise.resolve('no Web Audio in this browser');
     try {
-      var c = route === 'mix' ? A.ctx : new Ctor2();
-      if (!c) return Promise.resolve('game audio not started yet');
-      var dest = route === 'mix' ? (A.bus && A.bus.sfx) : c.destination;
+      var own = route !== 'mix', c;
+      if (own) { var o0 = BEEP_OPTS[route]; try { c = o0 ? new Ctor2(o0) : new Ctor2(); } catch (eo) { c = new Ctor2(); } }
+      else c = A.ctx;
+      if (!c) return Promise.resolve('game audio not started (engine: ' + A.mode + ')');
+      var dest = own ? c.destination : (A.bus && A.bus.sfx);
       if (!dest) return Promise.resolve('no mix bus');
       var go = function () {
-        var t = c.currentTime + 0.03, o = c.createOscillator(), g = c.createGain();
+        var t = c.currentTime + 0.03, o = c.createOscillator(), g = c.createGain(), t0 = c.currentTime;
         o.type = 'square'; o.frequency.setValueAtTime(660, t); o.frequency.setValueAtTime(880, t + 0.18);
         g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(0.25, t + 0.02); g.gain.setValueAtTime(0.25, t + 0.32); g.gain.linearRampToValueAtTime(0.0001, t + 0.4);
         o.connect(g); g.connect(dest); o.start(t); o.stop(t + 0.45);
-        if (route !== 'mix') setTimeout(function () { try { c.close(); } catch (e) { /* ignore */ } }, 900);
-        return c.state + ' @ ' + c.sampleRate + ' Hz';
+        return new Promise(function (res) {
+          setTimeout(function () {
+            var adv = c.currentTime - t0;
+            var out = c.state + ' @ ' + c.sampleRate + ' Hz · clock ' + (adv > 0.2 ? '+' + adv.toFixed(2) + ' s' : 'STUCK (' + adv.toFixed(2) + ' s)');
+            if (own) { try { c.close(); } catch (e) { /* ignore */ } }
+            res(out);
+          }, 500);
+        });
       };
       var r = c.state === 'running' ? null : c.resume();
       return Promise.resolve(r).then(go, function (e) { return 'resume refused: ' + (e && e.name || e); });
@@ -577,6 +615,7 @@
   };
 
   A.init = function () {
+    A.mode = pickMode();
     var E = AQ.events;
     E.on('app:gesture', function () { if (A.started) A.unlock(); });
     E.on('app:hidden', function () { A.suspend(); });

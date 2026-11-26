@@ -52,7 +52,9 @@ The reel button sits on your dominant-hand side (Settings → Hand).
 
 All settings apply immediately and are saved in the browser.
 
-- **Sound:** master, music, effects and ambience volumes.
+- **Sound:** master, music, effects and ambience volumes; **Sound engine** (Auto / Web Audio / Compatible —
+  Compatible plays through the browser's media player, for devices where Web Audio stays silent; Auto switches
+  to it by itself when the Web Audio clock does not move); **Sound check** with test beeps and a live status.
 - **Display:** quality (auto / high / medium / low — auto steps down on slow devices), motion (fluid or classic
   grid), reduce motion, glyph size, interface scale, theme (Paper unlocks when you finish the story), high
   contrast, show FPS, fullscreen (also a **Fullscreen** button on the title screen, hidden where the browser

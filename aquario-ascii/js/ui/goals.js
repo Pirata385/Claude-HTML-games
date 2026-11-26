@@ -111,34 +111,50 @@
     }
   });
 
-  // ---------------------------------------------------------------- goals peek (non-modal, slides in)
-  var peek = null, peekTimer = 0;
+  // ---------------------------------------------------------------- goals chip (QA: was an auto-opening panel)
+  // A small "[*] Goals 3/28" chip, shown for a few seconds after a goal completes (fishing only; deferred while a
+  // bite or fight is on). It opens the Goals screen only when tapped. On the map / aquarium the nav's Goals button
+  // already carries the count, so it just pulses there instead of covering the tank.
+  var peek = null, peekTimer = 0, peekWait = 0;
+  function busyFishing() {
+    var ph = AQ.fishing && AQ.fishing.phase;
+    return ph === 'nibble' || ph === 'bite' || ph === 'fight' || ph === 'landing' || ui.isModal();
+  }
   function showPeek(justDone) {
     var L = ui.layer('hud');
     if (!L) return;
+    var scene = AQ.scenes && AQ.scenes.current;
+    if (scene === 'map' || scene === 'aquarium') {
+      if (ui.hud && ui.hud.pulse) { ui.hud.pulse('nav:goals', true); setTimeout(function () { ui.hud.pulse('nav:goals', false); }, 4000); }
+      return;
+    }
+    if (scene !== 'fishing') return;
+    clearTimeout(peekWait);
+    if (busyFishing()) { peekWait = setTimeout(function () { showPeek(justDone); }, 1000); return; }
     if (!peek) {
-      peek = el('aside.aq-peek', { 'aria-live': 'polite' });
+      peek = el('button.aq-peek', { type: 'button', 'aria-live': 'polite', 'data-fid': 'goalsChip' });
+      peek.addEventListener('click', function () { D.feedback('uiTap'); peek.classList.remove('is-in'); ui.show('goals'); });
       L.appendChild(peek);
     }
+    var chain = D.safe(function () { return AQ.goals.chain; }, []) || [];
+    var doneMap = (st().progress && st().progress.goalsDone) || {};
+    var doneN = chain.filter(function (g) { return doneMap[g.id]; }).length;
     D.clear(peek);
-    peek.appendChild(el('div.aq-peek-h', { text: t('ui.goals.title') }));
-    var s = st();
-    var rows = [];
-    (justDone || []).forEach(function (id) {
-      var g = (D.safe(function () { return AQ.goals.chain; }, []) || []).filter(function (x) { return x.id === id; })[0];
-      if (g) rows.push(goalRow(g, true));
-    });
-    (D.safe(function () { return AQ.progress.activeGoals(s); }, []) || []).slice(0, 3).forEach(function (g) { if (g) rows.push(goalRow(g, false)); });
-    rows.slice(0, 4).forEach(function (r) { peek.appendChild(r); });
+    peek.appendChild(el('span.aq-peek-g', { text: '[*] ', 'aria-hidden': 'true' }));
+    peek.appendChild(el('span', { text: t('ui.goals.title') + ' ' + t('ui.goals.count', { n: doneN, total: chain.length || AQ.ENUM.GOALS.length }) }));
+    if (justDone && justDone.length) peek.appendChild(el('span.aq-peek-new', { text: ' +' + justDone.length }));
     var ins = ui.hudInsets();
     peek.style.top = (ins.top + 8) + 'px';
     peek.classList.remove('is-in');
     void peek.offsetWidth;
     peek.classList.add('is-in');
     clearTimeout(peekTimer);
-    peekTimer = setTimeout(function () { if (peek) peek.classList.remove('is-in'); }, 5200);
+    peekTimer = setTimeout(function () { if (peek) peek.classList.remove('is-in'); }, 6000);
   }
   ui.goalsPeek = showPeek;
+  ui.onInit(function () {
+    AQ.events.on('scene:changed', function () { clearTimeout(peekWait); if (peek) peek.classList.remove('is-in'); });
+  });
 
   var pendingDone = [], peekDebounce = 0;
   ui.onInit(function () {

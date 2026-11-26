@@ -104,7 +104,7 @@
       for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) oo[k] = o[k];
       oo.school = school; oo.dir = dir;
       oo.x = (o.x || 0) + r.range(-1, 1) * Math.max(2, n * 0.8) - dir * i * 0.6;
-      oo.y = (o.y || 0) + r.range(-1, 1) * 3;
+      oo.y = (o.y || 0) + r.range(-1, 1) * Math.max(3, n * 1.1);
       out.push(create(id, oo, r));
     }
     return out;
@@ -195,22 +195,26 @@
     var s = d.school, mem = s ? s.members : null;
     if (!mem || mem.length < 2 || mem[0] === c) { edgeTurn(c, d, B); wander(c, d, dt, cs); TK = 1; return; }
     var leader = mem[0], n = 0, avx = 0, avy = 0, px = 0, py = 0, sx = 0, sy = 0;
-    var sep = Math.max(2.5, c.w * 0.9);
-    for (var i = 0; i < mem.length && n < 7; i++) {
+    // QA: box-shaped separation (sprites are wide and short), so schools spread in layers instead of piling up
+    var rx = Math.max(2.5, c.w * 1.1), ry = Math.max(2.5, c.h * ASPECT * 1.2);
+    for (var i = 0; i < mem.length; i++) {
       var o = mem[i];
       if (o === c) continue;
+      var dx = c.x - o.x, dy = c.y - o.y, adx = dx < 0 ? -dx : dx, ady = dy < 0 ? -dy : dy;
+      if (adx < rx && ady < ry) {
+        var ox = 1 - adx / rx, oy = 1 - ady / ry;
+        var syn = ady > 1e-3 ? (dy > 0 ? 1 : -1) : ((c.uid & 1) ? 1 : -1);
+        sy += syn * oy * (adx < rx * 0.8 ? 1.6 : 0.6);
+        sx += (adx > 1e-3 ? (dx > 0 ? 1 : -1) : ((c.uid & 2) ? 1 : -1)) * ox * 1.1;
+      }
+      if (n >= 7) continue;
       n++;
       avx += o.vx; avy += o.vy; px += o.x; py += o.y;
-      var dx = c.x - o.x, dy = c.y - o.y, d2 = dx * dx + dy * dy;
-      if (d2 < sep * sep && d2 > 1e-4) {
-        var dist = Math.sqrt(d2), k = (sep - dist) / sep;
-        sx += dx / dist * k; sy += dy / dist * k;
-      }
     }
     avx /= n; avy /= n; px /= n; py /= n;
     var loose = d.mode === 'tank' ? 0.45 : 1;
-    TX = avx * 0.6 + (px - c.x) * 0.5 * loose + sx * cs * 1.5 + (leader.x - c.x) * 0.12 * loose + leader.vx * 0.3;
-    TY = avy * 0.6 + (py - c.y) * 0.5 * loose + sy * cs * 1.5 + (leader.y - c.y) * 0.12 * loose;
+    TX = avx * 0.6 + (px - c.x) * 0.3 * loose + sx * cs * 2 + (leader.x - c.x) * 0.1 * loose + leader.vx * 0.3;
+    TY = avy * 0.6 + (py - c.y) * 0.3 * loose + sy * cs * 2 + (leader.y - c.y) * 0.1 * loose;
     var m = Math.sqrt(TX * TX + TY * TY), cap = cs * 1.5;
     if (m > cap) { TX *= cap / m; TY *= cap / m; }
     TK = 2.2;
@@ -404,7 +408,7 @@
       if (d.loseT > 5 || d.staticT > 3) { disengage(c, d, env, null); return true; }
       if (d.invT <= 0 && !engaged) {
         c.state = 'nibble';
-        d.nibLeft = env.frenzy ? 0 : d.rng.int((d.species.wariness || 0) + 1);
+        d.nibLeft = env.frenzy ? 0 : Math.max(env.minNibbles || 0, d.rng.int((d.species.wariness || 0) + 1));
         d.nibGap = 0; d.biteT = 0; d.bitten = false;
         d.engDir = c.x < hook.x ? 1 : -1;
       }
@@ -623,9 +627,10 @@
       for (var j = i + 1; j < n; j++) {
         var b = list[j], db = b.data;
         if (b.hooked || b.state === 'gone' || b.state === 'buried' || b.state === 'nibble' || b.state === 'bite' || db.beh === 'ambient' || db.leaping) continue;
-        if (da.school && da.school === db.school) continue;
+        var same = da.school && da.school === db.school;
         var dx = b.x - a.x, dy = b.y - a.y;
-        var rx = (a.w + b.w) * 0.42, ry = (a.h + b.h) * ASPECT * 0.42;
+        // schoolmates steer apart in stSchool; here only heavy overlaps get the hard nudge
+        var rx = (a.w + b.w) * (same ? 0.3 : 0.42), ry = (a.h + b.h) * ASPECT * (same ? 0.3 : 0.42);
         var adx = dx < 0 ? -dx : dx, ady = dy < 0 ? -dy : dy;
         if (adx < rx && ady < ry) {
           var ox = (rx - adx) / rx, oy = (ry - ady) / ry, f = Math.min(ox, oy) * 6 * dt;

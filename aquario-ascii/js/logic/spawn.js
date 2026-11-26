@@ -83,7 +83,12 @@
     var sp = asSpecies(species);
     if (!sp || sp.behavior !== 'school') return 1;
     var r = rng || AQ.rng.global;
-    return AQ.species.sizeIndex(sp) >= 2 ? r.irange(3, 5) : r.irange(4, 8);
+    if (AQ.species.sizeIndex(sp) >= 2) return r.irange(3, 5);
+    // QA: wide sprites (≥ 10 cols: mullet, surgeon, sargo, mackerel) piled into unreadable blobs at 4–8
+    var sd = AQ.sprites && AQ.sprites.get ? AQ.sprites.get(sp.id) : null;
+    var f = sd && sd.frames && sd.frames[0];
+    var w = f && f.lines ? f.w : (f && f[0] ? f[0].length : 0);
+    return w >= 10 ? r.irange(3, 4) : r.irange(4, 8);
   }
 
   // kg rounding: 3 significant digits below 1 kg (so tiny fish never read 0), 2 decimals above.

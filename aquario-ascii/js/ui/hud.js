@@ -15,8 +15,6 @@
   var contemplating = false;
   var reelHeld = false;
 
-  var PHASE_GLYPH = { amanhecer: '^', dia: 'o', entardecer: 'v', noite: '(' };
-  var WEATHER_GLYPH = { limpo: '*', nublado: '~', chuva: "'", tempestade: '/' };
 
   function st() { return AQ.state; }
   function set(node, key, s) {
@@ -243,13 +241,16 @@
     var time = F.clock(now.minutes);
     var clockFull = t('hud.clock', { time: time, phase: N.phase(now.phase), weather: N.weather(now.weather) });
     set(nodes.clock, 'clock', clockFull);
-    set(nodes.clockShort, 'clockShort', time + ' ' + (PHASE_GLYPH[now.phase] || '') + ' ' + (WEATHER_GLYPH[now.weather] || ''));
+    // QA: words instead of the cryptic '^ *' glyphs (phase and weather names are short in English)
+    // (the narrow top bar shows time + phase; the weather word moves to the zone sub-line while fishing)
+    set(nodes.clockShort, 'clockShort', time + ' ' + N.phase(now.phase));
+    if (nodes.center.title !== clockFull) nodes.center.title = clockFull;
 
     var where = '', sub = '';
     if (mode === 'fishing') {
       var z = (AQ.scenes.params && AQ.scenes.params.zone) || p.zone || 'baia';
       where = N.zone(z).toUpperCase();
-      sub = where;
+      sub = where + ' · ' + N.weather(now.weather);
     } else if (mode === 'aquarium') {
       var tk = currentTank();
       var list = tanks();

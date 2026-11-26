@@ -421,7 +421,7 @@ In the dark:
 
 ### 5.5 Spawning
 
-- Live population in the fishing scene: `N = round(maxCreatures(quality) · zone.popFactor · clamp(sqrt(cols/60), .8, 1.4))`. A school counts as its members (`schoolSize` 4–8 for `school` behaviour).
+- Live population in the fishing scene: `N = round(maxCreatures(quality) · zone.popFactor · clamp(sqrt(cols/60), .8, 1.4))`. A school counts as its members (`schoolSize` 4–8 for `school` behaviour; 3–5 for M+ and 3–4 for sprites ≥ 10 cols wide).
 - Creatures spawn off-screen left or right, inside their depth band, and despawn 20 u past the edge unless engaged.
 - `weight = RARITY_W[rarity] · timeOK · weatherOK · weatherMul · (1 + .5·affinity(bait)) · (rarity ≥ R ? 1 + luck : 1)`, with `RARITY_W = {C:100, U:35, R:8, L:0}`. Legendaries spawn only through `legendaryReady`.
 

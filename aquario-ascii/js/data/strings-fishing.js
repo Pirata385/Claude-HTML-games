@@ -64,12 +64,13 @@
         shop: 'SHOP',
         pier: 'pier',
         forecast: 'Forecast: {list}',
-        locked: '?????',
+        locked: 'LOCKED',
         species: '{n}/{total}',
-        requires: '[{item}]',
+        requires: 'needs {item}',
+        needSpecies: '{n} species ({have}/{n})',
         boat: 'Boat {n}',
-        hint: 'Tap a water to fish',
-        hintKeys: '← → choose · Enter to fish',
+        hint: 'Tap a zone to go fishing',
+        hintKeys: '← → choose a zone · Enter to fish',
         new: 'new!'
       }
     }

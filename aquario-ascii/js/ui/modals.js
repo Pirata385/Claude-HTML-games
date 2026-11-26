@@ -7,7 +7,7 @@
 
   // ================================================================ toasts
   var toastBox = null, toasts = [];
-  var MAX_TOASTS = 3;
+  var MAX_TOASTS = 2;
   function toastLayer() {
     if (!toastBox) {
       var L = ui.layer('toast');
@@ -17,17 +17,49 @@
     }
     return toastBox;
   }
-  // toast(msg:string|{key,vars}, opts?{kind:'info'|'good'|'warn'|'rare', ms=2600})
+  // toast(msg:string|{key,vars}, opts?{kind:'info'|'good'|'warn'|'rare', ms=2600, now})
+  // QA: toasts are queued and shown one at a time (stacks of 3 covered the scene); while a nibble, bite or fight is
+  // on they wait until it ends. opts.now shows at once (fight tips, line warnings).
+  var queue = [], pumpTimer = 0;
+  function busy() {
+    var ph = AQ.fishing && AQ.fishing.phase;
+    if (ui.top && ui.top() === 'catchCard') return true; // never cover the card's choices
+    return AQ.scenes && AQ.scenes.current === 'fishing' && (ph === 'nibble' || ph === 'bite' || ph === 'fight');
+  }
+  function live() { return toasts.filter(function (x) { return !x.gone; }); }
   function toast(msg, opts) {
-    var box = toastLayer();
-    if (!box) return;
     var o = opts || {};
     var text = typeof msg === 'string' ? msg : (msg && msg.key ? t(msg.key, msg.vars) : '');
     if (!text) return;
-    // de-dupe identical toasts that are still visible
+    // de-dupe identical toasts that are still visible or waiting
     for (var i = 0; i < toasts.length; i++) {
       if (toasts[i].text === text && !toasts[i].gone) { restart(toasts[i], o.ms); return; }
     }
+    for (var j = 0; j < queue.length; j++) if (queue[j].text === text) return;
+    if (o.now) { showToast(text, o); return; }
+    queue.push({ text: text, o: o });
+    // keep the backlog short: drop the oldest plain info toast
+    if (queue.length > 6) {
+      for (var k = 0; k < queue.length; k++) if ((queue[k].o.kind || 'info') === 'info') { queue.splice(k, 1); break; }
+      if (queue.length > 6) queue.shift();
+    }
+    pump();
+  }
+  function pump() {
+    clearTimeout(pumpTimer);
+    pumpTimer = 0;
+    if (!queue.length) return;
+    if (busy() || live().length >= 1) { pumpTimer = setTimeout(pump, 350); return; }
+    var q = queue.shift(), o = {};
+    for (var k in q.o) o[k] = q.o[k];
+    var ms = o.ms || 2600;
+    if (queue.length >= 2) ms = Math.min(ms, 1800);
+    o.ms = ms;
+    showToast(q.text, o);
+  }
+  function showToast(text, o) {
+    var box = toastLayer();
+    if (!box) return;
     var kind = o.kind || 'info';
     var glyph = { good: '+', warn: '!', rare: '*', info: '·' }[kind] || '·';
     var node = el('div.aq-toast.is-' + kind, null, [el('span.aq-toast-g', { text: glyph, 'aria-hidden': 'true' }), el('span.aq-toast-t', { text: text })]);
@@ -35,10 +67,7 @@
     node.addEventListener('pointerdown', function () { dismiss(item); });
     box.appendChild(node);
     toasts.push(item);
-    while (toasts.filter(function (x) { return !x.gone; }).length > MAX_TOASTS) {
-      var old = toasts.filter(function (x) { return !x.gone; })[0];
-      dismiss(old);
-    }
+    while (live().length > MAX_TOASTS) dismiss(live()[0]);
     requestAnimationFrame(function () { node.classList.add('is-in'); });
     restart(item, o.ms);
     positionToasts();
@@ -56,6 +85,7 @@
     setTimeout(function () {
       if (item.node.parentNode) item.node.parentNode.removeChild(item.node);
       toasts.splice(toasts.indexOf(item), 1);
+      if (queue.length && !pumpTimer) pump();
     }, 260);
   }
   function positionToasts() {
@@ -210,7 +240,8 @@
         var stage = document.getElementById('stage');
         var sr = stage ? stage.getBoundingClientRect() : { left: 0, top: 0 };
         var py = p.y + sr.top;
-        if (py < H * 0.3) return { x: p.x + sr.left, y: Math.max(py + 18, ins.top + 10), below: true };
+        // QA: scene anchors in the top 45 % put the bubble below the point (it covered the boat on short screens)
+        if (py < H * 0.45) return { x: p.x + sr.left, y: Math.max(py + 18, ins.top + 10), below: true };
         return { x: p.x + sr.left, y: py - 10 };
       }
     }

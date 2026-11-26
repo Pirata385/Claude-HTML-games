@@ -149,7 +149,7 @@
         record: "Record: {len}",
         recordNew: "New record!",
         keep: "Keep",
-        keepSub: "{tank} {used}/{cap}",
+        keepSub: "{tank} · {used}/{cap}",
         keepNone: "no room",
         keepNo: "cannot stay",
         sell: "Sell",

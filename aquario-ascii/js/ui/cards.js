@@ -30,7 +30,12 @@
       var title = isNew ? t('ui.catch.new') : t('ui.catch.title');
       var p = D.panel({ title: title, cls: 'aq-catch' + (isNew ? ' is-new' : '') });
       var art = D.spriteOf(spec.sp);
-      var pre = D.sprite(art || ['><>'], { scale: 2, dense: !!spec.dense, cls: 'aq-catch-art' });
+      // QA: scale the sprite to the card (small fish were tiny in a big empty card)
+      var fw = 3;
+      ((art && art.frames && art.frames[0]) || ['><>']).forEach(function (l) { if (l.length > fw) fw = l.length; });
+      var narrow = window.matchMedia && window.matchMedia('(max-width: 560px)').matches;
+      var scale = narrow ? Math.max(1.3, Math.min(2.6, 20 / fw)) : Math.max(1.6, Math.min(3.2, 26 / fw));
+      var pre = D.sprite(art || ['><>'], { scale: Math.round(scale * 10) / 10, dense: !!spec.dense, cls: 'aq-catch-art' });
       p.body.appendChild(el('div.aq-catch-stage', null, pre));
       var nameRow = el('div.aq-catch-name', null, [
         el('span.aq-name', { text: N.species(spec.sp).toUpperCase() }), stars(s.rarity || 'C'), el('span.aq-dim', { text: N.rarity(s.rarity || 'C') })
@@ -60,7 +65,7 @@
       var keepSub;
       if (!keepable) keepSub = t('ui.catch.keepNo');
       else if (!tk) keepSub = t('ui.catch.keepNone');
-      else { var u = usage(tk); keepSub = t('ui.catch.keepSub', { tank: N.tankShort(tk), used: u.used, cap: u.cap }); }
+      else { var u = usage(tk); keepSub = t('ui.catch.keepSub', { tank: N.tank(tk), used: u.used, cap: u.cap }); }
       var tut = AQ.tutorial && AQ.tutorial.active && AQ.tutorial.step === 7;
       var keep = D.btn(t('ui.catch.keep'), function () { choose(inst, 'keep'); }, { key: '1', sub: keepSub, fid: 'keep', disabled: !tk, def: !!tk, primary: tut, cls: 'aq-choice' });
       var sell = D.btn(t('ui.catch.sell'), function () { choose(inst, 'sell'); }, { key: '2', sub: AQ.i18n.money(value), fid: 'sell', def: !tk, sfx: false, cls: 'aq-choice' + (tut ? ' is-dimmed' : '') });
@@ -471,9 +476,9 @@
       if (!p || !p.id) return;
       setTimeout(function () { ui.note('msg:' + p.id); }, 500);
     });
-    E.on('frenzy:start', function () { ui.toast({ key: 'ui.toast.frenzy' }, { kind: 'rare', ms: 3000 }); });
+    E.on('frenzy:start', function () { ui.toast({ key: 'ui.toast.frenzy' }, { kind: 'rare', ms: 3000, now: true }); });
     E.on('frenzy:end', function () { ui.toast({ key: 'ui.toast.frenzyEnd' }, { ms: 2000 }); });
-    E.on('legendary:near', function () { ui.toast({ key: 'ui.toast.legendary' }, { kind: 'rare', ms: 4200 }); });
+    E.on('legendary:near', function () { ui.toast({ key: 'ui.toast.legendary' }, { kind: 'rare', ms: 4200, now: true }); });
     E.on('zone:unlocked', function (p) {
       if (!p) return;
       ui.toast({ key: 'ui.toast.zoneUnlocked', vars: { zone: N.zone(p.zone) } }, { kind: 'rare', ms: 3600 });

@@ -153,7 +153,9 @@
     var avail = avail1 - avail0 + 1;
     var visRows = avail >= 16 ? 3 : 0;
     var floorRow = avail >= 18 ? 1 : 0;
-    var tankRows = Math.min(MAX_ROWS + 2, avail - visRows - floorRow);
+    // QA: portrait screens let the tank fill the free height (it was capped at 26 rows with ~40 % dead space)
+    var maxRows = landscape ? MAX_ROWS : 42;
+    var tankRows = Math.min(maxRows + 2, avail - visRows - floorRow);
     if (tankRows < MIN_ROWS + 2) { tankRows = Math.max(4, avail); visRows = 0; floorRow = 0; }
     var block = tankRows + visRows + floorRow;
     var top = avail0 + Math.max(0, Math.floor((avail - block) / 2));
@@ -460,7 +462,7 @@
     // floor line under the visitors
     if (L.floorRow >= 0) for (c = 0; c < D.cols; c++) if ((c * 7 + 3) % 5) grid.putCode(c, L.floorRow, cA.under, 2);
 
-    var waterBase = light === 'day' ? 2.6 : light === 'dim' ? 2 : 1;
+    var waterBase = light === 'day' ? 3.4 : light === 'dim' ? 2.6 : 1.6;
     var rays = light === 'day' && R.decorTextures !== false && (!AQ.perf || AQ.perf.params.rays !== false);
     var caustics = light === 'day' && R.decorTextures !== false && (!AQ.perf || AQ.perf.params.caustics !== false);
     var surfLv = light === 'day' ? 4 : light === 'dim' ? 3 : 2;
@@ -483,13 +485,15 @@
         if (n > 0.7) {
           var k = (n - 0.7) / 0.3;
           ch = k > 0.6 ? '-' : '.';
-          lv = Math.max(1, Math.round(waterBase * (0.5 + 0.4 * k) * (1 - 0.35 * depthF)));
+          lv = Math.max(2, Math.round(waterBase * (0.5 + 0.4 * k) * (1 - 0.35 * depthF)));
         }
+        // drifting plankton motes (ambient life)
+        if (!lv && R.hash01(c, r + Math.floor(tt * 0.5 + R.hash01(c, 0, 3) * 40), 19) < 0.007) { ch = '·'; lv = light === 'night' ? 2 : 3; }
         if (rays && depthF < 0.8) {
           var band = Math.sin((xx - (r - rT) * 1.25) * 0.21 + tt * 0.18);
           if (band > 0.9) {
             var rl = Math.max(1, Math.round(3 * (1 - depthF) * (band - 0.9) * 10));
-            if (rl > lv) { lv = Math.min(3, rl); ch = (r + xx) % 3 ? '.' : '·'; }
+            if (rl > lv) { lv = Math.min(4, rl); ch = (r + xx) % 3 ? '.' : '·'; }
           }
         }
         if (lv > 0 && ch) grid.put(c, r, ch, Math.min(lv, 5));
@@ -688,7 +692,11 @@
       if (!p || !p.tankId || p.tankId === tankId) { buildCovers(); sync(); }
     }));
     offs.push(ev.on('aquarium:fed', function (p) {
-      if (p && p.tankId === tankId) spawnFood(Math.min(FOOD_MAX, 8 + Math.min(10, list.length * 2)));
+      if (!p || p.tankId !== tankId) return;
+      spawnFood(Math.min(FOOD_MAX, 8 + Math.min(10, list.length * 2)));
+      // QA: instant, visible feedback (a bubble burst at the surface and the fish perk up)
+      if (AQ.fx && L.ok) for (var b = 0; b < 4; b++) AQ.fx.emit('bubble', L.W * (0.2 + 0.2 * b), L.floorY - 2, { n: 3, surfaceY: 2.2, life: (L.floorY - 2) / 6, level: 9 });
+      for (var i = 0; i < list.length; i++) emote(list[i], i % 2 ? '!' : '<3', 12, 1.4);
     }));
     offs.push(ev.on('aquarium:collected', function (p) {
       if (!AQ.fx || !L.ok) return;

@@ -217,6 +217,9 @@
     var phaseAng = ctx.minutes !== undefined ? ((ctx.minutes - 420) / 600) : 0.5; // 0 morning … 1 evening
     var rayDir = phaseAng < 0.5 ? 1 : -1;
     var lan2 = lantern * lantern;
+    var night = ctx.phase === 'noite' && (weather === 'limpo' || weather === 'nublado');
+    var moonCol = moonColumn(gc, ctx.minutes);
+    var rim0 = (lantern - 1.2) * (lantern - 1.2);
     for (r = Math.max(0, surfRow + 1); r < gr; r++) {
       var wyr = (camRow + r) * ASPECT + 1;
       var L = rowLight[r], dark = rowDark[r];
@@ -225,10 +228,10 @@
       for (var c = 0; c < gc; c++) {
         var wx = c + cam.x + 0.5;
         if (wyr > floorAt(wx) + 1) continue;
-        var lanternK = 0;
+        var lanternK = 0, rim = false;
         if (hook && dark) {
-          var dx = wx - hook.x, dy = wyr - hook.y, d2 = dx * dx + dy * dy;
-          if (d2 < lan2) lanternK = U.smoothstep(lantern, lantern * 0.5, Math.sqrt(d2));
+          var dx = wx - hook.x, dy = (wyr - hook.y) * 0.75, d2 = dx * dx + dy * dy;
+          if (d2 < lan2) { lanternK = U.smoothstep(lantern, lantern * 0.5, Math.sqrt(d2)); rim = d2 > rim0; }
         }
         var n = U.noise2(c * 0.11 + tt * 0.05, (camRow + r) * 0.23 - tt * 0.03);
         var thr = thickRow ? 0.56 : 0.68;
@@ -236,7 +239,8 @@
         if (n > thr) {
           var v = (n - thr) / (1 - thr);
           code = R.rampCode('water', 0.25 + v * 0.75);
-          lvl = dark ? (lanternK > 0.05 ? 1 + Math.round(2 * lanternK) : (n > 0.8 ? 1 : 0)) : 1 + Math.round(2 * L * v);
+          // QA: the floor was 1 (6 % ink) — water now reads at 2–4 lit, 1–2 in the dark, up to 5 in the lantern
+          lvl = dark ? (lanternK > 0.05 ? 2 + Math.round(3 * lanternK) : (n > 0.9 ? 3 : n > 0.74 ? 2 : 0)) : 2 + Math.round(2 * L * v);
         }
         if (!code && rays && !dark && L > 0.45 && dfr < 0.38) {
           var band = Math.sin((wx + rayDir * (camRow + r) * 1.1) * 0.33 + tt * 0.2) + Math.sin((wx * 0.7 + rayDir * (camRow + r) * 0.8) * 0.19 - tt * 0.11);
@@ -257,13 +261,18 @@
           var fall = Math.floor(tt * 0.9 + R.hash01(c, 3, 7) * 40);
           if (R.hash01(c, camRow + r - fall, 13) < 0.012) { code = R.rampCode('snow', 0.4 + R.hash01(c, r, 5) * 0.6); lvl = dark ? (lanternK > 0.1 ? 3 : 1) : 2; }
         }
+        // moonlight: slow glints in the top of the water column under the moon
+        if (!code && night && wyr < 10 && Math.abs(c - moonCol) < 9 && R.hash01(c, camRow + r + Math.floor(tt * 1.5 + R.hash01(c, r, 2) * 9), 23) < 0.05) {
+          code = R.hash01(c, r, 4) < 0.5 ? codes.quote : codes.dot; lvl = 3 + (Math.abs(c - moonCol) < 4 ? 2 : 0);
+        }
         if (code && lvl > 0) grid.putCode(c, r, code, lvl > 5 ? 5 : lvl);
-        else if (hook && lanternK > 0.3 && dark && R.hash01(c, camRow + r, 3) < 0.05) grid.putCode(c, r, codes.mid, 1);
+        else if (lanternK > 0.12 && R.hash01(c, camRow + r, 3) < 0.04 + 0.1 * lanternK) grid.putCode(c, r, codes.mid, 1 + Math.round(2 * lanternK));
+        else if (rim && R.hash01(c, camRow + r, 11) < 0.35) grid.putCode(c, r, codes.dot, 2);
       }
     }
 
     // 5. terrain
-    var fogK = 0.55, pulse = ctx.pulseCover;
+    var fogK = 0.45, pulse = ctx.pulseCover;
     for (var i = 0; i < T.n; i++) {
       var tr = T.r[i] - camRow;
       if (tr < 0 || tr >= gr) continue;
@@ -273,12 +282,12 @@
       var wyt = T.r[i] * ASPECT + 1;
       var lv;
       if (rowDark[tr]) {
-        lv = 1;
+        lv = 2;
         if (hook) {
           var ddx = tc + 0.5 - hook.x, ddy = wyt - hook.y, dd = Math.sqrt(ddx * ddx + ddy * ddy);
-          if (dd < lantern) lv = Math.max(1, Math.round(base * U.smoothstep(lantern, lantern * 0.5, dd)));
+          if (dd < lantern) lv = Math.max(2, Math.round(base * U.smoothstep(lantern, lantern * 0.5, dd)));
         }
-      } else lv = Math.max(1, Math.round(base * (1 - fogK * U.clamp(wyt / depth, 0, 1)) * (0.6 + 0.4 * rowLight[tr])));
+      } else lv = Math.max(3, Math.round(base * (1 - fogK * U.clamp(wyt / depth, 0, 1)) * (0.65 + 0.35 * rowLight[tr])));
       if (pulse && tc + 0.5 >= pulse.x0 - 1 && tc + 0.5 <= pulse.x1 + 1 && wyt >= pulse.y0 - 2 && wyt <= pulse.y1 + 1) {
         lv = 5 + Math.round(2.5 + 2.5 * Math.sin(t * 9)); // burrow tell: the target cover pulses 5↔10
       }
@@ -300,12 +309,20 @@
         code2 = R.hash01(c, Math.floor(t * 10), 9) < 0.4 ? codes.star : R.hash01(c, Math.floor(t * 10), 8) < 0.5 ? codes.quote : codes.dot;
         grid.putCode(c, sr - 1, R.hash01(c, Math.floor(t * 8), 1) < 0.3 ? codes.quote : 0, 7);
       }
-      grid.putCode(c, sr, code2, 8);
+      var slv = 8;
+      if (night && Math.abs(c - moonCol) < 7 && R.hash01(c, Math.floor(t * 3 + R.hash01(c, 1, 1) * 5), 31) < 0.4) { code2 = R.hash01(c, Math.floor(t * 3), 5) < 0.5 ? codes.star : codes.quote; slv = 11; }
+      grid.putCode(c, sr, code2, slv);
       // rain rings on the surface
       if ((weather === 'chuva' || storm) && R.hash01(c, Math.floor(t * 5), 21) < (storm ? 0.06 : 0.035)) grid.putCode(c, sr + 1, codes.o, 3);
     }
   }
 
+  function moonColumn(gc, minutes) {
+    var m = minutes === undefined ? 720 : minutes;
+    var isNightSky = m < 300 || m >= 1140;
+    var frac = isNightSky ? (((m - 1140 + 1440) % 1440) / 600) : U.clamp((m - 300) / 900, 0, 1);
+    return Math.round(2 + frac * (gc - 4));
+  }
   var CLOUD = ['  .~~~.', '.~~   ~~.', '~~~~~~~~~~'];
   function drawSky(grid, nRows, t, ctx) {
     var R = AQ.render, gc = grid.cols, camRow = R.camRow();
@@ -367,9 +384,9 @@
       var df = U.clamp(p.y / depth, 0, 1);
       var lv = p.level;
       if (ctx.darkAt(df)) {
-        lv = 1;
-        if (hook) { var d = Math.hypot(p.x - hook.x, p.y - hgt / 2 - hook.y); if (d < lantern) lv = Math.max(1, Math.round(p.level * U.smoothstep(lantern, lantern * 0.5, d))); }
-      } else lv = Math.max(2, Math.round(lv * (1 - 0.55 * df)));
+        lv = 2;
+        if (hook) { var d = Math.hypot(p.x - hook.x, p.y - hgt / 2 - hook.y); if (d < lantern) lv = Math.max(2, Math.round(p.level * U.smoothstep(lantern, lantern * 0.5, d))); }
+      } else lv = Math.max(3, Math.round(lv * (1 - 0.45 * df)));
       R.sprite(f, p.x + f.w / 2, p.y - hgt / 2 + 1, { level: lv, deform: 'sway', amp: p.amp * motion, t: t + i * 0.37, knock: false });
     }
   }

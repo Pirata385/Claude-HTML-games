@@ -184,8 +184,11 @@
   padding: calc(var(--st) + 12px) calc(var(--sr) + 12px) calc(var(--sb) + 12px) calc(var(--sl) + 12px);
   pointer-events: none;
   transition: opacity .18s ease;
+  isolation: isolate; /* QA: each screen is its own stacking context, so a lower panel's header never bleeds through */
 }
 .aq-screen.is-modal { pointer-events: auto; background: var(--veil); }
+/* QA: Pause hides while a screen opened from it (Settings, Save, Notebook…) is on top */
+.aq-screen.is-pause:has(~ .aq-screen.is-modal) .aq-panel { visibility: hidden; }
 .aq-screen.is-enter { opacity: 0; }
 .aq-screen.is-leave { opacity: 0; }
 .aq-screen.is-enter .aq-panel { transform: translateY(10px); }
@@ -542,6 +545,9 @@
 .aq-choices { display: flex; flex-wrap: wrap; justify-content: center; gap: .25em .5em; width: 100%; }
 .aq-choice { flex: 1 1 auto; }
 .aq-choice .aq-btn-sub { display: inline; }
+/* QA: Sell / Release read with the same contrast as Keep (outlined instead of dim) */
+.aq-choices .aq-choice:not([data-default]):not(:disabled) { box-shadow: inset 0 0 0 1px var(--line); }
+.aq-choices .aq-choice .aq-btn-sub { opacity: .85; }
 @media (max-width: 560px) {
   .aq-choices { flex-direction: column; }
   .aq-choice { width: 100%; justify-content: flex-start; min-height: 52px; }
@@ -678,17 +684,16 @@
 .aq-ach:not(.is-got) .aq-ach-n { color: var(--faint); }
 .aq-peek {
   position: absolute; right: calc(var(--sr) + 10px); top: 60px;
-  width: min(330px, calc(100% - 20px)); padding: .9em 1em .4em;
-  background: var(--bg); border: 1px solid var(--line);
+  padding: .45em .8em; min-height: 40px;
+  background: var(--bg); color: var(--ink); border: 1px solid var(--line); font: inherit; font-size: var(--fs-s);
   transform: translateX(calc(100% + 30px)); opacity: 0;
-  transition: transform .45s var(--ease), opacity .3s ease;
-  pointer-events: none; font-size: var(--fs-s);
+  transition: transform .35s var(--ease), opacity .25s ease;
+  pointer-events: none; cursor: pointer;
 }
-.aq-peek.is-in { transform: none; opacity: 1; }
+.aq-peek.is-in { transform: none; opacity: 1; pointer-events: auto; }
 .aq-ui.is-reduced .aq-peek { transform: none; }
-.aq-peek-h { position: absolute; top: -.65em; left: 1em; background: var(--bg); padding: 0 .5em; letter-spacing: .08em; }
-.aq-peek-h::before { content: '-- '; opacity: .5; }
-.aq-peek .aq-goal { padding: .35em 0; }
+.aq-peek-g, .aq-peek-new { font-weight: 700; }
+.aq-ui.is-contemplate .aq-peek { opacity: 0; pointer-events: none; }
 
 /* ======================================================================= credits / misc */
 .aq-credits-title { text-align: center; font-size: var(--fs-xl); font-weight: 700; letter-spacing: .2em; margin: .2em 0 .1em; }

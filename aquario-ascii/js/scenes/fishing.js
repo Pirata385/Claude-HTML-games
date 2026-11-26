@@ -65,7 +65,7 @@
   function bait() { return (S() && S().player && S().player.bait) || 'massa'; }
   function isLure(b) { return b === 'colher' || b === 'jig'; }
   function spDef(id) { return safe(function () { return AQ.species.get(id); }, null); }
-  function toast(key, vars, kind) { safe(function () { AQ.ui.toast({ key: key, vars: vars }, { kind: kind || 'info' }); }); }
+  function toast(key, vars, kind, later) { safe(function () { AQ.ui.toast({ key: key, vars: vars }, { kind: kind || 'info', now: !later }); }); }
 
   function setPhase(p) {
     if (st.phase === p) return;
@@ -167,7 +167,7 @@
     var h = st.hook, d = h.active ? Math.sqrt((wx - h.x) * (wx - h.x) + (wy - h.y) * (wy - h.y)) : 1e9;
     var lf = U.smoothstep(lantern, lantern * 0.5, d);
     var sp = c && spDef(c.sp);
-    return Math.max(lf, sp && sp.glow ? 0.6 : 0.08);
+    return Math.max(lf, sp && sp.glow ? 0.6 : 0.17); // QA: .08 left dark fish at level 1 (invisible)
   };
   env.isDark = function (x, y) { return darkAt(U.clamp(y / st.depth, 0, 1)); };
   env.onEvent = function (type, c, data) {
@@ -335,6 +335,7 @@
   }
   function updCreatures(dt) {
     env.t = st.t; env.hook = st.hook.active ? st.hook : null; env.frenzy = st.frenzy.on;
+    env.minNibbles = (st.script && st.script.nibbles) || 0;
     if (st.stubCreatures) fbUpdate(st.list, dt, env);
     else safe(function () { AQ.creatures.update(st.list, dt, env); });
   }
@@ -749,10 +750,10 @@
     var b = st.bottle;
     b.on = false; b.held = false; b.next = st.t + st.rng.range(300, 480);
     var id = safe(function () { return AQ.game.foundMessage(); }, null);
-    if (id) { toast('fish.bottle.found', null, 'good'); return; }
+    if (id) { toast('fish.bottle.found', null, 'good', true); return; }
     b.coinT = st.t;
     var coins = safe(function () { return AQ.game.bottleCoins(st.zoneId); }, 0);
-    toast('fish.bottle.coins', { coins: AQ.i18n.money(coins) }, 'good');
+    toast('fish.bottle.coins', { coins: AQ.i18n.money(coins) }, 'good', true);
     AQ.fx.emit('coin', st.boat.x, -6, { n: 6 });
   }
 
@@ -1015,6 +1016,10 @@
   }
 
   function updCamera(dt) {
+    // sky = HUD top inset + room for the boat and the angler (insets change after enter, so recompute)
+    var lay = HUD.layout();
+    var need = Math.ceil(-(geo.ay - (geo.pose ? geo.pose.length : 4) * ASPECT / 2) / ASPECT) + 1;
+    st.skyRows = U.clamp((lay.insetT || 0) + Math.max(5, need), 5, 14);
     var vh = viewH();
     var lo = -st.skyRows * ASPECT, hi = Math.max(lo, st.depth - vh + 4);
     var target = lo;
@@ -1227,11 +1232,18 @@
     if (st.nibbleT > 0) { hx += (AQ.rng.global.next() - 0.5) * 0.6; hy += (AQ.rng.global.next() - 0.5) * 0.6; }
     var b = bait();
     var g = (AQ.art && AQ.art.baitGlyph && AQ.art.baitGlyph[b]) || BAIT_GLYPH[b] || 'o';
-    var dark = darkAt(U.clamp(hy / st.depth, 0, 1));
-    var lv = 13;
-    R0.glyphW(cd.J, hx, hy, lv);
-    var blv = b === 'luminosa' ? 9 + Math.round(4 + 2 * Math.sin(t * 6)) : (isLure(b) && h.moving && Math.sin(t * 14) > 0 ? 15 : 11);
-    if (st.phase !== 'landing') R0.textW(g, hx + 0.8, hy, dark && b !== 'luminosa' ? Math.max(6, blv - 4) : blv, { align: 'left' });
+    var lv = 15;
+    // QA: hook + bait at full ink, with a faint pulsing halo so the eye finds them in a busy or dark sea
+    if (st.phase !== 'landing' && st.phase !== 'idle' && st.phase !== 'aiming' && !st.bottle.held) {
+      var hl = 3 + Math.round(2 * (0.5 + 0.5 * Math.sin(t * 3)) * AQ.fx.motion());
+      R0.glyphW(cd.mid, hx - 1.6, hy, hl); R0.glyphW(cd.mid, hx + 3, hy, hl);
+      R0.glyphW(cd.mid, hx + 0.6, hy - 2.2, hl); R0.glyphW(cd.mid, hx + 0.6, hy + 2.2, hl);
+    }
+    R0.worldToScreen(hx, hy, tmpP);
+    R0.knock(tmpP.x - AQ.display.cellW / 2, tmpP.y - AQ.display.cellH / 2, AQ.display.cellW * (1 + g.length), AQ.display.cellH, 0.8);
+    R0.glyphW(R0.code('J', true), hx, hy, lv);
+    var blv = b === 'luminosa' ? 11 + Math.round(2 + 2 * Math.sin(t * 6)) : (isLure(b) && h.moving && Math.sin(t * 14) > 0 ? 15 : 14);
+    if (st.phase !== 'landing') R0.textW(g, hx + 0.8, hy, blv, { align: 'left', bold: true });
     if (st.bottle.held) return;
     // bite: a bold ! above the hook for the whole window
     if (st.phase === 'bite') {
@@ -1391,7 +1403,8 @@
       forceSpawn: [{ sp: 'manjuba', n: 6, dx: 11, depthFrac: 0.3 }],
       autoStopDepth: 0.3 * st.depth,
       biteWindow: 2.0,
-      fightOverride: { power: 0.35, stamina: 4, runs: [{ at: 4, dir: -1 }] },
+      nibbles: 2, // QA: always nibble twice first, so "wait…" is taught before the strike
+      fightOverride: { power: 0.55, stamina: 3.5, runs: [{ at: 2.5, dir: -1 }] },
       noEscape: true
     };
   }

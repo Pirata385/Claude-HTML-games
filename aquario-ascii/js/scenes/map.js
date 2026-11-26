@@ -38,8 +38,8 @@
     var r = safe(function () { return AQ.progress.zoneRequirements(id, S()); }, null);
     if (r && r.items) for (var i = 0; i < r.items.length; i++) if (!r.items[i].ok) {
       var it = r.items[i];
-      var s = t(it.key, it.vars);
-      return s.length > 18 ? '' : '[' + s + ']';
+      var s = it.key === 'item.req.species' ? t('fish.map.needSpecies', it.vars) : t(it.key, it.vars);
+      return s.length > 26 ? '' : t('fish.map.requires', { item: s });
     }
     return '';
   }
@@ -101,9 +101,15 @@
         var thr = 0.66 - depthK * 0.12;
         if (n > thr) {
           var v = (n - thr) / (1 - thr);
-          grid.putCode(c, r, R.rampCode('water', 0.3 + v * 0.7), open ? 2 + Math.round(v * 2) : 1);
+          grid.putCode(c, r, R.rampCode('water', 0.3 + v * 0.7), open ? 3 + Math.round(v * 2) : 2);
         }
       }
+      // QA: each water gets a faint frame (bright when hovered/selected), so labels no longer float in a void
+      var hot = i === m.hover || (i === m.sel && (AQ.input.mode === 'keyboard' || AQ.input.mode === 'gamepad'));
+      var fl = hot ? 9 : open ? 4 : 2;
+      for (var fc = g.c0 + 1; fc < g.c1; fc++) { if (hot || (fc & 1)) { grid.put(fc, g.r0, hot ? '-' : '.', fl); grid.put(fc, g.r1, hot ? '-' : '.', fl); } }
+      for (var fr = g.r0 + 1; fr < g.r1; fr++) { if (hot || (fr & 1)) { grid.put(g.c0, fr, hot ? '|' : ':', fl); grid.put(g.c1, fr, hot ? '|' : ':', fl); } }
+      grid.put(g.c0, g.r0, '+', fl); grid.put(g.c1, g.r0, '+', fl); grid.put(g.c0, g.r1, '+', fl); grid.put(g.c1, g.r1, '+', fl);
       // separators between waters: a faint wave column / row
       if (!m.portrait && i > 0) for (var rr = g.r0; rr <= g.r1; rr += 2) grid.put(g.c0 - 1, rr + ((Math.floor(tt) + i) & 1), '~', 3);
     }
@@ -111,8 +117,20 @@
     var lab1 = t('fish.map.aquarium'), lab2 = t('fish.map.aquarium2'), shopL = t('fish.map.shop');
     var aq = regs[ids.length], sh = regs[ids.length + 1];
     var aw = Math.max(lab1.length, lab2.length) + 2;
-    boxArt(grid, aq.c0, aq.r0, aw, [lab1, lab2], 7);
-    boxArt(grid, sh.c0, sh.r0, shopL.length + 2, [shopL], 7);
+    boxArt(grid, aq.c0, aq.r0, aw, [lab1, lab2], m.hover === ids.length ? 13 : 10);
+    boxArt(grid, sh.c0, sh.r0, shopL.length + 2, [shopL], m.hover === ids.length + 1 ? 13 : 10);
+    // route from the pier through the waters: o = open, . = locked
+    var cur = (S().player && S().player.zone) || 'baia';
+    for (var k = 0; k < ids.length; k++) {
+      var gk = regs[k], ok = unlocked(gk.id);
+      var nc, nr;
+      if (!m.portrait) { nc = Math.floor((gk.c0 + gk.c1) / 2); nr = gk.r1 - 2; }
+      else { nc = 4; nr = Math.floor((gk.r0 + gk.r1) / 2); }
+      var prev = k === 0 ? null : regs[k - 1];
+      if (prev && !m.portrait) { var pc0 = Math.floor((prev.c0 + prev.c1) / 2) + 2; for (var q = pc0; q < nc - 1; q += 2) grid.put(q, nr, ok ? '-' : '.', ok ? 5 : 2); }
+      if (prev && m.portrait) { var pr0 = Math.floor((prev.r0 + prev.r1) / 2) - 1; for (var q2 = pr0; q2 > nr; q2--) grid.put(nc, q2, ok ? ':' : '.', ok ? 5 : 2); }
+      grid.put(nc, nr, gk.id === cur ? '@' : ok ? 'o' : '.', gk.id === cur ? 12 : ok ? 8 : 3);
+    }
     // pier + boat
     var pr, pc;
     if (!m.portrait) { pr = m.top + 6; pc = 1; }

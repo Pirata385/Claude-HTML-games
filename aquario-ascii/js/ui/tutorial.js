@@ -218,5 +218,9 @@
     E.on('ui:open', function (p) {
       if (T.active && p.screen === 'catchCard') clearAll();
     });
+    // QA: the card cleared the step's hint ("head back to the map") and nothing restored it
+    E.on('ui:close', function (p) {
+      if (T.active && p && p.screen === 'catchCard') later(function () { if (T.active && !ui.isModal()) render(); }, 1800);
+    });
   });
 })(window.AQ);

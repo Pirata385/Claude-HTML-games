@@ -1057,6 +1057,23 @@
   }
 
   var codeCache = null;
+  // Fish swimming below the view: a faint 'v' on the lowest free row above each one, brighter for bigger
+  // fish, so the player can read what lives deeper before casting. Lit water only (darkness keeps its secrets).
+  function drawDeepMarkers(t) {
+    if (st.phase === 'fight' || st.phase === 'landing' || !st.list.length) return;
+    var cd = codes(), lay = HUD.layout();
+    var rowsUp = (lay.insetB || 0) + 2.5;
+    var edge = st.cam.y + viewH() - rowsUp * ASPECT;
+    var SZ = AQ.ENUM.SIZE || [];
+    for (var i = 0; i < st.list.length; i++) {
+      var c = st.list[i];
+      if (c === st.engaged || c.hooked || c.y <= st.cam.y + viewH() + 1 || c.x < 2 || c.x > st.cols - 2) continue;
+      if (darkAt(U.clamp(c.y / st.depth, 0, 1))) continue;
+      var sp = spDef(c.sp || c.id), si = sp ? Math.max(0, SZ.indexOf(sp.size)) : 1;
+      var lvl = Math.min(7, 3 + Math.floor(si / 2)) + (Math.sin(t * 1.6 + i * 1.7) > 0.6 ? 1 : 0);
+      R0.glyphW(cd.v, c.x, edge + Math.sin(t * 2 + i) * 0.25, lvl);
+    }
+  }
   function codes() {
     if (codeCache) return codeCache;
     var C = function (ch, b) { return R0.code(ch, b); };
@@ -1081,6 +1098,7 @@
     }
     // 2. creatures
     drawCreatures();
+    drawDeepMarkers(t);
     // escaping fish
     if (st.escape && st.escape.fish) {
       var ef = st.escape.fish, esd = AQ.sprites.get(ef.sp);
@@ -1432,6 +1450,7 @@
     if (AQ.scenes.current !== 'fishing' || !st.rope) return null;
     var o = {};
     if (name === 'boat') return R0.worldToScreen(st.boat.x, -4, o);
+    if (name === 'surface') return R0.worldToScreen(st.boat.x, 2.5, o);
     if (name === 'hook') return R0.worldToScreen(st.hook.x, st.hook.y, o);
     if (name === 'fish') return st.fish ? R0.worldToScreen(st.fish.x, st.fish.y - 3, o) : (st.engaged ? R0.worldToScreen(st.engaged.x, st.engaged.y, o) : null);
     if (name === 'tension') return st.phase === 'fight' ? HUD.anchorTension() : null;

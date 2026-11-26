@@ -25,7 +25,7 @@
   var T = [
     // ------------------------------------------------------------------ Baía Rasa
     ['manjuba', 'baia', 'C', 'XS', 'fish', 'school', 'shaker', 0.60, 5, 5, [0, 0.45], null, null,
-      { massa: 1.2, minhoca: 1 }, 1, 0.9, 1, 1, 6, [6, 12], 0.02, ['open'], 'day', 'prey', 0, true, {}, null],
+      { massa: 1.2, minhoca: 1 }, 1, 0.9, 1, 1, 9, [6, 12], 0.02, ['open'], 'day', 'prey', 0, true, {}, null],
     ['tainha', 'baia', 'C', 'S', 'fish', 'school', 'jumper', 0.80, 8, 6, [0, 0.3], 'A,D', null,
       { massa: 1, minhoca: 1 }, 1, 0.9, 1, 1, 16, [30, 60], 3.5, ['sand', 'open'], 'day', 'grazer', 0, true, {}, null],
     ['siri', 'baia', 'C', 'S', 'crustacean', 'crawl', 'deadweight', 0.75, 6, 3, [0.88, 1], null, null,
@@ -37,7 +37,7 @@
     ['baiacu', 'baia', 'U', 'S', 'fish', 'dart', 'inflater', 1.00, 10, 5, [0.3, 0.8], null, null,
       { minhoca: 1, camarao: 1.5 }, 2, 0.75, 1, 1, 42, [15, 35], 1.2, ['rocks', 'plants'], 'day', 'prey', 0, true, { inflateAt: 0.7 }, null],
     ['arraia', 'baia', 'U', 'M', 'ray', 'burrow', 'puller', 1.05, 11, 5, [0.85, 1], 'D,E', null,
-      { minhoca: 1, camarao: 1.3 }, 2, 0.75, 2, 1, 64, [40, 100], 20, ['sand'], 'dim', 'predator', 0, true, { grip: true }, null],
+      { minhoca: 1, camarao: 1.3 }, 2, 0.75, 2, 2, 64, [40, 100], 20, ['sand'], 'dim', 'predator', 0, true, { grip: true }, null],
     ['agulha', 'baia', 'U', 'S', 'fish', 'dart', 'runner', 1.05, 9, 9, [0, 0.15], 'D', null,
       { colher: 1.5, camarao: 1 }, 2, 0.75, 1, 1, 50, [40, 90], 0.9, ['open'], 'day', 'predator', 0, true, {}, null],
     ['cavalo', 'baia', 'R', 'XS', 'fish', 'hover', 'drifter', 0.40, 5, 2, [0.5, 0.9], 'A', 'li,nu',
@@ -45,7 +45,7 @@
     ['ermitao', 'baia', 'R', 'S', 'odd', 'crawl', 'deadweight', 0.90, 9, 2, [0.95, 1], 'N', null,
       { massa: 1.5 }, 3, 0.6, 1, 1, 300, [6, 14], 0.25, ['sand', 'rocks'], 'night', 'grazer', 0, false, { grip: true },
       { nearKind: 'crustacean' }],
-    ['tipografo', 'baia', 'L', 'M', 'odd', 'cruise', 'shaker', 1.60, 20, 8, [0.2, 0.6], 'A', null,
+    ['tipografo', 'baia', 'L', 'M', 'odd', 'cruise', 'shaker', 1.9, 120, 9, [0.2, 0.6], 'A', null,
       { papel: 1 }, 3, 0.55, 2, 2, 1500, [20, 40], 1.0, ['open', 'plants'], 'dim', 'grazer', 0, false, { scramble: true },
       { nearKind: 'fish' }],
     // ------------------------------------------------------------------ Recife

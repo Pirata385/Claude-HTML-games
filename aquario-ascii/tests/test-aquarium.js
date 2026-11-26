@@ -103,7 +103,8 @@ module.exports = function (T) {
 
   T.test('stars thresholds and attraction', () => {
     const AQ = fresh(), A = AQ.aquarium;
-    T.eq([A.starsFor(0), A.starsFor(99.9), A.starsFor(100), A.starsFor(599), A.starsFor(600), A.starsFor(2500), A.starsFor(6999), A.starsFor(7000)], [1, 1, 2, 2, 3, 4, 4, 5]);
+    const ST = AQ.ENUM.STARS; // [0, 100, 600, 1500, 5000] after the QA balance pass
+    T.eq([A.starsFor(0), A.starsFor(ST[1] - 0.1), A.starsFor(ST[1]), A.starsFor(ST[2] - 1), A.starsFor(ST[2]), A.starsFor(ST[3]), A.starsFor(ST[4] - 1), A.starsFor(ST[4])], [1, 1, 2, 2, 3, 4, 4, 5]);
     T.eq(A.stars(AQ.state), 1);
     const s = AQ.state, tk = tank(AQ);
     const f = add(AQ, 'fx_xs', { q: 0 });

@@ -104,7 +104,7 @@
     TUTORIAL: ['intro', 'cast', 'sink', 'nibble', 'strike', 'reel', 'steer', 'keep', 'free', 'goAquarium', 'card',
       'feed', 'till', 'done'],
     FACES: [':D', ':)', ':|', ':('],
-    STARS: [0, 100, 600, 2500, 7000],
+    STARS: [0, 100, 600, 1500, 5000],
     FX: ['splash', 'drop', 'bubble', 'spark', 'ink', 'coin', 'flake', 'dust', 'pop', 'ripple', 'text'],
     SFX: ['cast', 'splashSmall', 'splashBig', 'reel', 'nibble', 'bite', 'hook', 'tension', 'snap', 'escape', 'catch',
       'newSpecies', 'rare', 'legendary', 'coin', 'pearl', 'feed', 'bubble', 'buy', 'goal', 'uiTap', 'uiBack',

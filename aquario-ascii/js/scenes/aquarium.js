@@ -570,7 +570,8 @@
     }
     if (hintT > 0 && !cardsOpened) {
       var lvl = Math.max(1, Math.round(8 * Math.min(1, hintT / 1.5)));
-      R.text(' ' + AQ.i18n.t('aq.tapHint') + ' ', L.c0 + Math.floor(L.W / 2), L.rB, lvl, { align: 'center', knock: 0.96 });
+      var hk = AQ.input && AQ.input.mode === 'keyboard' ? 'aq.tapHintKeys' : 'aq.tapHint';
+      R.text(' ' + AQ.i18n.t(hk) + ' ', L.c0 + Math.floor(L.W / 2), L.rB, lvl, { align: 'center', knock: 0.96 });
     }
   }
 
@@ -585,7 +586,7 @@
     drawEmotes();
     drawVisitors();
     if (AQ.fx) AQ.fx.draw();
-    if (!contemplating) drawHints();
+    if (!contemplating) { drawHints(); drawSelection(); }
   }
 
   // ---------------------------------------------------------------- update
@@ -607,6 +608,7 @@
     updateEmotes(dt);
     updateVisitors(dt, false);
     if (hintT > 0) hintT -= dt;
+    if (selT > 0) selT -= dt;
     // filter bubbles
     var bub = (AQ.perf && AQ.perf.params && AQ.perf.params.bubbles) || 1;
     bubbleT -= dt;
@@ -734,7 +736,44 @@
     if (AQ.input && AQ.input.on) {
       offs.push(AQ.input.on('tap', onTap));
       offs.push(AQ.input.on('swipe', onSwipe));
+      offs.push(AQ.input.on('action:primary', function (e) { if (e && e.phase === 'down') openSelected(); }));
     }
+    window.addEventListener('keydown', onSelKey, true);
+    offs.push(function () { window.removeEventListener('keydown', onSelKey, true); });
+  }
+  // ---------------------------------------------------------------- keyboard fish selection (QA)
+  // , . (or [ ]) cycle through the fish in view; Space / Enter opens the selected fish's card.
+  var selUid = 0, selT = 0;
+  function onSelKey(e) {
+    if (AQ.scenes.current !== 'aquarium' || contemplating || e.ctrlKey || e.metaKey || e.altKey) return;
+    if (AQ.ui && AQ.ui.isModal && AQ.ui.isModal()) return;
+    // a fish picked with , . opens on Enter/Space even when a HUD button has the focus
+    if ((e.key === 'Enter' || e.key === ' ') && selUid && selT > 0) { e.preventDefault(); e.stopPropagation(); openSelected(); return; }
+    var d = { ',': -1, '<': -1, '[': -1, '.': 1, '>': 1, ']': 1 }[e.key];
+    if (!d) return;
+    var fish = list.filter(function (c) { return c.fishUid; }).sort(function (a, b) { return a.x - b.x; });
+    if (!fish.length) return;
+    e.preventDefault();
+    var i = -1;
+    for (var k = 0; k < fish.length; k++) if (fish[k].fishUid === selUid) i = k;
+    i = i < 0 ? (d > 0 ? 0 : fish.length - 1) : (i + d + fish.length) % fish.length;
+    selUid = fish[i].fishUid; selT = 6;
+    hintT = 0;
+  }
+  function openSelected() {
+    if (AQ.scenes.current !== 'aquarium' || !selUid || selT <= 0) return;
+    if (AQ.ui && AQ.ui.isModal && AQ.ui.isModal()) return;
+    cardsOpened++; selT = 0;
+    if (AQ.ui && AQ.ui.fishCard) AQ.ui.fishCard(selUid);
+  }
+  function drawSelection() {
+    if (!selUid || selT <= 0) return;
+    var c = null;
+    for (var i = 0; i < list.length; i++) if (list[i].fishUid === selUid) c = list[i];
+    if (!c) { selUid = 0; return; }
+    var lv = 10 + Math.round(3 * (0.5 + 0.5 * Math.sin(time * 6)) * motion());
+    R.textW('[', c.x - c.w / 2 - 1.2, c.y, lv, { align: 'center', bold: true });
+    R.textW(']', c.x + c.w / 2 + 1.2, c.y, lv, { align: 'center', bold: true });
   }
   function unlisten() { offs.forEach(function (off) { try { off(); } catch (e) { /* ignore */ } }); offs = []; }
 

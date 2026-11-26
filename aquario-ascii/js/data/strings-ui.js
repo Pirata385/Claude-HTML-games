@@ -552,9 +552,13 @@
       keep: "Keep your first fish in the aquarium.",
       goAquarium: "Your fish is waiting. Head back to the map.",
       goAquariumMap: "Your fish is waiting. Open the Aquarium.",
-      card: "Tap a fish to see its card.",
+      card: {
+        touch: "Tap a fish to see its card.",
+        mouse: "Click a fish to see its card.",
+        keyboard: "Press , or . to pick a fish, then Space."
+      },
       feed: "Feed the tank — the first one is free.",
-      till: "Tap the ticket booth to collect the coins."
+      till: "Tap Tickets to collect what the visitors paid."
     },
     note: {
       intro: "Dear, the aquarium is yours now. The tanks are empty — and the sea is full.",

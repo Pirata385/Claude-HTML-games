@@ -181,7 +181,7 @@
 .aq-screen {
   position: absolute; inset: 0;
   display: flex; align-items: center; justify-content: center;
-  padding: calc(var(--st) + 12px) calc(var(--sr) + 12px) calc(var(--sb) + 12px) calc(var(--sl) + 12px);
+  padding: calc(var(--st) + 28px) calc(var(--sr) + 12px) calc(var(--sb) + 12px) calc(var(--sl) + 12px); /* QA: top room for header + [x] */
   pointer-events: none;
   transition: opacity .18s ease;
   isolation: isolate; /* QA: each screen is its own stacking context, so a lower panel's header never bleeds through */
@@ -258,7 +258,7 @@
 
 /* phones: panels become sheets */
 @media (max-width: 560px) {
-  .aq-screen.is-modal { align-items: flex-end; padding: calc(var(--st) + 10px) 0 0 0; }
+  .aq-screen.is-modal { align-items: flex-end; padding: calc(var(--st) + 30px) 0 0 0; } /* QA: room for the header and its 48 px [x] */
   .aq-screen.is-modal .aq-panel { width: 100%; max-height: 100%; border-left: 0; border-right: 0; border-bottom: 0; box-shadow: 0 -10px 40px rgb(var(--bg-rgb) / .7); }
   .aq-screen.is-modal .aq-panel.aq-wide-panel { height: 100%; }
   .aq-screen.is-modal .aq-panel .aq-corner.bl, .aq-screen.is-modal .aq-panel .aq-corner.br { display: none; }

@@ -491,11 +491,11 @@ Totals: 10 C, 14 U, 14 R, 4 L. Kinds: fish 25, crustacean 6, cephalopod 4, jelly
 | siri | deadweight | .75 | 6 | 3 | .88–1 | any (N ×2) | – | massa .8, minhoca 1, lula 1.2 | 1 / .9 | 1 | 1 |
 | camarao | drifter (tear .6) | .40 | 4 | 4 | .6–1 | A,E,N | – | massa 1 | 1 / .9 | 1 | 1 |
 | baiacu | inflater | 1.00 | 10 | 5 | .3–.8 | any | – | minhoca 1, camarao 1.5 | 2 / .75 | 1 | 1 |
-| arraia | puller (grip) | 1.05 | 11 | 5 | .85–1 | D,E | – | minhoca 1, camarao 1.3 | 2 / .75 | 2 | 1 |
+| arraia | puller (grip) | 1.05 | 11 | 5 | .85–1 | D,E | – | minhoca 1, camarao 1.3 | 2 / .75 | 2 | 2 |
 | agulha | runner | 1.05 | 9 | 9 | 0–.15 | D | – | colher 1.5, camarao 1 | 2 / .75 | 1 | 1 |
 | cavalo | drifter (tear .5) | .40 | 5 | 2 | .5–.9 | A | li,nu | camarao 1.5 | 3 / .6 | 1 | 1 |
 | ermitao | deadweight (grip) | .90 | 9 | 2 | .95–1 | N | – | massa 1.5 | 3 / .6 | 1 | 1 |
-| tipografo | shaker (scramble) | 1.60 | 20 | 8 | .2–.6 | A | – | papel 1 | 3 / .55 | 2 | 2 |
+| tipografo | shaker (scramble) | 1.90 | 120 | 9 | .2–.6 | A | – | papel 1 | 3 / .55 | 2 | 2 |
 | palhaco | shaker | .80 | 6 | 5 | .45–.85 | any | – | massa 1, camarao 1.2 | 1 / .9 | 1 | 2 |
 | cirurgiao | runner | 1.10 | 10 | 8 | .2–.6 | D | – | minhoca 1, camarao 1.2 | 1 / .9 | 1 | 2 |
 | papagaio | puller | 1.30 | 13 | 6 | .3–.9 | A,D,E | – | camarao 1.2, lula 1 | 2 / .75 | 2 | 2 |
@@ -537,7 +537,7 @@ Tells by rarity: C .7, U .55, R .45, L .4. Every zone has at least one common in
 
 | id | Value $ | len cm | kgMax | Habitat | Light | Diet | glow | breeds | Notes |
 |---|---|---|---|---|---|---|---|---|---|
-| manjuba | 6 | 6–12 | .02 | open | day | prey | – | ✓ | |
+| manjuba | 9 | 6–12 | .02 | open | day | prey | – | ✓ | |
 | tainha | 16 | 30–60 | 3.5 | sand, open | day | grazer | – | ✓ | |
 | siri | 14 | 8–18 | .45 | sand, rocks | night | grazer | – | ✓ | |
 | camarao | 9 | 5–15 | .03 | plants, sand | dim | prey | – | ✓ | produces 2 `camarao` bait / 10 min if happy ≥ 60 |
@@ -790,7 +790,7 @@ incomePerMin = .06 · attraction
 
 ### 7.5 Stars (attraction thresholds)
 
-★1 ≥ 0 · ★2 ≥ 100 · ★3 ≥ 600 · ★4 ≥ 2 500 · ★5 ≥ 7 000. Stars unlock decor tiers (§8.4). ★4 also unlocks the **Pérola Negra** bait and Vó Iara's note.
+★1 ≥ 0 · ★2 ≥ 100 · ★3 ≥ 600 · ★4 ≥ 1 500 · ★5 ≥ 5 000 *(QA pass; was 2 500 / 7 000)*. Stars unlock decor tiers (§8.4). ★4 also unlocks the **Pérola Negra** bait and Vó Iara's note.
 
 ### 7.6 Breeding
 
@@ -839,6 +839,8 @@ incomePerMin = .06 · attraction
 | lantern | 0–III | — / Lanterna de vidro / de mergulho / de plâncton | — / 2 000 / 6 000 / 15 000 | radius 6/14/22/30 u |
 | boat | I–V | Canoa / Jangada / Bote a motor / Saveiro / Traineira de profundidade | 0 / 400 / 1 600 / 5 000 / 12 000 | unlocks baia/recife/kelp/mar/abismo (plus species requirements, §5.1) |
 
+> **Current prices (QA balance pass; `js/data/items.js` is the source of truth):** rod 0 / 120 / 600 / 1 800 / 4 500 · line 0 / 75 / 450 / 1 500 / 4 000 · reel 0 / 150 / 700 / 1 800 / 4 500 · hook 0 / 100 / 500 / 1 400 · lantern — / 800 / 2 800 / 7 000 · boat 0 / 300 / 1 200 / 2 800 / 3 500. With these, all 5 pacing bots reach the ending (median ≈ 2:47 for the conservative bot, which lands 55–85 % and ignores frenzies).
+
 ### 8.3 Baits and lures
 
 | id | Item | Price | Requirement |
@@ -850,7 +852,7 @@ incomePerMin = .06 · attraction
 | lure_colher | Colher (permanent) | $250 | – |
 | lure_jig | Jig profundo (permanent) | $1 500 | Kelp unlocked |
 | bait_papel | 3 iscas de papel | 5 @ | message m3 found |
-| bait_perola | 1 Pérola Negra | 20 @ | ★4 |
+| bait_perola | 2 Pérola Negra | 20 @ | ★4 |
 
 When the equipped bait reaches 0, it auto-switches to `massa` with a toast.
 
@@ -1001,7 +1003,7 @@ Average sale value per catch by zone (expected-value check): Baía ≈ $25, Reci
 | ~15 | Bite: `!`. Hint: **"AGORA! Toque."** (window 2.0 s) | C / E |
 | 16–30 | Tutorial fight (manjuba P .35, stam 4, cannot escape). At 16 s hint "Segure para recolher" (reel button pulses on touch). At ~20 s the scripted run left with tell: hint "Puxe a vara para o outro lado!" plus an arrow (touch: drag right; mouse: move right; keys: D). The tension meter shows the label "mantenha no meio" | C / E |
 | ~30 | Landed. Catch card: Manjuba, NOVO!. Only **Guardar** is highlighted (Vender and Soltar are enabled but dim). Note `firstCatch` | C / E |
-| ~34 | Toast "+1 espécie no Caderno". Goals panel slides in with g01 ✓, g02 ✓, g03 | E / D |
+| ~34 | Toast "+1 espécie no Caderno". A compact "[*] Goals n/28" chip slides in (tap to open the Goals screen; never auto-opens a panel — QA change) | E / D |
 | 36–60 | Free fishing; hints only after 8 s idle. The next bite uses normal rules (likely tainha or siri) | C |
 | after 2nd catch | Hint pointing at **Aquário**: "Seu peixe está esperando." Aquarium tutorial: tap fish → card; tap **Alimentar** (first feed free); tap **Bilheteria** | E / D |
 

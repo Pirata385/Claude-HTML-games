@@ -16,37 +16,37 @@
   }
 
   var GEAR = {
-    rod: tiers('rod', 1, [0, 120, 600, 2000, 8000], [
+    rod: tiers('rod', 1, [0, 120, 600, 1800, 4500], [
       { cast: 26, window: 0, St: 0.55 },
       { cast: 34, window: 0.05, St: 0.65 },
       { cast: 44, window: 0.10, St: 0.75 },
       { cast: 56, window: 0.15, St: 0.88 },
       { cast: 70, window: 0.20, St: 1.0 }
     ]),
-    line: tiers('line', 1, [0, 75, 450, 1800, 6500], [
+    line: tiers('line', 1, [0, 75, 450, 1500, 4000], [
       { Ls: 1.0, maxLen: 90, snapGrace: 0.25 },
       { Ls: 1.25, maxLen: 130, snapGrace: 0.30 },
       { Ls: 1.55, maxLen: 180, snapGrace: 0.35 },
       { Ls: 1.9, maxLen: 250, snapGrace: 0.40 },
       { Ls: 2.3, maxLen: 360, snapGrace: 0.45 }
     ]),
-    reel: tiers('reel', 1, [0, 150, 700, 2200, 8000], [
+    reel: tiers('reel', 1, [0, 150, 700, 1800, 4500], [
       { reelSpeed: 7, riseRate: 7 },
       { reelSpeed: 9, riseRate: 6.5 },
       { reelSpeed: 11, riseRate: 6 },
       { reelSpeed: 13, riseRate: 5.5 },
       { reelSpeed: 16, riseRate: 5 }
     ]),
-    hook: tiers('hook', 1, [0, 100, 500, 2000], [
+    hook: tiers('hook', 1, [0, 100, 500, 1400], [
       { hookClass: 1, H: 0 },
       { hookClass: 2, H: 0.25 },
       { hookClass: 3, H: 0.5 },
       { hookClass: 4, H: 0.75 }
     ]),
-    lantern: tiers('lantern', 0, [0, 1000, 4000, 10000], [
+    lantern: tiers('lantern', 0, [0, 800, 2800, 7000], [
       { radius: 6 }, { radius: 14 }, { radius: 22 }, { radius: 30 }
     ]),
-    boat: tiers('boat', 1, [0, 300, 1200, 3500, 5000], [
+    boat: tiers('boat', 1, [0, 300, 1200, 2800, 3500], [
       { zone: 'baia' }, { zone: 'recife' }, { zone: 'kelp' }, { zone: 'mar' }, { zone: 'abismo' }
     ])
   };
@@ -129,7 +129,7 @@
   add({ id: 'lure_colher', cat: 'lure', bait: 'colher', qty: 1, price: c(250) });
   add({ id: 'lure_jig', cat: 'lure', bait: 'jig', qty: 1, price: c(1500), req: { zone: 'kelp' } });
   add({ id: 'bait_papel', cat: 'bait', bait: 'papel', qty: 3, price: p(5), req: { message: 'm3', unlock: 'papel' } });
-  add({ id: 'bait_perola', cat: 'bait', bait: 'perola', qty: 1, price: p(20), req: { stars: 4, unlock: 'perola' } });
+  add({ id: 'bait_perola', cat: 'bait', bait: 'perola', qty: 2, price: p(20), req: { stars: 4, unlock: 'perola' } });
 
   // Aquarium items.
   add({ id: 'tank', cat: 'tank', tiered: true, price: [c(500), c(2500), c(8000)] });      // 2nd / 3rd / 4th tank

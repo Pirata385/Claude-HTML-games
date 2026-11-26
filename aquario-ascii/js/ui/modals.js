@@ -49,7 +49,7 @@
     clearTimeout(pumpTimer);
     pumpTimer = 0;
     if (!queue.length) return;
-    if (busy() || live().length >= 1) { pumpTimer = setTimeout(pump, 350); return; }
+    if (busy() || toasts.length >= 1) { pumpTimer = setTimeout(pump, 300); return; } // wait for the fade-out too
     var q = queue.shift(), o = {};
     for (var k in q.o) o[k] = q.o[k];
     var ms = o.ms || 2600;
@@ -90,8 +90,15 @@
   }
   function positionToasts() {
     if (!toastBox) return;
-    var ins = ui.hudInsets();
-    toastBox.style.top = Math.max(0, ins.top) + 'px';
+    var ins = ui.hudInsets(), top = Math.max(0, ins.top);
+    // QA: while fishing, keep toasts off the boat and angler: just below the waterline when it is on screen
+    if (AQ.scenes && AQ.scenes.current === 'fishing' && AQ.fishing && AQ.fishing.anchor) {
+      var p = D.safe(function () { return AQ.fishing.anchor('surface'); }, null);
+      var stage = document.getElementById('stage');
+      var sr = stage ? stage.getBoundingClientRect() : { top: 0 };
+      if (p && p.y + sr.top > top && p.y + sr.top < window.innerHeight * 0.5) top = Math.round(p.y + sr.top + 4);
+    }
+    toastBox.style.top = top + 'px';
   }
 
   // ================================================================ confirm

@@ -143,7 +143,8 @@ function simulate(seed, minutes, o0) {
     // legendaries: use the bait that makes one ready (perola, papel, jig, colher)
     for (const b of ownedBaits()) {
       const ctx = ctxFor(zone, b), leg = AQ.spawn.legendaryReady(zone, ctx);
-      if (leg && (!caught(leg) || leg === 'tinteira')) { bait = b; if (rng.chance(0.6)) id = leg; break; }
+      // legendaries spawn deterministically once ready (§5.5), so a player holding the bait waits for that one
+      if (leg && (!caught(leg) || leg === 'tinteira')) { bait = b; if (leg === 'tinteira' || rng.chance(0.6)) id = leg; break; }
     }
     G.equipBait(bait);
     const ctx = ctxFor(zone, bait);
@@ -187,7 +188,8 @@ function simulate(seed, minutes, o0) {
       if (req.gear) for (const slot in req.gear) if (g[slot] < req.gear[slot]) want.push(slot);
     }
     const zone = zoneNow(), list = nonLeg(zone).filter((x) => x.rarity === 'C' || x.rarity === 'U');
-    const T = Math.max.apply(null, list.map((x) => x.gearTier));
+    // tackle tier: what the zone's commons need (uncommons are a bonus); the hook covers commons and uncommons
+    const T = Math.max.apply(null, list.filter((x) => x.rarity === 'C').map((x) => x.gearTier).concat([1]));
     const H = Math.max.apply(null, list.map((x) => x.hookMin));
     const depthNeed = Math.max.apply(null, list.map((x) => x.depth[0])) * AQ.zones.get(zone).depth;
     for (const slot of ['rod', 'line', 'reel']) if (g[slot] < T) want.push(slot);
@@ -195,6 +197,8 @@ function simulate(seed, minutes, o0) {
     if (gear().maxLen < depthNeed) want.push('line');
     if (zone === 'abismo' && g.lantern < 2) want.push('lantern'); // celacanto: "Leve uma lanterna forte"
     if (zone === 'abismo' && g.line < 5) want.push('line');
+    // QA: the endgame — the Lula-Tinteira needs Anzol IV and tier-5 tackle, so a player in the Abyss saves for them
+    if (zone === 'abismo') { if (g.hook < 4) want.push('hook'); for (const sl of ['rod', 'reel']) if (g[sl] < 5) want.push(sl); }
     const out2 = want.filter((id, i) => want.indexOf(id) === i && eco.priceOf(id, s) && eco.requirementsMet(id, s).ok);
     // aquarium capacity counts as required once the tanks are full
     for (const tk of s.aquarium.tanks) {
@@ -285,8 +289,8 @@ function simulate(seed, minutes, o0) {
     }
     if (!s.player.lures.colher && s.player.coins > 1200) tryBuy('lure_colher');
     if (!s.player.lures.jig && s.progress.zones.indexOf('kelp') >= 0 && s.player.coins > 4000) tryBuy('lure_jig');
-    if (zone === 'abismo' && s.player.unlocks.perola && s.player.baits.perola < 1) tryBuy('bait_perola');
-    if (s.player.unlocks.papel && s.player.baits.papel < 1 && !caught('tipografo')) tryBuy('bait_papel');
+    if (zone === 'abismo' && s.player.unlocks.perola && !(s.player.baits.perola > 0)) tryBuy('bait_perola');
+    if (s.player.unlocks.papel && !(s.player.baits.papel > 0) && !caught('tipografo')) tryBuy('bait_papel');
     // upgrades: the cheapest required item; aquarium items only when they do not starve the required ones
     let guard = 0;
     while (guard++ < 6) {
@@ -309,8 +313,10 @@ function simulate(seed, minutes, o0) {
       const opt = optional().map((o) => [o[0], o[1], eco.priceOf(o[0], s, o[1] || undefined)]).filter((o) => o[2] && !o[2].pearls || (o[2] && o[2].pearls <= s.player.pearls && !o[2].coins))
         .sort((a, b) => a[2].coins - b[2].coins);
       let bought = false;
+      // in the Abyss the player keeps 20 pearls for the Pérola Negra bait (the Lula-Tinteira)
+      const keepPearls = zoneNow() === 'abismo' && !caught('tinteira') && !(s.player.baits.perola > 0) ? 20 : 0;
       for (const o of opt) {
-        if (s.player.coins - o[2].coins >= 0.5 * need && s.player.pearls >= (o[2].pearls || 0)) { if (tryBuy(o[0], o[1])) { bought = true; break; } }
+        if (s.player.coins - o[2].coins >= 0.5 * need && s.player.pearls - keepPearls >= (o[2].pearls || 0)) { if (tryBuy(o[0], o[1])) { bought = true; break; } }
       }
       if (!bought) break;
     }
@@ -331,12 +337,17 @@ function simulate(seed, minutes, o0) {
       }
     }
     if (sec % 20 === 0) maintain();
+    // QA: once ready for the Lula-Tinteira, the player uses "Wait until… night" (free) to look for a stormy night
+    if (sec % 120 === 0 && zoneNow() === 'abismo' && s.player.gear.hook >= 4 && (s.player.baits.perola || 0) > 0 && !caught('tinteira')) {
+      const now = AQ.world.now(s);
+      if (!(now.phase === 'noite' && now.weather === 'tempestade')) { G.wait('noite'); out.waits = (out.waits || 0) + 1; }
+    }
   }
   out.final = {
     coins: s.player.coins, pearls: s.player.pearls, gear: Object.assign({}, s.player.gear), tanks: s.aquarium.tanks.length,
     fish: s.aquarium.fish.length, stars: s.progress.stars, attraction: Math.round(aq.attraction(s)),
     income: +eco.incomePerMinute(s).toFixed(1), zones: s.progress.zones.slice(), goals: Object.keys(s.progress.goalsDone).length,
-    species: AQ.progress.completion(s).caught,
+    species: AQ.progress.completion(s).caught, perola: s.player.baits.perola || 0, unlockPerola: !!s.player.unlocks.perola, waits: out.waits || 0, tinteira: caught("tinteira"),
     tankInfo: s.aquarium.tanks.map((tk) => { const u = aq.tankUsage(tk, s); return tk.id + ' ' + u.used + '/' + u.cap + ' f' + u.filterCap + ' h' + aq.tankHappiness(tk, s) + ' a' + Math.round(aq.tankAttraction(tk, s)) + ' ' + tk.light + ' ' + tk.decor.filter(Boolean).join(','); }),
     fishInfo: o0 ? s.aquarium.fish.map((f) => f.sp + ':' + aq.fishHappiness(f, G.tankById(f.tank), s).value + JSON.stringify(aq.fishHappiness(f, G.tankById(f.tank), s).factors).replace(/"|\{|\}/g, '').replace(/(\d\.\d\d)\d+/g, '$1')) : null
   };

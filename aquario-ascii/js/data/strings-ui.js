@@ -66,6 +66,8 @@
         "continue": "Continue",
         newGame: "New game",
         settings: "Settings",
+        fullscreen: "Fullscreen",
+        fullscreenExit: "Exit fullscreen",
         credits: "Credits",
         gamesMenu: "Games menu",
         version: "v{v}",

@@ -55,7 +55,8 @@ All settings apply immediately and are saved in the browser.
 - **Sound:** master, music, effects and ambience volumes.
 - **Display:** quality (auto / high / medium / low — auto steps down on slow devices), motion (fluid or classic
   grid), reduce motion, glyph size, interface scale, theme (Paper unlocks when you finish the story), high
-  contrast, show FPS.
+  contrast, show FPS, fullscreen (also a **Fullscreen** button on the title screen, hidden where the browser
+  has no fullscreen support, such as Safari on iPhone).
 - **Controls:** hand (reel button side), vibration, control hints, **Auto rod** (the rod steers itself during
   fights), **Wide windows** (a longer strike window).
 - **Save:** export / import a save code, and reset (asks twice).

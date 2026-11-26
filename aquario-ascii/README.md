@@ -75,7 +75,27 @@ All settings apply immediately and are saved in the browser.
 
 Open `index.html` in a browser (Chrome, Firefox or Safari). It works offline from `file://`; no server or build
 step. The game saves to `localStorage` automatically. Add `?debug=1` to the URL for the `AQ.debug` console helpers
-(`AQ.debug.help()`).
+(`AQ.debug.help()`), and `?autostart=1` to skip the start tap (automated tests; audio then unlocks on the first
+tap).
+
+## Audio
+
+Every sound is a recorded MP3 in `audio/` (`music/`, `sfx/`, `jingles/`, `ambience/`; about 7.5 MB): 9 themes, a
+night take of each of the five waters (also used in storms), a fight stem per water (drums + bass, same tempo, its
+loop divides the theme's so it plays in sync and follows the line tension), the reel loop, three ambience loops and
+38 effects / jingles. `js/data/audio-manifest.js` lists them (file, kind, level, exact loop points, tempo).
+
+- **Loading screen.** At boot the game fetches the files (the short ones and the title theme are decoded, the
+  other music is decoded when needed) with a progress bar, then shows **[ Tap to start ]**. That tap starts audio
+  (mobile browsers only allow it inside a tap) and opens the title. A failed file or a load stuck for 15 s never
+  blocks: you can start without some sounds.
+- **Playback.** Web Audio sample player (`js/audio/`): buses for music, effects and ambience, a compressor and
+  limiter, gapless loops (`loopStart`/`loopEnd` skip the MP3 padding), crossfades between moods.
+  From `file://` (where browsers block `fetch`) it falls back to plain `<audio>` elements with simpler mixing.
+- **Re-rendering.** The sounds are made by the game's original 16-bit synth (FM / pulse voices, SNES-style echo),
+  kept in `tools/audio-render/`. `node aquario-ascii/tools/audio-render/render.js [id …]` renders them on an
+  OfflineAudioContext in headless Chromium (Playwright), encodes with ffmpeg, checks every loop seam after decoding
+  and rewrites the manifest. Edit the themes / recipes in `synth-music.js` / `synth-sfx.js`.
 
 **Android:** `android/` builds an installable APK of the game (`ANDROID_HOME=… android/build.sh`); see
 `android/README.md`.
@@ -103,8 +123,10 @@ order of `index.html`.
 | `js/data/` | strings, sprites and art, species, zones, items, goals |
 | `js/logic/` | pure game logic: world clock and weather, spawning, creatures, line, bite, fight, economy, aquarium, progress, game state |
 | `js/engine/` | display, glyph atlas, renderer, effects, input, scenes, performance, loop, debug |
-| `js/audio/`, `js/platform/` | Web Audio sound and music, haptics |
-| `js/ui/` | DOM overlay: HUD, modals, menus, shop, notebook, cards, goals, tutorial |
+| `js/audio/`, `js/platform/` | sample player (music, effects, ambience), haptics |
+| `audio/` | the recorded sounds (MP3), listed in `js/data/audio-manifest.js` |
+| `tools/audio-render/` | the synth and the script that records `audio/` (not loaded by the game) |
+| `js/ui/` | DOM overlay: loading screen, HUD, modals, menus, shop, notebook, cards, goals, tutorial |
 | `js/scenes/` | title, map, fishing, aquarium, ending |
 | `tests/` | Node test runner, tests and balance tools |
 | `android/` | Android wrapper (WebView app) and its build script for the APK |
@@ -115,4 +137,4 @@ order of `index.html`.
 Design and code: built for this collection with Claude.
 Font: [JetBrains Mono](https://www.jetbrains.com/lp/mono/) NL, © The JetBrains Mono Project Authors, used under
 the SIL Open Font License 1.1 — see [`fonts/LICENSE-JetBrainsMono.txt`](fonts/LICENSE-JetBrainsMono.txt).
-All sound is synthesised in the browser; there are no audio files.
+Music and sound: synthesised for this game (`tools/audio-render/`) and recorded to `audio/`.

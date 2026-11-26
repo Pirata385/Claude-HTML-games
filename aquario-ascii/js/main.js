@@ -1,4 +1,5 @@
-// Água-Tinta — boot (owner A): settings → save → perf → theme → display → input/ui/audio → title scene → loop.
+// Água-Tinta — boot (owner A): settings → save → perf → theme → display → input/ui/audio → loading screen (sound
+// files preload, then the start tap that unlocks audio) → title scene → loop.
 (function (AQ) {
   'use strict';
 
@@ -44,6 +45,10 @@
       safe('ui.init', function () { AQ.ui.init(uiRoot); });
       safe('audio.init', function () { AQ.audio.init(); });
       safe('store.startAutosave', function () { AQ.store.startAutosave(); });
+      // loading screen: resolves inside the start gesture; if it ever fails, open the game anyway
+      var wait = safe('loading.run', function () { return AQ.loading && AQ.loading.run(); });
+      return wait && wait.then ? wait.catch(function (e) { console.error('[AQ.main] loading failed:', e); }) : null;
+    }).then(function () {
       lifecycle();
       var bootEl = document.getElementById('boot');
       if (bootEl) {

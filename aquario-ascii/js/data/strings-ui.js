@@ -60,6 +60,17 @@
         m: "{m} min",
         s: "{s} s"
       },
+      load: {
+        sounds: "loading sounds {n}/{total}",
+        ready: "sounds ready",
+        tap: "[ Tap to start ]",
+        click: "[ Click or press any key ]",
+        stalled: "[ Start without some sounds ]",
+        partial: "{n} sounds could not load. The game works without them.",
+        slow: "Still loading. You can start now; the rest arrives in the background.",
+        noAudio: "This browser cannot play sound. The game works without it.",
+        fallback: "Opened from a file: simpler sound mixing."
+      },
       title: {
         name: "Água-Tinta",
         subtitle: "fishing and aquarium in ascii",

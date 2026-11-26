@@ -274,7 +274,7 @@ module.exports = function (T) {
     T.ok(tk.food >= 0.3);
   });
 
-  T.test('till accrues .06 · attraction per minute online', () => {
+  T.test('till accrues INCOME_K · attraction per minute online', () => {
     const AQ = fresh(), s = AQ.state, tk = tank(AQ);
     const rng = AQ.rng.create('t');
     for (let i = 0; i < 6; i++) add(AQ, 'fx_l', { tank: 't1', q: 1 });

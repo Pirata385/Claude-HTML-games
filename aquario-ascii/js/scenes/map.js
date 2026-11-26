@@ -64,7 +64,7 @@
         regs.push({ kind: 'zone', id: ids[i], c0: x0 + i * w, c1: x0 + (i + 1) * w - 1, r0: m.top, r1: m.bot - 2 });
       }
       regs.push({ kind: 'aquarium', c0: 1, c1: 8, r0: m.top + 1, r1: m.top + 4 });
-      regs.push({ kind: 'shop', c0: 1, c1: 7, r0: m.top + 7, r1: m.top + 9 });
+      regs.push({ kind: 'shop', c0: 1, c1: 7, r0: m.top + 8, r1: m.top + 10 });
     } else {
       m.coastH = 6;
       var yTop = m.top, yBot = m.bot - m.coastH - 1, h = Math.max(2, Math.floor((yBot - yTop + 1) / ids.length));
@@ -115,7 +115,7 @@
     boxArt(grid, sh.c0, sh.r0, shopL.length + 2, [shopL], 7);
     // pier + boat
     var pr, pc;
-    if (!m.portrait) { pr = m.top + 5; pc = 1; }
+    if (!m.portrait) { pr = m.top + 6; pc = 1; }
     else { pr = aq.r0 - 2; pc = 2; }
     var pier = '===|====';
     grid.text(pc, pr, pier, 6);
@@ -136,9 +136,10 @@
     grid.text(c0, r0, top, level);
     for (var i = 0; i < lines.length; i++) {
       var s = lines[i], padL = Math.floor((w - 2 - s.length) / 2), body = '';
-      for (var k = 0; k < w - 2; k++) body += k >= padL && k < padL + s.length ? s[k - padL] : (i === lines.length - 1 ? '_' : ' ');
+      for (var k = 0; k < w - 2; k++) body += k >= padL && k < padL + s.length ? s[k - padL] : ' ';
       grid.text(c0, r0 + 1 + i, '|' + body + '|', level);
     }
+    grid.text(c0, r0 + 1 + lines.length, '|' + new Array(w - 1).join('_') + '|', level);
   }
 
   // ---------------------------------------------------------------- main: labels, selection, forecast

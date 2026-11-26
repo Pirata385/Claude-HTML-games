@@ -81,7 +81,7 @@
     st.cols = cols;
     st.boat.x = Math.round(cols * (D.orientation === 'portrait' ? 0.5 : 0.3));
     var lay = HUD.layout(true);
-    st.skyRows = Math.max(4, Math.min(8, (lay.insetT || 0) + 4));
+    st.skyRows = Math.max(5, Math.min(10, (lay.insetT || 0) + 6));
     return k;
   }
   function floorY(x) { return BG.floorY(x); }
@@ -163,6 +163,7 @@
     if (!sp) return 0;
     var rng = st.rng;
     var n = nForce || safe(function () { return AQ.spawn.schoolSize(sp, rng); }, 1) || 1;
+    if (!nForce && n > 1) n = Math.min(n, Math.max(3, Math.floor(st.cols / 9)));
     var dir = rng.next() < 0.5 ? 1 : -1;
     var x = xAt !== undefined ? xAt : onScreen ? rng.range(3, st.cols - 3) : (dir > 0 ? -8 - rng.next() * 6 : st.cols + 8 + rng.next() * 6);
     var y = bandY(sp, rng);
@@ -174,7 +175,17 @@
     for (var i = 0; i < n; i++) {
       var yy = U.clamp(y + rng.range(-3, 3), 1.5, floorY(x) - 1.5);
       if (sp.behavior === 'crawl' || sp.behavior === 'burrow') yy = floorY(x) - 1;
-      makeCreature(id, x + rng.range(-4, 4), yy, dir);
+      var mc = makeCreature(id, x + rng.range(-4, 4), yy, dir);
+      if (mc && n > 1) mc.data.schoolKey = 'g' + st.t.toFixed(3) + id;
+    }
+    return n;
+  }
+  // Schools are big on narrow screens: at most ceil(cols / 45) + 1 schools at a time (re-picks otherwise).
+  function schoolCount() {
+    var seen = {}, n = 0;
+    for (var i = 0; i < st.list.length; i++) {
+      var c = st.list[i], d = c.data || {}, key = d.school && d.school.id ? 's' + d.school.id : (d.schoolKey || null);
+      if (key && !seen[key]) { seen[key] = 1; n++; }
     }
     return n;
   }
@@ -183,8 +194,14 @@
     if (!initial && st.spawnT > 0) return;
     st.spawnT = st.rng.range(1, 3);
     if (st.list.length >= targetPop()) return;
-    var id = safe(function () { return AQ.spawn.pick(st.zoneId, ctxSpawn(), st.rng); }, null);
-    if (id) spawnGroup(id, !!initial);
+    var ctx = ctxSpawn(), id = null;
+    for (var k = 0; k < 4 && !id; k++) {
+      id = safe(function () { return AQ.spawn.pick(st.zoneId, ctx, st.rng); }, null);
+      var sp = id && spDef(id);
+      if (sp && sp.behavior === 'school' && schoolCount() >= Math.ceil(st.cols / 45) + 1) id = null;
+    }
+    // initial population is spread over three view widths so it does not all start on screen
+    if (id) spawnGroup(id, false, initial ? st.rng.range(-st.cols, 2 * st.cols) : undefined);
   }
   function despawn() {
     for (var i = st.list.length - 1; i >= 0; i--) {

@@ -90,9 +90,9 @@
     nodes.pause = D.btn('||', function () { ui.openPause(); }, { cls: 'aq-hud-pause', aria: t('hud.pause'), anchor: 'pause' });
     nodes.pause.setAttribute('data-i18n-aria', 'hud.pause');
     nodes.saved = el('span.aq-saved', { 'data-i18n': 'hud.saved', text: t('hud.saved'), 'aria-hidden': 'true' });
-    nodes.top = el('div.aq-top', { 'data-inset': 'top' }, [back, nodes.wallet, nodes.center, nodes.saved, nodes.pause]);
+    nodes.top = el('div.aq-top', null, [back, nodes.wallet, nodes.center, nodes.saved, nodes.pause]);
     nodes.sub = el('div.aq-top-sub');
-    nodes.topWrap = el('div.aq-top-wrap', null, [nodes.top, nodes.sub]);
+    nodes.topWrap = el('div.aq-top-wrap', { 'data-inset': 'top' }, [nodes.top, nodes.sub]);
     L.appendChild(nodes.topWrap);
 
     // bottom navigation
@@ -138,7 +138,7 @@
 
   function buildReel() {
     var b = el('button.aq-reel', { type: 'button', 'data-anchor': 'reel', 'aria-label': t('hud.reel'), 'data-i18n-aria': 'hud.reel' });
-    b.appendChild(el('pre.aq-reel-art', { 'aria-hidden': 'true', text: " .-----.\n( (@) )\n '-----'" }));
+    b.appendChild(el('pre.aq-reel-art', { 'aria-hidden': 'true', text: " .-----.\n ( (@) )\n '-----'" }));
     function press(e) {
       if (e) { e.preventDefault(); try { b.setPointerCapture(e.pointerId); } catch (err) { /* ignore */ } }
       if (reelHeld) return;

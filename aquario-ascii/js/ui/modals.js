@@ -209,7 +209,9 @@
       if (p && typeof p.x === 'number') {
         var stage = document.getElementById('stage');
         var sr = stage ? stage.getBoundingClientRect() : { left: 0, top: 0 };
-        return { x: p.x + sr.left, y: p.y + sr.top - 8 };
+        var py = p.y + sr.top;
+        if (py < H * 0.3) return { x: p.x + sr.left, y: Math.max(py + 18, ins.top + 10), below: true };
+        return { x: p.x + sr.left, y: py - 10 };
       }
     }
     return { x: W / 2, y: H * 0.42 };

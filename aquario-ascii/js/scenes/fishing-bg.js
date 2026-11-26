@@ -231,19 +231,19 @@
           if (d2 < lan2) lanternK = U.smoothstep(lantern, lantern * 0.5, Math.sqrt(d2));
         }
         var n = U.noise2(c * 0.11 + tt * 0.05, (camRow + r) * 0.23 - tt * 0.03);
-        var thr = thickRow ? 0.5 : 0.6;
+        var thr = thickRow ? 0.56 : 0.68;
         var code = 0, lvl = 0;
         if (n > thr) {
           var v = (n - thr) / (1 - thr);
           code = R.rampCode('water', 0.25 + v * 0.75);
           lvl = dark ? (lanternK > 0.05 ? 1 + Math.round(2 * lanternK) : (n > 0.8 ? 1 : 0)) : 1 + Math.round(2 * L * v);
         }
-        if (!code && rays && !dark && L > 0.45 && dfr < 0.5) {
+        if (!code && rays && !dark && L > 0.45 && dfr < 0.38) {
           var band = Math.sin((wx + rayDir * (camRow + r) * 1.1) * 0.33 + tt * 0.2) + Math.sin((wx * 0.7 + rayDir * (camRow + r) * 0.8) * 0.19 - tt * 0.11);
-          if (band > 1.45 - 0.2 * rayMul) {
+          if (band > 1.72 - 0.12 * rayMul) {
             code = rayDir > 0 ? codes.back : codes.slash;
-            lvl = Math.max(1, Math.round((band - 1.25) * 3 * (1 - dfr * 2) * rayMul * L));
-            if (lvl > 3) lvl = 3;
+            lvl = Math.max(1, Math.round((band - 1.6) * 4 * (1 - dfr * 2.5) * rayMul * L));
+            if (lvl > 2) lvl = 2;
           }
         }
         if (caust && !dark && L > 0.4) {
@@ -289,10 +289,12 @@
     var S = AQ.fx.surface, cellO = drawBg._cell || (drawBg._cell = {});
     var storm = weather === 'tempestade';
     for (c = 0; c < gc; c++) {
-      S.cell(c + cam.x + 0.5, cellO);
-      var sr = cellO.row - camRow;
+      // the mean surface sits mid-row (y + 1), so calm water reads as '-' / '~' and waves reach '^' / '_'
+      var wxs = c + cam.x + 0.5, hy = S.height(wxs) + 1, srow = Math.floor(hy / ASPECT), pp = hy / ASPECT - srow;
+      var vv = U.clamp((1 - pp) - S.slope(wxs) * 0.25, 0, 0.999);
+      var sr = srow - camRow;
       if (sr < 0 || sr >= gr) continue;
-      var code2 = cellO.code;
+      var code2 = R.rampCode('wave', vv);
       if (storm && Math.abs(S.slope(c + 0.5)) > 0.35 && R.hash01(c, Math.floor(t * 6), 2) < 0.5) code2 = codes.star;
       if (ctx.frenzyX !== null && ctx.frenzyX !== undefined && Math.abs(c + 0.5 - ctx.frenzyX) < 5 && R.hash01(c, Math.floor(t * 10), 4) < 0.6) {
         code2 = R.hash01(c, Math.floor(t * 10), 9) < 0.4 ? codes.star : R.hash01(c, Math.floor(t * 10), 8) < 0.5 ? codes.quote : codes.dot;

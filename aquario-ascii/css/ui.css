@@ -290,6 +290,7 @@
 .aq-toast.is-warn { border-style: dashed; border-color: var(--ink); }
 .aq-toast.is-rare { background: var(--ink); color: var(--bg); border-color: var(--ink); }
 .aq-ui.is-reduced .aq-toast { transform: none; }
+.aq-ui.has-modal .aq-toasts { top: auto !important; bottom: 0; padding-top: 0; padding-bottom: calc(14px + var(--sb)); flex-direction: column-reverse; }
 
 /* ======================================================================= note card */
 .aq-screen.is-note { background: rgb(var(--bg-rgb) / .5); }

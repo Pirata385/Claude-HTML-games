@@ -22,7 +22,7 @@ module.exports = function (T) {
     let r = P.zoneRequirements('recife', s);
     T.eq(r.ok, false);
     T.eq(r.items.map((i) => [i.key, i.ok]), [['item.req.gear', false], ['item.req.species', false]]);
-    T.eq(r.items[0].vars.price, 400);
+    T.eq(r.items[0].vars.price, AQ.items.gearAt('boat', 2).price);
     const baia = AQ.species.inZone('baia').map((x) => x.id);
     caught(AQ, baia.slice(0, 5));
     T.eq(P.zoneRequirements('recife', s).items[1].ok, true);

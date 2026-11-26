@@ -4,7 +4,7 @@
   'use strict';
 
   var K = {
-    INCOME_K: 0.06,          // incomePerMinute = INCOME_K · attraction (§7.4)
+    INCOME_K: 0.12,          // incomePerMinute = INCOME_K · attraction (§7.4: .06, tuned by balance-pacing)
     OFFLINE_RATE: 0.5,       // offline till and pearls run at 50% (§7.4, §7.7)
     BRED_SELL: 0.6,          // bred fish sell × .6 (§7.6)
     JUV_MIN: 0.4             // juveniles sell / appeal × (JUV_MIN + (1 − JUV_MIN)·growth)   (D addition, tunable)

@@ -33,7 +33,7 @@ module.exports = function (T) {
       T.eq(I.gearAt(slot, I.GEAR_MIN[slot]).price, 0, slot + ' starting tier is free');
       T.ok(I.get(slot) && I.get(slot).cat === 'gear');
     }
-    T.eq(I.gearAt('rod', 2).price, 120); T.eq(I.gearAt('lantern', 1).price, 2000); T.eq(I.gearAt('boat', 5).price, 12000);
+    T.eq(I.gearAt('rod', 2).price, 120); T.eq(I.gearAt('boat', 2).price, I.get('boat').price[0].coins);
     for (const id of AQ.ENUM.ITEMS_BAIT.concat(AQ.ENUM.ITEMS_LURE, AQ.ENUM.ITEMS_AQUA, AQ.ENUM.DECOR)) T.ok(I.get(id), 'item ' + id);
     for (const it of I.list) {
       T.ok(AQ.ENUM.ITEM_CATS.indexOf(it.cat) >= 0, it.id + ' cat');
@@ -74,7 +74,7 @@ module.exports = function (T) {
   T.test('priceOf follows tiers and returns null when maxed', () => {
     const AQ = fresh(), s = AQ.state, P = (id, o) => AQ.economy.priceOf(id, s, o);
     T.eq(P('rod'), { coins: 120, pearls: 0 });
-    T.eq(P('lantern'), { coins: 2000, pearls: 0 });
+    T.eq(P('lantern'), { coins: AQ.items.gearAt('lantern', 1).price, pearls: 0 });
     s.player.gear.rod = 5; T.eq(P('rod'), null);
     s.player.gear.hook = 4; T.eq(P('hook'), null);
     s.player.gear.lantern = 3; T.eq(P('lantern'), null);
@@ -84,18 +84,18 @@ module.exports = function (T) {
     T.eq(P('farol'), { coins: 0, pearls: 30 });
     T.eq(P('tank'), { coins: 500, pearls: 0 });
     s.aquarium.tanks.push({ id: 't2', cap: 1, filter: 1, feeder: false, light: 'day', food: 1, decor: [null, null, null, null, null] });
-    T.eq(P('tank'), { coins: 3000, pearls: 0 });
+    T.eq(P('tank'), AQ.items.get('tank').price[1]);
     s.aquarium.tanks.push({ id: 't3' }, { id: 't4' });
     T.eq(P('tank'), null);
     const t1 = s.aquarium.tanks[0];
     T.eq(P('tankcap', { tankId: 't1' }), { coins: 250, pearls: 0 });
-    t1.cap = 3; T.eq(P('tankcap', { tankId: 't1' }), { coins: 6000, pearls: 0 });
+    t1.cap = 3; T.eq(P('tankcap', { tankId: 't1' }), AQ.items.get('tankcap').price[2]);
     t1.cap = 4; T.eq(P('tankcap', { tankId: 't1' }), null);
     T.eq(P('tankcap'), { coins: 250, pearls: 0 }, 'without tankId → first tank not maxed (t2)');
     t1.filter = 3; T.eq(P('filter', { tankId: 't1' }), null);
     t1.feeder = true; T.eq(P('feeder', { tankId: 't1' }), null);
     T.eq(P('feeder', { tankId: 't2' }), { coins: 1200, pearls: 0 });
-    T.eq(P('cofre'), { coins: 2000, pearls: 0 });
+    T.eq(P('cofre'), AQ.items.get('cofre').price[0]);
     s.player.cofre = 3; T.eq(P('cofre'), null);
     T.eq(P('nope'), null);
   });
@@ -129,14 +129,14 @@ module.exports = function (T) {
     T.ok(!AQ.economy.canAfford({ coins: 0, pearls: 1 }, s));
   });
 
-  T.test('income: empty aquarium is 0; rate = .06 · attraction', () => {
+  T.test('income: empty aquarium is 0; rate = INCOME_K · attraction', () => {
     const AQ = fresh(), s = AQ.state;
     T.eq(AQ.economy.incomePerMinute(s), 0);
     T.eq(AQ.aquarium.attraction(s), 0);
     fish(AQ, 'fx_a');
     const attr = AQ.aquarium.attraction(s);
     T.ok(attr > 0);
-    T.near(AQ.economy.incomePerMinute(s), 0.06 * attr, 1e-9);
+    T.near(AQ.economy.incomePerMinute(s), AQ.economy.K.INCOME_K * attr, 1e-9);
   });
 
   T.test('offline = 50% × rate × min(away, cap)', () => {

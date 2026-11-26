@@ -6,7 +6,8 @@
   // ---------------------------------------------------------------- gear (§8.2)
   // GEAR[slot] is ordered by tier; each entry carries its own `tier`. rod/line/reel/hook/boat start at tier 1,
   // lantern at tier 0. Use AQ.items.gearAt(slot, tier) rather than indexing by hand.
-  // `price` is what it costs to BUY that tier (the starting tier costs 0).
+  // `price` is what it costs to BUY that tier (the starting tier costs 0). Prices tuned by tests/balance-pacing.js
+  // (see notes/D.md); §8.2 lists the first-pass values.
   function tiers(slot, first, prices, stats) {
     return prices.map(function (p, i) {
       var t = first + i;
@@ -15,37 +16,37 @@
   }
 
   var GEAR = {
-    rod: tiers('rod', 1, [0, 120, 800, 3500, 12000], [
+    rod: tiers('rod', 1, [0, 120, 600, 2000, 8000], [
       { cast: 26, window: 0, St: 0.55 },
       { cast: 34, window: 0.05, St: 0.65 },
       { cast: 44, window: 0.10, St: 0.75 },
       { cast: 56, window: 0.15, St: 0.88 },
       { cast: 70, window: 0.20, St: 1.0 }
     ]),
-    line: tiers('line', 1, [0, 75, 600, 3000, 10000], [
+    line: tiers('line', 1, [0, 75, 450, 1800, 6500], [
       { Ls: 1.0, maxLen: 90, snapGrace: 0.25 },
       { Ls: 1.25, maxLen: 130, snapGrace: 0.30 },
       { Ls: 1.55, maxLen: 180, snapGrace: 0.35 },
       { Ls: 1.9, maxLen: 250, snapGrace: 0.40 },
       { Ls: 2.3, maxLen: 360, snapGrace: 0.45 }
     ]),
-    reel: tiers('reel', 1, [0, 150, 1000, 4000, 12000], [
+    reel: tiers('reel', 1, [0, 150, 700, 2200, 8000], [
       { reelSpeed: 7, riseRate: 7 },
       { reelSpeed: 9, riseRate: 6.5 },
       { reelSpeed: 11, riseRate: 6 },
       { reelSpeed: 13, riseRate: 5.5 },
       { reelSpeed: 16, riseRate: 5 }
     ]),
-    hook: tiers('hook', 1, [0, 100, 700, 3500], [
+    hook: tiers('hook', 1, [0, 100, 500, 2000], [
       { hookClass: 1, H: 0 },
       { hookClass: 2, H: 0.25 },
       { hookClass: 3, H: 0.5 },
       { hookClass: 4, H: 0.75 }
     ]),
-    lantern: tiers('lantern', 0, [0, 2000, 6000, 15000], [
+    lantern: tiers('lantern', 0, [0, 1000, 4000, 10000], [
       { radius: 6 }, { radius: 14 }, { radius: 22 }, { radius: 30 }
     ]),
-    boat: tiers('boat', 1, [0, 400, 1600, 5000, 12000], [
+    boat: tiers('boat', 1, [0, 300, 1200, 3500, 5000], [
       { zone: 'baia' }, { zone: 'recife' }, { zone: 'kelp' }, { zone: 'mar' }, { zone: 'abismo' }
     ])
   };
@@ -131,9 +132,9 @@
   add({ id: 'bait_perola', cat: 'bait', bait: 'perola', qty: 1, price: p(20), req: { stars: 4, unlock: 'perola' } });
 
   // Aquarium items.
-  add({ id: 'tank', cat: 'tank', tiered: true, price: [c(500), c(3000), c(10000)] });      // 2nd / 3rd / 4th tank
-  add({ id: 'tankcap', cat: 'tank', tiered: true, per: 'tank', price: [c(250), c(1500), c(6000)] }); // cap 20/32/48
-  add({ id: 'filter', cat: 'tank', tiered: true, per: 'tank', price: [c(300), c(2500)] });  // filter 28/56
+  add({ id: 'tank', cat: 'tank', tiered: true, price: [c(500), c(2500), c(8000)] });      // 2nd / 3rd / 4th tank
+  add({ id: 'tankcap', cat: 'tank', tiered: true, per: 'tank', price: [c(250), c(1200), c(4500)] }); // cap 20/32/48
+  add({ id: 'filter', cat: 'tank', tiered: true, per: 'tank', price: [c(300), c(2000)] });  // filter 28/56
   add({ id: 'feeder', cat: 'tank', per: 'tank', price: c(1200) });
   add({ id: 'cofre', cat: 'misc', tiered: true, price: [c(2000), c(8000)] });             // offline cap 4 h / 8 h
 

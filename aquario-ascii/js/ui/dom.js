@@ -484,7 +484,8 @@
   function focusNode(n) { try { n.focus({ preventScroll: false }); } catch (e) { /* ignore */ } }
   function focusFirst(inst) {
     if (!inst || !inst.el) return;
-    var n = inst.el.querySelector('[data-default]:not([disabled])') || focusables(inst.el)[0];
+    var list = focusables(inst.el);
+    var n = inst.el.querySelector('[data-default]:not([disabled])') || list.filter(function (x) { return !x.classList.contains('aq-x'); })[0] || list[0];
     if (n) focusNode(n);
   }
   function navScope() {

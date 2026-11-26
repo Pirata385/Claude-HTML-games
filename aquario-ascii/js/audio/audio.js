@@ -36,6 +36,16 @@
     return Ctor && OffCtor && W.fetch ? 'webaudio' : 'none';
   }
   function vol(k) { var v = AQ.settings && AQ.settings.get(k); return typeof v === 'number' ? v : 0.6; }
+  // The audio context, as Ring of Beakers makes it: 32 kHz with the 'playback' latency hint. Some Android devices
+  // render nothing through the default low-latency ('interactive') path; this one plays there, and 32 kHz is
+  // the SNES's own rate for this 16-bit soundtrack. Older engines that refuse the options get the defaults.
+  function makeContext() {
+    var tries = [{ sampleRate: 32000, latencyHint: 'playback' }, { latencyHint: 'playback' }, null];
+    for (var i = 0; i < tries.length; i++) {
+      try { return tries[i] ? new Ctor(tries[i]) : new Ctor(); } catch (e) { /* next */ }
+    }
+    return null;
+  }
   function engine() { try { return (AQ.settings && AQ.settings.get && AQ.settings.get('audioEngine')) || 'auto'; } catch (e) { return 'auto'; } }
 
   // Auto engine: on some devices the Web Audio output never renders (the context says 'running' but its clock
@@ -450,26 +460,12 @@
 
   // iOS: playing a (silent) HTML media element inside the gesture moves the page to the "playback" audio session,
   // so the ring/silent switch does not mute Web Audio.
-  function silentKick() {
-    var e = MAN.silence;
-    if (!e || typeof W.Audio !== 'function') return;
-    try {
-      var el = new W.Audio();
-      el.setAttribute('playsinline', '');
-      el.setAttribute('x-webkit-airplay', 'deny');
-      el.preload = 'auto';
-      el.src = e.file;
-      var p = el.play();
-      if (p && p.catch) p.catch(function () { /* not allowed: Web Audio still works with the switch off */ });
-    } catch (err) { /* optional */ }
-  }
-
   // start() — call from inside a real user activation (the loading screen's start tap/click/key).
   A.start = function () {
     if (A.started) return A.unlock();
     A.started = true;
-    try { if (typeof navigator !== 'undefined' && navigator.audioSession) navigator.audioSession.type = 'playback'; } catch (e0) { /* optional */ }
-    silentKick();
+    // game sound, not media playback: mix with whatever the player is listening to (Ring of Beakers does the same)
+    try { if (typeof navigator !== 'undefined' && navigator.audioSession) navigator.audioSession.type = 'ambient'; } catch (e0) { /* optional */ }
     var p = A.unlock();
     armUnlock();
     return p;
@@ -485,7 +481,7 @@
     if (A.mode !== 'webaudio') return Promise.resolve(false);
     try {
       if (!A.ctx) {
-        A.ctx = new Ctor({ latencyHint: 'interactive' });
+        A.ctx = makeContext();
         A.ctx.onstatechange = function () {
           if (A.ctx.state === 'running') watchClock();
           if (A.ctx.state !== 'running' && A.ctx.state !== 'closed' && !(typeof document !== 'undefined' && document.hidden)) armUnlock();
@@ -546,6 +542,10 @@
 
   // ================================================================ public API (§15.5)
   A.init = function () {
+    try {
+      if (engine() === 'compat' && W.localStorage && !W.localStorage.getItem('aquario-ascii.audio.v2')) AQ.settings.set('audioEngine', 'auto');
+      if (W.localStorage) W.localStorage.setItem('aquario-ascii.audio.v2', '1');
+    } catch (eM) { /* storage blocked: keep the choice */ }
     A.mode = pickMode();
     var E = AQ.events;
     E.on('app:gesture', function () { if (A.started) A.unlock(); });

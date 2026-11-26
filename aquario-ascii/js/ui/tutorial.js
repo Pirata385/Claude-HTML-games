@@ -31,7 +31,7 @@
     if (ui.hud && ui.hud.pulse) { ui.hud.pulse('reel', false); ui.hud.pulse('feed', false); ui.hud.pulse('till', false); ui.hud.pulse('nav:aquarium', false); ui.hud.pulse('back', false); }
   }
   function inFishing() { return AQ.scenes && AQ.scenes.current === 'fishing'; }
-  function anchorReel() { return document.querySelector('.aq-ui.is-touch') ? 'reel' : 'bottom'; }
+  function anchorReel() { return document.querySelector('.aq-ui.is-touch') ? 'reel' : 'center'; }
 
   function setStep(n) {
     var ts = tstate();
@@ -55,8 +55,8 @@
       else if (n === 2) hint('sink', 'tut.sink', 'hook');
       else if (n === 3) hint('nibble', 'tut.nibble', 'hook');
       else if (n === 4) hint('strike', 'tut.strike', 'hook', { big: true });
-      else if (n === 5) { hint('reel', 'tut.reel', anchorReel()); hint('tension', 'tut.tension', 'tension'); ui.hud.pulse('reel', true); }
-      else if (n === 6) { hint('steer', 'tut.steer', 'fish', { big: true }); hint('tension', 'tut.tension', 'tension'); }
+      else if (n === 5) { hint('reel', 'tut.reel', anchorReel()); ui.hud.pulse('reel', true); }
+      else if (n === 6) hint('steer', 'tut.steer', 'fish', { big: true });
       else if (n === 9) { hint('go', 'tut.goAquarium', 'back'); ui.hud.pulse('back', true); }
     } else if (scene === 'map') {
       if (n === 9) { hint('go', 'tut.goAquariumMap', 'nav:aquarium'); ui.hud.pulse('nav:aquarium', true); }
@@ -67,21 +67,13 @@
     }
   }
 
-  function scriptFishing() {
-    if (!AQ.fishing || typeof AQ.fishing.script !== 'function') return;
-    var school = [];
-    for (var i = 0; i < 6; i++) school.push({ sp: 'manjuba', x: 8 + i * 1.2, depthFrac: 0.3 });
-    D.safe(function () {
-      AQ.fishing.script({ forceSpawn: school, autoStopDepth: 0.3, biteWindow: 2.0,
-        fightOverride: { power: 0.35, stamina: 4, runs: 1 }, noEscape: true });
-    });
-  }
+  // C's fishing scene scripts the tutorial school itself when entered with params {tutorial:true}
+  // (see AQ.fishing.script and its defaultTutorialScript); E only passes that flag.
   function unscript() { if (AQ.fishing && AQ.fishing.script) D.safe(function () { AQ.fishing.script(null); }); }
 
   function enterFishing() {
     if (!T.active) return;
     if (T.step <= 7) {
-      scriptFishing();
       if (T.step === 0) {
         later(function () {
           if (!T.active || !inFishing()) return;

@@ -1,0 +1,50 @@
+# Notes from C (fishing)
+
+Files: `js/logic/{fight,bite,line}.js`, `js/data/strings-fishing.js` (English only), `js/scenes/{map,fishing-bg,fishing-hud,fishing}.js`,
+`tests/{test-fight,test-line,test-bite}.js`, `tests/balance-report.js` (fights; requires `tests/balance-pacing.js` if present).
+
+## Fight model (§4.7–4.8) — deviations and extensions (all in `AQ.fight.CONST`)
+The spec formulas are implemented verbatim. Three behaviours had to be added so that the §15.11 assertions can hold:
+- **Burrow arrival** `BURROW_ARRIVE: 8`: a burrowing fish's speed toward its cover is × `min(1, d/8)`. Without it a fish
+  hooked next to its hole (the normal case: lurkers hold near covers) frays before any counterplay. Steering away plus
+  reeling now keeps it out (autopilot ≥ 93 %; rod 0 frays 25–35 %).
+- **Soft-body drag** `SOFT_DRAG: .7`: species with `special.tear` get `+ .7 × gain` on the target tension while reeling.
+  With drift `pm = .3` and tier-4 `Ls`, T could never reach `tear`, so "always reel tears ≥ 70 %" was unreachable.
+- **Boss hold** `BOSS_HOLD: 12`: before phase 2 a boss cannot be reeled within ~12 u (gain fades over 12–22 u), so all
+  three phases always play (the marlin used to land at S ≈ .45).
+- Also: `T` is hard-capped at `T_MAX 1.6`; the hookset's first state is never rest/burrow/grip; jump = rise at −2v →
+  airborne `AIR_TIME` on a −4 u arc → splash at y = 3 → rest; tells × .85 in a boss's last phase; tinteira rises under
+  S .1; grip special adds a `grip .15` weight (arraia only near the floor); roll special adds `roll .2`.
+- `create(..., opts)` extras: `origin {x, y}` (fight space = world − origin; `floorY` gets world x, covers are world
+  rects), `viewCols`, `script {power, stamina, runs:[{at, dir}], noEscape}`. Without covers a virtual cover sits 12 u
+  beside / 6 u below the hook site.
+- `step()` returns a **reused** array (copy what you keep). Extra event `{type:'air', on}` (jump leaves/enters water).
+- Extras: `AQ.fight.danger(fs)` → 0..1 (closest failure timer), `DT`, `DUR`, `BOSSES`, `NEEDS_TELL`.
+
+## Other logic
+- `AQ.bite.window(sp, gear, settings)`: settings may be `AQ.settings` or `{wideWindows, biteWindow}`; `biteWindow`
+  overrides the species window and drops the rod bonus (tutorial 2.0 s). Extra `remaining(bs, now)`.
+- `AQ.line`: `resetRope`, `pointAt(traj, t)`; `trajectory(..., opts{minX, maxX, out, n})`; `rasterize` cells also carry
+  `{bold, c, r}` and are pooled. Glyphs are placed at exact rope positions one cell apart (movable type) — 8-connected.
+
+## Scene integration
+- Hooked creature stays in B's list (B draws it); C writes `c.x/c.y`, `c.pose` (inflate/ink/jet/roll),
+  `c.data.faceLock`, `c.data.scramble`, and uses `creatures.mouth()` for the hook. Escape → `setHooked(c, false)`.
+  `env` extras: `depth`, `isDark(x, y)`, `zone`, `lantern`, `luck`; `env.hook.engagedUid`. If `creatures.update` is an
+  empty stub, a small built-in stand-in runs instead.
+- Bait is consumed on landing and on escapes, with p = .5 on a late miss (§4.6/4.9); not on early strikes.
+- E already toasts `fight:end` reasons (`fish.escape.*`) and `bite:miss`; C toasts only hook-too-small, end of line,
+  bottles, first-time tells (`fish.tip.*`, once per session, hints on) and tinteira phases. **E:** `frenzy:start` and
+  `legendary:near` have strings ready (`fish.frenzy.start`, `fish.legendary.near`) if you want to toast them.
+- `AQ.fishing.script(opts)` also accepts `forceSpawn[].n / dx`. `scenes.go('fishing', {tutorial:true})` applies a
+  default tutorial script (6 manjubas 11 u out at depth .3, auto-stop, 2 s window, P .35 / stam 4, run left at 4 s,
+  no escape) unless one was set; cleared after the next landed catch. Frenzies and bottles are off in the tutorial.
+- `AQ.fishing.debugLand(id, {choice, fast})` hooks one at the hook and fights it on autopilot (×8), then resolves
+  without the card (sell; tinteira release → ending). `AQ.fishing.state` is a read-only debug view.
+- Angler/boat/bottle/tentacle art from `AQ.art` when present (fallbacks inline). C draws the **rod procedurally**
+  (hand → tip, bends with tension) — angler art should not include the rod.
+
+## Balance (autopilot, recommended gear, 100 seeds)
+All 42 land ≥ 93 %; medians C 12.7 s, U 19.7 s, R 24.5 s, L 53.6 s. One tier below spools deep species (isopode,
+celacanto, tinteira 0 %). **tipografo** (L, shaker) lands in ~12 s — far from a legendary feel; consider P/stamina up
+or boss style. arraia has gearTier 1 but hookMin 2 (tests use an adequate hook).

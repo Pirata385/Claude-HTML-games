@@ -47,7 +47,7 @@
     gear: null
   };
 
-  var inpOut = { reel: false, rod: 0 };
+  var inpOut = { reel: false, rod: 0 }, fightInp = { reel: false, rod: 0 };
   var tmpP = { x: 0, y: 0 }, tmpQ = { x: 0, y: 0 };
 
   function S() { return AQ.state; }
@@ -81,7 +81,7 @@
     st.cols = cols;
     st.boat.x = Math.round(cols * (D.orientation === 'portrait' ? 0.5 : 0.3));
     var lay = HUD.layout(true);
-    st.skyRows = Math.max(5, Math.min(10, (lay.insetT || 0) + 6));
+    st.skyRows = Math.max(5, Math.min(12, (lay.insetT || 0) + (D.orientation === 'portrait' ? 8 : 7)));
     return k;
   }
   function floorY(x) { return BG.floorY(x); }
@@ -117,6 +117,11 @@
   env.isDark = function (x, y) { return darkAt(U.clamp(y / st.depth, 0, 1)); };
   env.onEvent = function (type, c, data) {
     if (!c) return;
+    if (type === 'splash') { // leapers / dolphins crossing the surface
+      var sx = data && typeof data.x === 'number' ? data.x : c.x;
+      AQ.fx.emit('splash', sx, surfY(sx), { power: 0.5, surfaceY: surfY(sx), n: 8 });
+      return;
+    }
     if (type === 'notice') {
       if (st.engaged || st.phase === 'fight' || st.phase === 'landing') return;
       engage(c);
@@ -473,7 +478,8 @@
     if (st.debugAuto) reel = AQ.fight.autopilot(fs, inpOut).reel;
     else reel = AQ.input.isDown('primary') || (st.press.on && st.press.type === 'mouse');
     st.reel = reel;
-    var inp = { reel: reel, rod: rod };
+    var inp = fightInp;
+    inp.reel = reel; inp.rod = rod;
     var steps = 0;
     st.fightAcc.t += dt * st.debugFast;
     while (st.fightAcc.t >= DT && steps < 8 * st.debugFast && !fs.result) {

@@ -101,7 +101,7 @@
   var env = {
     mode: 'wild', t: 0, rng: null, bounds: { x0: -20, y0: 0, x1: 100, y1: 70 }, surfaceY: 0,
     floorY: floorY, covers: [], hook: null, food: [], visibility: null, phase: 'dia', frenzy: false, onEvent: null,
-    zone: 'baia', dark: false, lantern: 6, luck: 0
+    zone: 'baia', dark: false, lantern: 6, luck: 0, depth: 70, isDark: null
   };
   function lightAt(df) { return safe(function () { return AQ.world.light(S(), st.zoneId, df); }, 1); }
   function darkAt(df) { return safe(function () { return AQ.world.isDark(S(), st.zoneId, df); }, false); }
@@ -114,6 +114,7 @@
     var sp = c && spDef(c.sp);
     return Math.max(lf, sp && sp.glow ? 0.6 : 0.08);
   };
+  env.isDark = function (x, y) { return darkAt(U.clamp(y / st.depth, 0, 1)); };
   env.onEvent = function (type, c, data) {
     if (!c) return;
     if (type === 'notice') {
@@ -165,6 +166,11 @@
     var dir = rng.next() < 0.5 ? 1 : -1;
     var x = xAt !== undefined ? xAt : onScreen ? rng.range(3, st.cols - 3) : (dir > 0 ? -8 - rng.next() * 6 : st.cols + 8 + rng.next() * 6);
     var y = bandY(sp, rng);
+    if (n > 1 && sp.behavior === 'school' && AQ.creatures.createSchool && !st.stubCreatures) {
+      var yy0 = U.clamp(y, 1.5, floorY(x) - 1.5);
+      var made = safe(function () { return AQ.creatures.createSchool(id, n, { x: x, y: yy0, dir: dir, mode: 'wild' }, rng); }, null);
+      if (made && made.length) { for (var m2 = 0; m2 < made.length; m2++) { if (!made[m2].data) made[m2].data = {}; st.list.push(made[m2]); } return made.length; }
+    }
     for (var i = 0; i < n; i++) {
       var yy = U.clamp(y + rng.range(-3, 3), 1.5, floorY(x) - 1.5);
       if (sp.behavior === 'crawl' || sp.behavior === 'burrow') yy = floorY(x) - 1;
@@ -183,7 +189,7 @@
   function despawn() {
     for (var i = st.list.length - 1; i >= 0; i--) {
       var c = st.list[i];
-      if (c === st.engaged) continue;
+      if (c === st.engaged || c.hooked) continue;
       if (c.x < -24 || c.x > st.cols + 24 || c.y > st.depth + 10 || c._gone) {
         if (c.data && c.data.legend && st.legend.state === 'spawned') { st.legend.state = 'none'; st.legend.returnAt = st.t + 60; }
         st.list.splice(i, 1);
@@ -384,8 +390,7 @@
       { sp: c.sp, len: 10, kg: 0.1, q: 0.5, dense: false, trophy: false, zone: st.zoneId, at: U.now() };
     spec.zone = spec.zone || st.zoneId;
     safe(function () { AQ.creatures.setHooked(c, true); });
-    var idx = st.list.indexOf(c);
-    if (idx >= 0) st.list.splice(idx, 1);
+    if (st.stubCreatures) { var idx = st.list.indexOf(c); if (idx >= 0) st.list.splice(idx, 1); }
     st.engaged = null; st.bs = null; st.hook.engagedUid = 0;
     var origin = { x: st.tip.x, y: 0 };
     var script = null;
@@ -397,7 +402,8 @@
       rng: st.rng.fork('fight:' + st.t.toFixed(3)), start: { x: c.x - origin.x, y: c.y }, floorY: floorY,
       covers: BG.covers(), origin: origin, viewCols: st.cols, script: script
     });
-    st.fish = { sp: c.sp, x: c.x, y: c.y, dir: c.dir || 1, t: 0, frame: 0, lastX: c.x, w: 4, specimen: spec, legend: c.data && c.data.legend };
+    st.fish = { sp: c.sp, x: c.x, y: c.y, dir: c.dir || 1, t: 0, frame: 0, lastX: c.x, w: 4, specimen: spec, legend: c.data && c.data.legend,
+      c: st.stubCreatures ? null : c };
     var sd = AQ.sprites.get(c.sp);
     st.fish.w = sd.frames[0] && sd.frames[0][0] ? sd.frames[0][0].length : 4;
     st.specimen = spec; st.species = sp;
@@ -469,6 +475,7 @@
     else if (Math.abs(vx) > 1.5) f.dir = vx > 0 ? 1 : -1;
     // the hook sits at the fish's mouth
     st.hook.x = f.x + f.dir * f.w * 0.5; st.hook.y = f.y;
+    if (f.c) syncCreature(f, fs);
     if (st.tellVis.kind) st.tellVis.t += dt;
     // audio / haptics (throttled)
     st.audioT -= dt;
@@ -480,6 +487,20 @@
     // dive bubbles / grip dust while the state lasts
     if (fs.state === 'dive' && AQ.rng.global.next() < dt * 6) AQ.fx.emit('bubble', f.x, f.y - 1, { n: 1, surfaceY: surfY(f.x) });
   }
+
+  // B draws the hooked creature: C writes its position, pose, facing and scramble (notes/B.md).
+  function syncCreature(f, fs) {
+    var c = f.c;
+    c.x = f.x; c.y = f.y;
+    if (!c.data) c.data = {};
+    var running = fs && (fs.state === 'run' || (fs.state === 'tell' && fs.next === 'run'));
+    c.data.faceLock = running ? fs.dirX : 0;
+    var sp = st.species || {};
+    c.pose = fs && fs.inflated ? 'inflate' : (st.inkOn ? (sp.id === 'lula' ? 'jet' : 'ink') : (fs && fs.state === 'roll' ? 'roll' : null));
+    if (fs && fs.state === 'shake' && sp.fight && sp.fight.special && sp.fight.special.scramble) c.data.scramble = 1;
+    if (AQ.creatures.mouth) { var mo = AQ.creatures.mouth(c, tmpM); if (mo) { st.hook.x = mo.x; st.hook.y = mo.y; } }
+  }
+  var tmpM = { x: 0, y: 0 };
 
   function fightEvent(e) {
     var fs = st.fs, f = st.fish;
@@ -541,7 +562,8 @@
     var breaks = result === 'snap' || result === 'fray';
     var sp = st.species;
     st.escape = { t: 0, reason: result, x: st.hook.x, y: st.hook.y, breaks: breaks,
-      fish: { sp: f.sp, x: f.x, y: Math.max(1, f.y), dir: f.dir, v: 2 * ((sp && sp.fight && sp.fight.speed) || 5), t: 0 } };
+      fish: f.c ? null : { sp: f.sp, x: f.x, y: Math.max(1, f.y), dir: f.dir, v: 2 * ((sp && sp.fight && sp.fight.speed) || 5), t: 0 } };
+    if (f.c) { f.c.pose = null; if (f.c.data) f.c.data.faceLock = 0; safe(function () { AQ.creatures.setHooked(f.c, false); }); }
     if (result === 'snap') AQ.fx.shake(4, 0.25);
     if (f.legend) { st.legend.state = 'none'; st.legend.returnAt = st.t + 60; }
     st.fs = null;
@@ -552,6 +574,7 @@
 
   function resolveLanding() {
     var spec = st.specimen, sp = st.species;
+    if (st.fish && st.fish.c) { var ci = st.list.indexOf(st.fish.c); if (ci >= 0) st.list.splice(ci, 1); }
     st.fish = null; st.landing = null;
     if (st.script) { st.script = null; st.scripted = false; }
     safe(function () { AQ.game.consumeBait(); });
@@ -738,7 +761,7 @@
     var now = worldNow();
     env.phase = now.phase; env.zone = st.zoneId; env.lantern = st.gear.lantern;
     env.luck = safe(function () { return AQ.game.luck(st.zoneId); }, 0);
-    env.bounds.x1 = st.cols; env.bounds.y1 = st.depth;
+    env.bounds.x1 = st.cols; env.bounds.y1 = st.depth; env.depth = st.depth;
     AQ.fx.surface.amp = now.weather === 'tempestade' ? 2 : now.weather === 'chuva' ? 1.3 : (st.zone && st.zone.id === 'mar' ? 1.4 : 1);
     if (now.weather === 'tempestade' && AQ.rng.global.next() < dt * 0.12) AQ.fx.lightning();
     st.boat.y = surfY(st.boat.x) * (AQ.fx.motion() < 1 ? 0 : 0.8);
@@ -814,7 +837,7 @@
           var k = U.easeOutCubic(U.clamp(L.t / 1.2, 0, 1));
           L.x = U.lerp(L.x0, st.tip.x + st.dir * 1, k);
           L.y = U.lerp(L.y0, st.tip.y + 3, k);
-          if (st.fish) { st.fish.x = L.x; st.fish.y = L.y; st.fish.t += dt; }
+          if (st.fish) { st.fish.x = L.x; st.fish.y = L.y; st.fish.t += dt; if (st.fish.c) { st.fish.c.x = L.x; st.fish.c.y = L.y; } }
           st.hook.x = L.x; st.hook.y = L.y;
           L.dropT -= dt;
           if (L.dropT <= 0 && L.y < 1) { L.dropT = 0.15; AQ.fx.emit('drop', L.x, L.y + 1, { n: 2 }); }
@@ -825,7 +848,7 @@
         var e = st.escape;
         if (e) {
           e.t += dt;
-          e.fish.x += e.fish.dir * e.fish.v * dt; e.fish.t += dt;
+          if (e.fish) { e.fish.x += e.fish.dir * e.fish.v * dt; e.fish.t += dt; }
           if (e.t < 1.2 && e.breaks) break; // the slack line drifts before the reel-in
         }
         var rdx = st.tip.x - st.hook.x, rdy = st.tip.y + 2 - st.hook.y, rd = Math.sqrt(rdx * rdx + rdy * rdy);
@@ -973,12 +996,12 @@
     // 2. creatures
     drawCreatures();
     // escaping fish
-    if (st.escape) {
+    if (st.escape && st.escape.fish) {
       var ef = st.escape.fish, esd = AQ.sprites.get(ef.sp);
       R.sprite(esd.frames[Math.floor(ef.t * 8) % esd.frames.length], ef.x, ef.y, { flip: ef.dir < 0, level: Math.max(1, Math.round(10 - ef.t * 4)), deform: esd.deform, amp: 1.5 * motion, t: ef.t * 2 });
     }
     // hooked fish
-    if (st.fish) drawHookedFish(t);
+    if (st.fish && !st.fish.c) drawHookedFish(t);
     // bottle
     if (st.bottle.on) drawBottle(t);
     // frenzy birds

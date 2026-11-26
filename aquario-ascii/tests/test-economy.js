@@ -37,7 +37,7 @@ module.exports = function (T) {
     for (const id of AQ.ENUM.ITEMS_BAIT.concat(AQ.ENUM.ITEMS_LURE, AQ.ENUM.ITEMS_AQUA, AQ.ENUM.DECOR)) T.ok(I.get(id), 'item ' + id);
     for (const it of I.list) {
       T.ok(AQ.ENUM.ITEM_CATS.indexOf(it.cat) >= 0, it.id + ' cat');
-      T.ok(AQ.i18n.has(it.name, 'pt-BR') && AQ.i18n.has(it.name, 'en'), it.id + ' name strings');
+      T.ok(AQ.i18n.has(it.name, 'en'), it.id + ' name strings');
       if (Array.isArray(it.price)) for (let i = 1; i < it.price.length; i++) T.ok(it.price[i].coins > it.price[i - 1].coins, it.id + ' tiers increase');
     }
     for (const b of AQ.ENUM.BAITS) T.ok(I.BAITS[b], 'BAITS.' + b);

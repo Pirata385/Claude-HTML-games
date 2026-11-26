@@ -266,14 +266,6 @@
   // ================================================================ names & formats (other owners' keys)
   var names = {
     species: function (id) { return tFirst(['sp.' + id + '.name', 'sp.' + id], null, prettify(id)); },
-    speciesEn: function (id) {
-      var d = AQ.i18n._dicts && AQ.i18n._dicts.en;
-      return (d && (d['sp.' + id + '.name'] || d['sp.' + id])) || '';
-    },
-    speciesPt: function (id) {
-      var d = AQ.i18n._dicts && AQ.i18n._dicts['pt-BR'];
-      return (d && (d['sp.' + id + '.name'] || d['sp.' + id])) || '';
-    },
     flavor: function (id) { return tFirst(['sp.' + id + '.flavor', 'sp.' + id + '.flavour'], null, ''); },
     sighting: function (id) { return tFirst(['sighting.' + id + '.name', 'sighting.' + id], null, prettify(id)); },
     sightingDesc: function (id) { return tFirst(['sighting.' + id + '.flavor', 'sighting.' + id + '.desc', 'sighting.' + id + '.flavour'], null, ''); },

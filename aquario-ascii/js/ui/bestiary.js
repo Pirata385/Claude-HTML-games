@@ -75,10 +75,6 @@
     head.appendChild(el('span.aq-stars', { text: N.stars(s.rarity) }));
     head.appendChild(el('span.aq-dim', { text: N.rarity(s.rarity) }));
     box.appendChild(head);
-    if (v && AQ.i18n.lang === 'en') {
-      var pt = N.speciesPt(s.id);
-      if (pt) box.appendChild(el('div.aq-dim.aq-small', { text: t('ui.bestiary.alsoEn', { name: pt }) }));
-    }
     var zid = (s.zones && s.zones[0]) || 'baia';
     box.appendChild(el('div', { text: t('ui.bestiary.where', { zone: N.zone(zid), band: t('ui.bestiary.band.' + ui.speciesBand(s.depth)) }) }));
     if (c) {

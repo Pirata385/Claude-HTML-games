@@ -155,7 +155,7 @@ module.exports = function (T) {
       const p = AQ.progress.goalProgress(g, s);
       T.ok(Number.isFinite(p.cur) && p.max >= 1, g.id);
       T.ok(AQ.ENUM.GOAL_TYPES.indexOf(g.type) >= 0, g.id + ' type');
-      T.ok(AQ.i18n.has('goal.' + g.id, 'pt-BR') && AQ.i18n.has('goal.' + g.id, 'en'), g.id + ' strings');
+      T.ok(AQ.i18n.has('goal.' + g.id, 'en'), g.id + ' strings');
     }
     T.eq(AQ.goals.chain.map((g) => g.id), AQ.ENUM.GOALS);
     T.eq(AQ.goals.achievements.map((a) => a.id), AQ.ENUM.ACHIEVEMENTS);

@@ -44,7 +44,7 @@
     L.footRows = Math.ceil(footPx / Math.max(1, D.cellH));
     L.sandRow = L.rows - L.footRows - 1;
     // side layout: landscape phone with a tall logo (no room for the wide one)
-    L.side = D.orientation === 'landscape' && L.logoKind !== 'wide' && L.rows < 34 && L.cols >= 60;
+    L.side = D.orientation === 'landscape' && L.logoKind === 'tall' && D.height < 480 && L.cols >= 60;
     var menuPx = (AQ.ui && AQ.ui.root && AQ.ui.root() && AQ.ui.root().classList.contains('is-short')) ? 120 : 4 * 54;
     if (L.side) {
       L.logoTop = Math.max(1, Math.floor((L.sandRow - L.logo.length - 2) / 2));
@@ -132,7 +132,7 @@
       var r = L.subRow;
       for (var c = 0; c < L.cols; c++) {
         var wv = AQ.util.noise2(c * 0.18 + t * 0.5 * m, t * 0.15);
-        grid.put(c, r, R.ramp('wave', 0.35 + wv * 0.6), 4);
+        grid.put(c, r, R.ramp('wave', 0.15 + wv * 0.5), 3 + (wv > 0.6 ? 1 : 0));
       }
       // water texture
       for (var rr = L.waterTop; rr < L.sandRow; rr++) {
@@ -181,7 +181,7 @@
       var spaced = sub.split('').join(' ');
       var text = spaced.length + 6 <= L.cols ? spaced : sub;
       var cx = L.side ? L.logoX : Math.floor(L.cols / 2);
-      R.text(text, cx, L.subRow, 11, { align: 'center', knock: true });
+      R.text(' ' + text + ' ', cx, L.subRow, 11, { align: 'center', knock: true });
       AQ.fx.draw();
     }
   });

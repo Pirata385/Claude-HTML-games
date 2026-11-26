@@ -41,9 +41,7 @@
       wrap.appendChild(menu);
       var back = el('a.aq-btn.aq-link', { href: GAMES_MENU, 'data-fid': 'games' }, [el('span.aq-back-arrow', { text: '<', 'aria-hidden': 'true' }), el('span.aq-btn-l', { text: t('ui.title.gamesMenu') })]);
       back.addEventListener('click', function () { D.safe(function () { AQ.store.flush('menu'); }); });
-      var lang = D.seg([{ value: 'pt-BR', label: 'PT' }, { value: 'en', label: 'EN' }], AQ.i18n.lang, function (v) { setS('lang', v); },
-        { aria: t('ui.title.lang'), fid: 'lang' });
-      var foot = el('div.aq-title-foot', null, [back, el('span.aq-fill'), lang, el('span.aq-version', { text: t('ui.title.version', { v: AQ.VERSION }) })]);
+      var foot = el('div.aq-title-foot', null, [back, el('span.aq-fill'), el('span.aq-version', { text: t('ui.title.version', { v: AQ.VERSION }) })]);
       wrap.appendChild(foot);
       setTimeout(ui.layoutTitle, 0);
       return wrap;
@@ -162,9 +160,6 @@
       var g = function (k) { return S().get(k); };
       var re = function () { inst.rerender(); };
       var pick = function (k) { return function (v) { setS(k, v); re(); }; };
-
-      b.appendChild(row(t('settings.lang'), D.seg([{ value: 'pt-BR', label: t('settings.langPt') }, { value: 'en', label: t('settings.langEn') }],
-        g('lang'), pick('lang'), { fid: 'lang', aria: t('settings.lang') })));
 
       b.appendChild(section(t('settings.sec.sound')));
       ['volMaster', 'volMusic', 'volSfx', 'volAmbience'].forEach(function (k) {

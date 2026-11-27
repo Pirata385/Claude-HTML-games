@@ -3,6 +3,11 @@
 // per-glyph deformers, dense/bold variants, rare shimmer, legendary halo, inverted text, high-contrast remap and
 // the 'grid' motion style.
 //
+// Tints (colourful theme): every glyph carries a tint role (AQ.TINT_ROLES; 0 = ink). R.tint(role) sets the role
+// for the draws that follow (reset at the start of each layer); grid puts, glyph/text calls and sprites also take
+// an explicit tint; sprites default to the tint registered for their art (AQ.TINTS, by frame data). Themes without
+// a palette resolve every role to 0, so they render exactly as the two-colour game.
+//
 // Anchors: screen (CSS px) and grid-cell calls take the TOP-LEFT of the cell box; world calls
 // (glyphW, textW, sprite) take the CENTRE (textW: vertical centre, x per opts.align).
 (function (AQ) {
@@ -83,6 +88,53 @@
   };
   R.code = function (ch, bold) { return A.code(ch, bold); };
 
+  // ================================================================ tints
+  var ROLES = AQ.TINT_ROLES, NROLES = ROLES.length;
+  var TINT = R.TINT = Object.create(null);
+  for (var ti = 0; ti < NROLES; ti++) TINT[ROLES[ti]] = ti;
+  var colorful = false, curTint = 0;
+  // tintIdx(role name | index) → palette index actually drawn (0 = ink; always 0 without a palette).
+  function tintOf(t) {
+    if (!colorful || !t) return 0;
+    if (typeof t === 'number') return t > 0 && t < NROLES ? t | 0 : 0;
+    return TINT[t] || 0;
+  }
+  R.tintIdx = tintOf;
+  // tint(role): role for the following draws on the current layer and grid puts. → previous index.
+  R.tint = function (t) { var p = curTint; curTint = tintOf(t); return p; };
+  R.isColorful = function () { return colorful; };
+  // tintCss(idx) → css colour of a palette index (the ink for 0 / no palette).
+  function tintCss(idx) { var pal = AQ.theme && AQ.theme.palette; return idx && pal && pal[idx] ? pal[idx] : AQ.theme.ink; }
+  R.tintCss = tintCss;
+  // Art → tint registry (lines arrays by identity): AQ.TINTS maps sprite keys / art paths to roles.
+  var tintByLines = typeof WeakMap === 'function' ? new WeakMap() : null;
+  function isLines(v) { return Array.isArray(v) && v.length > 0 && typeof v[0] === 'string'; }
+  function walkTint(v, role, depth) {
+    if (!v || depth > 6 || typeof v !== 'object') return;
+    if (isLines(v)) { tintByLines.set(v, role); return; }
+    if (Array.isArray(v)) { for (var i = 0; i < v.length; i++) walkTint(v[i], role, depth + 1); return; }
+    for (var k in v) if (Object.prototype.hasOwnProperty.call(v, k) && k !== 'masks' && k !== 'extraMasks') walkTint(v[k], role, depth + 1);
+  }
+  // registerTint(objOrLines, role): every lines array under obj draws in `role` by default.
+  R.registerTint = function (obj, role) { if (tintByLines && TINT[role]) walkTint(obj, TINT[role], 0); };
+  R.tintOfArt = function (lines) { return (tintByLines && lines && tintByLines.get(lines)) || 0; };
+  // tintFor(spriteKey) → role index from AQ.TINTS.sprites (species, sightings…), 0 when none.
+  R.tintFor = function (key) { var m = AQ.TINTS && AQ.TINTS.sprites; return (m && TINT[m[key]]) || 0; };
+  function registerTintData() {
+    var T = AQ.TINTS;
+    if (!T || !tintByLines) return;
+    var k;
+    if (T.sprites && AQ.sprites) for (k in T.sprites) if (AQ.sprites[k]) R.registerTint(AQ.sprites[k], T.sprites[k]);
+    if (T.art && AQ.art) {
+      for (k in T.art) {
+        var path = k.split('.'), v = AQ.art;
+        for (var i = 0; i < path.length && v; i++) v = v[path[i]];
+        if (v) R.registerTint(v, T.art[k]);
+      }
+    }
+  }
+  registerTintData();
+
   // ================================================================ motion style
   var gridStyle = false;
   function readMotionStyle() { gridStyle = AQ.settings.get('motionStyle') === 'grid'; }
@@ -155,56 +207,63 @@
 
   var grid = R.grid = {
     cols: 0, rows: 0, viewRows: 0, viewCols: 0, // cols = view cols + 1 (room for the sub-column scroll)
-    code: new Uint16Array(0), level: new Uint8Array(0),
-    _fcode: new Uint16Array(0), _flevel: new Uint8Array(0),
+    code: new Uint16Array(0), level: new Uint8Array(0), color: new Uint8Array(0),
+    _fcode: new Uint16Array(0), _flevel: new Uint8Array(0), _fcolor: new Uint8Array(0),
     _full: true,
     lastChanged: 0,
 
-    clear: function () { this.code.fill(0); this.level.fill(0); },
+    clear: function () { this.code.fill(0); this.level.fill(0); this.color.fill(0); curTint = 0; },
 
-    putCode: function (c, r, code, level) {
+    // putCode(c, r, code, level, tint?) — tint defaults to the current R.tint().
+    putCode: function (c, r, code, level, tint) {
       c |= 0; r |= 0;
       if (c < 0 || r < 0 || c >= this.cols || r >= this.rows) return;
       var i = r * this.cols + c;
-      if (!code || level <= 0) { this.code[i] = 0; this.level[i] = 0; return; }
+      if (!code || level <= 0) { this.code[i] = 0; this.level[i] = 0; this.color[i] = 0; return; }
       this.code[i] = code;
       this.level[i] = level > 15 ? 15 : level | 0;
+      this.color[i] = tint === undefined ? curTint : tintOf(tint);
     },
-    put: function (c, r, ch, level, bold) { this.putCode(c, r, A.code(ch, bold), level); },
+    put: function (c, r, ch, level, bold, tint) { this.putCode(c, r, A.code(ch, bold), level, tint); },
     // Writes only when level is higher than what the cell holds.
-    putMax: function (c, r, code, level) {
+    putMax: function (c, r, code, level, tint) {
       c |= 0; r |= 0;
       if (c < 0 || r < 0 || c >= this.cols || r >= this.rows || !code) return;
       var i = r * this.cols + c;
-      if (level > this.level[i]) { this.code[i] = code; this.level[i] = level > 15 ? 15 : level | 0; }
+      if (level > this.level[i]) {
+        this.code[i] = code; this.level[i] = level > 15 ? 15 : level | 0;
+        this.color[i] = tint === undefined ? curTint : tintOf(tint);
+      }
     },
-    _cell: { code: 0, level: 0 },
-    // get(c,r) → {code, level} (a shared object: copy the fields if you need to keep them).
+    _cell: { code: 0, level: 0, tint: 0 },
+    // get(c,r) → {code, level, tint} (a shared object: copy the fields if you need to keep them).
     get: function (c, r) {
       var o = this._cell;
       c |= 0; r |= 0;
-      if (c < 0 || r < 0 || c >= this.cols || r >= this.rows) { o.code = 0; o.level = 0; return o; }
+      if (c < 0 || r < 0 || c >= this.cols || r >= this.rows) { o.code = 0; o.level = 0; o.tint = 0; return o; }
       var i = r * this.cols + c;
-      o.code = this.code[i]; o.level = this.level[i];
+      o.code = this.code[i]; o.level = this.level[i]; o.tint = this.color[i];
       return o;
     },
-    // text(c, r, str, level, opts?{bold, align}) → cols written
+    // text(c, r, str, level, opts?{bold, align, tint}) → cols written
     text: function (c, r, str, level, opts) {
-      var s = String(str), bold = opts && opts.bold, align = opts && opts.align;
+      var s = String(str), bold = opts && opts.bold, align = opts && opts.align, tint = opts ? opts.tint : undefined;
       var c0 = align === 'center' ? c - Math.floor(s.length / 2) : align === 'right' ? c - s.length + 1 : c;
-      for (var i = 0; i < s.length; i++) if (s[i] !== ' ') this.putCode(c0 + i, r, A.code(s[i], bold), level);
+      for (var i = 0; i < s.length; i++) if (s[i] !== ' ') this.putCode(c0 + i, r, A.code(s[i], bold), level, tint);
       return s.length;
     },
-    fill: function (c0, r0, w, h, ch, level) {
+    fill: function (c0, r0, w, h, ch, level, tint) {
       var code = A.code(ch);
-      for (var r = r0; r < r0 + h; r++) for (var c = c0; c < c0 + w; c++) this.putCode(c, r, code, level);
+      for (var r = r0; r < r0 + h; r++) for (var c = c0; c < c0 + w; c++) this.putCode(c, r, code, level, tint);
     },
-    // Blits a compiled frame/lines into the grid (top-left at c0, r0); spaces are skipped.
-    blit: function (frame, c0, r0, level, bold) {
+    // Blits a compiled frame/lines into the grid (top-left at c0, r0); spaces are skipped. tint defaults to the
+    // art's registered tint, else the current one.
+    blit: function (frame, c0, r0, level, bold, tint) {
       var f = R.compile(frame), w = f.w;
+      if (tint === undefined && f.tint) tint = f.tint;
       for (var r = 0; r < f.h; r++) for (var c = 0; c < w; c++) {
         var code = f.codes[r * w + c];
-        if (code) this.putCode(c0 + c, r0 + r, bold ? code | A.BOLD : code, level);
+        if (code) this.putCode(c0 + c, r0 + r, bold ? code | A.BOLD : code, level, tint);
       }
     },
     invalidate: function () { this._full = true; },
@@ -217,18 +276,18 @@
       var ctx = D.ctx.bg;
       if (!ctx || !this.cols) return 0;
       var cols = this.cols, rows = this.rows, n = cols * rows;
-      var code = this.code, level = this.level, fc = this._fcode, fl = this._flevel;
+      var code = this.code, level = this.level, color = this.color, fc = this._fcode, fl = this._flevel, fk = this._fcolor;
       var cw = D.cellWd, chh = D.cellHd, ox = D.originXd, oy = D.originYd;
       var cr = camRow(), cc = camCol();
       ctx.globalAlpha = 1;
       if (!this._full && committedRow !== null && cr !== committedRow) {
         var k = cr - committedRow;
-        if (Math.abs(k) < rows - 1) scrollRows(ctx, k, cols, rows, fc, fl);
+        if (Math.abs(k) < rows - 1) scrollRows(ctx, k, cols, rows, fc, fl, fk);
         else this._full = true;
       }
       if (!this._full && committedCol !== null && cc !== committedCol) {
         var kc = cc - committedCol;
-        if (Math.abs(kc) < cols - 1) scrollCols(ctx, kc, cols, rows, fc, fl);
+        if (Math.abs(kc) < cols - 1) scrollCols(ctx, kc, cols, rows, fc, fl, fk);
         else this._full = true;
       }
       committedRow = cr; committedCol = cc;
@@ -245,7 +304,7 @@
           var diff = false;
           if (c < cols) {
             i = base + c;
-            if (code[i] !== fc[i] || level[i] !== fl[i]) {
+            if (code[i] !== fc[i] || level[i] !== fl[i] || color[i] !== fk[i]) {
               diff = true;
               changed++;
               if (code[i]) byLevelCount[lvMap[level[i]]]++;
@@ -263,7 +322,7 @@
         for (lv = 0; lv < 16; lv++) { byLevelStart[lv] = off; byLevelFill[lv] = off; off += byLevelCount[lv]; }
         if (bucket.length < off) bucket = new Int32Array(Math.max(off, n));
         for (i = 0; i < n; i++) {
-          if (code[i] && (code[i] !== fc[i] || level[i] !== fl[i])) bucket[byLevelFill[lvMap[level[i]]]++] = i;
+          if (code[i] && (code[i] !== fc[i] || level[i] !== fl[i] || color[i] !== fk[i])) bucket[byLevelFill[lvMap[level[i]]]++] = i;
         }
         for (lv = 1; lv < 16; lv++) {
           var s0 = byLevelStart[lv], s1 = byLevelFill[lv];
@@ -272,12 +331,13 @@
           for (var q = s0; q < s1; q++) {
             i = bucket[q];
             var rr = (i / cols) | 0;
-            A.draw(ctx, code[i], ox + (i - rr * cols) * cw, oy + rr * chh);
+            A.draw(ctx, code[i], ox + (i - rr * cols) * cw, oy + rr * chh, color[i]);
           }
         }
         ctx.globalAlpha = 1;
         fc.set(code);
         fl.set(level);
+        fk.set(color);
         for (lv = 0; lv < 16; lv++) byLevelCount[lv] = 0;
       }
       this.lastChanged = changed;
@@ -286,36 +346,36 @@
   };
 
   // Self-blit the bg canvas by k rows and shift the front buffers, so only genuinely new cells redraw.
-  function scrollRows(ctx, k, cols, rows, fc, fl) {
+  function scrollRows(ctx, k, cols, rows, fc, fl, fk) {
     var cv = D.canvases.bg, W = cv.width, chh = D.cellHd, oy = D.originYd;
     var m = Math.abs(k), keep = rows - m;
     if (k > 0) { // camera moved down: content moves up
       ctx.drawImage(cv, 0, oy + m * chh, W, keep * chh, 0, oy, W, keep * chh);
-      fc.copyWithin(0, m * cols); fl.copyWithin(0, m * cols);
+      fc.copyWithin(0, m * cols); fl.copyWithin(0, m * cols); fk.copyWithin(0, m * cols);
       fc.fill(BLANK, keep * cols);
     } else {
       ctx.drawImage(cv, 0, oy, W, keep * chh, 0, oy + m * chh, W, keep * chh);
-      fc.copyWithin(m * cols, 0, keep * cols); fl.copyWithin(m * cols, 0, keep * cols);
+      fc.copyWithin(m * cols, 0, keep * cols); fl.copyWithin(m * cols, 0, keep * cols); fk.copyWithin(m * cols, 0, keep * cols);
       fc.fill(BLANK, 0, m * cols);
     }
   }
 
   // Same by k columns (horizontal camera): only the newly exposed columns redraw.
-  function scrollCols(ctx, k, cols, rows, fc, fl) {
+  function scrollCols(ctx, k, cols, rows, fc, fl, fk) {
     var cv = D.canvases.bg, H = cv.height, cw = D.cellWd, ox = D.originXd;
     var m = Math.abs(k), keep = cols - m, r, base;
     if (k > 0) { // camera moved right: content moves left
       ctx.drawImage(cv, ox + m * cw, 0, keep * cw, H, ox, 0, keep * cw, H);
       for (r = 0; r < rows; r++) {
         base = r * cols;
-        fc.copyWithin(base, base + m, base + cols); fl.copyWithin(base, base + m, base + cols);
+        fc.copyWithin(base, base + m, base + cols); fl.copyWithin(base, base + m, base + cols); fk.copyWithin(base, base + m, base + cols);
         fc.fill(BLANK, base + keep, base + cols);
       }
     } else {
       ctx.drawImage(cv, ox, 0, keep * cw, H, ox + m * cw, 0, keep * cw, H);
       for (r = 0; r < rows; r++) {
         base = r * cols;
-        fc.copyWithin(base + m, base, base + keep); fl.copyWithin(base + m, base, base + keep);
+        fc.copyWithin(base + m, base, base + keep); fl.copyWithin(base + m, base, base + keep); fk.copyWithin(base + m, base, base + keep);
         fc.fill(BLANK, base, base + m);
       }
     }
@@ -329,6 +389,7 @@
   R.ctx = function () { return ctxOf(); };
 
   var lastBgTransform = '';
+  R.bgOffset = { x: 0, y: 0 }; // CSS px translate currently applied to the bg canvas (page-turn snapshots)
   // Sub-row scroll + shake on the bg canvas (GPU translate). Uses the row the grid was committed with.
   R.applyBgTransform = function () {
     var cv = D.canvases.bg;
@@ -340,6 +401,7 @@
     var tx = Math.round((-fracX * D.cellW + shake.x) * D.dpr) / D.dpr;
     var ty = Math.round((-frac * D.cellH + shake.y) * D.dpr) / D.dpr;
     var t = 'translate3d(' + tx + 'px,' + ty + 'px,0)';
+    R.bgOffset.x = tx; R.bgOffset.y = ty;
     if (t !== lastBgTransform) { cv.style.transform = t; lastBgTransform = t; }
   };
 
@@ -348,12 +410,14 @@
     var m = D.ctx.main;
     if (m) { m.setTransform(1, 0, 0, 1, 0, 0); m.globalAlpha = 1; m.clearRect(0, 0, D.canvases.main.width, D.canvases.main.height); }
     target = 'main';
+    curTint = 0;
     frameGlyphs = 0;
   };
   R.beginTop = function () {
     var t = D.ctx.top;
     if (t && topDirty) { t.setTransform(1, 0, 0, 1, 0, 0); t.globalAlpha = 1; t.clearRect(0, 0, D.canvases.top.width, D.canvases.top.height); topDirty = false; }
     target = 'top';
+    curTint = 0;
   };
   R.markTopDirty = function () { topDirty = true; };
   R.endFrame = function () { target = 'main'; R.applyBgTransform(); };
@@ -364,18 +428,22 @@
     var cols = D.cols + 1, rows = D.rows + 2, n = cols * rows;
     grid.cols = cols; grid.rows = rows; grid.viewRows = D.rows; grid.viewCols = D.cols;
     if (grid.code.length !== n) {
-      grid.code = new Uint16Array(n); grid.level = new Uint8Array(n);
-      grid._fcode = new Uint16Array(n); grid._flevel = new Uint8Array(n);
+      grid.code = new Uint16Array(n); grid.level = new Uint8Array(n); grid.color = new Uint8Array(n);
+      grid._fcode = new Uint16Array(n); grid._flevel = new Uint8Array(n); grid._fcolor = new Uint8Array(n);
       bucket = new Int32Array(n);
     }
     committedRow = null; committedCol = null;
     lastBgTransform = '';
     R.invalidate();
   };
-  // Called by AQ.theme.apply().
-  R.onTheme = function () {
+  // Called by AQ.theme (apply, and fast = a ciclo step: the atlas is re-tinted in place).
+  R.onTheme = function (fast) {
     rebuildAlpha();
-    if (A.ready && D.ready) A.build(D.fontPx, D.dpr, AQ.theme.ink, D.family, { w: D.cellWd, h: D.cellHd });
+    colorful = !!AQ.theme.palette;
+    A.setPalette(AQ.theme.palette);
+    if (A.ready && D.ready) {
+      if (!(fast && A.retint(AQ.theme.ink, AQ.theme.bg))) A.build(D.fontPx, D.dpr, AQ.theme.ink, D.family, { w: D.cellWd, h: D.cellHd });
+    }
     R.invalidate();
   };
 
@@ -389,13 +457,13 @@
   }
   function lvClamp(level) { level = level | 0; return level < 0 ? 0 : level > 15 ? 15 : level; }
 
-  // glyph(code, x, y, level): CSS px, top-left of the cell box.
-  R.glyph = function (code, x, y, level) {
+  // glyph(code, x, y, level, tint?): CSS px, top-left of the cell box.
+  R.glyph = function (code, x, y, level, tint) {
     level = lvClamp(level);
     if (!code || !level) return;
     var ctx = ctxOf();
     setAlpha(ctx, level);
-    A.draw(ctx, code, Math.round(x * D.dpr), Math.round(y * D.dpr));
+    A.draw(ctx, code, Math.round(x * D.dpr), Math.round(y * D.dpr), tint === undefined ? curTint : tintOf(tint));
     frameGlyphs++;
   };
   var tmp = { x: 0, y: 0 }, tmpC = { c: 0, r: 0 };
@@ -407,24 +475,25 @@
     return tmp;
   }
   // glyphW(code, wx, wy, level): world point = centre of the glyph box. Snaps to cells in grid motion style.
-  R.glyphW = function (code, wx, wy, level) {
-    if (gridStyle) { snapWorld(wx, wy); R.glyph(code, tmp.x, tmp.y, level); return; }
+  R.glyphW = function (code, wx, wy, level, tint) {
+    if (gridStyle) { snapWorld(wx, wy); R.glyph(code, tmp.x, tmp.y, level, tint); return; }
     R.worldToScreen(wx, wy, tmp);
-    R.glyph(code, tmp.x - D.cellW / 2, tmp.y - D.cellH / 2, level);
+    R.glyph(code, tmp.x - D.cellW / 2, tmp.y - D.cellH / 2, level, tint);
   };
-  // glyphC(code, c, r, level): screen grid cell.
-  R.glyphC = function (code, c, r, level) {
-    R.glyph(code, D.originX + c * D.cellW, D.originY + r * D.cellH, level);
+  // glyphC(code, c, r, level, tint?): screen grid cell.
+  R.glyphC = function (code, c, r, level, tint) {
+    R.glyph(code, D.originX + c * D.cellW, D.originY + r * D.cellH, level, tint);
   };
 
-  function drawStr(str, x, y, level, bold, invert) {
+  function drawStr(str, x, y, level, bold, invert, tint) {
     var ctx = ctxOf(), cw = D.cellW, dpr = D.dpr;
     level = lvClamp(level);
     if (!level) return;
+    var tk = tint === undefined ? curTint : tintOf(tint);
     if (invert) {
       // Inversion is the only highlight: ink fill at the level's alpha, glyphs in the bg colour.
       setAlpha(ctx, level);
-      ctx.fillStyle = AQ.theme.ink;
+      ctx.fillStyle = tintCss(tk);
       var x0 = Math.round(x * dpr), y0 = Math.round(y * dpr);
       ctx.fillRect(x0, y0, Math.round((x + str.length * cw) * dpr) - x0, Math.round((y + D.cellH) * dpr) - y0);
       ctx.globalAlpha = 1;
@@ -438,19 +507,19 @@
     for (var i = 0; i < str.length; i++) {
       var ch = str[i];
       if (ch === ' ') continue;
-      A.draw(ctx, A.code(ch, bold), Math.round((x + i * cw) * dpr), Math.round(y * dpr));
+      A.draw(ctx, A.code(ch, bold), Math.round((x + i * cw) * dpr), Math.round(y * dpr), tk);
       frameGlyphs++;
     }
   }
   function alignOffset(len, align) { return align === 'center' ? Math.floor(len / 2) : align === 'right' ? len - 1 : 0; }
 
-  // text(str, c, r, level, opts?{bold, align:'left'|'center'|'right', knock:false|alpha, invert}) → cols drawn.
+  // text(str, c, r, level, opts?{bold, align:'left'|'center'|'right', knock:false|alpha, invert, tint}) → cols drawn.
   // 'right': the last char lands in column c.
   R.text = function (str, c, r, level, opts) {
     var s = String(str);
     var c0 = c - alignOffset(s.length, opts && opts.align);
     if (opts && opts.knock) R.knockC(c0, r, s.length, 1, typeof opts.knock === 'number' ? opts.knock : 0.92);
-    drawStr(s, D.originX + c0 * D.cellW, D.originY + r * D.cellH, level, opts && opts.bold, opts && opts.invert);
+    drawStr(s, D.originX + c0 * D.cellW, D.originY + r * D.cellH, level, opts && opts.bold, opts && opts.invert, opts ? opts.tint : undefined);
     return s.length;
   };
   // textW(str, wx, wy, level, opts?): wy = vertical centre; wx = left edge / centre / right edge per align.
@@ -466,7 +535,7 @@
       y = tmp.y - D.cellH / 2;
     }
     if (opts && opts.knock) R.knock(x, y, w, D.cellH, typeof opts.knock === 'number' ? opts.knock : 0.92);
-    drawStr(s, x, y, level, opts && opts.bold, opts && opts.invert);
+    drawStr(s, x, y, level, opts && opts.bold, opts && opts.invert, opts ? opts.tint : undefined);
     return s.length;
   };
 
@@ -483,16 +552,16 @@
     R.knock(D.originX + c * D.cellW, D.originY + r * D.cellH, w * D.cellW, h * D.cellH, alpha);
   };
   // rect(x, y, w, h, level) / rectC(c, r, w, h, level): ink-filled rect at a level's alpha (meters, inversion).
-  R.rect = function (x, y, w, h, level) {
+  R.rect = function (x, y, w, h, level, tint) {
     level = lvClamp(level);
     if (!level) return;
     var ctx = ctxOf(), dpr = D.dpr;
     setAlpha(ctx, level);
-    ctx.fillStyle = AQ.theme.ink;
+    ctx.fillStyle = tintCss(tint === undefined ? curTint : tintOf(tint));
     var x0 = Math.round(x * dpr), y0 = Math.round(y * dpr);
     ctx.fillRect(x0, y0, Math.round((x + w) * dpr) - x0, Math.round((y + h) * dpr) - y0);
   };
-  R.rectC = function (c, r, w, h, level) { R.rect(D.originX + c * D.cellW, D.originY + r * D.cellH, w * D.cellW, h * D.cellH, level); };
+  R.rectC = function (c, r, w, h, level, tint) { R.rect(D.originX + c * D.cellW, D.originY + r * D.cellH, w * D.cellW, h * D.cellH, level, tint); };
 
   // ================================================================ frames
   var frameCache = typeof WeakMap === 'function' ? new WeakMap() : null;
@@ -525,6 +594,7 @@
     this._flipped = null;
     this._dense = null;
     this._halo = null;
+    this.tint = 0;            // default tint role (AQ.TINTS), set by compile()
     this.isFlipped = false;
     this.isDense = false;
   }
@@ -534,6 +604,7 @@
       f._flipped = this;
       f.isFlipped = !this.isFlipped;
       f.isDense = this.isDense;
+      f.tint = this.tint;
       this._flipped = f;
     }
     return this._flipped;
@@ -545,6 +616,7 @@
       var f = new Frame(AQ.textart.densify(this.lines), this.maskLines);
       f.isDense = true;
       f.isFlipped = this.isFlipped;
+      f.tint = this.tint;
       this._dense = f;
     }
     return this._dense;
@@ -578,6 +650,7 @@
     }
     var f = new Frame(lines, mask || null);
     f._maskSrc = mask || null;
+    f.tint = R.tintOfArt(lines);
     if (frameCache) frameCache.set(lines, f);
     return f;
   };
@@ -597,7 +670,8 @@
   // sprite(frame|lines, wx, wy, opts?) → {x, y, w, h} CSS px box (shared object) or null when culled.
   // (wx, wy) = centre of the sprite box in world units.
   // opts: {flip, level=12, bold, dense, deform='none', amp=1, t=0, knock=true|'bbox'|false, glyphMap, levelMap,
-  //        dissolve=0..1, seed, shimmer:bool, halo:bool|level, time}
+  //        dissolve=0..1, seed, shimmer:bool, halo:bool|level, time, tint (default: the art's tint, else the
+  //        current R.tint()), tintMap(c, r, tint) → tint per glyph}
   // glyphMap(ch, c, r) / levelMap(c, r, level) receive RIGHT-FACING frame coordinates (as in sprite data).
   R.sprite = function (frame, wx, wy, opts) {
     var f = frame instanceof Frame ? frame : R.compile(frame);
@@ -630,6 +704,8 @@
 
     var time = o.time !== undefined ? o.time : (AQ.loop ? AQ.loop.time : 0);
     var motion = AQ.fx ? AQ.fx.motion() : 1;
+    var tint = o.tint !== undefined ? tintOf(o.tint) : f.tint ? tintOf(f.tint) : curTint;
+    var tintMap = colorful ? o.tintMap : null;
 
     if (o.halo) {
       var hl = o.halo === true ? 2 : lvClamp(o.halo), hc = f.halo(), tick = Math.floor(time * (motion < 1 ? 0.5 : 1.5));
@@ -637,7 +713,7 @@
       setAlpha(ctxh, hl);
       for (var hi = 0; hi < hc.length; hi += 2) {
         if (hash01(hc[hi] + 64, hc[hi + 1] + 64, tick + seed) < 0.45) continue;
-        A.draw(ctxh, CODE_DOT, Math.round((sx + hc[hi] * cw) * D.dpr), Math.round((sy + hc[hi + 1] * chh) * D.dpr));
+        A.draw(ctxh, CODE_DOT, Math.round((sx + hc[hi] * cw) * D.dpr), Math.round((sy + hc[hi + 1] * chh) * D.dpr), tint);
       }
     }
 
@@ -683,7 +759,7 @@
           dx = flip ? -dout[0] : dout[0]; dy = dout[1];
         }
         if (lvl !== curLevel) { setAlpha(ctx, lvl); curLevel = lvl; }
-        A.draw(ctx, code, Math.round((sx + (c + dx) * cw) * dpr), Math.round((sy + (r + dy) * chh) * dpr));
+        A.draw(ctx, code, Math.round((sx + (c + dx) * cw) * dpr), Math.round((sy + (r + dy) * chh) * dpr), tintMap ? tintOf(tintMap(cR, r, tint)) : tint);
         frameGlyphs++;
       }
     }

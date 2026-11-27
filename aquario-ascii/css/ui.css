@@ -1,5 +1,6 @@
-/* Água-Tinta — overlay UI (owner E). Two colours only: var(--bg), var(--ink) and their alpha forms
-   rgb(var(--ink-rgb) / a), rgb(var(--bg-rgb) / a). The only highlight is inversion (ink background, bg text).
+/* Água-Tinta — overlay UI (owner E). Theme colours only: var(--bg), var(--ink) and their alpha forms
+   rgb(var(--ink-rgb) / a), rgb(var(--bg-rgb) / a), plus var(--accent) (= the ink except in the Colourful theme:
+   panel titles, corner marks, the selected tab / segment / nav button). The only highlight is inversion (ink background, bg text).
    Frames are ASCII-flavoured: 1px ink border at 45% with "+" corner marks and the title inset in the top border. */
 
 #ui.aq-ui {
@@ -69,6 +70,7 @@
 .aq-btn .aq-btn-sub { opacity: .62; font-size: var(--fs-s); padding-right: .3em; }
 .aq-btn:focus { outline: none; }
 .aq-btn:focus-visible, .aq-btn.is-on { background: var(--ink); color: var(--bg); }
+.aq-btn.is-on:not(:focus-visible) { background: var(--accent); }
 .aq-btn:focus-visible .aq-btn-sub, .aq-btn:focus-visible .aq-btn-key { opacity: .8; }
 @media (hover: hover) {
   .aq-btn:hover:not(:disabled) { background: var(--ink); color: var(--bg); }
@@ -104,6 +106,7 @@
 }
 .aq-seg-b:last-child { border-right: 0; }
 .aq-seg-b.is-on, .aq-seg-b:focus-visible { background: var(--ink); color: var(--bg); outline: none; }
+.aq-seg-b.is-on { background: var(--accent); }
 @media (hover: hover) { .aq-seg-b:hover:not(:disabled):not(.is-on) { background: rgb(var(--ink-rgb) / .14); } }
 .aq-seg-b:disabled { color: var(--faint); cursor: default; }
 
@@ -138,6 +141,7 @@
   min-height: 44px; padding: 0 .8em; cursor: pointer; pointer-events: auto; flex: 0 0 auto; touch-action: manipulation;
 }
 .aq-tab.is-on, .aq-tab:focus-visible { background: var(--ink); color: var(--bg); outline: none; }
+.aq-tab.is-on { background: var(--accent); }
 @media (hover: hover) { .aq-tab:hover:not(.is-on) { color: var(--ink); background: rgb(var(--ink-rgb) / .1); } }
 
 /* text bits */
@@ -217,9 +221,10 @@
 }
 .aq-panel-title {
   background: var(--bg); padding: 0 .55em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-  letter-spacing: .08em; color: var(--ink);
+  letter-spacing: .08em; color: var(--accent);
 }
 .aq-panel-title::before { content: '-- '; color: var(--faint); }
+.aq-corner { color: var(--accent); }
 .aq-panel-extra { background: var(--bg); padding: 0 .55em; color: var(--dim); font-size: var(--fs-s); white-space: nowrap; }
 .aq-x {
   appearance: none; border: 0; background: var(--bg); color: var(--ink); font: inherit;
@@ -402,6 +407,7 @@
 .aq-nav-badge { color: var(--dim); font-size: var(--fs-s); }
 .aq-nav-badge:empty { display: none; }
 .aq-nav-b.is-on, .aq-nav-b:focus-visible { background: var(--ink); color: var(--bg); outline: none; }
+.aq-nav-b.is-on:not(:focus-visible) { background: var(--accent); }
 .aq-nav-b.is-on .aq-nav-badge, .aq-nav-b:focus-visible .aq-nav-badge { color: var(--bg); opacity: .75; }
 @media (hover: hover) { .aq-nav-b:hover:not(.is-on) { background: rgb(var(--ink-rgb) / .12); } }
 @media (max-width: 760px) {

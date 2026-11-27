@@ -63,9 +63,20 @@ All settings apply immediately and are saved in the browser.
   uses the browser's media player as a last resort and can pause other apps' music; Auto switches to it by
   itself only if the Web Audio clock does not move).
 - **Display:** quality (auto / high / medium / low — auto steps down on slow devices), motion (fluid or classic
-  grid), reduce motion, glyph size, interface scale, theme (Paper unlocks when you finish the story), high
-  contrast, show FPS, fullscreen (also a **Fullscreen** button on the title screen, hidden where the browser
-  has no fullscreen support, such as Safari on iPhone).
+  grid), reduce motion, glyph size, interface scale, high contrast, show FPS, fullscreen (also a **Fullscreen**
+  button on the title screen, hidden where the browser has no fullscreen support, such as Safari on iPhone), and
+  **theme**:
+  - **Night** (default): beige ink on near-black.
+  - **Day**: deep teal ink on a pale sea-mist page.
+  - **Day & night**: follows the in-game clock — Day by day, Night by night, blending through a dusk blue at
+    dawn (05:00–07:00) and dusk (17:00–19:00), also on the title and the menus.
+  - **Colourful**: a deep-sea background in real colours — blue water, ochre sand, green kelp, pink coral, cyan
+    bubbles, every species in its own colour — with warm-white text and an amber accent in the menus.
+  - **Paper** (unlocks when you finish the story): near-black ink on a ruled notebook page (blue rules, a red
+    margin, punched holes); changing scene or opening a full-screen panel turns the page.
+
+  High contrast works with every theme (Colourful gets brighter, more saturated colours); with reduce motion
+  the page turn becomes a short crossfade.
 - **Controls:** hand (reel button side), vibration, control hints, **Auto rod** (the rod steers itself during
   fights), **Wide windows** (a longer strike window).
 - **Save:** export / import a save code, and reset (asks twice).
@@ -126,12 +137,12 @@ order of `index.html`.
 | Path | What lives there |
 |---|---|
 | `index.html` | the page; classic scripts in a fixed order (no modules, so it works on `file://`) |
-| `css/` | page and overlay styles (only the two theme colours, as variables) |
+| `css/` | page and overlay styles (only the theme colours, as variables) |
 | `fonts/` | JetBrains Mono NL (woff2) and its licence |
 | `js/core/` | namespace, utilities, seeded RNG, event bus, i18n, save store |
 | `js/data/` | strings, sprites and art, species, zones, items, goals |
 | `js/logic/` | pure game logic: world clock and weather, spawning, creatures, line, bite, fight, economy, aquarium, progress, game state |
-| `js/engine/` | display, glyph atlas, renderer, effects, input, scenes, performance, loop, debug |
+| `js/engine/` | theme, display, glyph atlas, renderer, ruled paper and page turn, effects, input, scenes, performance, loop, debug |
 | `js/audio/`, `js/platform/` | sample player (music, effects, ambience), haptics |
 | `audio/` | the recorded sounds (MP3), listed in `js/data/audio-manifest.js` |
 | `tools/audio-render/` | the synth and the script that records `audio/` (not loaded by the game) |

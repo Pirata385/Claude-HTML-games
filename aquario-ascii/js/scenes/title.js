@@ -11,6 +11,7 @@
   var stars = [];
   var kelp = [];
   var FALLBACK_FISH = [[['><>'], ['><>']], [['><°>'], ['><°>']]];
+  var TX_PLANT = { align: 'center', tint: 'plant' }, TX_KELP = { align: 'center', tint: 'kelp' };
   var SPECIES = ['manjuba', 'tainha', 'baiacu', 'palhaco', 'cavalinha', 'agulha', 'cirurgiao', 'sargo'];
 
   function logoLines() {
@@ -128,7 +129,8 @@
     },
     drawBg: function (grid, t) {
       var m = AQ.fx.motion();
-      // stars
+      // stars (tints: Colourful theme only)
+      R.tint('star');
       for (var i = 0; i < stars.length; i++) {
         var s = stars[i];
         var v = 0.5 + 0.5 * Math.sin(t * s.sp * (m < 1 ? 0.2 : 1) + s.ph);
@@ -136,11 +138,13 @@
       }
       // wave row around the subtitle
       var r = L.subRow;
+      R.tint('surface');
       for (var c = 0; c < L.cols; c++) {
         var wv = AQ.util.noise2(c * 0.18 + t * 0.5 * m, t * 0.15);
         grid.put(c, r, R.ramp('wave', 0.15 + wv * 0.5), 3 + (wv > 0.6 ? 1 : 0));
       }
       // water texture
+      R.tint('water');
       for (var rr = L.waterTop; rr < L.sandRow; rr++) {
         for (var cc = 0; cc < L.cols; cc++) {
           var n = AQ.util.noise3(cc * 0.09, rr * 0.22, t * 0.12 * m);
@@ -149,6 +153,7 @@
       }
       // sand
       var sand = L.sandRow;
+      R.tint('sand');
       for (var sc = 0; sc < L.cols; sc++) {
         var sv = AQ.util.noise1(sc * 0.37 + 3.1);
         grid.put(sc, sand, R.ramp('sand', 0.3 + sv * 0.7), 4);
@@ -165,7 +170,7 @@
           var row = L.sandRow - 1 - h;
           var sway = Math.sin(t * 0.8 + kp.ph + h * 0.5) * 0.35 * (h / kp.h) * m;
           var ch = kp.plant ? (h === kp.h - 1 ? ',;,' : ';:;') : ')(';
-          R.textW(ch, kp.c + sway, row * AS + 1, 5, { align: 'center' });
+          R.textW(ch, kp.c + sway, row * AS + 1, 5, kp.plant ? TX_PLANT : TX_KELP);
         }
       }
       // fish
@@ -187,7 +192,7 @@
       var spaced = sub.split('').join(' ');
       var text = spaced.length + 6 <= L.cols ? spaced : sub;
       var cx = L.side ? L.logoX : Math.floor(L.cols / 2);
-      R.text(' ' + text + ' ', cx, L.subRow, 11, { align: 'center', knock: true });
+      R.text(' ' + text + ' ', cx, L.subRow, 11, { align: 'center', knock: true, tint: 0 });
       AQ.fx.draw();
     }
   });

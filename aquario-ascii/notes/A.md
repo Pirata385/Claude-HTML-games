@@ -85,8 +85,10 @@ backward-compatible extensions**; nothing in the contracts was removed or rename
   `initial`, `auto`, `sample(ms)`. The FPS overlay is the `#fps` DOM element (`showFps`).
 - `display` extras: `family`, `adv`, `widthD/heightD`, `originXd/originYd` (device px), `ready`. `display:resize` is
   emitted only when the size or grid changes (after the current scene's `resize`).
-- `theme`: `name` is the base (`'noite'|'papel'`), `key` includes `HC`; extras `highContrast`, `temporary`,
-  `bgArr/inkArr`. `apply()` with no name and a locked papel falls back to noite.
+- `theme`: `name` is the base (`AQ.ENUM.THEMES`: `'noite'|'dia'|'ciclo'|'colorido'|'papel'`), `key` includes `HC`;
+  extras `highContrast`, `temporary`, `bgArr/inkArr`, `accent`, `palette` (colorido), `paper` (papel), `cycleStep` /
+  `tickCycle()` (ciclo). `apply()` with no name and a locked papel falls back to noite. See DESIGN §2.1.1 (Themes)
+  for tints (`AQ.render.tint`, `opts.tint`, `AQ.TINTS`), the ruled page (`AQ.paper`) and the page turn (`AQ.pageturn`).
 - `fx` extras: `KINDS` presets, `covered` (screen covered after an 'out' wipe), `drawTop(dtReal)` (loop only).
 
 ## CSS (`css/style.css`)

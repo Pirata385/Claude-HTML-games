@@ -834,6 +834,8 @@
     return G_CAMO && level > G_CAMO ? G_CAMO : level;
   }
 
+  function tintMapFn(col, row, tint) { return G_GLOW && G_GLOW[row * G_W + col] && (G_GLV || G_ALARM) ? 'glow' : tint; }
+
   function draw(c, env) {
     var R = AQ.render;
     if (!R || !R.sprite || c.state === 'gone') return;
@@ -894,6 +896,7 @@
     SO.seed = c.uid;
     SO.glyphMap = (G_BUR || G_SHIM || G_SCR > 0 || G_DENSE) ? glyphMapFn : undefined;
     SO.levelMap = (G_GLOW || G_CAMO) ? levelMapFn : undefined;
+    SO.tintMap = G_GLOW ? tintMapFn : undefined; // Colourful theme: lit photophores glow in their own colour
 
     if (sp && sp.rarity === 'L' && !G_BUR) halo(c, d, R, vis);
     R.sprite(frame, c.x, c.y, SO);

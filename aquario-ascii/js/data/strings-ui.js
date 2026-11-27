@@ -511,6 +511,9 @@
       theme: "Theme",
       th: {
         noite: "Night",
+        dia: "Day",
+        ciclo: "Day & night",
+        colorido: "Colourful",
         papel: "Paper",
         papelLocked: "Paper (finish the story)"
       },

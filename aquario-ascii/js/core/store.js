@@ -288,6 +288,9 @@
     wideWindows: false
   };
   Object.freeze(DEFAULTS);
+  // Older / English spellings of the theme names (hand-edited or older settings) map onto the current ids.
+  var THEME_ALIAS = { night: 'noite', paper: 'papel', day: 'dia', cycle: 'ciclo', daynight: 'ciclo', 'day-night': 'ciclo',
+    colorful: 'colorido', colourful: 'colorido', color: 'colorido', colour: 'colorido' };
   var SCHEMA = {
     lang: { e: ['en'] },
     volMaster: { n: [0, 1] }, volMusic: { n: [0, 1] }, volSfx: { n: [0, 1] }, volAmbience: { n: [0, 1] },
@@ -297,7 +300,7 @@
     motionStyle: { e: ['fluid', 'grid'] },
     glyphSize: { e: ['auto', 11, 12, 14, 16, 18, 20] },
     uiScale: { snap: [0.85, 1, 1.15, 1.3] },
-    highContrast: { b: 1 }, theme: { e: ['noite', 'papel'] }, haptics: { b: 1 }, showFps: { b: 1 }, hints: { b: 1 },
+    highContrast: { b: 1 }, theme: { e: AQ.ENUM.THEMES.slice(), alias: THEME_ALIAS }, haptics: { b: 1 }, showFps: { b: 1 }, hints: { b: 1 },
     handedness: { e: ['right', 'left'] },
     autoSteer: { b: 1 }, wideWindows: { b: 1 }
   };
@@ -325,6 +328,7 @@
       return { ok: true, value: best };
     }
     if (sc.e) {
+      if (sc.alias && typeof value === 'string' && Object.prototype.hasOwnProperty.call(sc.alias, value.toLowerCase())) value = sc.alias[value.toLowerCase()];
       for (var j = 0; j < sc.e.length; j++) {
         var opt = sc.e[j];
         if (opt === value) return { ok: true, value: opt };

@@ -51,7 +51,8 @@ module.exports = function (T) {
     const { AQ } = T.load();
     T.eq(AQ.VERSION, '1.0.0'); T.eq(AQ.SAVE_VERSION, 1); T.eq(AQ.ASPECT, 2);
     T.eq(AQ.STORAGE_KEYS, { save: 'aquario-ascii.save', backup: 'aquario-ascii.save.bak', settings: 'aquario-ascii.settings' });
-    T.eq(Object.keys(AQ.THEMES).sort(), ['noite', 'noiteHC', 'papel', 'papelHC']);
+    T.eq(AQ.ENUM.THEMES, ['noite', 'dia', 'ciclo', 'colorido', 'papel']);
+    for (const th of AQ.ENUM.THEMES) T.ok(AQ.THEMES[th] && AQ.THEMES[th + 'HC'], 'theme + HC twin: ' + th);
     for (const k of ['RARITY', 'RARITY_W', 'SIZE', 'SIZE_COST', 'SIZE_MAX', 'ZONES', 'PHASES', 'WEATHER', 'BAITS', 'LURES', 'HABITAT',
       'LIGHT', 'DIET', 'KIND', 'BEHAVIOR', 'FIGHT', 'GEAR', 'ESCAPE', 'SIGHTINGS', 'QUALITY', 'SCENES']) {
       T.ok(AQ.ENUM[k] !== undefined, 'ENUM.' + k);

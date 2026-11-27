@@ -454,12 +454,14 @@
     var c0 = L.c0, c1 = L.c0 + L.W - 1, rT = L.rT, rB = L.rB;
     var frameLv = 7, motionK = motion();
     var tt = t * (motionK < 1 ? 0.35 : 1);
-    // frame
+    // frame (tints: Colourful theme only)
+    R.tint('glass');
     grid.putCode(c0 - 1, rT, cA.plus, frameLv); grid.putCode(c1 + 1, rT, cA.plus, frameLv);
     grid.putCode(c0 - 1, rB, cA.plus, frameLv); grid.putCode(c1 + 1, rB, cA.plus, frameLv);
     for (var c = c0; c <= c1; c++) { grid.putCode(c, rT, cA.dash, frameLv - 1); grid.putCode(c, rB, cA.dash, frameLv); }
     for (var r = rT + 1; r < rB; r++) { grid.putCode(c0 - 1, r, cA.pipe, frameLv); grid.putCode(c1 + 1, r, cA.pipe, frameLv); }
     // floor line under the visitors
+    R.tint('wood');
     if (L.floorRow >= 0) for (c = 0; c < D.cols; c++) if ((c * 7 + 3) % 5) grid.putCode(c, L.floorRow, cA.under, 2);
 
     var waterBase = light === 'day' ? 3.4 : light === 'dim' ? 2.6 : 1.6;
@@ -470,36 +472,39 @@
     var innerRows = L.sandTop - (rT + 2);
     // surface row
     var rs = rT + 1;
+    R.tint('surface');
     for (c = c0; c <= c1; c++) {
       var x = c - c0;
       var v = 0.6 * Math.sin(0.27 * x - 0.8 * tt) + 0.4 * Math.sin(0.63 * x + 1.1 * tt + 1.7);
       grid.put(c, rs, v < -0.45 ? '.' : v < 0.2 ? '-' : '~', v > 0.75 ? surfLv + 1 : surfLv);
     }
     // water
+    var TT = R.TINT;
     for (r = rT + 2; r < L.sandTop; r++) {
       var depthF = innerRows > 0 ? (r - rT - 2) / innerRows : 0;
       for (c = c0; c <= c1; c++) {
         var xx = c - c0;
         var n = U.noise3(xx * 0.13, r * 0.34, tt * 0.12);
-        var lv = 0, ch = 0;
+        var lv = 0, ch = 0, tk = TT.water;
         if (n > 0.7) {
           var k = (n - 0.7) / 0.3;
           ch = k > 0.6 ? '-' : '.';
           lv = Math.max(2, Math.round(waterBase * (0.5 + 0.4 * k) * (1 - 0.35 * depthF)));
         }
         // drifting plankton motes (ambient life)
-        if (!lv && R.hash01(c, r + Math.floor(tt * 0.5 + R.hash01(c, 0, 3) * 40), 19) < 0.007) { ch = '·'; lv = light === 'night' ? 2 : 3; }
+        if (!lv && R.hash01(c, r + Math.floor(tt * 0.5 + R.hash01(c, 0, 3) * 40), 19) < 0.007) { ch = '·'; lv = light === 'night' ? 2 : 3; tk = TT.plant; }
         if (rays && depthF < 0.8) {
           var band = Math.sin((xx - (r - rT) * 1.25) * 0.21 + tt * 0.18);
           if (band > 0.9) {
             var rl = Math.max(1, Math.round(3 * (1 - depthF) * (band - 0.9) * 10));
-            if (rl > lv) { lv = Math.min(4, rl); ch = (r + xx) % 3 ? '.' : '·'; }
+            if (rl > lv) { lv = Math.min(4, rl); ch = (r + xx) % 3 ? '.' : '·'; tk = TT.ray; }
           }
         }
-        if (lv > 0 && ch) grid.put(c, r, ch, Math.min(lv, 5));
+        if (lv > 0 && ch) grid.put(c, r, ch, Math.min(lv, 5), false, tk);
       }
     }
     // sand
+    R.tint('sand');
     for (r = L.sandTop; r < rB; r++) {
       var top = r === L.sandTop;
       for (c = c0; c <= c1; c++) {
@@ -513,7 +518,7 @@
           var cz = U.noise3(xs * 0.23, 3.1, tt * 0.5);
           if (cz > 0.7) { schar = ':'; sl = 5; }
         }
-        grid.put(c, r, schar, sl);
+        grid.put(c, r, schar, sl, false, schar === ':' ? 'ray' : undefined);
       }
     }
   }
@@ -536,9 +541,9 @@
       R.sprite(fr, slotX[i], L.sandY - h + 2, DO);
       if (id === 'farol') {
         var on = Math.sin(t * 2.4) > 0;
-        R.glyphW(on ? C().star : C().period, slotX[i], L.sandY - h * ASPECT + 3, on ? 13 : 6);
+        R.glyphW(on ? C().star : C().period, slotX[i], L.sandY - h * ASPECT + 3, on ? 13 : 6, 'lantern');
       } else if (id === 'ostra' && (Math.floor(t * 0.7 + i) % 5) === 0) {
-        R.glyphW(C().star, slotX[i] - 0.2, L.sandY + 1, 12);
+        R.glyphW(C().star, slotX[i] - 0.2, L.sandY + 1, 12, 'white');
       }
     }
   }
@@ -556,8 +561,8 @@
     LO.level = light === 'night' ? 5 : 8;
     R.sprite(flt, fx0, flt.length * ASPECT / 2, LO);
     var lineLv = light === 'night' ? 2 : 3;
-    for (var y = flt.length * ASPECT + 1; y < L.floorY - 1; y += ASPECT) R.glyphW(C().pipe, fx0, y, lineLv);
-    R.glyphW(C().o, fx0, L.floorY - 1, light === 'night' ? 3 : 6);
+    for (var y = flt.length * ASPECT + 1; y < L.floorY - 1; y += ASPECT) R.glyphW(C().pipe, fx0, y, lineLv, 'glass');
+    R.glyphW(C().o, fx0, L.floorY - 1, light === 'night' ? 3 : 6, 'bubble');
   }
   function drawHints() {
     var tk = curTank();
@@ -582,11 +587,15 @@
     if (AQ.creatures && AQ.creatures.drawList) {
       try { AQ.creatures.drawList(list, env); } catch (e) { if (!draw._err) { draw._err = 1; console.error(e); } }
     }
+    R.tint('food');
     drawFood();
+    R.tint('accent');
     drawEmotes();
+    R.tint(0);
     drawVisitors();
     if (AQ.fx) AQ.fx.draw();
-    if (!contemplating) { drawHints(); drawSelection(); }
+    R.tint(0);
+    if (!contemplating) { drawHints(); R.tint('accent'); drawSelection(); R.tint(0); }
   }
 
   // ---------------------------------------------------------------- update

@@ -21,6 +21,12 @@
   --ink: #e9dfc7;
   --bg-rgb: 14 13 11;
   --ink-rgb: 233 223 199;
+  --accent: #e9dfc7;            /* colourful theme accent (= ink elsewhere) */
+  --accent-rgb: 233 223 199;
+  --rule-rgb: 44 100 216;       /* paper theme: rules, margin, page-turn light and shadow */
+  --margin-rgb: 216 54 58;
+  --hi-rgb: 255 252 243;
+  --shadow-rgb: 43 36 23;
   --font: 'ATMono', ui-monospace, 'SFMono-Regular', Menlo, Consolas, 'Liberation Mono', monospace;
   --ui-scale: 1;
   --safe-top: env(safe-area-inset-top, 0px);
@@ -82,6 +88,8 @@ input, textarea { -webkit-user-select: text; user-select: text; }
   pointer-events: none;
 }
 #cv-bg { z-index: 0; will-change: transform; background: var(--bg); }
+/* Paper theme: rules, margin and holes multiply over the frame, so they read as printed under the ink */
+#cv-paper { z-index: 3; mix-blend-mode: multiply; }
 #cv-main { z-index: 1; }
 #cv-top { z-index: 2; }
 
@@ -168,4 +176,27 @@ noscript {
   color: var(--ink);
   background: var(--bg);
   font-family: var(--font);
+}
+
+/* Page turn (Paper theme): the snapshot of the outgoing view peels away along a diagonal fold (js/engine/pageturn.js). */
+.aq-turn { position: absolute; inset: 0; z-index: 50; display: none; overflow: hidden; pointer-events: auto; touch-action: none; }
+.aq-turn.is-on { display: block; }
+.aq-turn-page { position: absolute; inset: 0; background: var(--bg); will-change: clip-path, opacity; }
+.aq-turn-snap { position: absolute; left: 0; top: 0; display: block; }
+.aq-turn-ui { position: absolute; inset: 0; pointer-events: none; }
+.aq-turn-fold { position: absolute; left: 0; top: 0; width: 0; height: 0; transform-origin: 0 0; display: none; will-change: transform; }
+.aq-turn.is-playing:not(.is-reduced) .aq-turn-fold { display: block; }
+.aq-turn-shade, .aq-turn-flap { position: absolute; left: 0; top: 0; transform-origin: 0 0; will-change: transform, clip-path; }
+.aq-turn-shade {
+  width: 64px;
+  background: linear-gradient(to right, rgb(var(--shadow-rgb) / .34), rgb(var(--shadow-rgb) / .12) 38%, rgb(var(--shadow-rgb) / 0));
+}
+/* back of the sheet: crease, a lit curled edge along the fold, the curl's shading, rules showing through */
+.aq-turn-flap {
+  background:
+    linear-gradient(to left, rgb(var(--shadow-rgb) / .28) 0, rgb(var(--hi-rgb) / .95) 2px, rgb(var(--hi-rgb) / .6) 12px,
+      rgb(var(--hi-rgb) / 0) 44px, rgb(var(--shadow-rgb) / 0) 50%, rgb(var(--shadow-rgb) / .16) 100%),
+    repeating-linear-gradient(var(--rule-angle, .3rad), transparent 0, transparent calc(var(--rule-step, 20px) - 1px),
+      rgb(var(--rule-rgb) / .14) calc(var(--rule-step, 20px) - 1px), rgb(var(--rule-rgb) / .14) var(--rule-step, 20px)),
+    var(--bg);
 }

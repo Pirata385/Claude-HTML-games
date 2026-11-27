@@ -33,11 +33,53 @@ You inherit Vó Iara's old seaside aquarium: empty tanks, and a notebook with mi
 | `noite` + high contrast | `#050504` | `#f7f0de` |
 | `papel` (unlocked by the ending) | `#e9dfc7` | `#0e0d0b` |
 | `papel` + high contrast | `#f7f0de` | `#050504` |
+| `dia` | `#dbe7ea` | `#0f3b4c` |
+| `dia` + high contrast | `#f1f8f9` | `#032231` |
+| `colorido` | `#061a24` | `#f3e9d6` (+ accent `#ffb25b` and a palette) |
+
+The full table, including the Paper page colours, the dusk key of `ciclo` and the Colourful palette, lives in
+`AQ.THEMES` (`js/core/ns.js`).
 
 Rules:
-- Canvas and CSS use only `AQ.theme.bg` and `AQ.theme.ink`, plus alpha. CSS reads them through variables `--bg`, `--ink`, `--bg-rgb` and `--ink-rgb`, which A sets on `:root`. Alpha is written as `rgb(var(--ink-rgb) / .5)`.
+- Canvas and CSS use only the theme's colours (`AQ.theme.bg`, `AQ.theme.ink`, the Colourful palette and accent, the Paper page colours), plus alpha. CSS reads them through variables `--bg`, `--ink`, `--bg-rgb`, `--ink-rgb`, `--accent`, `--accent-rgb` (and `--rule-rgb`, `--margin-rgb`, `--hi-rgb`, `--shadow-rgb` for Paper), which A sets on `:root`. Alpha is written as `rgb(var(--ink-rgb) / .5)`.
 - The only "highlight" is **inversion**: ink background with bg-coloured text (focused buttons, the selected tab, the reel button while held).
-- QA greps for `#[0-9a-f]{3,6}` and `rgb(`. Matches are allowed only in `js/core/ns.js` (the theme table) and `css/style.css` fallbacks.
+- QA greps for `#[0-9a-f]{3,6}` and `rgb(`. Matches are allowed only in `js/core/ns.js` (the theme table) and `css/style.css` fallbacks (`tests/test-themes.js` enforces it for `js/` and `css/ui.css`).
+
+### 2.1.1 Themes
+
+Selectable themes (`AQ.ENUM.THEMES`, setting `theme`, default `noite`): **Night** `noite`, **Day** `dia`, **Day & night**
+`ciclo`, **Colourful** `colorido` (all available from the start) and **Paper** `papel` (unlocked by the ending). Each
+has a `<name>HC` high-contrast twin. Old settings keep working: the enum still holds `noite`/`papel`, English
+spellings (`night`, `paper`, `colourful`…) map onto the ids, anything else falls back to Night, and a locked Paper
+shows Night.
+
+- **Two-colour themes** (`noite`, `dia`, `papel`): every draw is the ink at one of the 16 alpha levels.
+- **Day & night** (`ciclo`, `js/engine/theme.js`): `nightness(minute)` is 0 from 07:00 to 17:00, 1 from 19:00 to
+  05:00 and ramps across dawn and dusk; it is quantised into 10 steps per transition (≈ one every 12 real seconds).
+  A step blends bg `dia` → `crepusculo` (dusk blue) → `noite` in linear light and picks whichever ink (Day's dark
+  or the dusk/night light one) reads better; a step that lands on a mid tone is nudged toward the nearer end
+  until the ink has ≥ 4.6 : 1. A step re-tints the glyph atlas in place (`atlas.retint`: one `source-in` fill per
+  canvas, no glyph re-render) and redraws the bg grid once. It reads the world clock in every scene (also title
+  and menus), checked every second and on scene changes.
+- **Colourful** (`colorido`): the renderer carries a **tint role** per glyph (`AQ.TINT_ROLES`, index 0 = ink). Scenes
+  set `AQ.render.tint(role)` around groups of draws (water, rays, sand, plants, foam…), grid puts and glyph/text
+  calls take an optional tint, and sprites default to the role registered for their art in `js/data/tints.js`
+  (`AQ.TINTS`: every species, sighting, decor, boat, map building, terrain piece and particle kind). The atlas
+  builds one pre-tinted copy per role and weight on first use (the ink atlas recoloured with `source-in`), so a
+  coloured glyph is still one `drawImage`. In every other theme every role resolves to 0 and the game renders
+  exactly as the two-colour version. The high-contrast twin brightens and saturates the palette. HTML overlays
+  use `--accent` for panel titles, corner marks and the selected tab / segment / nav button only.
+- **Paper** (`papel`): a screen-fixed, mostly transparent `#cv-paper` (`js/engine/paper.js`) over the canvases with
+  `mix-blend-mode: multiply`: faint grain and vignette, a blue-grey rule under every screen row, a red margin
+  line ~5 columns in and three punched holes — drawn once per resize. Multiply never lightens, so the rules read
+  as printed under the near-black ink, knockouts keep their rules, and the rules stay on the page while the water
+  scrolls (the bg canvas and its row-scroll blit are unchanged). **Page turn** (`js/engine/pageturn.js`): on
+  a scene change and when a full-screen hub panel (Shop, Notebook, Goals, Settings, Save, Credits) opens or closes,
+  the outgoing frame (canvases composited into one reusable canvas + an inert clone of `#ui`) peels away along a
+  diagonal fold in 620 ms — the lifted part shows the back of the sheet (curl shading, a lit edge along the
+  fold, rules showing through mirrored) over a shadow on the revealed view; taps are swallowed only while it
+  plays and the snapshot is released at the end. Reduced motion: a 200 ms crossfade. Other themes keep the ink
+  wipe.
 
 ### 2.2 Ink tones: 16 quantised alpha levels
 

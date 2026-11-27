@@ -50,6 +50,9 @@
   var CODE = { drop: A.code("'"), coin: A.code('$'), pop: A.code('*'), open: A.code('('), close: A.code(')') };
 
   // Presets: n, speed (u/s), gravity (u/s², + = down), life (s), level.
+  // Tint role per particle kind (AQ.TINTS.fx; drawn in the ink outside the Colourful theme).
+  var KIND_TINT = (AQ.TINTS && AQ.TINTS.fx) || {};
+  var TXT = { align: 'center', bold: false, tint: undefined };
   var KINDS = {
     splash: { n: 14, sp: 13, g: 42, life: 0.75, level: 11 },
     drop: { n: 4, sp: 2.5, g: 34, life: 0.7, level: 10 },
@@ -204,13 +207,13 @@
           if (dens <= 0.02) continue;
           var px = D.originX + (col - frx) * cw + R.cam.shake.x;
           if (c.glow) { // vampira: sparkles instead of a dark cloud
-            if (R.hash01(col, r, tick + c.seed) < dens * 0.35) R.glyph(SEQ.star[0], px, py, 11);
-            else if (dens > 0.5 && R.hash01(r, col, tick) < 0.2) R.glyph(SEQ.ink[1], px, py, 4);
+            if (R.hash01(col, r, tick + c.seed) < dens * 0.35) R.glyph(SEQ.star[0], px, py, 11, 'glow');
+            else if (dens > 0.5 && R.hash01(r, col, tick) < 0.2) R.glyph(SEQ.ink[1], px, py, 4, 'glow');
             continue;
           }
           R.knock(px, py, cw, chh, Math.min(0.96, dens * 1.2));
           var code = SEQ.ink[Math.min(SEQ.ink.length - 1, Math.floor(dens * (SEQ.ink.length - 1)))];
-          if (code) R.glyph(code, px, py, dens > 0.8 ? 2 : Math.max(1, Math.round(1 + dens * 4)));
+          if (code) R.glyph(code, px, py, dens > 0.8 ? 2 : Math.max(1, Math.round(1 + dens * 4)), 'inkcloud');
         }
       }
     }
@@ -388,8 +391,9 @@
         if (!p.alive) continue;
         var f = p.life / p.max;
         var lvl = Math.max(1, Math.round(p.level * Math.min(1, f * 2)));
-        if (p.text) R.textW(p.text, p.x, p.y, lvl, { align: 'center', bold: p.bold });
-        else if (p.code) R.glyphW(p.code, p.x, p.y, lvl);
+        var tk = KIND_TINT[p.kind] || 0;
+        if (p.text) { TXT.bold = p.bold; TXT.tint = tk; R.textW(p.text, p.x, p.y, lvl, TXT); }
+        else if (p.code) R.glyphW(p.code, p.x, p.y, lvl, tk);
       }
     },
 

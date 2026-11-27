@@ -420,6 +420,8 @@
     var existing = find(name);
     if (existing) close(existing, null, true);
     return new Promise(function (resolve) {
+      // Paper theme: full-screen hub panels arrive under a turning page (snapshot taken before they exist).
+      var turn = !!(AQ.pageturn && AQ.pageturn.wants(name) && AQ.pageturn.capture());
       var inst = { name: name, def: def, params: params || {}, state: {}, resolve: resolve, el: null,
         prevFocus: document.activeElement, opened: performance.now() };
       inst.close = function (result) { close(inst, result); };
@@ -428,9 +430,12 @@
       render(inst);
       var layer = layers[def.layer || 'modal'] || layers.modal;
       layer.appendChild(inst.el);
-      // enter animation
-      inst.el.classList.add('is-enter');
-      requestAnimationFrame(function () { requestAnimationFrame(function () { if (inst.el) inst.el.classList.remove('is-enter'); }); });
+      // enter animation (the page turn replaces it)
+      if (turn) AQ.pageturn.play();
+      else {
+        inst.el.classList.add('is-enter');
+        requestAnimationFrame(function () { requestAnimationFrame(function () { if (inst.el) inst.el.classList.remove('is-enter'); }); });
+      }
       updateBlock();
       if (def.sfxOpen !== false && def.modal !== false) feedbackSound(def.sfxOpen || 'uiOpen');
       if (def.onOpen) safe(function () { def.onOpen(inst); });
@@ -443,11 +448,16 @@
   function close(inst, result, silent) {
     var i = stack.indexOf(inst);
     if (i < 0) return;
+    // Paper theme: a closing hub panel turns away like a page (snapshot first, then it goes at once).
+    var turn = !silent && !!inst.el && !!(AQ.pageturn && AQ.pageturn.wants(inst.name) && AQ.pageturn.capture());
     stack.splice(i, 1);
     if (inst.def.onClose) safe(function () { inst.def.onClose(inst, result); });
     var node = inst.el;
     inst.el = null;
-    if (node) {
+    if (node && turn) {
+      if (node.parentNode) node.parentNode.removeChild(node);
+      AQ.pageturn.play();
+    } else if (node) {
       node.classList.add('is-leave');
       node.style.pointerEvents = 'none';
       setTimeout(function () { if (node.parentNode) node.parentNode.removeChild(node); }, AQ.fx && AQ.fx.motion() < 1 ? 60 : 160);

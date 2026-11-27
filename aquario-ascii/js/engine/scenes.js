@@ -74,6 +74,9 @@
     }
     var from = S.current;
     var wipe = transition === 'none' ? null : (transition === 'fade' || AQ.fx.motion() < 1 ? 'fade' : 'ink');
+    // Paper theme: the old view turns away like a notebook page instead of the ink wipe.
+    var turn = !!(from && wipe && AQ.pageturn && AQ.pageturn.enabled() && AQ.pageturn.capture());
+    if (turn) wipe = null;
     S.transitioning = true;
     var cover = (from && wipe) ? AQ.fx.inkWipe('out', wipe === 'fade' ? 0.2 : 0.4) : Promise.resolve();
     return cover.then(function () {
@@ -88,6 +91,7 @@
       safeCall(name, def, 'enter', params || {});
       if (def.resize) safeCall(name, def, 'resize', AQ.display.metrics());
       AQ.events.emit('scene:changed', { from: from, to: name, params: params || null });
+      if (turn) { AQ.fx.covered = false; return AQ.pageturn.play().then(function () { return true; }); }
       if (!wipe) { AQ.fx.covered = false; return true; }
       return AQ.fx.inkWipe('in', wipe === 'fade' ? 0.2 : 0.4).then(function () { return true; });
     }).then(function (r) { S.transitioning = false; return r; }, function (e) {

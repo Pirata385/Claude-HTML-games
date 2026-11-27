@@ -3,6 +3,9 @@
 // from the 16-level table, so one atlas serves every level. An inverse (bg-coloured) pair is built lazily for
 // inverted text. Codes: slot (0..255) | 512 for bold. Code 0 is the blank. Codes ≥ 1024 are overflow glyphs
 // drawn with fillText (one warning). The char → slot mapping is stable across rebuilds.
+// Colourful themes: setPalette([css per tint role]) — each role used gets its own pre-tinted copy of the ink
+// atlas (one canvas per weight, built lazily on first draw by recolouring the ink atlas with 'source-in', so no
+// glyph is re-rendered); draw(..., tint) blits from it. retint(ink, bg) recolours the atlas in place (ciclo steps).
 (function (AQ) {
   'use strict';
 
@@ -15,6 +18,8 @@
   // sets[0] = ink atlas, sets[1] = inverse (bg colour) atlas, built on first use. Each: [regular, bold].
   var sets = [{ cv: [null, null], ctx: [null, null], built: false }, { cv: [null, null], ctx: [null, null], built: false }];
   var baseline = 0, family = 'monospace', ink = AQ.THEMES.noite.ink, fontPx = 16, buildKey = '';
+  // Tinted copies: tints[role] = { color, cv:[reg, bold], ctx:[…], built:[bool, bool] } (role 0 = the ink itself).
+  var palette = null, tints = [];
 
   var A = AQ.atlas = {
     BOLD: BOLD,
@@ -49,6 +54,7 @@
       baseline = Math.round((chh - (asc + desc)) / 2 + asc);
       for (var s = 1; s < chars.length; s++) { renderSlot(0, 0, s); renderSlot(0, 1, s); }
       sets[1].built = false; // inverse rebuilt lazily
+      dropTints();
       A.ready = true;
       A.builds++;
       return true;
@@ -68,8 +74,33 @@
       return chars[code & 511] || ' ';
     },
 
-    // draw(ctx, code, xDev, yDev): blits the glyph's slot in ink; the caller sets globalAlpha.
-    draw: function (ctx, code, xDev, yDev) { blit(0, ctx, code, xDev, yDev); },
+    // draw(ctx, code, xDev, yDev, tint?): blits the glyph's slot in ink (or in palette colour `tint` when the theme
+    // has a palette); the caller sets globalAlpha.
+    draw: function (ctx, code, xDev, yDev, tint) {
+      if (tint && palette && code && code < OVERFLOW) { blitTint(tint, ctx, code, xDev, yDev); return; }
+      if (tint && palette && code >= OVERFLOW) { overflowText(ctx, code, xDev, yDev, palette[tint] || ink); return; }
+      blit(0, ctx, code, xDev, yDev);
+    },
+    // setPalette(cssArray | null): tint colours by role index (index 0 unused = ink). Tinted copies rebuild lazily.
+    setPalette: function (arr) {
+      var same = !!arr && !!palette && arr.length === palette.length;
+      if (same) for (var i = 0; i < arr.length; i++) if (arr[i] !== palette[i]) { same = false; break; }
+      if (same || (!arr && !palette)) return;
+      palette = arr ? arr.slice() : null;
+      dropTints();
+    },
+    palette: function () { return palette; },
+    // tintCount() → tinted canvases currently built (memory check).
+    tintCount: function () { var n = 0; for (var i = 0; i < tints.length; i++) if (tints[i]) n += (tints[i].built[0] ? 1 : 0) + (tints[i].built[1] ? 1 : 0); return n; },
+    // retint(inkCss, bgCss): recolours the ink (and inverse) atlas in place — no glyph is re-rendered (ciclo).
+    retint: function (inkCss, bgCss) {
+      if (!A.ready) return false;
+      ink = inkCss;
+      recolor(sets[0], inkCss);
+      if (sets[1].built) recolor(sets[1], bgCss);
+      buildKey = [A.fontPx, A.dpr, inkCss, family, A.cellWd, A.cellHd, bgCss].join('|');
+      return true;
+    },
     // drawInv(ctx, code, xDev, yDev): same glyph in the bg colour (inverted text on an ink fill).
     drawInv: function (ctx, code, xDev, yDev) {
       if (!sets[1].built) buildInverse();
@@ -77,20 +108,83 @@
     }
   };
 
+  function overflowText(ctx, code, xDev, yDev, color) {
+    ctx.font = Math.round(fontPx * A.dpr) + 'px ' + family;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'alphabetic';
+    ctx.fillStyle = color;
+    ctx.fillText(overflow[code - OVERFLOW] || '?', xDev + A.cellWd / 2, yDev + baseline);
+  }
+
   function blit(set, ctx, code, xDev, yDev) {
     if (!code) return;
-    if (code >= OVERFLOW) {
-      ctx.font = Math.round(fontPx * A.dpr) + 'px ' + family;
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'alphabetic';
-      ctx.fillStyle = set ? AQ.theme.bg : ink;
-      ctx.fillText(overflow[code - OVERFLOW] || '?', xDev + A.cellWd / 2, yDev + baseline);
-      return;
-    }
+    if (code >= OVERFLOW) { overflowText(ctx, code, xDev, yDev, set ? AQ.theme.bg : ink); return; }
     var cv = sets[set].cv[(code & BOLD) ? 1 : 0];
     if (!cv) return;
     var slot = code & 511, w = A.cellWd, h = A.cellHd;
     ctx.drawImage(cv, (slot & 15) * w, (slot >> 4) * h, w, h, xDev, yDev, w, h);
+  }
+
+  // ---------------------------------------------------------------- tinted copies
+  function dropTints() { for (var i = 0; i < tints.length; i++) if (tints[i]) tints[i].built[0] = tints[i].built[1] = false; }
+  function tintCanvas(role, wgt) {
+    var t = tints[role] || (tints[role] = { color: '', cv: [null, null], ctx: [null, null], built: [false, false] });
+    var color = palette[role] || ink;
+    if (!t.built[wgt] || t.color !== color) {
+      if (t.color !== color) t.built[0] = t.built[1] = false;
+      t.color = color;
+      var src = sets[0].cv[wgt];
+      if (!src) return null;
+      var cv = t.cv[wgt] || (t.cv[wgt] = document.createElement('canvas'));
+      if (cv.width !== src.width || cv.height !== src.height) { cv.width = src.width; cv.height = src.height; }
+      var c = t.ctx[wgt] = cv.getContext('2d');
+      c.globalCompositeOperation = 'copy';
+      c.drawImage(src, 0, 0);
+      c.globalCompositeOperation = 'source-in';
+      c.fillStyle = color;
+      c.fillRect(0, 0, cv.width, cv.height);
+      c.globalCompositeOperation = 'source-over';
+      t.built[wgt] = true;
+    }
+    return t.cv[wgt];
+  }
+  function blitTint(role, ctx, code, xDev, yDev) {
+    var cv = tintCanvas(role, (code & BOLD) ? 1 : 0);
+    if (!cv) return;
+    var slot = code & 511, w = A.cellWd, h = A.cellHd;
+    ctx.drawImage(cv, (slot & 15) * w, (slot >> 4) * h, w, h, xDev, yDev, w, h);
+  }
+  // A glyph added after the copies were built: copy its slot from the ink atlas and recolour it.
+  function tintSlot(s) {
+    var w = A.cellWd, h = A.cellHd, x = (s & 15) * w, y = (s >> 4) * h;
+    for (var i = 0; i < tints.length; i++) {
+      var t = tints[i];
+      if (!t) continue;
+      for (var wgt = 0; wgt < 2; wgt++) {
+        if (!t.built[wgt]) continue;
+        var c = t.ctx[wgt];
+        c.save();
+        c.beginPath(); c.rect(x, y, w, h); c.clip();
+        c.globalCompositeOperation = 'copy';
+        c.drawImage(sets[0].cv[wgt], x, y, w, h, x, y, w, h);
+        c.globalCompositeOperation = 'source-in';
+        c.fillStyle = t.color;
+        c.fillRect(x, y, w, h);
+        c.restore();
+      }
+    }
+  }
+  function recolor(st, color) {
+    for (var wgt = 0; wgt < 2; wgt++) {
+      var c = st.ctx[wgt], cv = st.cv[wgt];
+      if (!c || !cv) continue;
+      c.save();
+      c.globalCompositeOperation = 'source-in';
+      c.fillStyle = color;
+      c.fillRect(0, 0, cv.width, cv.height);
+      c.restore();
+      c.fillStyle = color; // later glyphs (renderSlot) use the new colour
+    }
   }
 
   function prepare(set, color) {
@@ -131,6 +225,7 @@
     if (A.ready) {
       renderSlot(0, 0, s); renderSlot(0, 1, s);
       if (sets[1].built) { renderSlot(1, 0, s); renderSlot(1, 1, s); }
+      if (palette) tintSlot(s);
     }
     return s;
   }

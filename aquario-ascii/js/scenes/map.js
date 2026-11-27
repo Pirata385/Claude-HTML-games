@@ -94,8 +94,11 @@
     var motion = AQ.fx.motion();
     var tt = motion < 1 ? time * 0.3 : time;
     var regs = m.regions;
+    // Colourful theme: water shades from the bay's teal to the abyss's violet; frames and routes in the accent
+    var WT = ['surface', 'teal', 'water', 'blue', 'violet'];
     for (var i = 0; i < ids.length; i++) {
       var g = regs[i], open = unlocked(g.id), depthK = i / (ids.length - 1);
+      R.tint(open ? WT[Math.min(WT.length - 1, Math.round(depthK * (WT.length - 1)))] : 'grey');
       for (var r = g.r0; r <= g.r1; r++) for (var c = g.c0; c <= g.c1; c++) {
         var n = U.noise2(c * 0.21 - tt * 0.35, r * 0.6 + tt * 0.08);
         var thr = 0.66 - depthK * 0.12;
@@ -107,12 +110,14 @@
       // QA: each water gets a faint frame (bright when hovered/selected), so labels no longer float in a void
       var hot = i === m.hover || (i === m.sel && (AQ.input.mode === 'keyboard' || AQ.input.mode === 'gamepad'));
       var fl = hot ? 9 : open ? 4 : 2;
+      R.tint(hot ? 'accent' : 'glass');
       for (var fc = g.c0 + 1; fc < g.c1; fc++) { if (hot || (fc & 1)) { grid.put(fc, g.r0, hot ? '-' : '.', fl); grid.put(fc, g.r1, hot ? '-' : '.', fl); } }
       for (var fr = g.r0 + 1; fr < g.r1; fr++) { if (hot || (fr & 1)) { grid.put(g.c0, fr, hot ? '|' : ':', fl); grid.put(g.c1, fr, hot ? '|' : ':', fl); } }
       grid.put(g.c0, g.r0, '+', fl); grid.put(g.c1, g.r0, '+', fl); grid.put(g.c0, g.r1, '+', fl); grid.put(g.c1, g.r1, '+', fl);
       // separators between waters: a faint wave column / row
-      if (!m.portrait && i > 0) for (var rr = g.r0; rr <= g.r1; rr += 2) grid.put(g.c0 - 1, rr + ((Math.floor(tt) + i) & 1), '~', 3);
+      if (!m.portrait && i > 0) for (var rr = g.r0; rr <= g.r1; rr += 2) grid.put(g.c0 - 1, rr + ((Math.floor(tt) + i) & 1), '~', 3, false, 'foam');
     }
+    R.tint(0);
     // coast
     var lab1 = t('fish.map.aquarium'), lab2 = t('fish.map.aquarium2'), shopL = t('fish.map.shop');
     var aq = regs[ids.length], sh = regs[ids.length + 1];
@@ -121,6 +126,7 @@
     boxArt(grid, sh.c0, sh.r0, shopL.length + 2, [shopL], m.hover === ids.length + 1 ? 13 : 10);
     // route from the pier through the waters: o = open, . = locked
     var cur = (S().player && S().player.zone) || 'baia';
+    R.tint('accent');
     for (var k = 0; k < ids.length; k++) {
       var gk = regs[k], ok = unlocked(gk.id);
       var nc, nr;
@@ -136,12 +142,14 @@
     if (!m.portrait) { pr = m.top + 6; pc = 1; }
     else { pr = aq.r0 - 2; pc = 2; }
     var pier = '===|====';
+    R.tint('wood');
     grid.text(pc, pr, pier, 6);
-    grid.text(pc + pier.length + 1, pr, t('fish.map.pier'), 4);
+    grid.text(pc + pier.length + 1, pr, t('fish.map.pier'), 4, { tint: 0 });
     var bob = motion < 1 ? 0 : (Math.sin(time * 1.5) > 0.3 ? 1 : 0);
     grid.text(pc + 3, pr + 1, '\\o_/', 8);
-    grid.text(pc + 7 + bob, pr + 1, '~~', 3);
+    grid.text(pc + 7 + bob, pr + 1, '~~', 3, { tint: 'foam' });
     // sand / coastline
+    R.tint('sand');
     if (!m.portrait) {
       for (var r2 = m.top; r2 <= m.bot - 2; r2++) grid.put(m.coastW, r2, (r2 + Math.floor(tt * 0.5)) % 3 ? ')' : '(', 3);
     } else {
@@ -161,6 +169,9 @@
   }
 
   // ---------------------------------------------------------------- main: labels, selection, forecast
+  // feature glyphs under each water name: their tint in the Colourful theme
+  var FEAT_TINT = { baia: 'plant', recife: 'coral', kelp: 'kelp', mar: 'surface', abismo: 'violet' };
+  var FEAT_O = { align: 'center', tint: undefined };
   function draw(time) {
     layout();
     var R = AQ.render, ids = zones(), regs = m.regions;
@@ -188,7 +199,8 @@
       R.text(label, cc, r0, 14, { align: 'center', knock: 0.85, invert: hot, bold: hot });
       if (!m.portrait) R.text(t('fish.map.species', { n: cnt.n, total: cnt.total }), cc, r0 + 1, 11, { align: 'center', knock: 0.8 });
       var feat = FEAT[id] || '';
-      if (feat && (m.portrait ? g.r1 > r0 : true)) R.text(feat, cc, m.portrait ? Math.min(g.r1, r0 + 1) : r0 + 3, 7, { align: 'center' });
+      FEAT_O.tint = FEAT_TINT[id];
+      if (feat && (m.portrait ? g.r1 > r0 : true)) R.text(feat, cc, m.portrait ? Math.min(g.r1, r0 + 1) : r0 + 3, 7, FEAT_O);
     }
     // aquarium / shop hover
     var aq = regs[ids.length], sh = regs[ids.length + 1];

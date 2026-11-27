@@ -70,12 +70,13 @@
   function buildChunk(k) {
     var rng = AQ.rng.create('terrain:' + (zone ? zone.id : 'x') + ':' + (seedV || 0) + ':' + k);
     var x0 = k * CHUNK, x1 = x0 + CHUNK;
-    var cells = [], ch = { k: k, n: 0, c: null, r: null, code: null, level: null, covers: [], plants: [], vents: [] };
+    var cells = [], ch = { k: k, n: 0, c: null, r: null, code: null, level: null, tint: null, covers: [], plants: [], vents: [] };
+    var TT = AQ.render.TINT, tintNow = TT.sand; // tint role of the cells being added (Colourful theme)
     var id = zone ? zone.id : 'baia';
     var depth = zone ? zone.depth : 70;
     var feat = (zone && zone.features) || [];
     function has(f) { return feat.indexOf(f) >= 0; }
-    function addCell(c, r, chr, level, bold) { cells.push(c, r, C(chr, bold), level); }
+    function addCell(c, r, chr, level, bold) { cells.push(c, r, C(chr, bold), level, tintNow); }
     function stamp(lines, c0, rBottom, level) { // lines bottom-aligned on rBottom
       var h = lines.length;
       for (var i = 0; i < h; i++) {
@@ -95,15 +96,18 @@
       var fy = floorAt(c + 0.5), fr = Math.floor(fy / ASPECT);
       var sl = floorAt(c + 1) - floorAt(c);
       var top = sl > 0.6 ? '\\' : sl < -0.6 ? '/' : (rng.next() < 0.2 ? '.' : rng.next() < 0.5 ? ',' : '_');
-      if (id === 'recife' && rng.next() < 0.2) top = rng.pick(['%', '#', '@']);
+      tintNow = id === 'abismo' ? TT.rock : TT.sand;
+      if (id === 'recife' && rng.next() < 0.2) { top = rng.pick(['%', '#', '@']); tintNow = TT.coral; }
       if (id === 'abismo' && rng.next() < 0.15) top = rng.pick(['^', '/', '\\']);
       addCell(c, fr, top, 6);
+      tintNow = id === 'kelp' || id === 'abismo' ? TT.rock : TT.sand;
       for (var q = 1; q < 6; q++) {
         var v = U.fbm2(c * 0.3, (fr + q) * 0.5, 2);
         var chr = AQ.render.ramp(id === 'kelp' || id === 'abismo' ? 'density' : 'sand', Math.max(0, v - q * 0.07) * 0.9);
         if (chr !== ' ') addCell(c, fr + q, chr, q < 2 ? 4 : 3);
       }
     }
+    tintNow = TT.rock;
     // rocks (every zone; the open sea floor gets only a few)
     var nRocks = count(rng, id === 'mar' ? 1 / 45 : 1 / 18);
     for (i = 0; i < nRocks; i++) {
@@ -113,6 +117,7 @@
       placeCover(x + rk[rk.length - 1].length / 2, rk[rk.length - 1].length + 1, rk.length, 'rock');
     }
     if (has('coral')) {
+      tintNow = TT.coral;
       for (i = count(rng, 1 / 12); i > 0; i--) {
         x = at(5);
         var cr = rng.pick(CORALS);
@@ -120,6 +125,7 @@
         placeCover(x + 2.5, 5, cr.length, 'coral');
       }
     }
+    tintNow = TT.rock;
     if (has('holes')) {
       for (i = count(rng, 1 / 24); i > 0; i--) {
         x = at(5);
@@ -141,6 +147,7 @@
       placeCover(x + 5.5, 7, 3, 'cave');
     }
     if (has('vents')) {
+      tintNow = TT.vent;
       for (i = count(rng, 1 / 30); i > 0; i--) {
         x = at(3);
         stamp(VENT, Math.floor(x), Math.floor(floorAt(x + 1.5) / ASPECT), 6);
@@ -148,6 +155,7 @@
         placeCover(x + 1.5, 4, 2, 'vent');
       }
     }
+    tintNow = TT.rock;
     if (has('cliffs') && rng.next() < 0.35) { // a rock spire rising from the abyss floor (was: walls at the view edges)
       var sx = Math.floor(at(6)), r0 = Math.floor(depth * rng.range(0.3, 0.55) / ASPECT), rB = Math.floor(floorAt(sx + 2) / ASPECT);
       var ph = rng.range(0, 50);
@@ -165,13 +173,13 @@
     if (has('seagrass')) {
       for (i = count(rng, 1 / 7); i > 0; i--) {
         x = at(2);
-        ch.plants.push({ x: x, y: floorAt(x), lines: rng.pick([[' )(', ',)(;'], [',;,'], [')(', ')('], [' ,', ';;,']]), level: 6, amp: 0.8 });
+        ch.plants.push({ x: x, y: floorAt(x), lines: rng.pick([[' )(', ',)(;'], [',;,'], [')(', ')('], [' ,', ';;,']]), level: 6, amp: 0.8, tint: 'plant' });
       }
     }
     if (has('anemones')) {
       for (i = count(rng, 1 / 16); i > 0; i--) {
         x = at(4);
-        ch.plants.push({ x: x, y: floorAt(x), lines: ['\\|/', '\\|||/', ' (_)'], level: 7, amp: 0.6 });
+        ch.plants.push({ x: x, y: floorAt(x), lines: ['\\|/', '\\|||/', ' (_)'], level: 7, amp: 0.6, tint: 'anemone' });
       }
     }
     if (has('kelp')) {
@@ -180,14 +188,16 @@
         var hRows = Math.floor(rng.range(0.35, 0.7) * floorAt(x) / ASPECT);
         var lines = [];
         for (var k2 = 0; k2 < hRows; k2++) lines.push(k2 % 3 === 0 ? ')~(' : k2 % 3 === 1 ? ' )(' : '~)(');
-        ch.plants.push({ x: x, y: floorAt(x), lines: lines, level: 6, amp: 1.4, kelp: true });
+        ch.plants.push({ x: x, y: floorAt(x), lines: lines, level: 6, amp: 1.4, kelp: true, tint: 'kelp' });
         if (rng.next() < 0.5) ch.covers.push({ x0: x - 1, y0: floorAt(x) - 8, x1: x + 3, y1: floorAt(x) + 1, kind: 'kelp' });
       }
     }
     // pack cells
-    var n = cells.length / 4;
-    ch.n = n; ch.c = new Int32Array(n); ch.r = new Int32Array(n); ch.code = new Uint16Array(n); ch.level = new Uint8Array(n);
-    for (i = 0; i < n; i++) { ch.c[i] = cells[i * 4]; ch.r[i] = cells[i * 4 + 1]; ch.code[i] = cells[i * 4 + 2]; ch.level[i] = cells[i * 4 + 3]; }
+    var n = cells.length / 5;
+    ch.n = n; ch.c = new Int32Array(n); ch.r = new Int32Array(n); ch.code = new Uint16Array(n); ch.level = new Uint8Array(n); ch.tint = new Uint8Array(n);
+    for (i = 0; i < n; i++) {
+      ch.c[i] = cells[i * 5]; ch.r[i] = cells[i * 5 + 1]; ch.code[i] = cells[i * 5 + 2]; ch.level[i] = cells[i * 5 + 3]; ch.tint[i] = cells[i * 5 + 4];
+    }
     // compile plant frames once
     for (i = 0; i < ch.plants.length; i++) ch.plants[i].frame = AQ.render.compile(AQ.textart.pad(ch.plants[i].lines));
     return ch;
@@ -280,6 +290,7 @@
     var night = ctx.phase === 'noite' && (weather === 'limpo' || weather === 'nublado');
     var moonCol = moonColumn(grid.viewCols || gc, ctx.minutes);
     var rim0 = (lantern - 1.2) * (lantern - 1.2);
+    var TT = R.TINT, tk;
     for (r = Math.max(0, surfRow + 1); r < gr; r++) {
       var wyr = (camRow + r) * ASPECT + 1;
       var L = rowLight[r], dark = rowDark[r];
@@ -296,6 +307,7 @@
         var n = U.noise2(wc * 0.11 + tt * 0.05, (camRow + r) * 0.23 - tt * 0.03);
         var thr = thickRow ? 0.56 : 0.68;
         var code = 0, lvl = 0;
+        tk = TT.water;
         if (n > thr) {
           var v = (n - thr) / (1 - thr);
           code = R.rampCode('water', 0.25 + v * 0.75);
@@ -305,7 +317,7 @@
         if (!code && rays && !dark && L > 0.45 && dfr < 0.38) {
           var band = Math.sin((wx + rayDir * (camRow + r) * 1.1) * 0.33 + tt * 0.2) + Math.sin((wx * 0.7 + rayDir * (camRow + r) * 0.8) * 0.19 - tt * 0.11);
           if (band > 1.72 - 0.12 * rayMul) {
-            code = rayDir > 0 ? codes.back : codes.slash;
+            code = rayDir > 0 ? codes.back : codes.slash; tk = TT.ray;
             lvl = Math.max(1, Math.round((band - 1.6) * 4 * (1 - dfr * 2.5) * rayMul * L));
             if (lvl > 2) lvl = 2;
           }
@@ -314,20 +326,20 @@
           var fl = floorAt(wx);
           if (wyr > fl - 5 && wyr <= fl - 1) {
             var cn = U.noise2(wx * 0.35 + tt * 0.4, wyr * 0.4 - tt * 0.25) * U.noise2(wx * 0.2 - tt * 0.3, wyr * 0.3 + 4.1);
-            if (cn > 0.33) { code = R.rampCode('light', Math.min(1, (cn - 0.33) * 4 + 0.34)); lvl = 2 + (cn > 0.45 ? 1 : 0); }
+            if (cn > 0.33) { code = R.rampCode('light', Math.min(1, (cn - 0.33) * 4 + 0.34)); lvl = 2 + (cn > 0.45 ? 1 : 0); tk = TT.ray; }
           }
         }
         if (!code && snow) {
           var fall = Math.floor(tt * 0.9 + R.hash01(wc, 3, 7) * 40);
-          if (R.hash01(wc, camRow + r - fall, 13) < 0.012) { code = R.rampCode('snow', 0.4 + R.hash01(wc, camRow + r, 5) * 0.6); lvl = dark ? (lanternK > 0.1 ? 3 : 1) : 2; }
+          if (R.hash01(wc, camRow + r - fall, 13) < 0.012) { code = R.rampCode('snow', 0.4 + R.hash01(wc, camRow + r, 5) * 0.6); lvl = dark ? (lanternK > 0.1 ? 3 : 1) : 2; tk = TT.snow; }
         }
         // moonlight: slow glints in the top of the water column under the moon
         if (!code && night && wyr < 10 && Math.abs(c - moonCol) < 9 && R.hash01(c, camRow + r + Math.floor(tt * 1.5 + R.hash01(c, r, 2) * 9), 23) < 0.05) {
-          code = R.hash01(c, r, 4) < 0.5 ? codes.quote : codes.dot; lvl = 3 + (Math.abs(c - moonCol) < 4 ? 2 : 0);
+          code = R.hash01(c, r, 4) < 0.5 ? codes.quote : codes.dot; lvl = 3 + (Math.abs(c - moonCol) < 4 ? 2 : 0); tk = TT.moon;
         }
-        if (code && lvl > 0) grid.putCode(c, r, code, lvl > 5 ? 5 : lvl);
-        else if (lanternK > 0.12 && R.hash01(wc, camRow + r, 3) < 0.04 + 0.1 * lanternK) grid.putCode(c, r, codes.mid, 1 + Math.round(2 * lanternK));
-        else if (rim && R.hash01(wc, camRow + r, 11) < 0.35) grid.putCode(c, r, codes.dot, 2);
+        if (code && lvl > 0) grid.putCode(c, r, code, lvl > 5 ? 5 : lvl, tk);
+        else if (lanternK > 0.12 && R.hash01(wc, camRow + r, 3) < 0.04 + 0.1 * lanternK) grid.putCode(c, r, codes.mid, 1 + Math.round(2 * lanternK), TT.lantern);
+        else if (rim && R.hash01(wc, camRow + r, 11) < 0.35) grid.putCode(c, r, codes.dot, 2, TT.lantern);
       }
     }
 
@@ -355,7 +367,7 @@
         if (pulse && wct + 0.5 >= pulse.x0 - 1 && wct + 0.5 <= pulse.x1 + 1 && wyt >= pulse.y0 - 2 && wyt <= pulse.y1 + 1) {
           lv = 5 + Math.round(2.5 + 2.5 * Math.sin(t * 9)); // burrow tell: the target cover pulses 5↔10
         }
-        grid.putCode(tc, tr, T.code[i], lv);
+        grid.putCode(tc, tr, T.code[i], lv, T.tint[i]);
       }
     }
 
@@ -368,17 +380,18 @@
       var vv = U.clamp((1 - pp) - S.slope(wxs) * 0.25, 0, 0.999);
       var sr = srow - camRow;
       if (sr < 0 || sr >= gr) continue;
-      var code2 = R.rampCode('wave', vv);
-      if (storm && Math.abs(S.slope(wxs)) > 0.35 && R.hash01(wcs, Math.floor(t * 6), 2) < 0.5) code2 = codes.star;
+      var code2 = R.rampCode('wave', vv), tk2 = TT.surface;
+      if (storm && Math.abs(S.slope(wxs)) > 0.35 && R.hash01(wcs, Math.floor(t * 6), 2) < 0.5) { code2 = codes.star; tk2 = TT.foam; }
       if (ctx.frenzyX !== null && ctx.frenzyX !== undefined && Math.abs(wxs - ctx.frenzyX) < 5 && R.hash01(wcs, Math.floor(t * 10), 4) < 0.6) {
         code2 = R.hash01(wcs, Math.floor(t * 10), 9) < 0.4 ? codes.star : R.hash01(wcs, Math.floor(t * 10), 8) < 0.5 ? codes.quote : codes.dot;
-        grid.putCode(c, sr - 1, R.hash01(wcs, Math.floor(t * 8), 1) < 0.3 ? codes.quote : 0, 7);
+        grid.putCode(c, sr - 1, R.hash01(wcs, Math.floor(t * 8), 1) < 0.3 ? codes.quote : 0, 7, TT.foam);
+        tk2 = TT.foam;
       }
       var slv = 8;
-      if (night && Math.abs(c - moonCol) < 7 && R.hash01(c, Math.floor(t * 3 + R.hash01(c, 1, 1) * 5), 31) < 0.4) { code2 = R.hash01(c, Math.floor(t * 3), 5) < 0.5 ? codes.star : codes.quote; slv = 11; }
-      grid.putCode(c, sr, code2, slv);
+      if (night && Math.abs(c - moonCol) < 7 && R.hash01(c, Math.floor(t * 3 + R.hash01(c, 1, 1) * 5), 31) < 0.4) { code2 = R.hash01(c, Math.floor(t * 3), 5) < 0.5 ? codes.star : codes.quote; slv = 11; tk2 = TT.moon; }
+      grid.putCode(c, sr, code2, slv, tk2);
       // rain rings on the surface
-      if ((weather === 'chuva' || storm) && R.hash01(wcs, Math.floor(t * 5), 21) < (storm ? 0.06 : 0.035)) grid.putCode(c, sr + 1, codes.o, 3);
+      if ((weather === 'chuva' || storm) && R.hash01(wcs, Math.floor(t * 5), 21) < (storm ? 0.06 : 0.035)) grid.putCode(c, sr + 1, codes.o, 3, TT.rain);
     }
   }
 
@@ -401,7 +414,7 @@
         var h = R.hash01(c, camRow + r, 17);
         if (h < (night ? 0.035 : 0.012)) {
           var tw = 0.5 + 0.5 * Math.sin(t * (1 + h * 30) + h * 100);
-          grid.putCode(c, r, h < 0.01 ? codes.quote : codes.dot, 1 + Math.round(tw * 2));
+          grid.putCode(c, r, h < 0.01 ? codes.quote : codes.dot, 1 + Math.round(tw * 2), 'star');
         }
       }
     }
@@ -412,7 +425,7 @@
     var frac = isNightSky ? (((m - 1140 + 1440) % 1440) / 600) : U.clamp(dayFrac, 0, 1);
     var sc = Math.round(2 + frac * (vc - 4));
     var srow = Math.max(0, Math.round((nRows - 1) * (1 - Math.sin(Math.PI * U.clamp(frac, 0, 1)) * 0.8)) - 1);
-    if (!(overcast && weather !== 'nublado')) grid.putCode(sc, srow, isNightSky ? codes.moon : codes.sun, weather === 'nublado' ? 3 : 5);
+    if (!(overcast && weather !== 'nublado')) grid.putCode(sc, srow, isNightSky ? codes.moon : codes.sun, weather === 'nublado' ? 3 : 5, isNightSky ? 'moon' : 'sun');
     // clouds
     if (overcast) {
       var nC = weather === 'nublado' ? 3 : 5;
@@ -423,7 +436,7 @@
         var cr = Math.max(0, Math.min(nRows - 3, k % 2));
         for (var i = 0; i < CLOUD.length; i++) {
           var s = CLOUD[i];
-          for (var j = 0; j < s.length; j++) if (s[j] !== ' ') grid.putMax(cx + j, cr + i, R.code(s[j]), weather === 'nublado' ? 2 : 3);
+          for (var j = 0; j < s.length; j++) if (s[j] !== ' ') grid.putMax(cx + j, cr + i, R.code(s[j]), weather === 'nublado' ? 2 : 3, 'cloud');
         }
       }
     }
@@ -433,12 +446,13 @@
       var rc = R.rampCode('rain', storm ? 0.7 : 0.4);
       var fallT = Math.floor(t * (storm ? 22 : 14));
       for (var r2 = 0; r2 < nRows; r2++) for (var c2 = 0; c2 < gc; c2++) {
-        if (R.hash01(c2 + r2 * (storm ? 1 : 0), camRow + r2 - fallT, 23) < (storm ? 0.09 : 0.05)) grid.putCode(c2, r2, rc, storm ? 3 : 2);
+        if (R.hash01(c2 + r2 * (storm ? 1 : 0), camRow + r2 - fallT, 23) < (storm ? 0.09 : 0.05)) grid.putCode(c2, r2, rc, storm ? 3 : 2, 'rain');
       }
     }
   }
 
   // Swaying plants on the main layer (step 1 of draw).
+  var PO = { level: 6, deform: 'sway', amp: 1, t: 0, knock: false, tint: undefined };
   function drawPlants(t, ctx) {
     var R = AQ.render, motion = AQ.fx.motion();
     var depth = zone ? zone.depth : 70;
@@ -454,7 +468,8 @@
         lv = 2;
         if (hook) { var d = Math.hypot(p.x - hook.x, p.y - hgt / 2 - hook.y); if (d < lantern) lv = Math.max(2, Math.round(p.level * U.smoothstep(lantern, lantern * 0.5, d))); }
       } else lv = Math.max(3, Math.round(lv * (1 - 0.45 * df)));
-      R.sprite(f, p.x + f.w / 2, p.y - hgt / 2 + 1, { level: lv, deform: 'sway', amp: p.amp * motion, t: t + i * 0.37, knock: false });
+      PO.level = lv; PO.amp = p.amp * motion; PO.t = t + i * 0.37; PO.tint = p.tint;
+      R.sprite(f, p.x + f.w / 2, p.y - hgt / 2 + 1, PO);
     }
   }
 

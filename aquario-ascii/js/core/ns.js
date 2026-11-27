@@ -15,12 +15,43 @@
     settings: 'aquario-ascii.settings'
   };
 
+  // Theme table: the selectable themes are AQ.ENUM.THEMES; each has a '<name>HC' high-contrast twin.
+  //  · noite / dia: two colours + alpha. · papel: + the ruled-notebook page colours (rules, margin, page-turn light
+  //    and shadow). · ciclo: blends dia → crepusculo → noite with the world clock (bg/ink here are only the
+  //    fallback). · colorido: bg + warm-white ink + a UI accent + one colour per tint role (AQ.TINT_ROLES); its
+  //    high-contrast twin brightens and saturates the same palette (AQ.theme).
   AQ.THEMES = {
     noite: { bg: '#0e0d0b', ink: '#e9dfc7' },
     noiteHC: { bg: '#050504', ink: '#f7f0de' },
-    papel: { bg: '#e9dfc7', ink: '#0e0d0b' },
-    papelHC: { bg: '#f7f0de', ink: '#050504' }
+    dia: { bg: '#dbe7ea', ink: '#0f3b4c' },
+    diaHC: { bg: '#f1f8f9', ink: '#032231' },
+    crepusculo: { bg: '#272c40', ink: '#f2e7d0' },
+    crepusculoHC: { bg: '#161a29', ink: '#fff7e3' },
+    ciclo: { bg: '#0e0d0b', ink: '#e9dfc7', cycle: { day: 'dia', dusk: 'crepusculo', night: 'noite' } },
+    cicloHC: { bg: '#050504', ink: '#f7f0de', cycle: { day: 'diaHC', dusk: 'crepusculoHC', night: 'noiteHC' } },
+    papel: { bg: '#e9dfc7', ink: '#0e0d0b', paper: { rule: '#2c64d8', margin: '#d8363a', hi: '#fffcf3', shadow: '#2b2417' } },
+    papelHC: { bg: '#f7f0de', ink: '#050504', paper: { rule: '#2457c4', margin: '#c8282c', hi: '#ffffff', shadow: '#1c170e' } },
+    colorido: {
+      bg: '#061a24', ink: '#f3e9d6', accent: '#ffb25b',
+      palette: {
+        water: '#56b6ea', surface: '#7fe3f0', foam: '#d6f6fa', ray: '#b2f2e6', snow: '#c9dcf0',
+        sand: '#e2b66b', rock: '#b38d6c', plant: '#5fd068', kelp: '#a3c43e', coral: '#ff7a7a', anemone: '#ff79c6',
+        bubble: '#a8f0ff', star: '#fff1b0', sun: '#ffd25e', moon: '#f6eecf', cloud: '#9fb3c8', rain: '#7fa6c9',
+        lantern: '#ffcf6b', wood: '#d08a4e', line: '#e4e8ea', accent: '#ffb25b', gold: '#ffd24a', glass: '#8fd0dc',
+        food: '#e8b27a', vent: '#ff8a3d', glow: '#7dffb2', inkcloud: '#8a6cc8',
+        orange: '#ff9a3c', blue: '#4f9dff', yellow: '#ffe14d', violet: '#b88cff', pink: '#ff8fc7', red: '#ff5a4f',
+        green: '#5ee08a', teal: '#3fd6c6', silver: '#c8d6e0', brown: '#c98f5a', white: '#f5f3ec', purple: '#c06cff',
+        skin: '#f2c49b', grey: '#98a4ad'
+      }
+    },
+    coloridoHC: { bg: '#020d13', ink: '#fff8ec', accent: '#ffc070', boost: true }
   };
+  // Tint roles: index 0 is the ink. Renderer calls take a role name (AQ.render.tint / opts.tint); themes without a
+  // palette draw every role in the ink, so they look exactly as before.
+  AQ.TINT_ROLES = ['ink', 'water', 'surface', 'foam', 'ray', 'snow', 'sand', 'rock', 'plant', 'kelp', 'coral', 'anemone',
+    'bubble', 'star', 'sun', 'moon', 'cloud', 'rain', 'lantern', 'wood', 'line', 'accent', 'gold', 'glass', 'food', 'vent',
+    'glow', 'inkcloud', 'orange', 'blue', 'yellow', 'violet', 'pink', 'red', 'green', 'teal', 'silver', 'brown', 'white',
+    'purple', 'skin', 'grey'];
 
   // Printable ASCII 0x20..0x7E.
   var ascii = '';
@@ -116,7 +147,7 @@
     TOAST_KINDS: ['info', 'good', 'warn', 'rare'],
     SCREENS: ['title', 'pause', 'settings', 'saveIO', 'credits', 'shop', 'bestiary', 'goals', 'zoneCard', 'catchCard',
       'fishCard', 'decorPicker', 'tankPicker', 'baitPicker', 'offline', 'note', 'confirm'],
-    THEMES: ['noite', 'papel'],
+    THEMES: ['noite', 'dia', 'ciclo', 'colorido', 'papel'],
     LANGS: ['en'],
     ANGLER: ['idle', 'windup', 'cast', 'reel', 'cheer']
   });

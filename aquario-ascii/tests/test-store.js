@@ -206,6 +206,11 @@ module.exports = function (T) {
     T.eq(AQ.settings.set('highContrast', 'yes'), false);
     T.eq(AQ.settings.set('highContrast', true), true);
     T.eq(AQ.settings.set('theme', 'papel'), 'noite', 'papel locked');
+    T.eq(AQ.settings.set('theme', 'dia'), 'dia', 'day: open from the start');
+    T.eq(AQ.settings.set('theme', 'ciclo'), 'ciclo');
+    T.eq(AQ.settings.set('theme', 'colorido'), 'colorido');
+    T.eq(AQ.settings.set('theme', 'Colourful'), 'colorido', 'English alias');
+    T.eq(AQ.settings.set('theme', 'neon'), 'colorido', 'unknown theme ignored');
     AQ.state.player.unlocks.paperTheme = true;
     T.eq(AQ.settings.set('theme', 'papel'), 'papel');
     T.eq(AQ.settings.set('nope', 1), undefined, 'unknown key');
@@ -215,8 +220,20 @@ module.exports = function (T) {
     AQ.settings.set('volSfx', 0.25);
     T.eq(evs.length, n, 'no event when unchanged');
     const stored = JSON.parse(window.localStorage.getItem(KEYS.settings));
-    T.eq(stored.v, 1);
+    T.eq(stored.v, AQ.SETTINGS_VERSION);
     T.eq(stored.lang, 'en'); T.eq(stored.uiScale, 1.15); T.eq(stored.theme, 'papel');
+  });
+
+  T.test('settings: theme defaults to Night; old and odd theme values load safely', () => {
+    const { AQ, window } = fresh();
+    T.eq(AQ.settings.load().theme, 'noite', 'default');
+    window.localStorage.setItem(KEYS.settings, JSON.stringify({ v: 1, theme: 'papel' }));
+    T.eq(AQ.settings.load().theme, 'papel', 'a v1 save keeps Paper (AQ.theme still checks the unlock)');
+    window.localStorage.setItem(KEYS.settings, JSON.stringify({ v: 1, theme: 'night' }));
+    T.eq(AQ.settings.load().theme, 'noite', 'alias');
+    window.localStorage.setItem(KEYS.settings, JSON.stringify({ v: 1, theme: 'sepia' }));
+    T.eq(AQ.settings.load().theme, 'noite', 'unknown → default');
+    for (const th of AQ.ENUM.THEMES) T.eq(AQ.settings.validate('theme', th).ok, true, th);
   });
 
   T.test('settings load drops unknown keys and invalid values', () => {

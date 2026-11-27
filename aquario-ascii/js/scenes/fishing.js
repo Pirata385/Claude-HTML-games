@@ -1252,9 +1252,11 @@
       var o = st.sights[si], sd = AQ.sprites.get(o.key);
       R.sprite(sd.frames[Math.floor(o.t * (sd.fps || 2)) % sd.frames.length], o.x, o.y, { flip: o.dir < 0, level: 8, deform: sd.deform, amp: (sd.amp || 1) * motion, t: o.t });
     }
-    // 2. creatures
+    // 2. creatures (each species draws in its own tint in the Colourful theme)
     drawCreatures();
+    R.tint('surface');
     drawDeepMarkers(t);
+    R.tint(0);
     // escaping fish
     if (st.escape && st.escape.fish) {
       var ef = st.escape.fish, esd = AQ.sprites.get(ef.sp);
@@ -1265,18 +1267,25 @@
     // bottle
     if (st.bottle.on) drawBottle(t);
     // frenzy birds
+    R.tint('white');
     if (st.frenzy.on) drawBirds(t);
     // 3. wake, boat and angler
+    R.tint('foam');
     drawWake(t);
+    R.tint('wood');
     drawBoat(t);
     // 4. line
+    R.tint('line');
     drawLine(t);
+    R.tint(0);
     // 5. hook and bait
     drawHook(t);
     // aim preview
+    R.tint('accent');
     if (st.phase === 'aiming') drawAim(t);
     // 6. tells
     if (st.phase === 'fight' && st.fs) drawTells(t);
+    R.tint(0);
     // 7. particles
     AQ.fx.draw();
     // 8. HUD
@@ -1414,7 +1423,7 @@
       R0.knock(tmpP.x - D.cellW / 2, tmpP.y - D.cellH / 2, D.cellW, D.cellH, 0.6);
       R0.glyphW(code, x, y, c.level);
     }
-    if (st.escape && st.escape.breaks && st.escape.t < 2.5) R0.glyphW(cd.x, st.escape.x, st.escape.y, 15);
+    if (st.escape && st.escape.breaks && st.escape.t < 2.5) R0.glyphW(cd.x, st.escape.x, st.escape.y, 15, 'red');
   }
 
   function drawHook(t) {
@@ -1428,20 +1437,20 @@
     // QA: hook + bait at full ink, with a faint pulsing halo so the eye finds them in a busy or dark sea
     if (st.phase !== 'landing' && st.phase !== 'idle' && st.phase !== 'aiming' && !st.bottle.held) {
       var hl = 3 + Math.round(2 * (0.5 + 0.5 * Math.sin(t * 3)) * AQ.fx.motion());
-      R0.glyphW(cd.mid, hx - 1.6, hy, hl); R0.glyphW(cd.mid, hx + 3, hy, hl);
-      R0.glyphW(cd.mid, hx + 0.6, hy - 2.2, hl); R0.glyphW(cd.mid, hx + 0.6, hy + 2.2, hl);
+      R0.glyphW(cd.mid, hx - 1.6, hy, hl, 'lantern'); R0.glyphW(cd.mid, hx + 3, hy, hl, 'lantern');
+      R0.glyphW(cd.mid, hx + 0.6, hy - 2.2, hl, 'lantern'); R0.glyphW(cd.mid, hx + 0.6, hy + 2.2, hl, 'lantern');
     }
     R0.worldToScreen(hx, hy, tmpP);
     R0.knock(tmpP.x - AQ.display.cellW / 2, tmpP.y - AQ.display.cellH / 2, AQ.display.cellW * (1 + g.length), AQ.display.cellH, 0.8);
-    R0.glyphW(R0.code('J', true), hx, hy, lv);
+    R0.glyphW(R0.code('J', true), hx, hy, lv, 'silver');
     var blv = b === 'luminosa' ? 11 + Math.round(2 + 2 * Math.sin(t * 6)) : (isLure(b) && h.moving && Math.sin(t * 14) > 0 ? 15 : 14);
-    if (st.phase !== 'landing') R0.textW(g, hx + 0.8, hy, blv, { align: 'left', bold: true });
+    if (st.phase !== 'landing') R0.textW(g, hx + 0.8, hy, blv, { align: 'left', bold: true, tint: b === 'luminosa' ? 'glow' : isLure(b) ? 'silver' : 'coral' });
     if (st.bottle.held) return;
     // bite: a bold ! above the hook for the whole window
     if (st.phase === 'bite') {
-      R0.glyphW(cd.bang, hx, hy - 3, 15);
+      R0.glyphW(cd.bang, hx, hy - 3, 15, 'accent');
       var rem = st.bs ? AQ.bite.remaining(st.bs, st.t) : 0;
-      if (rem > 0) R0.textW(rem > 0.66 ? '. . .' : rem > 0.33 ? '. .' : '.', hx, hy - 5, 9, { align: 'center' });
+      if (rem > 0) R0.textW(rem > 0.66 ? '. . .' : rem > 0.33 ? '. .' : '.', hx, hy - 5, 9, { align: 'center', tint: 'accent' });
     }
   }
 

@@ -187,9 +187,10 @@
       b.appendChild(row(t('settings.uiScale'), D.seg([0.85, 1, 1.15, 1.3].map(function (v) { return { value: v, label: AQ.i18n.pct(v) }; }),
         g('uiScale'), pick('uiScale'), { fid: 'uiScale' })));
       var paper = !!(AQ.state.player && AQ.state.player.unlocks && AQ.state.player.unlocks.paperTheme);
-      b.appendChild(row(t('settings.theme'), D.seg([{ value: 'noite', label: t('settings.th.noite') },
-        { value: 'papel', label: paper ? t('settings.th.papel') : t('settings.th.papelLocked'), disabled: !paper }],
-      g('theme'), pick('theme'), { fid: 'theme' })));
+      b.appendChild(row(t('settings.theme'), D.seg(AQ.ENUM.THEMES.map(function (v) {
+        if (v === 'papel') return { value: v, label: paper ? t('settings.th.papel') : t('settings.th.papelLocked'), disabled: !paper };
+        return { value: v, label: t('settings.th.' + v) };
+      }), g('theme'), pick('theme'), { fid: 'theme' }), { cls: 'is-wrap' }));
       var toggles1 = el('div.aq-toggles', null, [
         D.toggle(t('settings.highContrast'), g('highContrast'), function (v) { setS('highContrast', v); re(); }, { fid: 'hc' }),
         D.toggle(t('settings.showFps'), g('showFps'), function (v) { setS('showFps', v); re(); }, { fid: 'fps' })

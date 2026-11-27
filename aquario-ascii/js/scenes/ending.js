@@ -126,6 +126,7 @@
       var cols = D.cols, rows = D.rows;
       var cx = cols / 2, cy = rows * 0.55;
       var ramp = R.RAMPS.ink, n = ramp.length;
+      R.tint('inkcloud'); // the squid's ink (Colourful theme)
       if (!inverted) {
         // ink field growing from the squid
         var maxR = Math.sqrt(cx * cx + (rows * 2) * (rows * 2));

@@ -184,10 +184,10 @@
 `);
 
   def('cavalo', { fps: 3, deform: 'sway', amp: 0.4 }, String.raw`
- ,/\    │  ,/\
-(°  \== │ (°  \==
-}(  ))  │ {(  ))
- ‵-´@   │  ‵-´9
+ ,/\  │  ,/\
+(°\== │ (°\==
+}())  │ {())
+ ‵@   │  ‵9
 `);
 
   def('ermitao', { fps: 4, deform: 'crawl', extra: { hide: String.raw`

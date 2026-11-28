@@ -33,6 +33,7 @@ The **Apps** tab holds tools rather than games. Each app has its own folder at t
 | --- | --- | --- |
 | Cripta — Embaralhador de Imagens | [`cripta/`](cripta/) | A deterministic image scrambler (in Portuguese): shuffles pixels, tiles, rows and colours from a seed and an optional password, and restores the image pixel-perfect from the key (copied, saved as .txt or embedded in the PNG). Five styles, advanced options, verification and local history, on desktop and mobile. |
 | Hexel — Pixels em Hexágonos | [`hexel/`](hexel/) | An image tool (in Portuguese) that turns the pixels of your photos into hexagons: 10 styles, palettes with dithering, colour controls, presets, before/after comparison and PNG/JPG/WebP/SVG export, all processed locally on desktop or mobile. |
+| Compositor 16-bit — Música Procedural | [`compositor16/`](compositor16/) | A deterministic 16-bit game-music generator (in Portuguese): from a seed it composes a full multi-channel track with real music theory (modes, functional harmony, voice leading, motif development, phrase structure, cadences, modulation) and renders it on its own SNES/Mega Drive style software synthesizer. Eight styles, synced piano roll, mute/solo, seamless loop, shareable links and WAV/MIDI/JSON export. |
 
 ## Animações
 

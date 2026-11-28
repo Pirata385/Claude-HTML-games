@@ -40,7 +40,7 @@
       { minhoca: 1, camarao: 1.3 }, 2, 0.75, 2, 2, 64, [40, 100], 20, ['sand'], 'dim', 'predator', 0, true, { grip: true }, null],
     ['agulha', 'baia', 'U', 'S', 'fish', 'dart', 'runner', 1.05, 9, 9, [0, 0.15], 'D', null,
       { colher: 1.5, camarao: 1 }, 2, 0.75, 1, 1, 50, [40, 90], 0.9, ['open'], 'day', 'predator', 0, true, {}, null],
-    ['cavalo', 'baia', 'R', 'XS', 'fish', 'hover', 'drifter', 0.40, 5, 2, [0.5, 0.9], 'A', 'li,nu',
+    ['cavalo', 'baia', 'R', 'S', 'fish', 'hover', 'drifter', 0.40, 5, 2, [0.5, 0.9], 'A', 'li,nu',
       { camarao: 1.5 }, 3, 0.6, 1, 1, 240, [8, 18], 0.02, ['plants'], 'dim', 'prey', 0, true, { tear: 0.5 }, null],
     ['ermitao', 'baia', 'R', 'S', 'odd', 'crawl', 'deadweight', 0.90, 9, 2, [0.95, 1], 'N', null,
       { massa: 1.5 }, 3, 0.6, 1, 1, 300, [6, 14], 0.25, ['sand', 'rocks'], 'night', 'grazer', 0, false, { grip: true },

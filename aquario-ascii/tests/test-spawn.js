@@ -127,7 +127,7 @@ module.exports = function (T) {
       for (const c of list) T.ok(isFinite(c.x) && isFinite(c.y) && isFinite(c.vx) && isFinite(c.vy), mode + ' ' + c.sp);
       if (mode !== 'wild') T.eq(list.length, ids.length, mode + ': nobody despawns');
       const b = C.bounds(list[0], {});
-      T.ok(b.x1 - b.x0 === list[0].w && C.hitTest(list[0], list[0].x, list[0].y));
+      T.ok(Math.abs((b.x1 - b.x0) - list[0].w) < 1e-9 && C.hitTest(list[0], list[0].x, list[0].y), mode + ' bounds/hitTest'); // float-safe
     }
   });
 

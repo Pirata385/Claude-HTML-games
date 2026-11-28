@@ -79,6 +79,8 @@
   function setPhase(p) {
     if (st.phase === p) return;
     if (p !== 'fight') reelSound(false);
+    // leaving the fight always silences its reel and tension, whatever path ended it
+    if (st.phase === 'fight' && p !== 'fight') safe(function () { AQ.audio.setTension(null); AQ.audio.reel(false, 0); });
     st.phase = p; st.phaseT = 0;
     F.phase = p;
   }
@@ -670,6 +672,9 @@
       for (var i = 0; i < evs.length; i++) fightEvent(evs[i]);
     }
     if (st.fightAcc.t > DT * 8) st.fightAcc.t = 0;
+    // the fight ended inside this frame (landed or escaped): endFight already silenced the reel and the
+    // tension; don't run the rest (its throttled audio block would switch the reel sound back on)
+    if (st.phase !== 'fight') return;
     // fish pose
     var f = st.fish;
     var nx = fs.origin.x + fs.x, ny = fs.y;

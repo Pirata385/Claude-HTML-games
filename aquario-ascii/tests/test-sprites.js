@@ -37,7 +37,9 @@ module.exports = function (T) {
     const { AQ } = T.load();
     const bad = [];
     for (const s of AQ.species.list.concat(AQ.sightings.list)) {
-      const f = AQ.sprites[s.sprite].frames[0], max = AQ.ENUM.SIZE_MAX[s.size];
+      // legendaries may use the next size class's sprite box (visual only; gameplay keeps the class)
+      const SZ = AQ.ENUM.SIZE, cls = s.rarity === 'L' ? SZ[Math.min(SZ.length - 1, SZ.indexOf(s.size) + 1)] : s.size;
+      const f = AQ.sprites[s.sprite].frames[0], max = AQ.ENUM.SIZE_MAX[cls];
       if (f[0].length > max[0] || f.length > max[1]) bad.push(s.id + ' ' + f[0].length + 'x' + f.length + ' > ' + max);
     }
     const a = AQ.sprites._alevino.frames[0];
